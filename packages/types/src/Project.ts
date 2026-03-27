@@ -33,17 +33,10 @@ export interface ProjectSchema {
     /** Base URL for the site (e.g. https://example.com). Used for sitemap <loc>; if absent, sitemap uses path-only URLs. */
     siteUrl?: string;
 
-    /** Project API key (one per project). Raw key is never stored; only hash and prefix. */
-    apiKey?: {
-        hash: string;
-        prefix: string; // first 8 chars for display e.g. "mk_live_xxxx..."
-        createdAt: string;
-        /**
-         * When non-empty, x-api-key requests must send Origin or Referer whose hostname matches
-         * one entry (exact or single leading *. wildcard). Empty or omitted = no host restriction.
-         */
-        allowedHosts?: string[];
-    };
+    /**
+     * Public API keys for this project. Raw secrets are never stored; only hash and prefix per entry.
+     */
+    apiKeys?: ProjectApiKeyEntry[];
 
     /** Media/assets: upload limits, variants, storage adapter. When enabled is false, uploads and media features are disabled for this project. */
     assetConfig?: {
@@ -105,6 +98,30 @@ export interface ProjectSchema {
         blocks?: boolean;
         forms?: boolean;
     };
+}
+
+/** Stored metadata for one project API key (secret is hash-only). */
+export interface ProjectApiKeyEntry {
+    id: string;
+    hash: string;
+    prefix: string;
+    createdAt: string;
+    label?: string;
+    /**
+     * When non-empty, x-api-key requests must send Origin or Referer whose hostname matches
+     * one entry (exact or single leading *. wildcard). Empty or omitted = no host restriction.
+     */
+    allowedHosts?: string[];
+    /**
+     * When set, this key may only read these API collection (channel) IDs.
+     * Omit the field for full access to all collections.
+     */
+    allowedCollectionIds?: string[];
+    /**
+     * When `allowedCollectionIds` is set, controls access to sitemap, navigation, urls, breadcrumb, radar.
+     * Defaults to false (collection-only) unless explicitly true.
+     */
+    allowSiteWideReads?: boolean;
 }
 
 /** Video provider config. Can be per-project (project.videoProviders) or instance-level fallback. */

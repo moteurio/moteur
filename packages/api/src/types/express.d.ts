@@ -1,4 +1,5 @@
 import type { User } from '@moteurio/types/User.js';
+import type { ApiKeyAccessPolicy } from '@moteurio/core/projectApiKey.js';
 
 declare global {
     namespace Express {
@@ -9,6 +10,10 @@ declare global {
             user?: User;
             /** Set when a valid project API key was presented. */
             apiKeyAuth?: boolean;
+            /** Matched key id when apiKeyAuth is true. */
+            apiKeyId?: string;
+            /** Access policy for collection / site-wide public routes when using an API key. */
+            apiKeyPolicy?: ApiKeyAccessPolicy;
             /** Set by request classification middleware for usage/rate-limit logic. */
             apiRequestType?: 'studio' | 'public' | null;
             /** Project id inferred by request classification middleware for public routes. */

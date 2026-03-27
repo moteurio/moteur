@@ -27,7 +27,7 @@ describe('projectApiKey.verifyKey', () => {
     it('returns true when key matches stored hash', async () => {
         vi.mocked(getProjectById).mockResolvedValue({
             id: projectId,
-            apiKey: { hash: storedHash, prefix: 'mk_live_...', createdAt: '' }
+            apiKeys: [{ id: 'kid', hash: storedHash, prefix: 'mk_live_...', createdAt: '' }]
         } as any);
         const result = await verifyKey(projectId, rawKey);
         expect(result).toBe(true);
@@ -36,14 +36,14 @@ describe('projectApiKey.verifyKey', () => {
     it('returns false when key does not match', async () => {
         vi.mocked(getProjectById).mockResolvedValue({
             id: projectId,
-            apiKey: { hash: storedHash, prefix: 'mk_live_...', createdAt: '' }
+            apiKeys: [{ id: 'kid', hash: storedHash, prefix: 'mk_live_...', createdAt: '' }]
         } as any);
         const result = await verifyKey(projectId, 'mk_live_wrong');
         expect(result).toBe(false);
     });
 
-    it('returns false when project has no apiKey', async () => {
-        vi.mocked(getProjectById).mockResolvedValue({ id: projectId } as any);
+    it('returns false when project has no api keys', async () => {
+        vi.mocked(getProjectById).mockResolvedValue({ id: projectId, apiKeys: [] } as any);
         const result = await verifyKey(projectId, rawKey);
         expect(result).toBe(false);
     });
@@ -57,7 +57,7 @@ describe('projectApiKey.verifyKey', () => {
     it('returns false for empty or whitespace key', async () => {
         vi.mocked(getProjectById).mockResolvedValue({
             id: projectId,
-            apiKey: { hash: storedHash, prefix: 'mk_live_...', createdAt: '' }
+            apiKeys: [{ id: 'kid', hash: storedHash, prefix: 'mk_live_...', createdAt: '' }]
         } as any);
         expect(await verifyKey(projectId, '')).toBe(false);
         expect(await verifyKey(projectId, '   ')).toBe(false);
@@ -66,7 +66,7 @@ describe('projectApiKey.verifyKey', () => {
     it('trims key before hashing', async () => {
         vi.mocked(getProjectById).mockResolvedValue({
             id: projectId,
-            apiKey: { hash: storedHash, prefix: 'mk_live_...', createdAt: '' }
+            apiKeys: [{ id: 'kid', hash: storedHash, prefix: 'mk_live_...', createdAt: '' }]
         } as any);
         const result = await verifyKey(projectId, '  ' + rawKey + '  ');
         expect(result).toBe(true);

@@ -31,7 +31,7 @@ import pagesStudioRouter, { openapi as pagesStudioSpec } from '../studio/pages/i
 import structuresRouter, { openapi as structuresSpec } from '../studio/structures/index.js';
 import layoutsRouter, { openapi as layoutsSpec } from '../studio/layouts/index.js';
 import { openapi as collectionsStudioSpec } from '../studio/collections/index.js';
-import apiKeyRouter, { openapi as apiKeySpec } from '../studio/apiKey/index.js';
+import apiKeysRouter, { openapi as apiKeysSpec } from '../studio/apiKeys/index.js';
 import assetsRouter, { openapi as assetsSpec } from '../studio/assets/index.js';
 import assetConfigRouter, { openapi as assetConfigSpec } from '../studio/assetConfig.js';
 import mediaSettingsRouter, { openapi as mediaSettingsSpec } from '../studio/mediaSettings.js';
@@ -56,7 +56,7 @@ router.use('/:projectId/navigations', navigationsRouter);
 router.use('/:projectId/forms', formsStudioRouter);
 router.use('/:projectId/structures', structuresRouter);
 router.use('/:projectId/layouts', layoutsRouter);
-router.use('/:projectId/api-key', apiKeyRouter);
+router.use('/:projectId/api-keys', apiKeysRouter);
 router.use('/:projectId/assets', assetsRouter);
 router.use('/:projectId/asset-config', assetConfigRouter);
 router.use('/:projectId/media-settings', mediaSettingsRouter);
@@ -96,7 +96,7 @@ export const projectsSpecs = {
         structuresSpec,
         layoutsSpec,
         collectionsStudioSpec,
-        apiKeySpec,
+        apiKeysSpec,
         assetsSpec,
         assetConfigSpec,
         mediaSettingsSpec,

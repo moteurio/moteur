@@ -130,11 +130,13 @@ export const Moteur: MoteurAPI = {
         resolve: Navigations.resolveNavigation
     },
     projectApiKey: {
-        generate: ProjectApiKey.generateKey,
+        create: ProjectApiKey.createKey,
         rotate: ProjectApiKey.rotateKey,
         revoke: ProjectApiKey.revokeKey,
-        updateAllowedHosts: ProjectApiKey.updateApiKeyAllowedHosts,
-        verifyProjectApiKey: ProjectApiKey.verifyProjectApiKey
+        patch: ProjectApiKey.patchKey,
+        listMeta: ProjectApiKey.listProjectApiKeyMeta,
+        verifyProjectApiKey: ProjectApiKey.verifyProjectApiKey,
+        apiKeyAccessPolicy: ProjectApiKey.apiKeyAccessPolicy
     },
     assets: {
         upload: Assets.uploadAsset,

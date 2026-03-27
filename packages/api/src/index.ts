@@ -7,7 +7,8 @@
  *   operators. Middleware: requireAuth, requireProjectAccess, requireOperator.
  *
  * - API Key (x-api-key header only; query keys are not supported — they leak in logs/referrers): Used by public
- *   frontends to consume published content. Optional per-project allowedHosts restrict x-api-key to matching
+ *   frontends to consume published content. Projects may have multiple keys; each may have allowedHosts, optional
+ *   collection allowlists, and optional site-wide read access. Optional per-key allowedHosts restrict x-api-key to matching
  *   Origin/Referer hostnames (exact or *.single-label prefix); see Authentication.md. Read-only (GET only). Applies to:
  *     - Collections (/projects/:projectId/collections)
  *     - Page outputs (/projects/:projectId/sitemap.xml, sitemap.json, navigation, urls, breadcrumb)

@@ -38,7 +38,7 @@ Use this for **CLIs**, **internal dashboards**, **automation**, **Moteur Studio�
 
 - Create/update/delete **projects**, **models**, **entries** (all statuses, workflow actions), **pages**, **templates**, **assets**, etc.
 - Manage **collection definitions** (what a future public “channel” will expose) via `collections` on the admin client.
-- **Generate or rotate** the project API key (`forProject(...).apiKey.generate()` …) after you are logged in.
+- **Create, rotate, or revoke** project API keys (`forProject(...).apiKeys.create()`, `.rotate(keyId)`, …) after you are logged in.
 - Use **branches**, **comments**, **reviews**, **webhooks**, **submissions**, and other **project-scoped** HTTP resources.
 - Call **`client.instance`** for **deployment-wide maintenance** (usage counters, blueprint seeding, asset migration)—separate from editing a single project’s content; usually requires an **operator**-capable user (see below).
 - Read **per-project activity** (audit log) with `forProject(...).activity` or `projects.activity.list(projectId, …)`.
@@ -101,7 +101,7 @@ await p.collections.create({
 });
 
 // Issue a key for a static site / BFF (raw key only returned once—persist it!)
-const { rawKey } = await p.apiKey.generate();
+const { rawKey } = await p.apiKeys.create();
 ```
 
 ### Pattern B — root client (explicit `projectId`)
@@ -220,7 +220,7 @@ const crumb = await client.site.breadcrumb({ pageId: 'page-id', entryId: 'option
 ### Security notes (public)
 
 - **Default:** keep the key on a **server**, **serverless function**, or **edge** that calls Moteur (BFF pattern). The key is read-only, but anyone who steals it can still read everything the collection exposes.
-- **Browser / SPA only when constrained:** embedding the key in frontend JavaScript is acceptable **only if** you also use the server’s **allowed hosts** feature: with JWT, `PATCH /projects/:projectId/api-key/allowed-hosts` sets hostname patterns; then `x-api-key` requests must send a matching **`Origin`** or **`Referer`**, and callers without those headers (typical Node/curl) get **403**—use **JWT** for those. Align **`CORS_ORIGINS`** on the API with your site origins. Header checks are not cryptographic; they complement, not replace, keeping the key secret.
+- **Browser / SPA only when constrained:** embedding the key in frontend JavaScript is acceptable **only if** you also use the server’s **allowed hosts** feature: with JWT, `PATCH /projects/:projectId/api-keys/:keyId` (body `allowedHosts`) sets hostname patterns; then `x-api-key` requests must send a matching **`Origin`** or **`Referer`**, and callers without those headers (typical Node/curl) get **403**—use **JWT** for those. Align **`CORS_ORIGINS`** on the API with your site origins. Header checks are not cryptographic; they complement, not replace, keeping the key secret.
 - Send the key only in the **`x-api-key`** header (see [Authentication](https://github.com/moteurio/moteur/blob/main/docs/Authentication.md)).
 
 ---

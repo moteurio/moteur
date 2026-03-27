@@ -109,8 +109,9 @@ export function optionalProjectAccess(req: Request, res: Response, next: NextFun
 
 /**
  * Recognizes project API key from header `x-api-key` only (query string keys leak via logs/referrers).
- * If key is present: verifies against projectId (from req.params.projectId); if valid sets req.apiKeyAuth = true, else 401.
- * If key is not present: next() (caller may require JWT via requireAuth).
+ * If a key is present: verifies against projectId (from req.params.projectId). On success sets
+ * `req.apiKeyAuth`, `req.apiKeyId`, and `req.apiKeyPolicy` (collection allowlist + site-wide flag), runs
+ * allowed-host checks when configured, else 401/403. If no header: next() (caller may require JWT).
  */
 export function apiKeyAuth(req: Request, res: Response, next: NextFunction): void {
     const rawKey = (req.headers['x-api-key'] as string)?.trim() ?? '';
@@ -145,6 +146,8 @@ export function apiKeyAuth(req: Request, res: Response, next: NextFunction): voi
                 }
             }
             req.apiKeyAuth = true;
+            req.apiKeyId = result.keyId;
+            req.apiKeyPolicy = result.policy;
             next();
         })
         .catch(() => {
@@ -166,6 +169,23 @@ export function requireCollectionOrProjectAccess(
         if (req.apiKeyAuth === true) return next();
         res.status(401).json({ error: 'API key or JWT required' });
     });
+}
+
+/**
+ * When the request uses an API key scoped to specific collections and site-wide reads are off,
+ * respond with 403. JWT requests are never blocked here.
+ */
+export function denyIfApiKeySiteWideBlocked(req: Request, res: Response): boolean {
+    if (req.user) return false;
+    if (!req.apiKeyAuth) return false;
+    const p = req.apiKeyPolicy;
+    if (!p || p.collectionWhitelist === null) return false;
+    if (p.allowSiteWideReads) return false;
+    res.status(403).json({
+        error: 'This API key cannot access site-wide endpoints (sitemap, navigation, urls, breadcrumb, radar)',
+        code: 'API_KEY_SITE_READ_NOT_ALLOWED'
+    });
+    return true;
 }
 
 /**
