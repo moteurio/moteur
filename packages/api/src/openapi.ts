@@ -307,7 +307,35 @@ const baseSchemas: OpenAPIV3.ComponentsObject['schemas'] = {
         type: 'object',
         properties: {
             prefix: { type: 'string', nullable: true },
-            createdAt: { type: 'string', format: 'date-time', nullable: true }
+            createdAt: { type: 'string', format: 'date-time', nullable: true },
+            allowedHosts: {
+                type: 'array',
+                items: { type: 'string' },
+                nullable: true,
+                description:
+                    'When non-empty, x-api-key requests must use Origin/Referer matching these patterns (exact host or single leading *.)'
+            }
+        }
+    },
+    ApiKeyAllowedHostsRequest: {
+        type: 'object',
+        required: ['allowedHosts'],
+        properties: {
+            allowedHosts: {
+                type: 'array',
+                items: { type: 'string' },
+                description: 'Empty array clears host restriction for the API key'
+            }
+        }
+    },
+    ApiKeyAllowedHostsResponse: {
+        type: 'object',
+        required: ['allowedHosts'],
+        properties: {
+            allowedHosts: {
+                type: 'array',
+                items: { type: 'string' }
+            }
         }
     },
     UsageCounts: {

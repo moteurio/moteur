@@ -66,6 +66,8 @@ export interface MoteurAPI {
         generate: typeof ProjectApiKey.generateKey;
         rotate: typeof ProjectApiKey.rotateKey;
         revoke: typeof ProjectApiKey.revokeKey;
+        updateAllowedHosts: typeof ProjectApiKey.updateApiKeyAllowedHosts;
+        verifyProjectApiKey: typeof ProjectApiKey.verifyProjectApiKey;
     };
     assets: {
         upload: typeof Assets.uploadAsset;

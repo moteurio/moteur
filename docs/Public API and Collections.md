@@ -31,6 +31,8 @@ Each project has at most one API key. You create it with **JWT** and **project a
 
 3. **Store the `rawKey`** in a safe place (env var, secrets manager). You will **never** see it again; only the prefix is shown later (e.g. `GET {basePath}/projects/:projectId/api-key`).
 
+4. **Optional — restrict the key to browser origins:** With a JWT, call `PATCH {basePath}/projects/:projectId/api-key/allowed-hosts` with `{ "allowedHosts": ["www.example.com", "*.my-project.vercel.com"] }`. While this list is **non-empty**, every `x-api-key` request must include an **`Origin`** or **`Referer`** header whose **hostname** matches one pattern (exact host, or a single leading `*.` meaning exactly one DNS label). Requests with no usable header (typical **curl**, **server-side fetch**) get **403** — use a **JWT** for those callers, or keep `allowedHosts` empty. Rotating the key **preserves** `allowedHosts`.
+
 ---
 
 ## 2. Create a collection
@@ -71,20 +73,11 @@ Content-Type: application/json
 
 ## 3. Call the Public API with the key
 
-Send the key in the **header** or as a **query** parameter:
-
-**Header (preferred):**
+Send the key **only** in the **`x-api-key`** header (query strings are not supported — they leak via logs and referrers).
 
 ```http
 GET /projects/:projectId/collections
 x-api-key: <your-raw-key>
-```
-
-**Query:**
-
-```http
-GET /projects/:projectId/collections
-Header: `x-api-key: <your-raw-key>`
 ```
 
 **Example: list collections**
@@ -130,6 +123,7 @@ x-api-key: mk_live_xxxxxxxx...
 
 ## 4. Important points
 
+- **Allowed hosts:** If you configured non-empty `allowedHosts` on the key, cross-origin browser calls must use origins listed in the API server’s **`CORS_ORIGINS`** as well, or the browser will block the request before it reaches Moteur. `Origin`/`Referer` checks are **not** a substitute for keeping the key secret (non-browser clients can spoof headers).
 - **Read-only:** With only an API key (no JWT), only **GET** is allowed. POST/PATCH/DELETE with key only return **403**.
 - **Published by default:** When using the key alone, only **published** content is returned. With JWT, the collection’s status filter is respected.
 - **Base path:** If your API uses a base path (e.g. `API_BASE_PATH=/api`), prefix all paths with it: `/api/projects/...`, `/api/auth/...`. Global **studio** routes (usage, seed, asset migration) use `/studio/...` — see [REST API](REST%20API.md).

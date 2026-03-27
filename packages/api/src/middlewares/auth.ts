@@ -3,7 +3,8 @@ import { OPERATOR_ROLE_SLUG } from '@moteurio/types';
 import { verifyJWT } from '@moteurio/core/auth.js';
 import { getUserById } from '@moteurio/core/users.js';
 import { getProject } from '@moteurio/core/projects.js';
-import { verifyKey } from '@moteurio/core/projectApiKey.js';
+import { verifyProjectApiKey } from '@moteurio/core/projectApiKey.js';
+import { requestHostMatchesAllowed } from '@moteurio/core/apiKeyAllowedHosts.js';
 
 function readBearerToken(header: string | undefined): string | undefined {
     if (typeof header !== 'string') return undefined;
@@ -123,11 +124,25 @@ export function apiKeyAuth(req: Request, res: Response, next: NextFunction): voi
         res.status(400).json({ error: 'Project ID is required' });
         return;
     }
-    verifyKey(projectId, rawKey)
-        .then(valid => {
-            if (!valid) {
+    verifyProjectApiKey(projectId, rawKey)
+        .then(result => {
+            if (!result.ok) {
                 res.status(401).json({ error: 'Invalid API key' });
                 return;
+            }
+            const patterns = result.allowedHosts;
+            if (patterns?.length) {
+                const hostCheck = requestHostMatchesAllowed(
+                    { origin: req.headers.origin, referer: req.headers.referer },
+                    patterns
+                );
+                if (!hostCheck.ok) {
+                    res.status(403).json({
+                        error: 'API key is restricted to allowed hosts; send a valid Origin or Referer header',
+                        code: 'API_KEY_HOST_NOT_ALLOWED'
+                    });
+                    return;
+                }
             }
             req.apiKeyAuth = true;
             next();
