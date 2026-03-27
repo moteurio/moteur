@@ -40,3 +40,9 @@ export type {
 } from '@moteurio/types';
 
 export { createMoteurClientInternal, createRequestClient, MoteurApiError } from './client.js';
+export type {
+    ProjectApiKeyMeta,
+    ProjectApiKeyCreateBody,
+    ProjectApiKeyPatchBody,
+    ProjectApiKeyCreateResponse
+} from './project/apiKeys.js';

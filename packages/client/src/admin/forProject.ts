@@ -14,7 +14,11 @@ import { projectWebhooksApi } from '../project/webhooks.js';
 import { projectAssetsApi } from '../project/assets.js';
 import { projectAssetConfigApi } from '../project/assetConfig.js';
 import { projectBlocksApi } from '../project/blocks.js';
-import { projectApiKeyApi } from '../project/apiKey.js';
+import {
+    projectApiKeysApi,
+    type ProjectApiKeyCreateBody,
+    type ProjectApiKeyPatchBody
+} from '../project/apiKeys.js';
 
 /** Project-scoped API: same HTTP routes as the root client, with `projectId` fixed. */
 export function createProjectClient(client: MoteurClient, projectId: string) {
@@ -34,7 +38,7 @@ export function createProjectClient(client: MoteurClient, projectId: string) {
     const assets = projectAssetsApi(client);
     const assetConfig = projectAssetConfigApi(client);
     const blocks = projectBlocksApi(client);
-    const apiKey = projectApiKeyApi(client);
+    const apiKeys = projectApiKeysApi(client);
 
     return {
         projectId: pid,
@@ -224,11 +228,12 @@ export function createProjectClient(client: MoteurClient, projectId: string) {
             delete: (id: string) => blocks.delete(pid, id)
         },
 
-        apiKey: {
-            get: () => apiKey.get(pid),
-            generate: () => apiKey.generate(pid),
-            rotate: () => apiKey.rotate(pid),
-            revoke: () => apiKey.revoke(pid)
+        apiKeys: {
+            list: () => apiKeys.list(pid),
+            create: (body?: ProjectApiKeyCreateBody) => apiKeys.create(pid, body),
+            rotate: (keyId: string) => apiKeys.rotate(pid, keyId),
+            revoke: (keyId: string) => apiKeys.revoke(pid, keyId),
+            patch: (keyId: string, body: ProjectApiKeyPatchBody) => apiKeys.patch(pid, keyId, body)
         }
     };
 }

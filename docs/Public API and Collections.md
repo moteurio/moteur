@@ -8,7 +8,7 @@ In TypeScript, use **`createMoteurPublicClient`** from `@moteurio/client` (`coll
 
 ## 1. Get a project API key
 
-Each project has at most one API key. You create it with **JWT** and **project access** (same as other authenticated project routes). Prefix all paths with `{basePath}` if you use one (e.g. `API_BASE_PATH=/api`).
+Projects can have **multiple** API keys (different secrets, different restrictions). Create them with **JWT** and **project access**. Prefix all paths with `{basePath}` if you use one (e.g. `API_BASE_PATH=/api`).
 
 1. **Log in** to get a JWT:
 
@@ -20,18 +20,21 @@ Each project has at most one API key. You create it with **JWT** and **project a
 
     Response: `{ "token": "...", "user": ... }`.
 
-2. **Generate the key** for your project:
+2. **Create a key** for your project:
 
     ```http
-    POST {basePath}/projects/:projectId/api-key/generate
+    POST {basePath}/projects/:projectId/api-keys
     Authorization: Bearer <your-jwt>
+    Content-Type: application/json
+
+    { "label": "Production site", "allowedCollectionIds": ["<channel-uuid>"], "allowSiteWideReads": false }
     ```
 
-    Response: `{ "prefix": "mk_live_...", "rawKey": "mk_live_xxxxxxxx...", "message": "Store this key securely. It will not be shown again." }`.
+    Omit `allowedCollectionIds` for a key that may read **all** channels. Response includes `rawKey` once plus metadata (`id`, `prefix`, …).
 
-3. **Store the `rawKey`** in a safe place (env var, secrets manager). You will **never** see it again; only the prefix is shown later (e.g. `GET {basePath}/projects/:projectId/api-key`).
+3. **Store the `rawKey`** in a safe place (env var, secrets manager). You will **never** see it again; list metadata later with `GET {basePath}/projects/:projectId/api-keys`.
 
-4. **Optional — restrict the key to browser origins:** With a JWT, call `PATCH {basePath}/projects/:projectId/api-key/allowed-hosts` with `{ "allowedHosts": ["www.example.com", "*.my-project.vercel.com"] }`. While this list is **non-empty**, every `x-api-key` request must include an **`Origin`** or **`Referer`** header whose **hostname** matches one pattern (exact host, or a single leading `*.` meaning exactly one DNS label). Requests with no usable header (typical **curl**, **server-side fetch**) get **403** — use a **JWT** for those callers, or keep `allowedHosts` empty. Rotating the key **preserves** `allowedHosts`.
+4. **Optional — allowed hosts / scope:** Use `PATCH {basePath}/projects/:projectId/api-keys/:keyId` with `allowedHosts`, `allowedCollectionIds`, or `allowSiteWideReads`. Non-empty `allowedHosts` requires matching **`Origin`** or **`Referer`** on each `x-api-key` request (see [Authentication](Authentication.md)).
 
 ---
 

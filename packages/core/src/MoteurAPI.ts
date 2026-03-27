@@ -63,11 +63,13 @@ export interface MoteurAPI {
         resolve: typeof Navigations.resolveNavigation;
     };
     projectApiKey: {
-        generate: typeof ProjectApiKey.generateKey;
+        create: typeof ProjectApiKey.createKey;
         rotate: typeof ProjectApiKey.rotateKey;
         revoke: typeof ProjectApiKey.revokeKey;
-        updateAllowedHosts: typeof ProjectApiKey.updateApiKeyAllowedHosts;
+        patch: typeof ProjectApiKey.patchKey;
+        listMeta: typeof ProjectApiKey.listProjectApiKeyMeta;
         verifyProjectApiKey: typeof ProjectApiKey.verifyProjectApiKey;
+        apiKeyAccessPolicy: typeof ProjectApiKey.apiKeyAccessPolicy;
     };
     assets: {
         upload: typeof Assets.uploadAsset;

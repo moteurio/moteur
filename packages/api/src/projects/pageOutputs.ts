@@ -3,7 +3,12 @@ import { Router } from 'express';
 import type { OpenAPIV3 } from 'openapi-types';
 import { resolveAllUrls, resolveBreadcrumb, getNavigation } from '@moteurio/core/pages.js';
 import { getProjectById } from '@moteurio/core/projects.js';
-import { optionalAuth, apiKeyAuth, requireCollectionOrProjectAccess } from '../middlewares/auth.js';
+import {
+    optionalAuth,
+    apiKeyAuth,
+    requireCollectionOrProjectAccess,
+    denyIfApiKeySiteWideBlocked
+} from '../middlewares/auth.js';
 import { sendApiError } from '../utils/apiError.js';
 
 const router: Router = Router({ mergeParams: true });
@@ -17,6 +22,7 @@ type BreadcrumbQuery = { pageId?: string; entryId?: string };
 router.get('/sitemap.xml', ...pageOutputAuth, async (req: Request, res: Response) => {
     const { projectId } = req.params;
     if (!projectId) return void res.status(400).json({ error: 'Missing projectId' });
+    if (denyIfApiKeySiteWideBlocked(req, res)) return;
     try {
         const project = await getProjectById(projectId);
         const siteUrl = project?.siteUrl?.replace(/\/$/, '') ?? '';
@@ -48,6 +54,7 @@ router.get('/sitemap.xml', ...pageOutputAuth, async (req: Request, res: Response
 router.get('/sitemap.json', ...pageOutputAuth, async (req: Request, res: Response) => {
     const { projectId } = req.params;
     if (!projectId) return void res.status(400).json({ error: 'Missing projectId' });
+    if (denyIfApiKeySiteWideBlocked(req, res)) return;
     try {
         const all = await resolveAllUrls(projectId);
         const urls = all.filter(r => r.sitemapInclude);
@@ -65,6 +72,7 @@ router.get(
         const depth = req.query.depth != null ? Number(req.query.depth) : undefined;
         const rootId = req.query.rootId;
         if (!projectId) return void res.status(400).json({ error: 'Missing projectId' });
+        if (denyIfApiKeySiteWideBlocked(req, res)) return;
         try {
             const tree = await getNavigation(projectId, {
                 depth,
@@ -80,6 +88,7 @@ router.get(
 router.get('/urls', ...pageOutputAuth, async (req: Request, res: Response) => {
     const { projectId } = req.params;
     if (!projectId) return void res.status(400).json({ error: 'Missing projectId' });
+    if (denyIfApiKeySiteWideBlocked(req, res)) return;
     try {
         const urls = await resolveAllUrls(projectId);
         return void res.json(urls);
@@ -96,6 +105,7 @@ router.get(
         const { pageId, entryId } = req.query;
         if (!projectId || !pageId)
             return void res.status(400).json({ error: 'Missing projectId or pageId' });
+        if (denyIfApiKeySiteWideBlocked(req, res)) return;
         try {
             const result = await resolveBreadcrumb(projectId, pageId, entryId);
             return void res.json(result);

@@ -15,7 +15,7 @@ import { projectWebhooksApi } from '../project/webhooks.js';
 import { projectAssetsApi } from '../project/assets.js';
 import { projectAssetConfigApi } from '../project/assetConfig.js';
 import { projectBlocksApi } from '../project/blocks.js';
-import { projectApiKeyApi } from '../project/apiKey.js';
+import { projectApiKeysApi } from '../project/apiKeys.js';
 import { instanceApi } from './instance.js';
 import { createProjectClient } from './forProject.js';
 import { blueprintsApi } from './blueprints.js';
@@ -44,7 +44,7 @@ export function createMoteurAdminClient(config: MoteurClientConfig) {
         assets: projectAssetsApi(client),
         assetConfig: projectAssetConfigApi(client),
         blocks: projectBlocksApi(client),
-        apiKey: projectApiKeyApi(client),
+        apiKeys: projectApiKeysApi(client),
         instance: instanceApi(client),
         blueprints: blueprintsApi(client),
         activity: activityApi(client),

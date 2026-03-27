@@ -295,47 +295,71 @@ const baseSchemas: OpenAPIV3.ComponentsObject['schemas'] = {
             submission: { $ref: '#/components/schemas/JsonRecord' }
         }
     },
-    ApiKeyGenerateResponse: {
+    ProjectApiKeyMeta: {
+        type: 'object',
+        required: ['id', 'prefix', 'createdAt', 'allowedHosts'],
+        properties: {
+            id: { type: 'string', format: 'uuid' },
+            prefix: { type: 'string' },
+            createdAt: { type: 'string', format: 'date-time' },
+            label: { type: 'string' },
+            allowedHosts: {
+                type: 'array',
+                items: { type: 'string' },
+                description:
+                    'When non-empty, x-api-key requests must use Origin/Referer matching these patterns (exact host or single leading *.)'
+            },
+            allowedCollectionIds: {
+                type: 'array',
+                items: { type: 'string' },
+                description: 'When set, key may only read these collection (channel) IDs'
+            },
+            allowSiteWideReads: {
+                type: 'boolean',
+                description:
+                    'When collection whitelist is set: allow sitemap, navigation, urls, breadcrumb, radar (default false)'
+            }
+        }
+    },
+    ProjectApiKeyCreateRequest: {
         type: 'object',
         properties: {
+            label: { type: 'string' },
+            allowedCollectionIds: { type: 'array', items: { type: 'string' } },
+            allowSiteWideReads: { type: 'boolean' }
+        }
+    },
+    ProjectApiKeyCreateResponse: {
+        type: 'object',
+        required: ['id', 'prefix', 'createdAt', 'allowedHosts', 'rawKey', 'message'],
+        properties: {
+            id: { type: 'string', format: 'uuid' },
             prefix: { type: 'string' },
+            createdAt: { type: 'string', format: 'date-time' },
+            label: { type: 'string' },
+            allowedHosts: { type: 'array', items: { type: 'string' } },
+            allowedCollectionIds: { type: 'array', items: { type: 'string' } },
+            allowSiteWideReads: { type: 'boolean' },
             rawKey: { type: 'string' },
             message: { type: 'string' }
         }
     },
-    ApiKeyMetaResponse: {
+    ProjectApiKeyPatchRequest: {
         type: 'object',
         properties: {
-            prefix: { type: 'string', nullable: true },
-            createdAt: { type: 'string', format: 'date-time', nullable: true },
+            label: { type: 'string', nullable: true },
             allowedHosts: {
+                type: 'array',
+                items: { type: 'string' },
+                description: 'Empty array clears host restriction'
+            },
+            allowedCollectionIds: {
                 type: 'array',
                 items: { type: 'string' },
                 nullable: true,
-                description:
-                    'When non-empty, x-api-key requests must use Origin/Referer matching these patterns (exact host or single leading *.)'
-            }
-        }
-    },
-    ApiKeyAllowedHostsRequest: {
-        type: 'object',
-        required: ['allowedHosts'],
-        properties: {
-            allowedHosts: {
-                type: 'array',
-                items: { type: 'string' },
-                description: 'Empty array clears host restriction for the API key'
-            }
-        }
-    },
-    ApiKeyAllowedHostsResponse: {
-        type: 'object',
-        required: ['allowedHosts'],
-        properties: {
-            allowedHosts: {
-                type: 'array',
-                items: { type: 'string' }
-            }
+                description: 'Null removes collection whitelist (full collection access)'
+            },
+            allowSiteWideReads: { type: 'boolean' }
         }
     },
     UsageCounts: {

@@ -1,7 +1,12 @@
 import type { Request, Response } from 'express';
 import { Router } from 'express';
 import type { OpenAPIV3 } from 'openapi-types';
-import { optionalAuth, apiKeyAuth, requireProjectAccess } from '../../middlewares/auth.js';
+import {
+    optionalAuth,
+    apiKeyAuth,
+    requireProjectAccess,
+    denyIfApiKeySiteWideBlocked
+} from '../../middlewares/auth.js';
 import { loadRadarReport, runFullScan } from '@moteurio/core/radar/index.js';
 import { sendApiError } from '../../utils/apiError.js';
 
@@ -25,6 +30,8 @@ router.get(
         const model = typeof req.query.model === 'string' ? req.query.model : undefined;
         const locale = typeof req.query.locale === 'string' ? req.query.locale : undefined;
         const ruleId = typeof req.query.ruleId === 'string' ? req.query.ruleId : undefined;
+
+        if (denyIfApiKeySiteWideBlocked(req, res)) return;
 
         try {
             let report = scan
@@ -79,6 +86,7 @@ router.get(
     requireProjectOrApiKey,
     async (req: Request, res: Response) => {
         const { projectId, slug } = req.params;
+        if (denyIfApiKeySiteWideBlocked(req, res)) return;
         try {
             const report = await loadRadarReport(projectId);
             const violations = (report?.violations ?? []).filter(v => v.entrySlug === slug);
