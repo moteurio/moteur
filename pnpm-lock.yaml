@@ -305,6 +305,9 @@ importers:
             marked:
                 specifier: ^16.0.0
                 version: 16.0.0
+            nodemailer:
+                specifier: ^8.0.4
+                version: 8.0.4
             sanitize-html:
                 specifier: ^2.17.0
                 version: 2.17.0
@@ -3982,6 +3985,13 @@ packages:
             }
         hasBin: true
 
+    nodemailer@8.0.4:
+        resolution:
+            {
+                integrity: sha512-k+jf6N8PfQJ0Fe8ZhJlgqU5qJU44Lpvp2yvidH3vp1lPnVQMgi4yEEMPXg5eJS1gFIJTVq1NHBk7Ia9ARdSBdQ==
+            }
+        engines: { node: '>=6.0.0' }
+
     nth-check@2.1.1:
         resolution:
             {
@@ -5988,7 +5998,7 @@ snapshots:
             std-env: 3.9.0
             test-exclude: 7.0.1
             tinyrainbow: 2.0.0
-            vitest: 3.2.4(@types/node@22.19.15)(@vitest/ui@3.2.4)(tsx@4.21.0)(yaml@2.8.3)
+            vitest: 3.2.4(@types/node@25.5.0)(@vitest/ui@3.2.4)(tsx@4.21.0)(yaml@2.8.3)
         transitivePeerDependencies:
             - supports-color
 
@@ -6037,7 +6047,7 @@ snapshots:
             sirv: 3.0.2
             tinyglobby: 0.2.15
             tinyrainbow: 2.0.0
-            vitest: 3.2.4(@types/node@24.12.0)(@vitest/ui@3.2.4)(tsx@4.21.0)(yaml@2.8.3)
+            vitest: 3.2.4(@types/node@25.5.0)(@vitest/ui@3.2.4)(tsx@4.21.0)(yaml@2.8.3)
 
     '@vitest/utils@3.2.4':
         dependencies:
@@ -7166,6 +7176,8 @@ snapshots:
     node-addon-api@8.4.0: {}
 
     node-gyp-build@4.8.4: {}
+
+    nodemailer@8.0.4: {}
 
     nth-check@2.1.1:
         dependencies:
