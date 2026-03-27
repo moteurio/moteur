@@ -1,4 +1,4 @@
-import { confirm, isCancel, cancel } from '@clack/prompts';
+import { confirm, isCancel } from '@clack/prompts';
 import { cliRegistry } from '../registry.js';
 import { getClientOrThrow, getProjectId } from '../config.js';
 

@@ -2,6 +2,8 @@ import { cliRegistry } from '../registry.js';
 import { loadConfig, getClient, getProjectId } from '../config.js';
 import chalk from 'chalk';
 
+/* global AbortController, fetch, setTimeout, clearTimeout */
+
 interface CheckResult {
     name: string;
     ok: boolean;
@@ -32,7 +34,7 @@ async function runChecks(args: Record<string, unknown>): Promise<CheckResult[]> 
         await fetch(baseURL + '/openapi.json', { signal: ctrl.signal });
         clearTimeout(t);
         results.push({ name: 'Host reachable', ok: true });
-    } catch (e) {
+    } catch (_e) {
         results.push({
             name: 'Host reachable',
             ok: false,
@@ -52,7 +54,7 @@ async function runChecks(args: Record<string, unknown>): Promise<CheckResult[]> 
             const client = await getClient();
             await client.auth.me();
             results.push({ name: 'Auth', ok: true });
-        } catch (e) {
+        } catch (_e) {
             results.push({
                 name: 'Auth',
                 ok: false,
@@ -79,7 +81,7 @@ async function runChecks(args: Record<string, unknown>): Promise<CheckResult[]> 
             const client = await getClient();
             await client.projects.get(projectId);
             results.push({ name: 'Default project', ok: true });
-        } catch (e) {
+        } catch (_e) {
             results.push({
                 name: 'Default project',
                 ok: false,

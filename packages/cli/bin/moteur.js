@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+/* global console, process */
 /**
  * Stable CLI entry for pnpm/npm shims (exists before `tsc` output).
  * Loads compiled dist; see README if dist is missing.
