@@ -1,0 +1,21 @@
+
+# App config
+data/projects
+data/users.json
+
+packages/*/node_modules
+packages/*/coverage/
+
+# Node and npm
+/node_modules/
+/html/
+/coverage/
+.env
+
+
+# OS and other
+.DS_Store
+
+# Editor files
+.idea/
+.vscode/

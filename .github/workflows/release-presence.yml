@@ -1,0 +1,39 @@
+# Publish @moteurio/presence to npm when a tag presence@<version> is pushed.
+# Requires NPM_TOKEN secret (npm auth token with publish access).
+name: Release @moteurio/presence
+
+on:
+    push:
+        tags:
+            - 'presence@*'
+
+jobs:
+    release:
+        runs-on: ubuntu-latest
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v4
+
+            - name: Setup Node.js
+              uses: actions/setup-node@v4
+              with:
+                  node-version: '22'
+                  registry-url: 'https://registry.npmjs.org'
+
+            - name: Install pnpm
+              run: npm install -g pnpm
+
+            - name: Install dependencies
+              run: pnpm install
+
+            - name: Test presence package
+              run: pnpm --filter @moteurio/presence test
+
+            - name: Build presence package
+              run: pnpm --filter @moteurio/presence run build
+
+            - name: Publish to npm
+              working-directory: packages/presence
+              run: npm publish --access public
+              env:
+                  NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

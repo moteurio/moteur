@@ -1,0 +1,63 @@
+{
+    "name": "@moteurio/core",
+    "version": "0.1.0",
+    "description": "Moteur content engine core: models, entries, validation, storage, plugins",
+    "type": "module",
+    "main": "./dist/index.js",
+    "types": "./dist/index.d.ts",
+    "exports": {
+        ".": "./dist/index.js",
+        "./*": "./dist/*"
+    },
+    "files": [
+        "dist",
+        "README.md",
+        "LICENSE"
+    ],
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/moteurio/moteur.git",
+        "directory": "packages/core"
+    },
+    "homepage": "https://github.com/moteurio/moteur/tree/main/packages/core#readme",
+    "bugs": {
+        "url": "https://github.com/moteurio/moteur/issues"
+    },
+    "keywords": [
+        "moteur",
+        "cms",
+        "headless",
+        "content-engine"
+    ],
+    "engines": {
+        "node": ">=22"
+    },
+    "scripts": {
+        "build": "tsc -b",
+        "clean": "rimraf dist",
+        "test": "vitest run",
+        "lint": "eslint . --ext .ts",
+        "lint:fix": "eslint . --ext .ts --fix",
+        "prepublishOnly": "pnpm run test && pnpm run build"
+    },
+    "publishConfig": {
+        "access": "public"
+    },
+    "dependencies": {
+        "@moteurio/plugin-sdk": "workspace:*",
+        "@moteurio/types": "workspace:*",
+        "ajv": "^8.17.1",
+        "ajv-formats": "^3.0.1",
+        "bcrypt": "^6.0.0",
+        "jsonwebtoken": "^9.0.2",
+        "marked": "^16.0.0",
+        "sanitize-html": "^2.17.0",
+        "sharp": "^0.33.0"
+    },
+    "license": "MIT",
+    "devDependencies": {
+        "@types/bcrypt": "^5.0.2",
+        "@types/jsonwebtoken": "^9.0.10",
+        "@vitest/coverage-v8": "3.2.4"
+    }
+}

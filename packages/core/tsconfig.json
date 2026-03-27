@@ -1,0 +1,20 @@
+{
+    "extends": "../../tsconfig.json",
+    "compilerOptions": {
+        "composite": true,
+        "declaration": true,
+        "declarationMap": false,
+        "rootDir": "src",
+        "outDir": "dist",
+        "baseUrl": ".",
+        "paths": {
+            "@moteurio/plugin-sdk": ["../plugin-sdk/src"],
+            "@moteurio/plugin-sdk/*": ["../plugin-sdk/src/*"],
+            "@moteurio/types": ["../types/src"],
+            "@moteurio/types/*": ["../types/dist/*"]
+        }
+    },
+    "include": ["src"],
+    "exclude": ["node_modules", "dist"],
+    "references": [{ "path": "../types" }, { "path": "../plugin-sdk" }]
+}

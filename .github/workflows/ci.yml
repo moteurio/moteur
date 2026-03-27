@@ -1,0 +1,42 @@
+name: CI
+
+on:
+    push:
+        branches: [main, feature/**, chore/**, fix/**]
+    pull_request:
+        branches: [main]
+
+jobs:
+    build-and-test:
+        runs-on: ubuntu-latest
+
+        strategy:
+            matrix:
+                node-version: [22.x]
+
+        steps:
+            - name: Checkout repository
+              uses: actions/checkout@v4
+
+            - name: Use Node.js ${{ matrix.node-version }}
+              uses: actions/setup-node@v4
+              with:
+                  node-version: ${{ matrix.node-version }}
+
+            - name: Install pnpm
+              run: npm install -g pnpm
+
+            - name: Install dependencies
+              run: pnpm install
+
+            - name: Lint
+              run: pnpm -r lint
+
+            - name: Build
+              run: pnpm -r build
+
+            - name: OpenAPI success responses
+              run: pnpm --filter @moteurio/api run openapi:check-responses
+
+            - name: Test
+              run: pnpm -r test

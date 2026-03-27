@@ -1,0 +1,70 @@
+{
+    "name": "@moteurio/cli",
+    "version": "0.1.0",
+    "description": "Command-line interface for Moteur: manage projects and content from the terminal",
+    "type": "module",
+    "bin": {
+        "moteur": "./bin/moteur.js"
+    },
+    "main": "./dist/index.js",
+    "types": "./dist/index.d.ts",
+    "scripts": {
+        "build": "tsc -b",
+        "clean": "rimraf dist",
+        "lint": "eslint . --ext .ts",
+        "prepublishOnly": "pnpm run build",
+        "test": "vitest run",
+        "test:watch": "vitest"
+    },
+    "files": [
+        "bin",
+        "dist",
+        "README.md",
+        "LICENSE"
+    ],
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/moteurio/moteur.git",
+        "directory": "packages/cli"
+    },
+    "homepage": "https://github.com/moteurio/moteur/tree/main/packages/cli#readme",
+    "bugs": {
+        "url": "https://github.com/moteurio/moteur/issues"
+    },
+    "engines": {
+        "node": ">=22"
+    },
+    "keywords": [
+        "moteur",
+        "cms",
+        "cli",
+        "headless",
+        "content-engine"
+    ],
+    "publishConfig": {
+        "access": "public"
+    },
+    "dependencies": {
+        "@clack/prompts": "^1.1.0",
+        "@moteurio/client": "workspace:*",
+        "@moteurio/core": "workspace:*",
+        "@moteurio/types": "workspace:*",
+        "chalk": "^5.4.0",
+        "socket.io-client": "^4.8.0",
+        "cli-table3": "^0.6.5",
+        "dotenv": "^16.5.0",
+        "ink": "^5.1.0",
+        "ink-spinner": "^5.0.0",
+        "ink-text-input": "^6.0.0",
+        "react": "^18.2.0"
+    },
+    "devDependencies": {
+        "@types/node": "^22.0.0",
+        "@types/react": "^18.2.0",
+        "ink-testing-library": "^4.0.0",
+        "rimraf": "^5.0.0",
+        "typescript": "^5.4.0",
+        "vitest": "^3.2.4"
+    },
+    "license": "MIT"
+}

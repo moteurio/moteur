@@ -1,0 +1,39 @@
+# Publish @moteurio/plugin-sdk to npm when a tag plugin-sdk@<version> is pushed.
+# Requires NPM_TOKEN secret (npm auth token with publish access).
+name: Release @moteurio/plugin-sdk
+
+on:
+    push:
+        tags:
+            - 'plugin-sdk@*'
+
+jobs:
+    release:
+        runs-on: ubuntu-latest
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v4
+
+            - name: Setup Node.js
+              uses: actions/setup-node@v4
+              with:
+                  node-version: '22'
+                  registry-url: 'https://registry.npmjs.org'
+
+            - name: Install pnpm
+              run: npm install -g pnpm
+
+            - name: Install dependencies
+              run: pnpm install
+
+            - name: Test plugin-sdk package
+              run: pnpm --filter @moteurio/plugin-sdk test
+
+            - name: Build plugin-sdk package
+              run: pnpm --filter @moteurio/plugin-sdk run build
+
+            - name: Publish to npm
+              working-directory: packages/plugin-sdk
+              run: npm publish --access public
+              env:
+                  NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

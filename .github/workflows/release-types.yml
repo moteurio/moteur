@@ -1,0 +1,40 @@
+# Publish @moteurio/types to npm when a tag types@<version> is pushed.
+# Publish this package before @moteurio/client / @moteurio/cli when types change.
+# Requires NPM_TOKEN secret (npm auth token with publish access).
+name: Release @moteurio/types
+
+on:
+    push:
+        tags:
+            - 'types@*'
+
+jobs:
+    release:
+        runs-on: ubuntu-latest
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v4
+
+            - name: Setup Node.js
+              uses: actions/setup-node@v4
+              with:
+                  node-version: '22'
+                  registry-url: 'https://registry.npmjs.org'
+
+            - name: Install pnpm
+              run: npm install -g pnpm
+
+            - name: Install dependencies
+              run: pnpm install
+
+            - name: Test types package
+              run: pnpm --filter @moteurio/types test
+
+            - name: Build types package
+              run: pnpm --filter @moteurio/types run build
+
+            - name: Publish to npm
+              working-directory: packages/types
+              run: npm publish --access public
+              env:
+                  NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

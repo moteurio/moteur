@@ -1,0 +1,39 @@
+# Publish @moteurio/ai to npm when a tag ai@<version> is pushed.
+# Requires NPM_TOKEN secret (npm auth token with publish access).
+name: Release @moteurio/ai
+
+on:
+    push:
+        tags:
+            - 'ai@*'
+
+jobs:
+    release:
+        runs-on: ubuntu-latest
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v4
+
+            - name: Setup Node.js
+              uses: actions/setup-node@v4
+              with:
+                  node-version: '22'
+                  registry-url: 'https://registry.npmjs.org'
+
+            - name: Install pnpm
+              run: npm install -g pnpm
+
+            - name: Install dependencies
+              run: pnpm install
+
+            - name: Test ai package
+              run: pnpm --filter @moteurio/ai test
+
+            - name: Build ai package
+              run: pnpm --filter @moteurio/ai run build
+
+            - name: Publish to npm
+              working-directory: packages/ai
+              run: npm publish --access public
+              env:
+                  NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

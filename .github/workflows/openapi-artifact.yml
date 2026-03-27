@@ -1,0 +1,34 @@
+# Upload merged openapi.json from main for manual CDN or docs hosting.
+name: OpenAPI artifact
+
+on:
+    push:
+        branches: [main]
+        paths:
+            - 'packages/api/**'
+            - 'packages/ai/**'
+            - 'packages/core/**'
+            - 'packages/presence/**'
+            - 'packages/plugin-sdk/**'
+            - 'packages/types/**'
+
+jobs:
+    export:
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v4
+
+            - run: npm install -g pnpm
+
+            - uses: actions/setup-node@v4
+              with:
+                  node-version: 22.x
+
+            - run: pnpm install
+            - run: pnpm -r build
+            - run: pnpm --filter @moteurio/api run openapi:export
+
+            - uses: actions/upload-artifact@v4
+              with:
+                  name: openapi-json
+                  path: packages/api/dist-openapi/openapi.json

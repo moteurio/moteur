@@ -1,0 +1,81 @@
+{
+    "name": "moteur",
+    "private": true,
+    "type": "module",
+    "workspaces": [
+        "packages/*"
+    ],
+    "scripts": {
+        "build": "pnpm -r build && tsc -b",
+        "build:watch": "pnpm -r build && tsc -b --watch",
+        "check:all": "pnpm lint && pnpm build && pnpm test",
+        "clean": "rimraf dist && rimraf --glob \"packages/*/dist\" \"packages/*/tsconfig.tsbuildinfo\" \"packages/ai/src/**/*.js\" \"packages/ai/src/**/*.js.map\" \"packages/ai/src/**/*.d.ts\" \"packages/ai/src/**/*.d.ts.map\" \"packages/presence/src/**/*.js\" \"packages/presence/src/**/*.js.map\" \"packages/presence/src/**/*.d.ts\" \"packages/presence/src/**/*.d.ts.map\"",
+        "cli": "node node_modules/@moteurio/cli/dist/index.js",
+        "cli:dev": "tsx packages/cli/src/index.ts",
+        "seed": "pnpm run cli -- seed",
+        "seed:force": "pnpm run cli -- seed --force",
+        "server": "node dist/src/api.js",
+        "server:dev": "tsx --tsconfig tsconfig.server-dev.json packages/api/src/index.ts",
+        "test": "pnpm -r run test",
+        "test:watch": "pnpm -r run test -- --watch",
+        "test:ui": "vitest --ui",
+        "lint": "pnpm -r lint && eslint . --ext .ts",
+        "lint:fix": "pnpm -r lint:fix && eslint . --ext .ts",
+        "usage:recalc": "tsx packages/api/scripts/recalculate-usage.ts",
+        "openapi:export": "pnpm --filter @moteurio/api run openapi:export",
+        "openapi:check": "pnpm --filter @moteurio/api run openapi:check-responses",
+        "prepare": "husky install"
+    },
+    "dependencies": {
+        "@moteurio/api": "workspace:*",
+        "@moteurio/cli": "workspace:*"
+    },
+    "devDependencies": {
+        "@eslint/js": "^9.39.4",
+        "@types/cors": "^2.8.19",
+        "@types/node": "^24.12.0",
+        "@types/supertest": "^6.0.3",
+        "@typescript-eslint/eslint-plugin": "^8.57.1",
+        "@typescript-eslint/parser": "^8.57.1",
+        "@vitest/ui": "^3.2.4",
+        "eslint": "^9.39.4",
+        "eslint-config-prettier": "^10.1.8",
+        "eslint-plugin-prettier": "^5.5.5",
+        "husky": "^9.1.7",
+        "lint-staged": "^16.4.0",
+        "prettier": "^3.8.1",
+        "rimraf": "^5.0.10",
+        "supertest": "^7.2.2",
+        "tsx": "^4.21.0",
+        "typescript": "^5.9.3",
+        "vitest": "^3.2.4"
+    },
+    "pnpm": {
+        "overrides": {
+            "form-data": ">=4.0.4",
+            "glob": ">=10.5.0",
+            "jws": ">=3.2.3",
+            "axios": ">=1.13.5",
+            "qs": ">=6.14.2",
+            "minimatch": ">=9.0.7",
+            "rollup": ">=4.59.0",
+            "vite": ">=6.4.1",
+            "js-yaml": ">=4.1.1",
+            "tmp": ">=0.2.4",
+            "diff": ">=8.0.3",
+            "@eslint/plugin-kit": ">=0.3.4",
+            "table>ajv": ">=8.18.0"
+        },
+        "ignoredBuiltDependencies": [
+            "esbuild"
+        ]
+    },
+    "lint-staged": {
+        "*.{ts,tsx,js,jsx}": [
+            "eslint --fix"
+        ],
+        "*.{ts,tsx,js,jsx,json,md,yml,yaml}": [
+            "prettier --write"
+        ]
+    }
+}

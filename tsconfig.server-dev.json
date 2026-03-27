@@ -1,0 +1,47 @@
+{
+    "extends": "./tsconfig.json",
+    "compilerOptions": {
+        "paths": {
+            "@moteurio/types/*": ["packages/types/dist/*"],
+            "@moteurio/core/*": ["packages/core/dist/*"],
+            "@moteurio/api/*": ["packages/api/dist/*"],
+            "@moteurio/presence/*": ["packages/presence/src/*"],
+            "@moteurio/plugin-geo": ["packages/plugins/plugin-geo/src/index.ts"],
+            "@moteurio/plugin-ai-provider-anthropic": [
+                "packages/plugins/plugin-ai-provider-anthropic/dist"
+            ],
+            "@moteurio/plugin-ai-provider-openai": [
+                "packages/plugins/plugin-ai-provider-openai/dist"
+            ],
+            "@moteurio/plugin-ai-provider-google": [
+                "packages/plugins/plugin-ai-provider-google/dist"
+            ],
+            "@moteurio/plugin-ai-provider-fal": ["packages/plugins/plugin-ai-provider-fal/dist"],
+            "@moteurio/plugin-auth-github": ["packages/plugins/plugin-auth-github/dist"],
+            "@moteurio/plugin-auth-google": ["packages/plugins/plugin-auth-google/dist"],
+            "@moteurio/plugin-core-blocks": ["packages/plugins/plugin-core-blocks/dist"],
+            "@moteurio/plugin-core-blueprints": ["packages/plugins/plugin-core-blueprints/dist"],
+            "@moteurio/plugin-storage-r2": ["packages/plugins/plugin-storage-r2/dist"],
+            "@moteurio/plugin-storage-s3": ["packages/plugins/plugin-storage-s3/dist"],
+            "@moteurio/plugin-video-mux": ["packages/plugins/plugin-video-mux/dist"],
+            "@moteurio/plugin-video-vimeo": ["packages/plugins/plugin-video-vimeo/dist"],
+            "@moteurio/plugin-video-cloudflare-stream": [
+                "packages/plugins/plugin-video-cloudflare-stream/dist"
+            ],
+            "@moteurio/plugin-video-youtube": ["packages/plugins/plugin-video-youtube/dist"],
+            "@moteurio/plugin-webhook-slack": ["packages/plugins/plugin-webhook-slack/dist"],
+            "@moteurio/plugin-webhook-vercel": ["packages/plugins/plugin-webhook-vercel/dist"],
+            "@moteurio/plugin-webhook-github": ["packages/plugins/plugin-webhook-github/dist"],
+            "@moteurio/plugin-search-algolia": ["packages/plugins/plugin-search-algolia/dist"],
+            "@moteurio/plugin-search-meilisearch": [
+                "packages/plugins/plugin-search-meilisearch/dist"
+            ],
+            "@moteurio/ai/*": ["packages/ai/dist/*"],
+            "@moteurio/types": ["packages/types/dist"],
+            "@moteurio/core": ["packages/core/dist"],
+            "@moteurio/api": ["packages/api/dist"],
+            "@moteurio/presence": ["packages/presence/src/index.ts"],
+            "@moteurio/ai": ["packages/ai/dist"]
+        }
+    }
+}

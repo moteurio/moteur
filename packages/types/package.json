@@ -1,0 +1,61 @@
+{
+    "name": "@moteurio/types",
+    "version": "0.1.0",
+    "description": "Shared TypeScript types for Moteur (projects, models, entries, pages, assets, etc.)",
+    "type": "module",
+    "main": "./dist/index.js",
+    "types": "./dist/index.d.ts",
+    "exports": {
+        ".": {
+            "types": "./dist/index.d.ts",
+            "import": "./dist/index.js",
+            "default": "./dist/index.js"
+        },
+        "./*": "./dist/*"
+    },
+    "files": [
+        "dist",
+        "LICENSE",
+        "README.md"
+    ],
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/moteurio/moteur.git",
+        "directory": "packages/types"
+    },
+    "homepage": "https://github.com/moteurio/moteur/tree/main/packages/types#readme",
+    "bugs": {
+        "url": "https://github.com/moteurio/moteur/issues"
+    },
+    "engines": {
+        "node": ">=22"
+    },
+    "keywords": [
+        "moteur",
+        "cms",
+        "types",
+        "headless",
+        "content-engine"
+    ],
+    "publishConfig": {
+        "access": "public"
+    },
+    "scripts": {
+        "build": "tsc -b",
+        "prepublishOnly": "pnpm run build",
+        "test": "vitest run",
+        "lint": "eslint . --ext .ts",
+        "lint:fix": "eslint . --ext .ts --fix"
+    },
+    "license": "MIT",
+    "devDependencies": {
+        "@eslint/js": "^9.30.1",
+        "@typescript-eslint/eslint-plugin": "^8.34.1",
+        "@typescript-eslint/parser": "^8.35.1",
+        "eslint": "^9.29.0",
+        "eslint-config-prettier": "^10.1.5",
+        "eslint-plugin-prettier": "^5.5.1",
+        "prettier": "^3.6.0",
+        "vitest": "^3.2.4"
+    }
+}

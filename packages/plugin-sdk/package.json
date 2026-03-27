@@ -1,0 +1,55 @@
+{
+    "name": "@moteurio/plugin-sdk",
+    "version": "0.1.0",
+    "description": "SDK types and helpers for Moteur plugins",
+    "type": "module",
+    "main": "./dist/index.js",
+    "types": "./dist/index.d.ts",
+    "exports": {
+        ".": "./dist/index.js",
+        "./*": "./dist/*"
+    },
+    "files": [
+        "dist",
+        "README.md",
+        "LICENSE"
+    ],
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/moteurio/moteur.git",
+        "directory": "packages/plugin-sdk"
+    },
+    "homepage": "https://github.com/moteurio/moteur/tree/main/packages/plugin-sdk#readme",
+    "bugs": {
+        "url": "https://github.com/moteurio/moteur/issues"
+    },
+    "keywords": [
+        "moteur",
+        "cms",
+        "plugin",
+        "sdk",
+        "headless",
+        "content-engine"
+    ],
+    "engines": {
+        "node": ">=22"
+    },
+    "scripts": {
+        "build": "tsc -b",
+        "clean": "rimraf dist",
+        "lint": "eslint . --ext .ts",
+        "lint:fix": "eslint . --ext .ts --fix",
+        "test": "vitest run",
+        "prepublishOnly": "pnpm run test && pnpm run build"
+    },
+    "publishConfig": {
+        "access": "public"
+    },
+    "dependencies": {
+        "@moteurio/types": "workspace:*"
+    },
+    "license": "MIT",
+    "devDependencies": {
+        "@vitest/coverage-v8": "3.2.4"
+    }
+}
