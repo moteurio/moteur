@@ -4,7 +4,7 @@ This document describes the **HTTP API** for integrating with Moteur: authentica
 
 **Response convention:** List endpoints return a wrapper object `{ resourceName: T[] }` or a bare array where noted. Single-resource endpoints return `{ resourceName: T }` or `{ token, user }` for auth. Errors return `{ error: string }`.
 
-**Project API key (one per project):** For collections, page outputs, and radar endpoints send the key in the `x-api-key` header only (query parameters are not accepted — they leak in logs and referrers). Key auth is **read-only** (GET only); non-GET requests with only an API key return 403. JWT and API key can coexist; JWT takes precedence. All other endpoints require JWT.
+**Project API key (one per project):** For collections, page outputs, and radar endpoints send the key in the `x-api-key` header only (query parameters are not accepted — they leak in logs and referrers). Key auth is **read-only** (GET only); non-GET requests with only an API key return 403. JWT and API key can coexist; JWT takes precedence. If the project key has a non-empty **`allowedHosts`** list, `x-api-key` requests must also send **`Origin`** or **`Referer`** with a matching hostname (403 otherwise). See [Authentication](Authentication.md). All other endpoints require JWT.
 
 **Webhooks (no auth):** `POST /webhooks/mux` and `POST /webhooks/vimeo` are mounted at the application level (no JWT). Signature verification uses **per-project** secrets: `project.videoProviders.mux.webhookSecret` and `project.videoProviders.vimeo.webhookSecret` in each project’s config. The server tries each project that has a non-empty secret until one verifies; there is no separate global “instance” signing secret for these routes. Invalid signatures receive **400**. Register the same URLs in the Mux/Vimeo dashboard for each environment. Processing is asynchronous after responding **200**.
 
@@ -315,12 +315,13 @@ JWT + **operator** role only. Returns current request counts in two buckets: **s
 
 JWT + project access. One key per project. Raw key is returned only on generate/rotate and never again.
 
-| Method | Endpoint                                | Description                                                                             |
-| ------ | --------------------------------------- | --------------------------------------------------------------------------------------- |
-| POST   | `/projects/:projectId/api-key/generate` | Generate key. Body: none. Returns `{ prefix, rawKey, message }`. Store rawKey securely. |
-| POST   | `/projects/:projectId/api-key/rotate`   | Rotate key. Returns new `{ prefix, rawKey, message }`.                                  |
-| DELETE | `/projects/:projectId/api-key`          | Revoke key. 204.                                                                        |
-| GET    | `/projects/:projectId/api-key`          | Key metadata only: `{ prefix, createdAt }` (never raw or hash).                         |
+| Method | Endpoint                                     | Description                                                                                                                            |
+| ------ | -------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| POST   | `/projects/:projectId/api-key/generate`      | Generate key. Body: none. Returns `{ prefix, rawKey, message }`. Store rawKey securely.                                                |
+| POST   | `/projects/:projectId/api-key/rotate`        | Rotate key. Returns new `{ prefix, rawKey, message }`. Preserves `allowedHosts`.                                                       |
+| DELETE | `/projects/:projectId/api-key`               | Revoke key. 204.                                                                                                                       |
+| GET    | `/projects/:projectId/api-key`               | Key metadata: `{ prefix, createdAt, allowedHosts }` (never raw or hash).                                                               |
+| PATCH  | `/projects/:projectId/api-key/allowed-hosts` | Body: `{ allowedHosts: string[] }`. Set hostname patterns for `x-api-key` (empty array clears restriction). Requires existing API key. |
 
 ---
 

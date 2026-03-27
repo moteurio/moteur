@@ -32,6 +32,15 @@ export {
 } from './formSubmissions.js';
 
 export {
+    normalizeAllowedHostInput,
+    validateAllowedHostPatterns,
+    hostMatchesPattern,
+    hostnameMatchesAnyAllowed,
+    requestHostMatchesAllowed,
+    type ApiKeyHostCheckResult
+} from './apiKeyAllowedHosts.js';
+
+export {
     listSchedules,
     getSchedule,
     getSchedulesForResource,
@@ -123,7 +132,9 @@ export const Moteur: MoteurAPI = {
     projectApiKey: {
         generate: ProjectApiKey.generateKey,
         rotate: ProjectApiKey.rotateKey,
-        revoke: ProjectApiKey.revokeKey
+        revoke: ProjectApiKey.revokeKey,
+        updateAllowedHosts: ProjectApiKey.updateApiKeyAllowedHosts,
+        verifyProjectApiKey: ProjectApiKey.verifyProjectApiKey
     },
     assets: {
         upload: Assets.uploadAsset,

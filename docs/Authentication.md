@@ -59,7 +59,7 @@ List available providers with `GET {basePath}/auth/providers` (returns `{ "provi
 
 Each project has at most one **API key**. Use it to read data via the **Public API** — collections, page outputs (sitemap, navigation, urls, breadcrumb), and radar. Key auth is **read-only**: GET requests only; POST/PATCH/DELETE with only the API key return 403.
 
-**Browsers:** prefer a backend or edge that holds the key. If the key is used from client-side JavaScript, do so only when the key (or your API gateway) is **restricted to specific allowed domains or origins**, so it cannot be reused effectively from arbitrary third-party sites.
+**Browsers:** prefer a backend or edge that holds the key. If the key is used from client-side JavaScript, configure **allowed hosts** on the key (see below) and align **`CORS_ORIGINS`** on the API server with the same origins.
 
 ### How to send the key
 
@@ -68,14 +68,28 @@ Each project has at most one **API key**. Use it to read data via the **Public A
 
 If both JWT and API key are present, JWT takes precedence for authorization.
 
+### Allowed hosts (optional)
+
+You can bind the project API key to one or more **hostname patterns** stored as `allowedHosts`:
+
+- **`undefined` or `[]`:** No host check (default). Keys work from browsers, curl, and server-side clients as today.
+- **Non-empty list:** After the key hash is validated, the request must include **`Origin`** or **`Referer`** parseable as a URL whose **hostname** matches at least one pattern. Otherwise the API returns **403** with `code: "API_KEY_HOST_NOT_ALLOWED"`. Patterns are **exact hosts** (e.g. `www.example.com`) or a **single** leading wildcard segment (`*.my-project.vercel.com` matches `foo.my-project.vercel.com` but not `a.b.my-project.vercel.com`). **Rotation preserves** `allowedHosts`.
+
+Configure with JWT:
+
+- **Read:** `GET {basePath}/projects/:projectId/api-key` — returns `prefix`, `createdAt`, and `allowedHosts` (never the raw key).
+- **Update:** `PATCH {basePath}/projects/:projectId/api-key/allowed-hosts` — body `{ "allowedHosts": ["example.com", "*.preview.app"] }`. Use `[]` to clear the restriction.
+
+**Limitations:** `Origin`/`Referer` can be set by any HTTP client; this mitigates casual abuse and wrong-site embedding but does not replace keeping the key secret. For server-to-server reads with a restricted key, use **JWT** instead or leave `allowedHosts` empty.
+
 ### Getting the key
 
 The key is created and rotated with **JWT** and **project access**. The raw key is returned **only once** when you generate or rotate it; store it securely (e.g. env var, secrets manager). These routes live under **`/projects/:projectId/...`**. See [REST API](REST%20API.md).
 
 - **Generate:** `POST {basePath}/projects/:projectId/api-key/generate` — returns `{ "rawKey": "...", "prefix": "mk_live_...", "message": "..." }`.
-- **Rotate:** `POST {basePath}/projects/:projectId/api-key/rotate` — replaces the key, returns the new raw key once.
+- **Rotate:** `POST {basePath}/projects/:projectId/api-key/rotate` — replaces the key, returns the new raw key once (allowed hosts unchanged).
 - **Revoke:** `DELETE {basePath}/projects/:projectId/api-key` — removes the key (response **204**).
-- **Status:** `GET {basePath}/projects/:projectId/api-key` — returns prefix only (e.g. `mk_live_...`), not the raw key.
+- **Status:** `GET {basePath}/projects/:projectId/api-key` — returns prefix, `createdAt`, and `allowedHosts`; not the raw key.
 
 See [Public API and Collections](Public%20API%20and%20Collections.md) for using the key with collections.
 

@@ -7,11 +7,11 @@ vi.mock('@moteurio/core/apiCollections.js', () => ({
     getCollection: vi.fn()
 }));
 vi.mock('@moteurio/core/projectApiKey.js', () => ({
-    verifyKey: vi.fn()
+    verifyProjectApiKey: vi.fn()
 }));
 
 import { listCollections, getCollection } from '@moteurio/core/apiCollections.js';
-import { verifyKey } from '@moteurio/core/projectApiKey.js';
+import { verifyProjectApiKey } from '@moteurio/core/projectApiKey.js';
 import collectionsPublicRouter from '../../../src/projects/collections/public.js';
 import { optionalAuth, apiKeyAuth, requireCollectionAuth } from '../../../src/middlewares/auth.js';
 
@@ -32,7 +32,7 @@ app.use(
 describe('GET /projects/:projectId/collections (public API)', () => {
     beforeEach(() => {
         vi.clearAllMocks();
-        vi.mocked(verifyKey).mockResolvedValue(false);
+        vi.mocked(verifyProjectApiKey).mockResolvedValue({ ok: false });
     });
 
     it('returns 401 when no API key and no JWT', async () => {
@@ -42,7 +42,7 @@ describe('GET /projects/:projectId/collections (public API)', () => {
     });
 
     it('returns 401 when API key is invalid', async () => {
-        vi.mocked(verifyKey).mockResolvedValue(false);
+        vi.mocked(verifyProjectApiKey).mockResolvedValue({ ok: false });
         const res = await request(app)
             .get('/projects/demo/collections')
             .set('x-api-key', 'invalid');
@@ -51,7 +51,7 @@ describe('GET /projects/:projectId/collections (public API)', () => {
     });
 
     it('returns 200 and list when API key is valid', async () => {
-        vi.mocked(verifyKey).mockResolvedValue(true);
+        vi.mocked(verifyProjectApiKey).mockResolvedValue({ ok: true });
         vi.mocked(listCollections).mockResolvedValue([
             {
                 id: 'c1',
@@ -68,11 +68,45 @@ describe('GET /projects/:projectId/collections (public API)', () => {
         expect(res.status).toBe(200);
         expect(res.body).toHaveLength(1);
         expect(res.body[0].label).toBe('Blog');
-        expect(verifyKey).toHaveBeenCalledWith('demo', 'valid-key');
+        expect(verifyProjectApiKey).toHaveBeenCalledWith('demo', 'valid-key');
+    });
+
+    it('returns 403 when allowedHosts is set but Origin is missing', async () => {
+        vi.mocked(verifyProjectApiKey).mockResolvedValue({
+            ok: true,
+            allowedHosts: ['example.com']
+        });
+        const res = await request(app)
+            .get('/projects/demo/collections')
+            .set('x-api-key', 'valid-key');
+        expect(res.status).toBe(403);
+        expect(res.body.code).toBe('API_KEY_HOST_NOT_ALLOWED');
+    });
+
+    it('returns 200 when allowedHosts matches Origin', async () => {
+        vi.mocked(verifyProjectApiKey).mockResolvedValue({
+            ok: true,
+            allowedHosts: ['*.my-project.vercel.com']
+        });
+        vi.mocked(listCollections).mockResolvedValue([
+            {
+                id: 'c1',
+                projectId: 'demo',
+                label: 'Blog',
+                resources: [],
+                createdAt: '',
+                updatedAt: ''
+            }
+        ]);
+        const res = await request(app)
+            .get('/projects/demo/collections')
+            .set('x-api-key', 'valid-key')
+            .set('Origin', 'https://foo.my-project.vercel.com');
+        expect(res.status).toBe(200);
     });
 
     it('returns 403 for non-GET with API key only', async () => {
-        vi.mocked(verifyKey).mockResolvedValue(true);
+        vi.mocked(verifyProjectApiKey).mockResolvedValue({ ok: true });
         const res = await request(app)
             .post('/projects/demo/collections')
             .set('x-api-key', 'valid-key')
@@ -85,7 +119,7 @@ describe('GET /projects/:projectId/collections (public API)', () => {
 describe('GET /projects/:projectId/collections/:collectionId', () => {
     beforeEach(() => {
         vi.clearAllMocks();
-        vi.mocked(verifyKey).mockResolvedValue(true);
+        vi.mocked(verifyProjectApiKey).mockResolvedValue({ ok: true });
     });
 
     it('returns 404 when collection not found', async () => {

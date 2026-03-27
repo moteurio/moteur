@@ -38,6 +38,11 @@ export interface ProjectSchema {
         hash: string;
         prefix: string; // first 8 chars for display e.g. "mk_live_xxxx..."
         createdAt: string;
+        /**
+         * When non-empty, x-api-key requests must send Origin or Referer whose hostname matches
+         * one entry (exact or single leading *. wildcard). Empty or omitted = no host restriction.
+         */
+        allowedHosts?: string[];
     };
 
     /** Media/assets: upload limits, variants, storage adapter. When enabled is false, uploads and media features are disabled for this project. */
