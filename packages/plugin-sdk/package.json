@@ -1,6 +1,6 @@
 {
     "name": "@moteurio/plugin-sdk",
-    "version": "0.1.0",
+    "version": "2026.3.27",
     "description": "SDK types and helpers for Moteur plugins",
     "type": "module",
     "main": "./dist/index.js",

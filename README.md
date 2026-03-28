@@ -1,6 +1,6 @@
 # Moteur
 
-**Moteur** is a framework-agnostic content engine for structured, multilingual content. Use it as a **headless CMS**: define models and pages, edit content in **Moteur Studio (or any other API client, such as the Atelier Terminal UI)**, and consume data via the **REST API** and **[`@moteurio/client`](packages/client/README.md)** from your frontend, backend, or static site generator.
+**Moteur** is a framework-agnostic content engine for structured, multilingual content. Published packages use a **calendar release line**; see [VERSIONING.md](VERSIONING.md). Use it as a **headless CMS**: define models and pages, edit content in **Moteur Studio (or any other API client, such as the Atelier Terminal UI)**, and consume data via the **REST API** and **[`@moteurio/client`](packages/client/README.md)** from your frontend, backend, or static site generator.
 
 - **Content API** — Collections, pages, entries, navigations, sitemaps; read-only **project API key** for frontends and SSG.
 - **Admin API** — Full CRUD with JWT; manage projects, models, entries, templates, blueprints, webhooks.

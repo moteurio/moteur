@@ -5,12 +5,14 @@ on:
         paths:
             - 'packages/**/package.json'
             - 'scripts/validate-release-versions.mjs'
+            - 'VERSIONING.md'
             - '.github/workflows/release-*.yml'
     push:
         branches: [main]
         paths:
             - 'packages/**/package.json'
             - 'scripts/validate-release-versions.mjs'
+            - 'VERSIONING.md'
             - '.github/workflows/release-*.yml'
 
 jobs:
