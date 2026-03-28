@@ -473,7 +473,7 @@ From the monorepo root you can also use `pnpm openapi:export` (see root `package
 
 When exceeded, response is **429** with `{ error: "Too many requests..." }`. Set env to `0` to keep default (studio: high, public: 1000). For multiple API instances, use a shared store (e.g. Redis) with express-rate-limit; see the package docs.
 
-**Security:** [Helmet](https://helmetjs.github.io/) is enabled by default (security headers). Set `HELMET_DISABLED=1` to disable (e.g. local Swagger). Set `HELMET_CSP_DISABLED=1` to disable Content-Security-Policy only. Request body size is limited by `API_BODY_LIMIT` (default `1mb`).
+**Security:** [Helmet](https://helmetjs.github.io/) is enabled by default (security headers). Set `HELMET_DISABLED=1` to disable when not in production (e.g. local Swagger); in production this variable is ignored. Set `HELMET_CSP_DISABLED=1` to disable Content-Security-Policy only. Request body size is limited by `API_BODY_LIMIT` (default `1mb`).
 
 **Billing / long-term counts:** In-memory counts reset on restart. To recalculate from the audit log (e.g. for billing or monthly reports), run the recalculation script on the same log file:
 

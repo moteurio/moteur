@@ -3,10 +3,10 @@ import { RequestHandler } from 'express';
 
 /**
  * Security headers via Helmet.
- * Disabled in development if HELMET_DISABLED=1 for easier local debugging (e.g. Swagger).
+ * HELMET_DISABLED=1 skips Helmet only when NODE_ENV is not `production` (local docs / debugging).
  */
 export const securityHeaders: RequestHandler = (req, res, next) => {
-    if (process.env.HELMET_DISABLED === '1') {
+    if (process.env.HELMET_DISABLED === '1' && process.env.NODE_ENV !== 'production') {
         next();
         return;
     }
