@@ -27,14 +27,14 @@ Use the orchestrator workflow:
 
 In one run the workflow:
 
-1. Sets the calendar release line on all published `packages/*/package.json` (see [scripts/set-release-version-from-date.mjs](scripts/set-release-version-from-date.mjs)).
+1. Sets the release line on all published `packages/*/package.json` (see [scripts/set-release-version-from-date.mjs](scripts/set-release-version-from-date.mjs)): UTC calendar `YYYY.M.D`, then if **`@moteurio/types@<that>`** already exists on the npm registry, uses **`YYYY.M.D-2`**, **`-3`**, … until a free line is found (same-day republish without using the workflow override). Optional workflow input **`release_version_override`** forces an exact version and skips this probe. Local runs can set **`SKIP_NPM_VERSION_PROBE=1`** to use only the calendar base (no network).
 2. Prepends a `## <line>` section to [CHANGELOG.md](CHANGELOG.md) with `git log` entries since the latest `moteur@*` tag (by tag date), or a capped bootstrap list when no `moteur@*` tag exists yet (see [scripts/prepend-release-changelog.mjs](scripts/prepend-release-changelog.mjs)).
 3. Commits those changes and pushes to the branch you ran the workflow from.
 4. Creates and pushes tag `moteur@<line>` (same string as the npm release line).
 5. Publishes packages to npm in the order below.
 6. Creates a [GitHub Release](https://docs.github.com/en/repositories/releasing-projects-on-github/about-releases) for `moteur@<line>` using the same notes as the new changelog section.
 
-Re-running for an unchanged release line fails: [CHANGELOG.md](CHANGELOG.md) already contains that `##` section.
+Re-running with the **same** resolved line fails if [CHANGELOG.md](CHANGELOG.md) already has that `##` section. After a successful publish the same day, the next run usually auto-picks **`YYYY.M.D-2`** (etc.), so the changelog guard does not block.
 
 Publish order is deterministic:
 
@@ -72,7 +72,7 @@ Do not run fallback tag workflows in parallel with the orchestrator.
 If a publish fails mid-run:
 
 1. Stop and fix the failing package.
-2. The branch may already contain `chore(release): <line>` and tag `moteur@<line>` may already exist on the remote even if npm did not finish; adjust or delete the tag only if you know no consumers rely on it, then use a same-day suffix (e.g. `2026.3.28-2`) per [VERSIONING.md](VERSIONING.md) if you need a new npm version.
+2. The branch may already contain `chore(release): <line>` and tag `moteur@<line>` may already exist on the remote even if npm did not finish; adjust or delete the tag only if you know no consumers rely on it. The next orchestrator run normally picks the next free same-day line via the npm probe; use **`release_version_override`** if you need a specific version.
 3. Bump versions for any already-published packages if needed.
 4. Re-run orchestrator from a clean commit (or the pushed release commit, if appropriate).
 5. Never overwrite an existing npm version.

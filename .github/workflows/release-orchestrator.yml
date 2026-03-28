@@ -12,7 +12,7 @@ on:
                     - 'false'
                     - 'true'
             release_version_override:
-                description: 'Optional npm version (same-day republish: e.g. 2026.3.28-2). Empty = UTC calendar date YYYY.M.D'
+                description: 'Optional exact version (overrides auto). Empty = UTC YYYY.M.D, then auto same-day suffix -2,-3… if @moteurio/types already has that line on npm'
                 required: false
                 default: ''
                 type: string
