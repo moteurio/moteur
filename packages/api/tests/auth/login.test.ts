@@ -64,4 +64,30 @@ describe('POST /auth/login', () => {
         expect(res.status).toBe(401);
         expect(res.body).toMatchObject({ error: 'Invalid credentials' });
     });
+
+    it('should return 400 if password exceeds max length (bcrypt DoS mitigation)', async () => {
+        const longPassword = 'a'.repeat(129);
+        const res = await request(app)
+            .post('/auth/login')
+            .send({ username: 'tester@example.com', password: longPassword });
+
+        expect(res.status).toBe(400);
+        expect(res.body).toEqual({ error: 'Invalid request' });
+        expect(loginUser).not.toHaveBeenCalled();
+    });
+
+    it('should accept password at max length and call loginUser', async () => {
+        const maxPassword = 'b'.repeat(128);
+        (loginUser as any).mockResolvedValue({
+            token: 'fake-jwt-token',
+            user: { id: 'user123', email: 'tester@example.com' }
+        });
+
+        const res = await request(app)
+            .post('/auth/login')
+            .send({ username: 'tester@example.com', password: maxPassword });
+
+        expect(res.status).toBe(200);
+        expect(loginUser).toHaveBeenCalledWith('tester@example.com', maxPassword);
+    });
 });
