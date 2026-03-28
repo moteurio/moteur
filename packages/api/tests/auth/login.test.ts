@@ -1,6 +1,6 @@
 import request from 'supertest';
 import express from 'express';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, beforeAll } from 'vitest';
 
 vi.mock('@moteurio/core/auth', () => ({
     loginUser: vi.fn()
@@ -12,14 +12,20 @@ vi.mock('../../src/middlewares/rateLimit', () => ({
 
 import authRoutes from '../../src/auth/login';
 import { loginUser } from '@moteurio/core/auth';
+import * as loginDelayStore from '../../src/auth/loginDelayStore';
 
 const app = express();
 app.use(express.json());
 app.use('/auth', authRoutes);
 
 describe('POST /auth/login', () => {
+    beforeAll(() => {
+        vi.spyOn(loginDelayStore, 'sleep').mockResolvedValue(undefined);
+    });
+
     beforeEach(() => {
         vi.clearAllMocks();
+        loginDelayStore.resetLoginDelayStoreForTests();
     });
 
     it('should return 400 if username or password is missing', async () => {
@@ -63,6 +69,46 @@ describe('POST /auth/login', () => {
 
         expect(res.status).toBe(401);
         expect(res.body).toMatchObject({ error: 'Invalid credentials' });
+        expect(loginDelayStore.sleep).toHaveBeenCalledWith(0);
+    });
+
+    it('should sleep progressively after repeated failures and hint retryAfterSeconds', async () => {
+        (loginUser as any).mockRejectedValue(new Error('Invalid credentials'));
+
+        await request(app)
+            .post('/auth/login')
+            .send({ username: 'slow@example.com', password: 'bad1' });
+
+        const res2 = await request(app)
+            .post('/auth/login')
+            .send({ username: 'slow@example.com', password: 'bad2' });
+
+        expect(res2.status).toBe(401);
+        expect(res2.body.error).toBe('Too many failed attempts, please wait before trying again.');
+        expect(res2.body.retryAfterSeconds).toBe(2);
+        expect(loginDelayStore.sleep).toHaveBeenLastCalledWith(1000);
+    });
+
+    it('should reset failure state after successful login', async () => {
+        (loginUser as any).mockRejectedValueOnce(new Error('Invalid credentials'));
+        await request(app)
+            .post('/auth/login')
+            .send({ username: 'ok@example.com', password: 'bad' });
+
+        (loginUser as any).mockResolvedValueOnce({
+            token: 't',
+            user: { id: 'u1', email: 'ok@example.com' }
+        });
+        await request(app)
+            .post('/auth/login')
+            .send({ username: 'ok@example.com', password: 'good' });
+
+        (loginUser as any).mockRejectedValueOnce(new Error('Invalid credentials'));
+        await request(app)
+            .post('/auth/login')
+            .send({ username: 'ok@example.com', password: 'bad2' });
+
+        expect(loginDelayStore.sleep).toHaveBeenLastCalledWith(0);
     });
 
     it('should return 400 if password exceeds max length (bcrypt DoS mitigation)', async () => {

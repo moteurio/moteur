@@ -3,7 +3,16 @@ import express, { Router } from 'express';
 import { loginUser } from '@moteurio/core/auth.js';
 import { loginRateLimiter } from '../middlewares/rateLimit.js';
 import type { OpenAPIV3 } from 'openapi-types';
-import { sendApiError } from '../utils/apiError.js';
+import { getMessage, sendApiError } from '../utils/apiError.js';
+import {
+    clearLoginFailures,
+    delayMsForAttempt,
+    getLoginFailureEntry,
+    recordLoginFailure,
+    nextRetryAfterSeconds,
+    sleep,
+    sweepStaleLoginFailures
+} from './loginDelayStore.js';
 
 const router: Router = express.Router();
 
@@ -20,18 +29,40 @@ function sanitizeEmail(value: unknown): string {
 }
 
 router.post('/login', loginRateLimiter, async (req: Request, res: Response) => {
+    let normalizedUsername = '';
     try {
-        const username = sanitizeEmail(req.body?.username);
+        sweepStaleLoginFailures();
+        normalizedUsername = sanitizeEmail(req.body?.username);
+        if (!normalizedUsername) {
+            return void res.status(400).json({ error: 'Missing username or password' });
+        }
+        const priorFailures = getLoginFailureEntry(normalizedUsername)?.attempts ?? 0;
+        await sleep(delayMsForAttempt(priorFailures));
+
         const password = typeof req.body?.password === 'string' ? req.body.password : '';
-        if (!username || !password) {
+        if (!password) {
             return void res.status(400).json({ error: 'Missing username or password' });
         }
         if (password.length > PASSWORD_MAX_LENGTH) {
             return void res.status(400).json({ error: 'Invalid request' });
         }
-        const { token, user } = await loginUser(username, password);
+        const { token, user } = await loginUser(normalizedUsername, password);
+        clearLoginFailures(normalizedUsername);
         return void res.json({ token, user });
     } catch (err: unknown) {
+        const msg = getMessage(err).toLowerCase();
+        if (msg.includes('invalid credentials') && normalizedUsername) {
+            const failureCount = recordLoginFailure(normalizedUsername);
+            const retryAfterSeconds = nextRetryAfterSeconds(failureCount);
+            const body: Record<string, unknown> = { requestId: req.requestId };
+            if (failureCount >= 2) {
+                body.error = 'Too many failed attempts, please wait before trying again.';
+                body.retryAfterSeconds = retryAfterSeconds;
+            } else {
+                body.error = 'Invalid credentials';
+            }
+            return void res.status(401).json(body);
+        }
         return void sendApiError(res, req, err);
     }
 });
@@ -84,7 +115,13 @@ export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
                             schema: {
                                 type: 'object',
                                 properties: {
-                                    error: { type: 'string' }
+                                    error: { type: 'string' },
+                                    retryAfterSeconds: {
+                                        type: 'number',
+                                        description:
+                                            'Seconds to wait before the next login attempt (after repeated failures).'
+                                    },
+                                    requestId: { type: 'string' }
                                 }
                             }
                         }
