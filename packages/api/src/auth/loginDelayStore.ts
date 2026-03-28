@@ -1,5 +1,7 @@
 /** In-memory progressive login delay state; cleared on process restart. */
 
+import { setTimeout as delay } from 'node:timers/promises';
+
 export const LOGIN_FAILURE_TTL_MS = 60 * 60 * 1000;
 
 export type LoginFailureEntry = {
@@ -9,9 +11,9 @@ export type LoginFailureEntry = {
 
 const store = new Map<string, LoginFailureEntry>();
 
-export function sleep(ms: number): Promise<void> {
-    if (ms <= 0) return Promise.resolve();
-    return new Promise(resolve => setTimeout(resolve, ms));
+export async function sleep(ms: number): Promise<void> {
+    if (ms <= 0) return;
+    await delay(ms);
 }
 
 /**
