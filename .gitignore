@@ -2,6 +2,8 @@
 # App config
 moteur.config.ts
 data/
+# Fly.io — keep in deployment repo (e.g. api.moteur.io), not the public engine
+fly.toml
 
 packages/*/dist/
 packages/**/dist/
