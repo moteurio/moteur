@@ -8,7 +8,7 @@ import { sendApiError } from '../utils/apiError.js';
 const router: Router = express.Router();
 
 const EMAIL_MAX_LENGTH = 255;
-const PASSWORD_MAX_LENGTH = 4096;
+const PASSWORD_MAX_LENGTH = 128;
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 function sanitizeEmail(value: unknown): string {
