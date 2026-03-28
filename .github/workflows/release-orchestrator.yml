@@ -18,7 +18,7 @@ on:
                 type: string
 
 permissions:
-    contents: write
+    contents: read
 
 concurrency:
     group: release-orchestrator
@@ -28,10 +28,20 @@ jobs:
     release:
         runs-on: ubuntu-latest
         steps:
+            - name: Require RELEASE_PAT
+              run: |
+                  if [ -z "$RELEASE_PAT" ]; then
+                    echo "::error::Set repository secret RELEASE_PAT (PAT with push + releases; see RELEASING.md)."
+                    exit 1
+                  fi
+              env:
+                  RELEASE_PAT: ${{ secrets.RELEASE_PAT }}
+
             - name: Checkout
               uses: actions/checkout@v4
               with:
                   fetch-depth: 0
+                  token: ${{ secrets.RELEASE_PAT }}
 
             - name: Setup Node.js
               uses: actions/setup-node@v4
@@ -127,4 +137,4 @@ jobs:
                     --title "moteur ${EXPECTED_MOTEUR_LINE}" \
                     --notes-file "${RELEASE_NOTES_FILE}"
               env:
-                  GH_TOKEN: ${{ github.token }}
+                  GH_TOKEN: ${{ secrets.RELEASE_PAT }}

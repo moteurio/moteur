@@ -5,8 +5,17 @@ Version scheme: calendar release line for published packages ([VERSIONING.md](VE
 ## Required secrets
 
 - `NPM_TOKEN` with publish permissions for `@moteurio/*`.
+- `RELEASE_PAT` — personal access token used to push the release commit and tags to [protected](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-protected-branches/about-protected-branches) branches and to create GitHub Releases. The workflow job keeps `GITHUB_TOKEN` read-only; all git writes and `gh release` use this secret.
 
-The orchestrator uses the default `GITHUB_TOKEN` with `contents: write` to push commits, push tags, and create GitHub Releases. If the branch you release from is [protected](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-protected-branches/about-protected-branches), ensure the workflow can push (for example a bypass actor for `github-actions[bot]`, or a PAT with `contents` scope stored as a repository secret and used for checkout/push).
+### Creating `RELEASE_PAT` on GitHub
+
+1. Use a **dedicated** GitHub user (machine account) or your own account. The account must be allowed to **push to the branch** you release from (e.g. member with bypass on `main`, or admin).
+2. Create a token:
+    - **Fine-grained:** Repository access: this repo only. **Contents:** Read and write. **Metadata:** Read. (If `gh release create` fails with 403, add whatever “Releases” permission your UI offers for that repo.)
+    - **Classic:** Scope **`repo`** (full control of private repositories) for a private repo, or at minimum enough to push and manage releases on this repository.
+3. In the **moteur** repo: **Settings → Secrets and variables → Actions → New repository secret** → name **`RELEASE_PAT`**, value = the token → **Add secret**.
+
+The orchestrator fails fast if `RELEASE_PAT` is missing. After `actions/checkout` with this token, `git push` uses the same credentials for branch and tag pushes; **`gh release create`** uses `GH_TOKEN=$RELEASE_PAT`.
 
 ## Primary release path
 
