@@ -11,6 +11,11 @@ on:
                 options:
                     - 'false'
                     - 'true'
+            release_version_override:
+                description: 'Optional npm version (same-day republish: e.g. 2026.3.28-2). Empty = UTC calendar date YYYY.M.D'
+                required: false
+                default: ''
+                type: string
 
 jobs:
     release:
@@ -30,6 +35,14 @@ jobs:
 
             - name: Install dependencies
               run: pnpm install
+
+            - name: Set release line from UTC date
+              run: |
+                  VERSION=$(node scripts/set-release-version-from-date.mjs)
+                  echo "EXPECTED_MOTEUR_LINE=$VERSION" >> "$GITHUB_ENV"
+                  echo "Release line: $VERSION"
+              env:
+                  RELEASE_VERSION: ${{ inputs.release_version_override }}
 
             - name: Validate release line policy
               run: node scripts/validate-release-versions.mjs
