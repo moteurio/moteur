@@ -47,10 +47,10 @@ This page lists environment variables used by the Moteur API. Details (rate limi
 
 ## Security (Helmet)
 
-| Variable              | Description                                             |
-| --------------------- | ------------------------------------------------------- |
-| `HELMET_DISABLED`     | Set to `1` to disable Helmet (e.g. for local API docs). |
-| `HELMET_CSP_DISABLED` | Set to `1` to disable only Content-Security-Policy.     |
+| Variable              | Description                                                                                                    |
+| --------------------- | -------------------------------------------------------------------------------------------------------------- |
+| `HELMET_DISABLED`     | Set to `1` to disable Helmet when `NODE_ENV` is not `production` (e.g. local API docs). Ignored in production. |
+| `HELMET_CSP_DISABLED` | Set to `1` to disable only Content-Security-Policy.                                                            |
 
 ---
 
