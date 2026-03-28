@@ -132,6 +132,30 @@ function getRawBody(req: Request): string {
     return JSON.stringify(req.body ?? {});
 }
 
+type VideoWebhookProvider = 'mux' | 'vimeo' | 'cloudflare-stream';
+
+function scheduleVerifiedWebhookHandler(
+    providerId: VideoWebhookProvider,
+    rawBody: string,
+    signature: string,
+    verified: { projectId: string; secret: string }
+): void {
+    setImmediate(() => {
+        void (async () => {
+            try {
+                const payload = rawBody ? JSON.parse(rawBody) : {};
+                await handleProviderWebhook(providerId, payload, signature, verified);
+            } catch (err) {
+                console.error(
+                    '[API webhook] async handler failed',
+                    { provider: providerId, projectId: verified.projectId },
+                    err
+                );
+            }
+        })();
+    });
+}
+
 router.post('/mux', async (req: Request, res: Response) => {
     const signature = (req.headers['mux-signature'] as string) ?? '';
     const rawBody = getRawBody(req);
@@ -141,14 +165,7 @@ router.post('/mux', async (req: Request, res: Response) => {
         return;
     }
     res.status(200).send();
-    setImmediate(async () => {
-        try {
-            const payload = rawBody ? JSON.parse(rawBody) : {};
-            await handleProviderWebhook('mux', payload, signature, verified);
-        } catch {
-            // ignore
-        }
-    });
+    scheduleVerifiedWebhookHandler('mux', rawBody, signature, verified);
 });
 
 router.post('/vimeo', async (req: Request, res: Response) => {
@@ -162,14 +179,7 @@ router.post('/vimeo', async (req: Request, res: Response) => {
         return;
     }
     res.status(200).send();
-    setImmediate(async () => {
-        try {
-            const payload = rawBody ? JSON.parse(rawBody) : {};
-            await handleProviderWebhook('vimeo', payload, signature, verified);
-        } catch {
-            // ignore
-        }
-    });
+    scheduleVerifiedWebhookHandler('vimeo', rawBody, signature, verified);
 });
 
 router.post('/cloudflare-stream', async (req: Request, res: Response) => {
@@ -185,14 +195,7 @@ router.post('/cloudflare-stream', async (req: Request, res: Response) => {
         return;
     }
     res.status(200).send();
-    setImmediate(async () => {
-        try {
-            const payload = rawBody ? JSON.parse(rawBody) : {};
-            await handleProviderWebhook('cloudflare-stream', payload, signature, verified);
-        } catch {
-            // ignore
-        }
-    });
+    scheduleVerifiedWebhookHandler('cloudflare-stream', rawBody, signature, verified);
 });
 
 export default router;
