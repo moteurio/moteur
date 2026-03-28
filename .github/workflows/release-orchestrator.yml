@@ -17,12 +17,21 @@ on:
                 default: ''
                 type: string
 
+permissions:
+    contents: write
+
+concurrency:
+    group: release-orchestrator
+    cancel-in-progress: false
+
 jobs:
     release:
         runs-on: ubuntu-latest
         steps:
             - name: Checkout
               uses: actions/checkout@v4
+              with:
+                  fetch-depth: 0
 
             - name: Setup Node.js
               uses: actions/setup-node@v4
@@ -43,6 +52,29 @@ jobs:
                   echo "Release line: $VERSION"
               env:
                   RELEASE_VERSION: ${{ inputs.release_version_override }}
+
+            - name: Prepend CHANGELOG and write release notes
+              run: |
+                  export RELEASE_NOTES_FILE="$RUNNER_TEMP/release-notes.md"
+                  echo "RELEASE_NOTES_FILE=$RELEASE_NOTES_FILE" >> "$GITHUB_ENV"
+                  node scripts/prepend-release-changelog.mjs
+
+            - name: Commit release and push
+              run: |
+                  git config user.name "github-actions[bot]"
+                  git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+                  git add packages/*/package.json CHANGELOG.md
+                  if git diff --cached --quiet; then
+                    echo "No staged changes; aborting"
+                    exit 1
+                  fi
+                  git commit -m "chore(release): ${EXPECTED_MOTEUR_LINE}"
+                  git push origin "HEAD:${GITHUB_REF_NAME}"
+
+            - name: Tag release and push tag
+              run: |
+                  git tag "moteur@${EXPECTED_MOTEUR_LINE}"
+                  git push origin "moteur@${EXPECTED_MOTEUR_LINE}"
 
             - name: Validate release line policy
               run: node scripts/validate-release-versions.mjs
@@ -88,3 +120,11 @@ jobs:
               run: pnpm --filter @moteurio/cli test && pnpm --filter @moteurio/cli run build && cd packages/cli && npm publish --access public
               env:
                   NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+            - name: Create GitHub Release
+              run: |
+                  gh release create "moteur@${EXPECTED_MOTEUR_LINE}" \
+                    --title "moteur ${EXPECTED_MOTEUR_LINE}" \
+                    --notes-file "${RELEASE_NOTES_FILE}"
+              env:
+                  GH_TOKEN: ${{ github.token }}
