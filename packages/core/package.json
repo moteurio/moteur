@@ -1,6 +1,6 @@
 {
     "name": "@moteurio/core",
-    "version": "2026.3.27",
+    "version": "2026.3.28",
     "description": "Moteur content engine core: models, entries, validation, storage, plugins",
     "type": "module",
     "main": "./dist/index.js",
