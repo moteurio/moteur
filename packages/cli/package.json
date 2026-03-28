@@ -12,6 +12,7 @@
         "build": "tsc -b",
         "clean": "rimraf dist",
         "lint": "eslint . --ext .ts",
+        "lint:fix": "eslint . --ext .ts --fix",
         "prepublishOnly": "pnpm run build",
         "test": "vitest run",
         "test:watch": "vitest"
