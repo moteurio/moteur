@@ -16,6 +16,7 @@
  *   Middleware: optionalAuth + apiKeyAuth + requireCollectionOrProjectAccess.
  *
  * - No auth (intentional exceptions):
+ *     - Health: GET /health (liveness for load balancers and orchestrators)
  *     - Auth endpoints: /auth/login, /auth/providers (login flow)
  *     - Form submissions: POST /projects/:projectId/forms/:formId/submit (rate-limited)
  *     - Webhooks: POST /webhooks/mux, /webhooks/vimeo, /webhooks/cloudflare-stream, /webhooks/slack, /webhooks/vercel, /webhooks/github (signature-verified where applicable)
@@ -118,6 +119,9 @@ app.use(basePath + '/studio', studioRateLimiter);
 app.use(basePath, publicRateLimitGate);
 
 const router: Router = express.Router();
+router.get('/health', (_req, res) => {
+    res.status(200).json({ status: 'ok' });
+});
 router.get('/openapi.json', async (req, res) => {
     res.json(mergedApiSpecs);
 });

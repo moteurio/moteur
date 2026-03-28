@@ -611,7 +611,32 @@ export const baseSpec: OpenAPIV3.Document = {
         version: '1.0.0',
         description: 'REST API for the Moteur content engine'
     },
-    paths: {}, // plugins and core will add to this
+    paths: {
+        '/health': {
+            get: {
+                summary: 'Health check',
+                description:
+                    'Liveness probe for load balancers, container orchestrators, and uptime monitoring. No authentication.',
+                security: [],
+                responses: {
+                    '200': {
+                        description: 'Service is up',
+                        content: {
+                            'application/json': {
+                                schema: {
+                                    type: 'object',
+                                    required: ['status'],
+                                    properties: {
+                                        status: { type: 'string', example: 'ok' }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    },
     components: {
         securitySchemes: {
             bearerAuth: {
