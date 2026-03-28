@@ -7,7 +7,7 @@ describe('Splash', () => {
     it('shows ASCII art, default version/tagline and Atelier subtitle', () => {
         const { lastFrame } = render(<Splash />);
         const output = lastFrame();
-        expect(output).toContain('v0.1.0');
+        expect(output).toContain('v2026.3.27');
         expect(output).toContain('Structured Content Engine');
         expect(output).toContain('Atelier');
         expect(output).toContain('____');

@@ -1,5 +1,7 @@
 # Releasing (moteur)
 
+Version scheme: calendar release line for published packages ([VERSIONING.md](VERSIONING.md)).
+
 ## Required secrets
 
 - `NPM_TOKEN` with publish permissions for `@moteurio/*`.
@@ -35,7 +37,7 @@ Do not run fallback tag workflows in parallel with the orchestrator.
 ## Preflight checks
 
 - `node scripts/validate-release-versions.mjs`
-- Ensure package versions/dependency ranges are aligned to the expected release line (including `@moteurio/client`: published packages must use `^<line>` when not `workspace:*`, same as other `@moteurio/*` internals).
+- Ensure package versions/dependency ranges are aligned to the expected release line (including `@moteurio/client`: published packages must use `^<line>` when not `workspace:*`, same as other `@moteurio/*` internals). Override the default line with `EXPECTED_MOTEUR_LINE` if needed (see [VERSIONING.md](VERSIONING.md)).
 - Dry-run each tarball before publishing: from the package directory after `pnpm --filter <pkg> run build`, run `npm publish --dry-run` and confirm `files`, `exports`, and no accidental `src/` leakage.
 - Optional: [npm provenance](https://docs.npmjs.com/generating-provenance-statements) (`npm publish --provenance`) when publishing from GitHub Actions with OIDC.
 
@@ -55,4 +57,4 @@ If a publish fails mid-run:
 ## After a successful publish
 
 - **Host (`api.moteur.io` or equivalent):** bump `@moteurio/`\* ranges if needed, run `pnpm install` so the lockfile resolves from the registry (not `link:`), then deploy. See that repo’s README.
-- **Plugins (`moteur-plugins`):** run the plugin release orchestrator with `expected_moteur_line` set to the published `@moteurio/`\* line you support.
+- **Plugins (`moteur-plugins`):** run the plugin release orchestrator with `expected_moteur_line` set to the published `@moteurio/`\* line you support (same calendar line as in [VERSIONING.md](VERSIONING.md)).

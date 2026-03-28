@@ -31,7 +31,7 @@ jobs:
             - name: Install dependencies
               run: pnpm install
 
-            - name: Validate semver policy
+            - name: Validate release line policy
               run: node scripts/validate-release-versions.mjs
 
             - name: Publish @moteurio/types

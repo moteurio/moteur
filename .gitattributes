@@ -1,1 +1,3 @@
-* text=auto
+# Normalize line endings to LF in the repo and on checkout so Prettier/ESLint do not
+# report "Delete ␍" (CRLF) on Windows. See .editorconfig and .prettierrc.
+* text=auto eol=lf

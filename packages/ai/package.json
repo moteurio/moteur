@@ -1,6 +1,6 @@
 {
     "name": "@moteurio/ai",
-    "version": "0.1.0",
+    "version": "2026.3.27",
     "description": "AI layer for Moteur: providers, credits, translation, generation",
     "main": "./dist/index.js",
     "types": "./dist/index.d.ts",

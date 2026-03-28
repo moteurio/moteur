@@ -1,6 +1,6 @@
 {
     "name": "@moteurio/api-docs",
     "private": true,
-    "version": "0.0.0",
+    "version": "2026.3.27",
     "description": "Static Scalar shell for docs.api.moteur.io (see index.html)"
 }

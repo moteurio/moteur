@@ -3,7 +3,7 @@ import { Box, Text } from 'ink';
 import { colors } from './theme.js';
 
 export interface SplashProps {
-    /** App version (e.g. "0.1.0") */
+    /** App version (e.g. release line from package.json) */
     version?: string;
     /** Tagline shown under the logo */
     tagline?: string;
@@ -27,7 +27,7 @@ export interface LogoAndTaglineProps {
  * Reusable MOTEUR logo + version/tagline + Atelier. Used by Splash and Login.
  */
 export function LogoAndTagline({
-    version = '0.1.0',
+    version = '2026.3.27',
     tagline = 'Structured Content Engine'
 }: LogoAndTaglineProps): React.ReactElement {
     return (
@@ -55,7 +55,7 @@ export function LogoAndTagline({
  * Intro splash: MOTEUR ASCII art, version, tagline. Shown for a beat then caller hides it.
  */
 export function Splash({
-    version = '0.1.0',
+    version = '2026.3.27',
     tagline = 'Structured Content Engine',
     status
 }: SplashProps): React.ReactElement {

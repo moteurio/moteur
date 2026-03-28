@@ -428,13 +428,11 @@ export function App({
                                 .pages.create({ label: 'New Page', slug: '/new-page' });
                             newId = (res as { page?: { id?: string } }).page?.id;
                         } else if (currentScreen === 'models') {
-                            const res = await client
-                                .forProject(pid)
-                                .models.create({
-                                    label: 'New Model',
-                                    modelType: 'content',
-                                    fields: {}
-                                });
+                            const res = await client.forProject(pid).models.create({
+                                label: 'New Model',
+                                modelType: 'content',
+                                fields: {}
+                            });
                             newId = (res as { model?: { id?: string } }).model?.id;
                         } else if (currentScreen === 'navigations') {
                             const res = await client
@@ -457,21 +455,17 @@ export function App({
                                 .forms.create({ name: 'New Form' });
                             newId = (res as { form?: { id?: string } }).form?.id;
                         } else if (currentScreen === 'webhooks') {
-                            const res = await client
-                                .forProject(pid)
-                                .webhooks.create({
-                                    name: 'New Webhook',
-                                    url: 'https://example.com/hook'
-                                });
+                            const res = await client.forProject(pid).webhooks.create({
+                                name: 'New Webhook',
+                                url: 'https://example.com/hook'
+                            });
                             newId = (res as { webhook?: { id?: string } }).webhook?.id;
                         } else if (currentScreen === 'blocks') {
-                            const res = await client
-                                .forProject(pid)
-                                .blocks.create({
-                                    label: 'New Block',
-                                    namespace: 'custom',
-                                    fields: {}
-                                });
+                            const res = await client.forProject(pid).blocks.create({
+                                label: 'New Block',
+                                namespace: 'custom',
+                                fields: {}
+                            });
                             newId = String((res as { id?: string }).id ?? '');
                         }
                         loadList();
@@ -1204,7 +1198,11 @@ export function App({
     if (splashVisible) {
         return (
             <Box flexDirection="column" minHeight={12} justifyContent="center">
-                <Splash version="0.1.0" tagline="Structured Content Engine" status={undefined} />
+                <Splash
+                    version="2026.3.27"
+                    tagline="Structured Content Engine"
+                    status={undefined}
+                />
             </Box>
         );
     }
@@ -1230,7 +1228,7 @@ export function App({
                 minHeight={16}
                 justifyContent="center"
             >
-                <LogoAndTagline version="0.1.0" tagline="Structured Content Engine" />
+                <LogoAndTagline version="2026.3.27" tagline="Structured Content Engine" />
                 <Box flexDirection="column" width={52}>
                     {canLoginInApp ? (
                         <>

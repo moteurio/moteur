@@ -13,7 +13,7 @@ const targetDeps = new Set([
     '@moteurio/api',
     '@moteurio/client'
 ]);
-const expectedLine = process.env.EXPECTED_MOTEUR_LINE ?? '0.1.0';
+const expectedLine = process.env.EXPECTED_MOTEUR_LINE ?? '2026.3.27';
 
 function readJson(filePath) {
     return JSON.parse(fs.readFileSync(filePath, 'utf8'));
@@ -29,6 +29,15 @@ const violations = [];
 for (const dir of packageDirs) {
     const filePath = path.join(dir, 'package.json');
     const pkg = readJson(filePath);
+
+    if (pkg.private !== true && typeof pkg.name === 'string' && pkg.name.startsWith('@moteurio/')) {
+        if (pkg.version !== expectedLine) {
+            violations.push(
+                `${pkg.name}: package version "${pkg.version}" must match release line "${expectedLine}"`
+            );
+        }
+    }
+
     const deps = { ...(pkg.dependencies ?? {}), ...(pkg.devDependencies ?? {}) };
     for (const [depName, depVersion] of Object.entries(deps)) {
         if (!targetDeps.has(depName)) continue;
@@ -40,9 +49,9 @@ for (const dir of packageDirs) {
 }
 
 if (violations.length > 0) {
-    console.error('Release semver policy check failed:\n');
+    console.error('Release line policy check failed:\n');
     for (const v of violations) console.error(`- ${v}`);
     process.exit(1);
 }
 
-console.log('Release semver policy check passed.');
+console.log('Release line policy check passed.');
