@@ -62,4 +62,42 @@ describe('validateTextField', () => {
             ])
         );
     });
+
+    it('returns error for invalid regex pattern without running unsafe match', () => {
+        const bad: Field = {
+            ...field,
+            options: { ...field.options, pattern: '[' }
+        };
+        const issues = validateTextField('Hello', bad, 'data.title');
+        expect(issues).toEqual(
+            expect.arrayContaining([
+                expect.objectContaining({
+                    type: 'error',
+                    code: 'TEXT_PATTERN_INVALID',
+                    path: 'data.title',
+                    message: 'Field pattern is not a valid regular expression.'
+                })
+            ])
+        );
+        expect(issues.some(i => i.code === 'TEXT_PATTERN_MISMATCH')).toBe(false);
+    });
+
+    it('rejects ReDoS-prone pattern (SEC-3)', () => {
+        const bad: Field = {
+            ...field,
+            options: { ...field.options, pattern: '(a+)+$' }
+        };
+        const issues = validateTextField('a'.repeat(30) + 'b', bad, 'data.title');
+        expect(issues).toEqual(
+            expect.arrayContaining([
+                expect.objectContaining({
+                    type: 'error',
+                    code: 'TEXT_PATTERN_INVALID',
+                    path: 'data.title',
+                    message: expect.stringContaining('unsafe regular expression')
+                })
+            ])
+        );
+        expect(issues.some(i => i.code === 'TEXT_PATTERN_MISMATCH')).toBe(false);
+    });
 });
