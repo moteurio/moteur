@@ -1,5 +1,6 @@
 import { Field } from '@moteurio/types/Field.js';
 import { ValidationIssue } from '@moteurio/types/ValidationResult.js';
+import safeRegex from 'safe-regex';
 import { isLikelyLocaleStringMap, isPlainObject } from '../../fieldValueUtils.js';
 
 /** Property name for stored string / locale map (matches registry `fields`). */
@@ -67,6 +68,33 @@ export function validateTextField(value: any, field: Field, path: string): Valid
 
     const opts = field.options || {};
 
+    let patternRe: RegExp | undefined;
+    if (opts.pattern) {
+        const patternStr = String(opts.pattern);
+        try {
+            patternRe = new RegExp(patternStr);
+        } catch {
+            issues.push({
+                type: 'error',
+                code: 'TEXT_PATTERN_INVALID',
+                message: 'Field pattern is not a valid regular expression.',
+                path,
+                context: { pattern: patternStr }
+            });
+        }
+        if (patternRe && !safeRegex(patternRe)) {
+            issues.push({
+                type: 'error',
+                code: 'TEXT_PATTERN_INVALID',
+                message:
+                    'Field pattern is not allowed: it may cause excessive matching cost (unsafe regular expression).',
+                path,
+                context: { pattern: patternStr }
+            });
+            patternRe = undefined;
+        }
+    }
+
     for (const { pathSuffix, text } of segments) {
         const p = `${path}${pathSuffix}`;
 
@@ -88,11 +116,11 @@ export function validateTextField(value: any, field: Field, path: string): Valid
                 context: { value: text }
             });
         }
-        if (opts.pattern && !new RegExp(opts.pattern).test(text)) {
+        if (patternRe && !patternRe.test(text)) {
             issues.push({
                 type: 'error',
                 code: 'TEXT_PATTERN_MISMATCH',
-                message: `Value does not match pattern: ${opts.pattern}`,
+                message: `Value does not match pattern: ${String(opts.pattern)}`,
                 path: p,
                 context: { value: text }
             });
