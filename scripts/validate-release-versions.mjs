@@ -13,8 +13,6 @@ const targetDeps = new Set([
     '@moteurio/api',
     '@moteurio/client'
 ]);
-const expectedLine = process.env.EXPECTED_MOTEUR_LINE ?? '2026.3.27';
-
 function readJson(filePath) {
     return JSON.parse(fs.readFileSync(filePath, 'utf8'));
 }
@@ -24,6 +22,37 @@ const packageDirs = fs
     .filter(d => d.isDirectory())
     .map(d => path.join(packagesDir, d.name))
     .filter(dir => fs.existsSync(path.join(dir, 'package.json')));
+
+function inferReleaseLineFromPackages() {
+    const versions = new Set();
+    for (const dir of packageDirs) {
+        const pkg = readJson(path.join(dir, 'package.json'));
+        if (pkg.private === true) continue;
+        if (typeof pkg.name !== 'string' || !pkg.name.startsWith('@moteurio/')) continue;
+        if (typeof pkg.version !== 'string' || !pkg.version.trim()) {
+            console.error(`validate-release-versions: ${pkg.name ?? dir} has missing or invalid version`);
+            process.exit(1);
+        }
+        versions.add(pkg.version);
+    }
+    if (versions.size === 0) {
+        console.error(
+            'validate-release-versions: no published @moteurio/* packages found; set EXPECTED_MOTEUR_LINE or add package.json versions'
+        );
+        process.exit(1);
+    }
+    if (versions.size > 1) {
+        const sorted = [...versions].sort();
+        console.error(
+            `validate-release-versions: inconsistent release line across packages: ${sorted.join(', ')}`
+        );
+        process.exit(1);
+    }
+    return [...versions][0];
+}
+
+const envLine = process.env.EXPECTED_MOTEUR_LINE?.trim();
+const expectedLine = envLine || inferReleaseLineFromPackages();
 
 const violations = [];
 for (const dir of packageDirs) {
