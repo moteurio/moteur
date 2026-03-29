@@ -1,6 +1,6 @@
 {
     "name": "@moteurio/presence",
-    "version": "2026.3.28",
+    "version": "2026.3.29",
     "description": "Socket.IO presence, exclusive field locks, and ephemeral per-screen LWW state for Moteur Studio",
     "main": "./dist/index.js",
     "types": "./dist/index.d.ts",

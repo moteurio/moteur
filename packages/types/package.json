@@ -1,6 +1,6 @@
 {
     "name": "@moteurio/types",
-    "version": "2026.3.28",
+    "version": "2026.3.29",
     "description": "Shared TypeScript types for Moteur (projects, models, entries, pages, assets, etc.)",
     "type": "module",
     "main": "./dist/index.js",

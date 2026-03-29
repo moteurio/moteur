@@ -2,6 +2,10 @@
 
 All notable changes to published `@moteurio/*` packages are documented here. Version lines are kept aligned across the monorepo for coordinated releases (see [RELEASING.md](RELEASING.md) and [VERSIONING.md](VERSIONING.md)).
 
+## 2026.3.29
+
+- _(no commits in range)_
+
 ## 2026.3.28
 
 First coordinated `moteur@` release tag; recent commits (no prior `moteur@*` tag):

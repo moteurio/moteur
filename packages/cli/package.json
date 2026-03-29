@@ -1,6 +1,6 @@
 {
     "name": "@moteurio/cli",
-    "version": "2026.3.28",
+    "version": "2026.3.29",
     "description": "Command-line interface for Moteur: manage projects and content from the terminal",
     "type": "module",
     "bin": {
