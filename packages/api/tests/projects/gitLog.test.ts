@@ -74,4 +74,22 @@ describe('GET /projects/:projectId/git/log', () => {
         expect(res.status).toBe(400);
         expect(res.body).toEqual({ error: 'Project is not a Git repository' });
     });
+
+    it('returns 400 when path escapes the project directory', async () => {
+        const res = await request(app).get(
+            '/projects/demo/git/log?path=' + encodeURIComponent('../../etc/passwd')
+        );
+        expect(res.status).toBe(400);
+        expect(res.body).toEqual({ error: 'Path escapes project directory' });
+        expect(mockGetLog).not.toHaveBeenCalled();
+    });
+
+    it('returns 400 when path is absolute', async () => {
+        const res = await request(app).get(
+            '/projects/demo/git/log?path=' + encodeURIComponent('/etc/passwd')
+        );
+        expect(res.status).toBe(400);
+        expect(res.body).toEqual({ error: 'Path must be relative to the project root' });
+        expect(mockGetLog).not.toHaveBeenCalled();
+    });
 });

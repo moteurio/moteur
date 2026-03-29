@@ -1,6 +1,7 @@
 import type { Request, Response } from 'express';
 import { Router } from 'express';
 import type { OpenAPIV3 } from 'openapi-types';
+import path from 'path';
 import { projectDir } from '@moteurio/core/utils/pathUtils.js';
 import { getLog, getRepoLog, isGitRepo } from '@moteurio/core/git/index.js';
 import { requireProjectAccess } from '../middlewares/auth.js';
@@ -23,9 +24,24 @@ router.get('/log', requireProjectAccess, async (req: Request, res: Response) => 
     }
     const relPath = typeof req.query.path === 'string' ? req.query.path.trim() : '';
     try {
-        const commits = relPath
-            ? getLog(dir, relPath.replace(/\\/g, '/'), max)
-            : getRepoLog(dir, max);
+        let commits;
+        if (relPath) {
+            const withSlashes = relPath.replace(/\\/g, '/');
+            if (path.isAbsolute(withSlashes)) {
+                return void res
+                    .status(400)
+                    .json({ error: 'Path must be relative to the project root' });
+            }
+            const root = path.resolve(dir);
+            const resolved = path.resolve(dir, withSlashes);
+            const underRoot = path.relative(root, resolved);
+            if (underRoot.startsWith('..') || path.isAbsolute(underRoot)) {
+                return void res.status(400).json({ error: 'Path escapes project directory' });
+            }
+            commits = getLog(dir, underRoot.replace(/\\/g, '/'), max);
+        } else {
+            commits = getRepoLog(dir, max);
+        }
         return void res.json({ commits });
     } catch (err: unknown) {
         return void sendApiError(res, req, err);
@@ -82,7 +98,8 @@ export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
                     }
                 },
                 '400': {
-                    description: 'Not a Git repository'
+                    description:
+                        'Not a Git repository, or `path` is absolute or resolves outside the project root'
                 }
             }
         }
