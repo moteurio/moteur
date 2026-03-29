@@ -67,6 +67,30 @@ import { attachPresenceServer } from '@moteurio/presence';
 import '@moteurio/core/assets/index.js';
 // Video provider config (Mux/Vimeo) is set by video-mux and video-vimeo plugins when enabled
 
+/** Log and exit on fatal process errors (before server listen and during runtime). */
+function registerProcessFatalHandlers(): void {
+    process.on('unhandledRejection', (reason: unknown) => {
+        const message =
+            reason instanceof Error
+                ? reason.message
+                : typeof reason === 'string'
+                  ? reason
+                  : String(reason);
+        const stack = reason instanceof Error ? reason.stack : undefined;
+        console.error('[API fatal]', { event: 'unhandledRejection', message, stack }, reason);
+        process.exit(1);
+    });
+    process.on('uncaughtException', (err: Error, origin: string) => {
+        console.error(
+            '[API fatal]',
+            { event: 'uncaughtException', origin, message: err.message, stack: err.stack },
+            err
+        );
+        process.exit(1);
+    });
+}
+registerProcessFatalHandlers();
+
 // CORS: restrict to explicit origins. Set CORS_ORIGINS (comma-separated) in production.
 function getCorsOrigin(): string | string[] {
     const env = process.env.CORS_ORIGINS?.trim();
