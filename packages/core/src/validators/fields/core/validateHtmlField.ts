@@ -1,9 +1,10 @@
 import { ValidationIssue } from '@moteurio/types/ValidationResult.js';
-import { Field } from '@moteurio/types/Field.js';
+import type { Field, FieldValidationContext } from '@moteurio/types/Field.js';
 // @ts-expect-error - Sanitize HTML does not have a default export
 import sanitizeHtml from 'sanitize-html';
 
-const KNOWN_HTML_TAGS = new Set([
+/** Baseline tags for HTML_UNKNOWN_TAGS; iframe/embed/object/param are project-gated. */
+const BASE_KNOWN_HTML_TAGS = new Set([
     'p',
     'strong',
     'em',
@@ -58,16 +59,76 @@ const KNOWN_HTML_TAGS = new Set([
     'aside',
     'nav',
     'header',
-    'footer',
-    'iframe',
-    'embed',
-    'object',
-    'param'
+    'footer'
 ]);
 
-function validateHtmlString(value: string, field: Field, path: string): ValidationIssue[] {
+const IFRAME_RE = /<iframe\b/i;
+const EMBED_FAMILY_RE = /<(embed|object|param)\b/i;
+
+function knownHtmlTagsForContext(context?: FieldValidationContext): Set<string> {
+    const s = new Set(BASE_KNOWN_HTML_TAGS);
+    if (context?.allowHtmlIframe === true) {
+        s.add('iframe');
+    }
+    if (context?.allowHtmlEmbed === true) {
+        s.add('embed');
+        s.add('object');
+        s.add('param');
+    }
+    return s;
+}
+
+function declaredAllowedTags(field: Field): string[] {
+    return (field.options?.allowedTags ?? ['p', 'strong', 'em', 'ul', 'li', 'a']) as string[];
+}
+
+function effectiveAllowedTags(field: Field, context?: FieldValidationContext): string[] {
+    const allowIframe = context?.allowHtmlIframe === true;
+    const allowEmbed = context?.allowHtmlEmbed === true;
+    return declaredAllowedTags(field).filter(tag => {
+        if (tag === 'iframe') {
+            return allowIframe;
+        }
+        if (tag === 'embed' || tag === 'object' || tag === 'param') {
+            return allowEmbed;
+        }
+        return true;
+    });
+}
+
+function validateHtmlString(
+    value: string,
+    field: Field,
+    path: string,
+    context?: FieldValidationContext
+): ValidationIssue[] {
     const issues: ValidationIssue[] = [];
-    const allowedTags = field.options?.allowedTags ?? ['p', 'strong', 'em', 'ul', 'li', 'a'];
+    const allowIframe = context?.allowHtmlIframe === true;
+    const allowEmbed = context?.allowHtmlEmbed === true;
+
+    if (!allowIframe && IFRAME_RE.test(value)) {
+        issues.push({
+            type: 'error',
+            code: 'HTML_IFRAME_NOT_ALLOWED',
+            message:
+                'This project does not allow iframe tags in HTML fields. Enable allowHtmlIframe in project settings.',
+            path,
+            context: { value }
+        });
+    }
+
+    if (!allowEmbed && EMBED_FAMILY_RE.test(value)) {
+        issues.push({
+            type: 'error',
+            code: 'HTML_EMBED_NOT_ALLOWED',
+            message:
+                'This project does not allow embed, object, or param tags in HTML fields. Enable allowHtmlEmbed in project settings.',
+            path,
+            context: { value }
+        });
+    }
+
+    const allowedTags = effectiveAllowedTags(field, context);
     const allowedAttributes = field.options?.allowedAttributes ?? { a: ['href', 'target'] };
 
     const sanitized = sanitizeHtml(value, { allowedTags, allowedAttributes });
@@ -82,7 +143,8 @@ function validateHtmlString(value: string, field: Field, path: string): Validati
         });
     }
 
-    const invalidTags = (allowedTags as string[]).filter(tag => !KNOWN_HTML_TAGS.has(tag));
+    const known = knownHtmlTagsForContext(context);
+    const invalidTags = declaredAllowedTags(field).filter(tag => !known.has(tag));
     if (invalidTags.length > 0) {
         issues.push({
             type: 'warning',
@@ -96,7 +158,12 @@ function validateHtmlString(value: string, field: Field, path: string): Validati
     return issues;
 }
 
-export function validateHtmlField(value: any, field: Field, path: string): ValidationIssue[] {
+export function validateHtmlField(
+    value: any,
+    field: Field,
+    path: string,
+    context?: FieldValidationContext
+): ValidationIssue[] {
     const issues: ValidationIssue[] = [];
 
     if (typeof value !== 'string') {
@@ -110,15 +177,20 @@ export function validateHtmlField(value: any, field: Field, path: string): Valid
         return issues;
     }
 
-    return [...issues, ...validateHtmlString(value, field, path)];
+    return [...issues, ...validateHtmlString(value, field, path, context)];
 }
 
 /**
  * Validates core/html stored value: either a string (legacy) or { html: Record<locale, string> }.
  */
-export function validateHtmlStoredField(value: any, field: Field, path: string): ValidationIssue[] {
+export function validateHtmlStoredField(
+    value: any,
+    field: Field,
+    path: string,
+    context?: FieldValidationContext
+): ValidationIssue[] {
     if (typeof value === 'string') {
-        return validateHtmlField(value, field, path);
+        return validateHtmlField(value, field, path, context);
     }
     if (value && typeof value === 'object' && value.html && typeof value.html === 'object') {
         const issues: ValidationIssue[] = [];
@@ -132,7 +204,7 @@ export function validateHtmlStoredField(value: any, field: Field, path: string):
                     context: { value: str }
                 });
             } else {
-                issues.push(...validateHtmlString(str, field, `${path}.html.${locale}`));
+                issues.push(...validateHtmlString(str, field, `${path}.html.${locale}`, context));
             }
         }
         return issues;

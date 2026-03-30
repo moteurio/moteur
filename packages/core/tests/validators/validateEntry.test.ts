@@ -96,4 +96,53 @@ describe('validateEntry', () => {
         expect(result.valid).toBe(false);
         expect(result.issues.some(i => i.code === 'MULTI_SELECT_INVALID_TYPE')).toBe(true);
     });
+
+    it('propagates HTML embed policy to core/html inside core/object', async () => {
+        const schemaWithObject: ModelSchema = {
+            id: 'core/article',
+            label: 'Article',
+            fields: {
+                title: {
+                    type: 'core/text',
+                    label: 'Title',
+                    options: { required: true }
+                },
+                block: {
+                    type: 'core/object',
+                    label: 'Block',
+                    data: {
+                        copy: {
+                            type: 'core/html',
+                            label: 'Copy',
+                            options: {
+                                allowedTags: ['p', 'iframe'],
+                                allowedAttributes: { iframe: ['src'] }
+                            }
+                        }
+                    }
+                }
+            }
+        } as ModelSchema;
+
+        const entry: Entry = {
+            id: 'e1',
+            type: 'core/article',
+            data: {
+                title: 'T',
+                block: {
+                    copy: '<p><iframe src="https://example.com"></iframe></p>'
+                }
+            }
+        };
+
+        const denied = await validateEntry('p1', entry, schemaWithObject, {});
+        expect(denied.valid).toBe(false);
+        expect(denied.issues.some(i => i.code === 'HTML_IFRAME_NOT_ALLOWED')).toBe(true);
+
+        const allowed = await validateEntry('p1', entry, schemaWithObject, {
+            allowHtmlIframe: true
+        });
+        expect(allowed.valid).toBe(true);
+        expect(allowed.issues.some(i => i.code === 'HTML_IFRAME_NOT_ALLOWED')).toBe(false);
+    });
 });

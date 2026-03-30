@@ -1,4 +1,4 @@
-import { Field } from '@moteurio/types/Field.js';
+import type { Field, FieldValidationContext } from '@moteurio/types/Field.js';
 import { ValidationIssue } from '@moteurio/types/ValidationResult.js';
 import { isPlainObject } from '../../fieldValueUtils.js';
 import * as structures from '../../../structures.js';
@@ -20,7 +20,12 @@ function resolveStructureContent(value: unknown): Record<string, unknown> | null
     return value as Record<string, unknown>;
 }
 
-export function validateStructureField(value: any, field: Field, path: string): ValidationIssue[] {
+export function validateStructureField(
+    value: any,
+    field: Field,
+    path: string,
+    context?: FieldValidationContext
+): ValidationIssue[] {
     const issues: ValidationIssue[] = [];
 
     const structureId = field.options?.structure;
@@ -86,7 +91,7 @@ export function validateStructureField(value: any, field: Field, path: string): 
 
     for (const [subKey, subField] of Object.entries(schemaFields)) {
         const subValue = contentValue[subKey];
-        const subIssues = validateFieldValue(subValue, subField, `${path}.${subKey}`);
+        const subIssues = validateFieldValue(subValue, subField, `${path}.${subKey}`, context);
         issues.push(...subIssues);
     }
 

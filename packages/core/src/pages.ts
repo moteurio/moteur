@@ -275,7 +275,11 @@ export async function createPage(
             projectId,
             { id: page.id, fields: (page as StaticPage).fields },
             await getTemplate(projectId, templateId),
-            { projectLocales: projectLocalesList(project) }
+            {
+                projectLocales: projectLocalesList(project),
+                allowHtmlIframe: project.allowHtmlIframe === true,
+                allowHtmlEmbed: project.allowHtmlEmbed === true
+            }
         );
         if (!validation.valid) {
             const msg = validation.issues.map(i => `${i.path}: ${i.message}`).join('; ');
@@ -338,7 +342,11 @@ export async function updatePage(
                 projectId,
                 { ...updated, templateId, fields: (updated as StaticPage).fields } as any,
                 template,
-                { projectLocales: projectLocalesList(proj) }
+                {
+                    projectLocales: projectLocalesList(proj),
+                    allowHtmlIframe: proj?.allowHtmlIframe === true,
+                    allowHtmlEmbed: proj?.allowHtmlEmbed === true
+                }
             );
             if (!validation.valid) {
                 const msg = validation.issues.map(i => `${i.path}: ${i.message}`).join('; ');
@@ -597,7 +605,11 @@ export async function validatePageById(projectId: string, id: string): Promise<V
             fields: (page as StaticPage).fields
         } as any,
         template,
-        { projectLocales: projectLocalesList(proj) }
+        {
+            projectLocales: projectLocalesList(proj),
+            allowHtmlIframe: proj?.allowHtmlIframe === true,
+            allowHtmlEmbed: proj?.allowHtmlEmbed === true
+        }
     );
 }
 
@@ -624,7 +636,11 @@ export async function validateAllPages(projectId: string): Promise<ValidationRes
                         fields: (page as StaticPage).fields
                     } as any,
                     template,
-                    { projectLocales: projectLocalesList(proj) }
+                    {
+                        projectLocales: projectLocalesList(proj),
+                        allowHtmlIframe: proj?.allowHtmlIframe === true,
+                        allowHtmlEmbed: proj?.allowHtmlEmbed === true
+                    }
                 )
             );
         } catch {

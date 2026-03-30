@@ -8,6 +8,8 @@ import type { Block } from '@moteurio/types/Block.js';
 export interface ValidateBlockInstancesOptions {
     /** When set, block schemas include project-scoped definitions (data/projects/&lt;id&gt;/blocks). */
     projectId?: string;
+    allowHtmlIframe?: boolean;
+    allowHtmlEmbed?: boolean;
     /** Project locales for block.locales validation */
     projectLocales?: string[];
     /** If set, each block `type` must be in this list */
@@ -145,7 +147,9 @@ export function validateBlockInstances(
 
             issues.push(
                 ...validateFieldValue(fieldValue, fieldDef, fieldPath, {
-                    projectId: options?.projectId
+                    projectId: options?.projectId,
+                    allowHtmlIframe: options?.allowHtmlIframe === true,
+                    allowHtmlEmbed: options?.allowHtmlEmbed === true
                 })
             );
         }

@@ -2,6 +2,8 @@ import { describe, it, expect } from 'vitest';
 import { validatePage } from '../../src/validators/validatePage.js';
 import type { TemplateSchema } from '@moteurio/types/Template.js';
 
+import '../../src/fields/index.js';
+
 describe('validatePage', () => {
     const schema: TemplateSchema = {
         id: 'landing',
@@ -82,5 +84,39 @@ describe('validatePage', () => {
         };
         const result = await validatePage('p1', page, minimalSchema);
         expect(result.valid).toBe(true);
+    });
+
+    it('blocks iframe in core/html on page fields when allowHtmlIframe is off', async () => {
+        const htmlTemplate: TemplateSchema = {
+            id: 't1',
+            projectId: 'p1',
+            label: 'T',
+            fields: {
+                body: {
+                    type: 'core/html',
+                    label: 'Body',
+                    options: {
+                        required: true,
+                        allowedTags: ['p', 'iframe'],
+                        allowedAttributes: { iframe: ['src'] }
+                    }
+                }
+            },
+            createdAt: '',
+            updatedAt: ''
+        };
+        const page = {
+            id: 'page1',
+            fields: {
+                body: { html: { en: '<iframe src="https://x.test"></iframe>' } }
+            }
+        };
+        const denied = await validatePage('p1', page, htmlTemplate, {});
+        expect(denied.valid).toBe(false);
+        expect(denied.issues.some(i => i.code === 'HTML_IFRAME_NOT_ALLOWED')).toBe(true);
+
+        const allowed = await validatePage('p1', page, htmlTemplate, { allowHtmlIframe: true });
+        expect(allowed.valid).toBe(true);
+        expect(allowed.issues.some(i => i.code === 'HTML_IFRAME_NOT_ALLOWED')).toBe(false);
     });
 });

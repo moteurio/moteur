@@ -1,9 +1,14 @@
-import { Field } from '@moteurio/types/Field.js';
+import type { Field, FieldValidationContext } from '@moteurio/types/Field.js';
 import { ValidationIssue } from '@moteurio/types/ValidationResult.js';
 import { isPlainObject } from '../../fieldValueUtils.js';
 import { validateFieldValue } from '../../validateFieldValue.js';
 
-export function validateObjectField(value: any, field: Field, path: string): ValidationIssue[] {
+export function validateObjectField(
+    value: any,
+    field: Field,
+    path: string,
+    context?: FieldValidationContext
+): ValidationIssue[] {
     const issues: ValidationIssue[] = [];
 
     if (value === null || typeof value !== 'object' || Array.isArray(value)) {
@@ -38,7 +43,7 @@ export function validateObjectField(value: any, field: Field, path: string): Val
     for (const [key, subField] of Object.entries(childFields)) {
         const subValue = inner[key];
         const subPath = `${path}.${key}`;
-        issues.push(...validateFieldValue(subValue, subField, subPath));
+        issues.push(...validateFieldValue(subValue, subField, subPath, context));
     }
 
     return issues;

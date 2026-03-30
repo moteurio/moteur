@@ -22,7 +22,11 @@ export async function validateLayoutFieldValues(
     fields: Record<string, unknown> | undefined,
     schemaFields: Record<string, Field>,
     pathPrefix: string,
-    projectLocales?: string[]
+    options?: {
+        projectLocales?: string[];
+        allowHtmlIframe?: boolean;
+        allowHtmlEmbed?: boolean;
+    }
 ): Promise<ValidationIssue[]> {
     const issues: ValidationIssue[] = [];
     const blockRegistry = new BlockRegistry(projectId);
@@ -129,11 +133,17 @@ export async function validateLayoutFieldValues(
                     continue;
                 }
 
-                issues.push(...validateFieldValue(fieldValue, fieldDef, fieldPath, { projectId }));
+                issues.push(
+                    ...validateFieldValue(fieldValue, fieldDef, fieldPath, {
+                        projectId,
+                        allowHtmlIframe: options?.allowHtmlIframe === true,
+                        allowHtmlEmbed: options?.allowHtmlEmbed === true
+                    })
+                );
             }
         }
 
-        void projectLocales;
+        void options?.projectLocales;
     }
 
     return issues;

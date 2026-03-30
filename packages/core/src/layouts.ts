@@ -52,7 +52,12 @@ export async function createLayout(user: User, projectId: string, layout: Layout
     const projectLocales = [project.defaultLocale, ...(project.supportedLocales ?? [])].filter(
         Boolean
     );
-    const result = validateLayout(layout, { projectId, projectLocales });
+    const result = validateLayout(layout, {
+        projectId,
+        projectLocales,
+        allowHtmlIframe: project.allowHtmlIframe === true,
+        allowHtmlEmbed: project.allowHtmlEmbed === true
+    });
     if (result.issues.length > 0) {
         throw new Error(
             `Layout validation failed: ${result.issues.map(issue => issue.message).join(', ')}`
@@ -99,7 +104,12 @@ export async function updateLayout(
     const projectLocales = [project.defaultLocale, ...(project.supportedLocales ?? [])].filter(
         Boolean
     );
-    const result = validateLayout(updated, { projectId, projectLocales });
+    const result = validateLayout(updated, {
+        projectId,
+        projectLocales,
+        allowHtmlIframe: project.allowHtmlIframe === true,
+        allowHtmlEmbed: project.allowHtmlEmbed === true
+    });
     if (result.issues.length > 0) {
         throw new Error(
             `Layout validation failed: ${result.issues.map(issue => issue.message).join(', ')}`

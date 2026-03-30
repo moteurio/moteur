@@ -27,7 +27,9 @@ router.patch('/:entryId', requireProjectAccess, async (req: Request, res: Respon
         ? ([proj.defaultLocale, ...(proj.supportedLocales ?? [])].filter(Boolean) as string[])
         : undefined;
     const validation = await validateEntry(projectId, req.body, modelSchema, {
-        projectLocales: projectLocales?.length ? projectLocales : undefined
+        projectLocales: projectLocales?.length ? projectLocales : undefined,
+        allowHtmlIframe: proj?.allowHtmlIframe === true,
+        allowHtmlEmbed: proj?.allowHtmlEmbed === true
     });
 
     if (!validation.valid) {

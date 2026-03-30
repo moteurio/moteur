@@ -28,4 +28,62 @@ describe('validateHtmlField', () => {
         expect(issues).toHaveLength(1);
         expect(issues[0].code).toBe('HTML_INVALID_TYPE');
     });
+
+    it('returns error for iframe when project does not allow iframes', () => {
+        const htmlField: Field = {
+            type: 'core/html',
+            label: 'Content',
+            options: { allowedTags: ['p', 'iframe'] }
+        };
+        const issues = validateHtmlField(
+            '<p><iframe src="https://x.test"></iframe></p>',
+            htmlField,
+            'x',
+            {}
+        );
+        expect(issues.some(i => i.code === 'HTML_IFRAME_NOT_ALLOWED')).toBe(true);
+    });
+
+    it('allows iframe when allowHtmlIframe and allowedTags include iframe', () => {
+        const htmlField: Field = {
+            type: 'core/html',
+            label: 'Content',
+            options: {
+                allowedTags: ['p', 'iframe'],
+                allowedAttributes: { iframe: ['src'] }
+            }
+        };
+        const issues = validateHtmlField(
+            '<p><iframe src="https://x.test"></iframe></p>',
+            htmlField,
+            'x',
+            { allowHtmlIframe: true }
+        );
+        expect(issues.some(i => i.code === 'HTML_IFRAME_NOT_ALLOWED')).toBe(false);
+    });
+
+    it('returns error for embed when project does not allow embeds', () => {
+        const htmlField: Field = {
+            type: 'core/html',
+            label: 'Content',
+            options: { allowedTags: ['p', 'embed'] }
+        };
+        const issues = validateHtmlField('<p><embed src="x"></embed></p>', htmlField, 'x', {});
+        expect(issues.some(i => i.code === 'HTML_EMBED_NOT_ALLOWED')).toBe(true);
+    });
+
+    it('allows embed when allowHtmlEmbed and allowedTags include embed', () => {
+        const htmlField: Field = {
+            type: 'core/html',
+            label: 'Content',
+            options: {
+                allowedTags: ['p', 'embed'],
+                allowedAttributes: { embed: ['src'] }
+            }
+        };
+        const issues = validateHtmlField('<p><embed src="x"></embed></p>', htmlField, 'x', {
+            allowHtmlEmbed: true
+        });
+        expect(issues.some(i => i.code === 'HTML_EMBED_NOT_ALLOWED')).toBe(false);
+    });
 });

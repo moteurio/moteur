@@ -36,4 +36,19 @@ describe('validateHtmlStoredField', () => {
         expect(issues[0].code).toBe('HTML_INVALID_TYPE');
         expect(issues[0].message).toContain('string (HTML) or { html:');
     });
+
+    it('returns iframe error for multilingual html when embeds disabled', () => {
+        const htmlField: Field = {
+            type: 'core/html',
+            label: 'Content',
+            options: { allowedTags: ['iframe'] }
+        };
+        const issues = validateHtmlStoredField(
+            { html: { en: '<iframe src="a"></iframe>' } },
+            htmlField,
+            'data.content',
+            {}
+        );
+        expect(issues.some(i => i.code === 'HTML_IFRAME_NOT_ALLOWED')).toBe(true);
+    });
 });
