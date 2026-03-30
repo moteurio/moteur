@@ -1,5 +1,7 @@
 import crypto from 'crypto';
 import { randomUUID } from 'crypto';
+import dns from 'node:dns/promises';
+import { isIPv4, isIPv6 } from 'node:net';
 import type {
     Webhook,
     WebhookDelivery,
@@ -73,11 +75,132 @@ function isHttpsOrLocalhost(urlStr: string): boolean {
     }
 }
 
-function validateUrl(url: string): void {
+function ipv4ToUint32(ip: string): number {
+    const parts = ip.split('.');
+    if (parts.length !== 4) throw new Error('Invalid IPv4');
+    let n = 0;
+    for (const p of parts) {
+        const o = Number(p);
+        if (!Number.isInteger(o) || o < 0 || o > 255) throw new Error('Invalid IPv4');
+        n = (n << 8) | o;
+    }
+    return n >>> 0;
+}
+
+/** RFC 1918, loopback, link-local, CGNAT, and common SSRF targets. When allowLoopback, 127.0.0.0/8 is allowed. */
+function isRestrictedIpv4Uint32(n: number, allowLoopback: boolean): boolean {
+    if (allowLoopback && n >>> 24 === 127) return false;
+    if (n >>> 24 === 10) return true;
+    if (n >= 0xac10_0000 && n <= 0xac1f_ffff) return true;
+    if (n >>> 16 === 0xc0a8) return true;
+    if (n >>> 16 === 0xa9fe) return true;
+    if (n >= 0x6440_0000 && n <= 0x647f_ffff) return true;
+    if (n >>> 24 === 127) return true;
+    return false;
+}
+
+function expandIpv6ForCheck(ip: string): string {
+    const lower = ip.toLowerCase();
+    if (lower.includes('.')) {
+        const idx = lower.lastIndexOf(':');
+        const v4str = lower.slice(idx + 1);
+        const prefix = lower.slice(0, idx);
+        const n = ipv4ToUint32(v4str);
+        const tail =
+            ((n >>> 16) & 0xffff).toString(16).padStart(4, '0') +
+            ':' +
+            (n & 0xffff).toString(16).padStart(4, '0');
+        return expandIpv6Only(prefix ? `${prefix}:${tail}` : `::${tail}`);
+    }
+    return expandIpv6Only(lower);
+}
+
+function expandIpv6Only(ip: string): string {
+    const lower = ip.toLowerCase();
+    const [head, tail = ''] = lower.includes('::') ? lower.split('::', 2) : [lower, ''];
+    const left = head ? head.split(':').filter(Boolean) : [];
+    const right = tail ? tail.split(':').filter(Boolean) : [];
+    const missing = 8 - left.length - right.length;
+    if (missing < 0) throw new Error('Invalid IPv6');
+    const parts = [...left, ...Array(missing).fill('0'), ...right];
+    return parts.map(p => p.padStart(4, '0')).join(':');
+}
+
+function isRestrictedIpv6(ip: string, allowLoopback: boolean): boolean {
+    const v4m = /^::ffff:(\d{1,3}(?:\.\d{1,3}){3})$/i.exec(ip);
+    if (v4m) {
+        try {
+            return isRestrictedIpv4Uint32(ipv4ToUint32(v4m[1]!), allowLoopback);
+        } catch {
+            return true;
+        }
+    }
+    if (ip.toLowerCase() === '::1') return !allowLoopback;
+    let expanded: string;
+    try {
+        expanded = expandIpv6ForCheck(ip);
+    } catch {
+        return true;
+    }
+    const first = parseInt(expanded.split(':')[0]!, 16);
+    if (first >= 0xfe80 && first <= 0xfebf) return true;
+    if (first >= 0xfc00 && first <= 0xfdff) return true;
+    if (first >= 0xff00) return true;
+    return false;
+}
+
+function isRestrictedAddress(address: string, family: 4 | 6, allowLoopback: boolean): boolean {
+    if (family === 4) {
+        try {
+            return isRestrictedIpv4Uint32(ipv4ToUint32(address), allowLoopback);
+        } catch {
+            return true;
+        }
+    }
+    return isRestrictedIpv6(address, allowLoopback);
+}
+
+function devLocalHttpAllowsLoopback(u: URL): boolean {
+    return (
+        process.env.NODE_ENV !== 'production' &&
+        u.protocol === 'http:' &&
+        (u.hostname === 'localhost' || u.hostname === '127.0.0.1')
+    );
+}
+
+async function assertResolvedTargetAllowed(u: URL): Promise<void> {
+    const allowLoopback = devLocalHttpAllowsLoopback(u);
+    const host = u.hostname;
+    let records: { address: string; family: number }[];
+    if (isIPv4(host)) {
+        records = [{ address: host, family: 4 }];
+    } else if (isIPv6(host)) {
+        records = [{ address: host, family: 6 }];
+    } else {
+        try {
+            records = await dns.lookup(host, { all: true, verbatim: true });
+        } catch {
+            throw new Error('Webhook URL host could not be resolved');
+        }
+    }
+    if (records.length === 0) {
+        throw new Error('Webhook URL host could not be resolved');
+    }
+    for (const { address, family } of records) {
+        if (isRestrictedAddress(address, family as 4 | 6, allowLoopback)) {
+            throw new Error(
+                'Webhook URL resolves to a private or restricted network address, which is not allowed'
+            );
+        }
+    }
+}
+
+async function validateUrl(url: string): Promise<void> {
     if (!url || typeof url !== 'string') throw new Error('URL is required');
     if (!isHttpsOrLocalhost(url)) {
         throw new Error('URL must be HTTPS (or HTTP localhost in development only)');
     }
+    await assertResolvedTargetAllowed(new URL(url.trim()));
 }
 
 function validateEvents(events: WebhookEvent[] | undefined): void {
@@ -239,7 +362,7 @@ export async function createWebhook(
         enabled?: boolean;
     }
 ): Promise<Webhook> {
-    validateUrl(data.url);
+    await validateUrl(data.url);
     validateEvents(data.events);
     validateFilters(data.filters);
 
@@ -280,7 +403,7 @@ export async function updateWebhook(
     const idx = list.findIndex(w => w.id === id);
     if (idx === -1) throw new Error(`Webhook "${id}" not found`);
 
-    if (patch.url !== undefined) validateUrl(patch.url);
+    if (patch.url !== undefined) await validateUrl(patch.url);
     if (patch.events !== undefined) validateEvents(patch.events);
     if (patch.filters !== undefined) validateFilters(patch.filters);
 
@@ -389,6 +512,25 @@ function scheduleDelivery(delivery: WebhookDelivery, webhook: Webhook): void {
 async function attemptDelivery(delivery: WebhookDelivery, webhook: Webhook): Promise<void> {
     const projectId = webhook.projectId;
     const secret = decryptSecret(webhook.secret);
+    const start = Date.now();
+
+    try {
+        await validateUrl(webhook.url);
+    } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        await updateDeliveryInLog(projectId, delivery.id, d => ({
+            ...d,
+            status: 'failed' as WebhookDeliveryStatus,
+            attemptCount: delivery.attemptCount + 1,
+            responseStatus: undefined,
+            responseBody: msg,
+            durationMs: Date.now() - start,
+            lastAttemptAt: new Date().toISOString(),
+            nextRetryAt: undefined
+        }));
+        return;
+    }
+
     const payload = delivery.payload;
     const rawBody = JSON.stringify(payload);
     const signature = computeSignature(secret, rawBody);
@@ -403,8 +545,6 @@ async function attemptDelivery(delivery: WebhookDelivery, webhook: Webhook): Pro
         'X-Moteur-Signature': signature,
         'X-Moteur-Timestamp': timestamp
     };
-
-    const start = Date.now();
     let responseStatus: number | undefined;
     let responseBody: string | undefined;
     let success = false;
