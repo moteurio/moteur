@@ -168,9 +168,18 @@ function devLocalHttpAllowsLoopback(u: URL): boolean {
     );
 }
 
+/** IPv6 literals in URLs are often `::1` without brackets; some parsers keep `[::1]` — normalize for net.isIPv* and dns. */
+function normalizedHostname(u: URL): string {
+    const h = u.hostname;
+    if (h.startsWith('[') && h.endsWith(']')) {
+        return h.slice(1, -1);
+    }
+    return h;
+}
+
 async function assertResolvedTargetAllowed(u: URL): Promise<void> {
     const allowLoopback = devLocalHttpAllowsLoopback(u);
-    const host = u.hostname;
+    const host = normalizedHostname(u);
     let records: { address: string; family: number }[];
     if (isIPv4(host)) {
         records = [{ address: host, family: 4 }];
