@@ -128,6 +128,21 @@ describe('webhookService', () => {
             });
             expect(created.secret).toBe('my-custom-secret');
         });
+
+        it.each([
+            ['https://192.168.0.1/hook'],
+            ['https://10.0.0.1/hook'],
+            ['https://172.20.1.1/hook'],
+            ['https://127.0.0.2/hook'],
+            ['https://[::1]/hook']
+        ])('rejects webhook URL with restricted target %s', async url => {
+            await expect(
+                createWebhook(projectId, USER, {
+                    name: 'SSRF',
+                    url
+                })
+            ).rejects.toThrow(/private or restricted/);
+        });
     });
 
     describe('listWebhooks / getWebhook', () => {
