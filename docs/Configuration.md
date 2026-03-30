@@ -9,7 +9,7 @@ This page lists environment variables used by the Moteur API. Details (rate limi
 | Variable                 | Description                                                                                                                                                                                                        |
 | ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `API_BASE_PATH`          | Base path for all API routes (e.g. `/api`). Default: empty. Also prefixes interactive docs (`{basePath}/docs`), static asset URLs from the local adapter, and the canonical global blocks path (`/moteur/blocks`). |
-| `CORS_ORIGINS`           | Comma-separated allowed origins. Default: `http://localhost:3000`, `http://localhost:5173`.                                                                                                                        |
+| `CORS_ORIGINS`           | Comma-separated allowed origins. **Required for browser access:** if unset, no cross-origin origins are allowed (empty default). For local dev, set e.g. `http://localhost:3000,http://localhost:5173`.            |
 | `STATIC_ASSETS_BASE_URL` | Origin for **local** asset URLs (scheme + host + port, **no** path). Default: `http://localhost:3000`. The API prepends `API_BASE_PATH` before `/static/assets/...` when generating URLs.                          |
 | `API_UPLOAD_MAX_MB`      | Max multipart upload size for **studio** asset uploads (capped at 100). Default: `50` (aligned with per-project limits enforced in core).                                                                          |
 

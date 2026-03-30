@@ -91,16 +91,14 @@ function registerProcessFatalHandlers(): void {
 }
 registerProcessFatalHandlers();
 
-// CORS: restrict to explicit origins. Set CORS_ORIGINS (comma-separated) in production.
+// CORS: only origins in CORS_ORIGINS (comma-separated) are allowed. Unset = none — set explicitly for every environment.
 function getCorsOrigin(): string | string[] {
     const env = process.env.CORS_ORIGINS?.trim();
-    if (env) {
-        return env
-            .split(',')
-            .map(s => s.trim())
-            .filter(Boolean);
-    }
-    return ['http://localhost:3000', 'http://localhost:5173'];
+    if (!env) return [];
+    return env
+        .split(',')
+        .map(s => s.trim())
+        .filter(Boolean);
 }
 
 // Create Express app
