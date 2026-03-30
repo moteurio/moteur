@@ -3,6 +3,10 @@ import { ValidationIssue } from './ValidationResult.js';
 /** Optional context passed through field validators (e.g. project-scoped block schemas). */
 export interface FieldValidationContext {
     projectId?: string;
+    /** From project.allowHtmlIframe; only true allows iframe in core/html validation. */
+    allowHtmlIframe?: boolean;
+    /** From project.allowHtmlEmbed; only true allows embed/object/param in core/html validation. */
+    allowHtmlEmbed?: boolean;
 }
 
 export interface Field {

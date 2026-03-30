@@ -1,9 +1,25 @@
 import { validateFieldValue } from './validateFieldValue.js';
 import { ValidationIssue } from '@moteurio/types/ValidationResult.js';
-import type { Field } from '@moteurio/types/Field.js';
+import type { Field, FieldValidationContext } from '@moteurio/types/Field.js';
 
 function isFieldRequired(fieldSchema: Field): boolean {
     return fieldSchema.required === true || fieldSchema.options?.required === true;
+}
+
+export interface ValidateFieldsAgainstSchemaOptions {
+    projectId?: string;
+    allowHtmlIframe?: boolean;
+    allowHtmlEmbed?: boolean;
+}
+
+function fieldValidationContext(
+    options?: ValidateFieldsAgainstSchemaOptions
+): FieldValidationContext {
+    return {
+        projectId: options?.projectId,
+        allowHtmlIframe: options?.allowHtmlIframe === true,
+        allowHtmlEmbed: options?.allowHtmlEmbed === true
+    };
 }
 
 /**
@@ -15,7 +31,7 @@ export function validateFieldsAgainstSchema(
     schemaFields: Record<string, Field>,
     pathPrefix: string,
     missingFieldCode: string,
-    options?: { projectId?: string }
+    options?: ValidateFieldsAgainstSchemaOptions
 ): ValidationIssue[] {
     const issues: ValidationIssue[] = [];
 
@@ -38,9 +54,12 @@ export function validateFieldsAgainstSchema(
         }
 
         if (value !== undefined) {
-            const fieldValidation = validateFieldValue(value, fieldSchema, path, {
-                projectId: options?.projectId
-            });
+            const fieldValidation = validateFieldValue(
+                value,
+                fieldSchema,
+                path,
+                fieldValidationContext(options)
+            );
             issues.push(...fieldValidation);
         }
     }

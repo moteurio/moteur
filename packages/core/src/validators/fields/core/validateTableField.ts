@@ -1,4 +1,4 @@
-import { Field } from '@moteurio/types/Field.js';
+import type { Field, FieldValidationContext } from '@moteurio/types/Field.js';
 import { ValidationIssue } from '@moteurio/types/ValidationResult.js';
 import { isPlainObject } from '../../fieldValueUtils.js';
 import { validateFieldValue } from '../../validateFieldValue.js';
@@ -28,7 +28,12 @@ function extractRows(value: unknown): { rows: unknown[][]; error?: ValidationIss
 /**
  * Validates a core/table field.
  */
-export function validateTableField(value: any, field: Field, path: string): ValidationIssue[] {
+export function validateTableField(
+    value: any,
+    field: Field,
+    path: string,
+    context?: FieldValidationContext
+): ValidationIssue[] {
     const issues: ValidationIssue[] = [];
     const options = field.options || {};
 
@@ -95,7 +100,7 @@ export function validateTableField(value: any, field: Field, path: string): Vali
             }
 
             if (cellSchema) {
-                const cellIssues = validateFieldValue(cell, cellSchema, cellPath);
+                const cellIssues = validateFieldValue(cell, cellSchema, cellPath, context);
                 issues.push(...cellIssues);
             }
         });

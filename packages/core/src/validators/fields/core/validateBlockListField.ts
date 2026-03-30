@@ -34,6 +34,8 @@ export function validateBlockListField(
         minBlocks,
         maxBlocks,
         issuePrefix: 'blockList',
-        projectId: context?.projectId
+        projectId: context?.projectId,
+        allowHtmlIframe: context?.allowHtmlIframe === true,
+        allowHtmlEmbed: context?.allowHtmlEmbed === true
     });
 }

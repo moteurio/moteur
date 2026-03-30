@@ -1,10 +1,15 @@
-import type { Field } from '@moteurio/types/Field.js';
+import type { Field, FieldValidationContext } from '@moteurio/types/Field.js';
 import type { ValidationIssue } from '@moteurio/types/ValidationResult.js';
 import fieldRegistry from '../../../registry/FieldRegistry.js';
 import { isPlainObject } from '../../fieldValueUtils.js';
 import { validateFieldValue } from '../../validateFieldValue.js';
 
-export function validateAddressField(value: any, field: Field, path: string): ValidationIssue[] {
+export function validateAddressField(
+    value: any,
+    field: Field,
+    path: string,
+    context?: FieldValidationContext
+): ValidationIssue[] {
     const issues: ValidationIssue[] = [];
 
     if (value === null || value === undefined) {
@@ -30,7 +35,7 @@ export function validateAddressField(value: any, field: Field, path: string): Va
 
     for (const [key, subField] of Object.entries(subFields)) {
         const subPath = `${path}.${key}`;
-        issues.push(...validateFieldValue(value[key], subField, subPath));
+        issues.push(...validateFieldValue(value[key], subField, subPath, context));
     }
 
     return issues;

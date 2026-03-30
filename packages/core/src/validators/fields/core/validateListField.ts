@@ -1,4 +1,4 @@
-import { Field } from '@moteurio/types/Field.js';
+import type { Field, FieldValidationContext } from '@moteurio/types/Field.js';
 import { ValidationIssue } from '@moteurio/types/ValidationResult.js';
 import { isPlainObject } from '../../fieldValueUtils.js';
 import { validateFieldValue } from '../../validateFieldValue.js';
@@ -10,7 +10,12 @@ function resolveItemField(field: Field): Field | undefined {
     return fromOpts ?? fromField;
 }
 
-export function validateListField(value: any, field: Field, path: string): ValidationIssue[] {
+export function validateListField(
+    value: any,
+    field: Field,
+    path: string,
+    context?: FieldValidationContext
+): ValidationIssue[] {
     const issues: ValidationIssue[] = [];
 
     let arr = value;
@@ -95,7 +100,7 @@ export function validateListField(value: any, field: Field, path: string): Valid
 
     arr.forEach((item, index) => {
         const itemPath = `${path}[${index}]`;
-        issues.push(...validateFieldValue(item, itemField, itemPath));
+        issues.push(...validateFieldValue(item, itemField, itemPath, context));
     });
 
     return issues;

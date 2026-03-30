@@ -27,7 +27,9 @@ const handler = async (req: Request, res: Response) => {
         ? ([proj.defaultLocale, ...(proj.supportedLocales ?? [])].filter(Boolean) as string[])
         : undefined;
     const validation = await validateEntry(projectId, req.body, modelSchema, {
-        projectLocales: projectLocales?.length ? projectLocales : undefined
+        projectLocales: projectLocales?.length ? projectLocales : undefined,
+        allowHtmlIframe: proj?.allowHtmlIframe === true,
+        allowHtmlEmbed: proj?.allowHtmlEmbed === true
     });
     if (!validation.valid) {
         return void res.status(400).json({

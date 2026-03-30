@@ -34,6 +34,16 @@ export interface ProjectSchema {
     siteUrl?: string;
 
     /**
+     * When true, core/html fields may include iframe tags (subject to field allowedTags). Default: off.
+     */
+    allowHtmlIframe?: boolean;
+
+    /**
+     * When true, core/html fields may include embed/object/param tags (subject to field allowedTags). Default: off.
+     */
+    allowHtmlEmbed?: boolean;
+
+    /**
      * Public API keys for this project. Raw secrets are never stored; only hash and prefix per entry.
      */
     apiKeys?: ProjectApiKeyEntry[];

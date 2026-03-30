@@ -3,9 +3,13 @@ import { ValidationResult } from '@moteurio/types/ValidationResult.js';
 import { createValidationResult, addIssue } from '../utils/validation.js';
 import { validateFieldValue } from './validateFieldValue.js';
 import fieldRegistry from '../registry/FieldRegistry.js';
-import type { Field } from '@moteurio/types/Field.js';
+import type { Field, FieldValidationContext } from '@moteurio/types/Field.js';
 
-export function validateBlock(blockInstance: any, blockSchema: BlockSchema): ValidationResult {
+export function validateBlock(
+    blockInstance: any,
+    blockSchema: BlockSchema,
+    context?: FieldValidationContext
+): ValidationResult {
     const result = createValidationResult();
 
     const data = blockInstance?.data || {};
@@ -40,7 +44,7 @@ export function validateBlock(blockInstance: any, blockSchema: BlockSchema): Val
             continue;
         }
 
-        const issues = validateFieldValue(fieldValue, fieldDef, fieldPath);
+        const issues = validateFieldValue(fieldValue, fieldDef, fieldPath, context);
         for (const issue of issues) {
             addIssue(result, issue);
         }

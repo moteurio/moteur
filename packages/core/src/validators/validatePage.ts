@@ -8,15 +8,24 @@ export async function validatePage(
     projectId: string,
     page: { id: string; fields?: Record<string, unknown> },
     schema: TemplateSchema,
-    options?: { projectLocales?: string[] }
+    options?: {
+        projectLocales?: string[];
+        allowHtmlIframe?: boolean;
+        allowHtmlEmbed?: boolean;
+    }
 ): Promise<ValidationResult> {
     const pathPrefix = `pages/${page.id}.fields`;
+    const fieldOpts = {
+        projectId,
+        allowHtmlIframe: options?.allowHtmlIframe === true,
+        allowHtmlEmbed: options?.allowHtmlEmbed === true
+    };
     const issues = validateFieldsAgainstSchema(
         page.fields,
         schema.fields as Record<string, Field>,
         pathPrefix,
         'PAGE_MISSING_REQUIRED_FIELD',
-        { projectId }
+        fieldOpts
     );
 
     const layoutFieldIssues = await validateLayoutFieldValues(
@@ -24,7 +33,11 @@ export async function validatePage(
         page.fields,
         schema.fields as Record<string, Field>,
         pathPrefix,
-        options?.projectLocales
+        {
+            projectLocales: options?.projectLocales,
+            allowHtmlIframe: options?.allowHtmlIframe === true,
+            allowHtmlEmbed: options?.allowHtmlEmbed === true
+        }
     );
     issues.push(...layoutFieldIssues);
 
