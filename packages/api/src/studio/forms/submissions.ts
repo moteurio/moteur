@@ -41,7 +41,7 @@ router.get(
         req: Request<FormSubmissionsParams, unknown, unknown, SubmissionsListQuery>,
         res: Response
     ) => {
-        const { projectId, formId } = req.params;
+        const { projectId, formId } = req.params as Record<string, string>;
         if (!projectId || !formId) {
             return void res.status(400).json({ error: 'Missing projectId or formId' });
         }
@@ -74,7 +74,7 @@ router.get(
     '/:submissionId',
     requireProjectAccess,
     async (req: Request<SubmissionParams>, res: Response) => {
-        const { projectId, formId, submissionId } = req.params;
+        const { projectId, formId, submissionId } = req.params as Record<string, string>;
         if (!projectId || !formId || !submissionId) {
             return void res
                 .status(400)
@@ -96,7 +96,7 @@ router.delete(
     '/:submissionId',
     requireProjectAccess,
     async (req: Request<SubmissionParams>, res: Response) => {
-        const { projectId, formId, submissionId } = req.params;
+        const { projectId, formId, submissionId } = req.params as Record<string, string>;
         if (!projectId || !formId || !submissionId) {
             return void res
                 .status(400)

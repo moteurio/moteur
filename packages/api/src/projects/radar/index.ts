@@ -24,7 +24,7 @@ router.get(
     apiKeyAuth,
     requireProjectOrApiKey,
     async (req: Request, res: Response) => {
-        const { projectId } = req.params;
+        const { projectId } = req.params as Record<string, string>;
         const scan = req.query.scan === 'true' || req.query.scan === '1';
         const severity = typeof req.query.severity === 'string' ? req.query.severity : undefined;
         const model = typeof req.query.model === 'string' ? req.query.model : undefined;
@@ -85,7 +85,7 @@ router.get(
     apiKeyAuth,
     requireProjectOrApiKey,
     async (req: Request, res: Response) => {
-        const { projectId, slug } = req.params;
+        const { projectId, slug } = req.params as Record<string, string>;
         if (denyIfApiKeySiteWideBlocked(req, res)) return;
         try {
             const report = await loadRadarReport(projectId);

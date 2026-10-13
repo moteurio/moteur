@@ -58,20 +58,18 @@ export function ScreenProject({
             p.forms.list().then(r => (r.forms ?? []).length),
             p.navigations.list().then(r => (r.navigations ?? []).length),
             p.webhooks.list().then(r => (r.webhooks ?? []).length),
-            client.activity
-                .list({ limit: 5 })
-                .then(
-                    r =>
-                        (
-                            r as {
-                                events?: Array<{
-                                    action?: string;
-                                    resourceType?: string;
-                                    timestamp?: string;
-                                }>;
-                            }
-                        ).events ?? []
-                )
+            client.activity.list({ limit: 5 }).then(
+                r =>
+                    (
+                        r as {
+                            events?: Array<{
+                                action?: string;
+                                resourceType?: string;
+                                timestamp?: string;
+                            }>;
+                        }
+                    ).events ?? []
+            )
         ]).then(
             ([pages, models, templates, structures, layouts, forms, navs, webhooks, activity]) => {
                 setStats({

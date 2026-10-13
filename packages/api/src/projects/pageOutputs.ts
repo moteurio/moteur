@@ -20,7 +20,7 @@ type NavigationQuery = { depth?: string; rootId?: string };
 type BreadcrumbQuery = { pageId?: string; entryId?: string };
 
 router.get('/sitemap.xml', ...pageOutputAuth, async (req: Request, res: Response) => {
-    const { projectId } = req.params;
+    const { projectId } = req.params as Record<string, string>;
     if (!projectId) return void res.status(400).json({ error: 'Missing projectId' });
     if (denyIfApiKeySiteWideBlocked(req, res)) return;
     try {
@@ -52,7 +52,7 @@ router.get('/sitemap.xml', ...pageOutputAuth, async (req: Request, res: Response
 });
 
 router.get('/sitemap.json', ...pageOutputAuth, async (req: Request, res: Response) => {
-    const { projectId } = req.params;
+    const { projectId } = req.params as Record<string, string>;
     if (!projectId) return void res.status(400).json({ error: 'Missing projectId' });
     if (denyIfApiKeySiteWideBlocked(req, res)) return;
     try {
@@ -68,7 +68,7 @@ router.get(
     '/navigation',
     ...pageOutputAuth,
     async (req: Request<ProjectParams, unknown, unknown, NavigationQuery>, res: Response) => {
-        const { projectId } = req.params;
+        const { projectId } = req.params as Record<string, string>;
         const depth = req.query.depth != null ? Number(req.query.depth) : undefined;
         const rootId = req.query.rootId;
         if (!projectId) return void res.status(400).json({ error: 'Missing projectId' });
@@ -86,7 +86,7 @@ router.get(
 );
 
 router.get('/urls', ...pageOutputAuth, async (req: Request, res: Response) => {
-    const { projectId } = req.params;
+    const { projectId } = req.params as Record<string, string>;
     if (!projectId) return void res.status(400).json({ error: 'Missing projectId' });
     if (denyIfApiKeySiteWideBlocked(req, res)) return;
     try {
@@ -101,7 +101,7 @@ router.get(
     '/breadcrumb',
     ...pageOutputAuth,
     async (req: Request<ProjectParams, unknown, unknown, BreadcrumbQuery>, res: Response) => {
-        const { projectId } = req.params;
+        const { projectId } = req.params as Record<string, string>;
         const { pageId, entryId } = req.query;
         if (!projectId || !pageId)
             return void res.status(400).json({ error: 'Missing projectId or pageId' });

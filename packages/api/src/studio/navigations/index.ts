@@ -16,7 +16,7 @@ import { sendApiError, getMessage } from '../../utils/apiError.js';
 const router: Router = Router({ mergeParams: true });
 
 router.get('/', optionalProjectAccess, async (req: Request, res: Response) => {
-    const { projectId } = req.params;
+    const { projectId } = req.params as Record<string, string>;
     if (!projectId) return void res.status(400).json({ error: 'Missing projectId' });
     try {
         const list = await listNavigations(projectId);
@@ -30,7 +30,7 @@ router.get('/', optionalProjectAccess, async (req: Request, res: Response) => {
 });
 
 router.post('/', requireProjectAccess, async (req: Request, res: Response) => {
-    const { projectId } = req.params;
+    const { projectId } = req.params as Record<string, string>;
     if (!projectId) return void res.status(400).json({ error: 'Missing projectId' });
     try {
         const nav = await createNavigation(projectId, req.user!, req.body);
@@ -50,7 +50,7 @@ router.post('/', requireProjectAccess, async (req: Request, res: Response) => {
 });
 
 router.get('/:id', optionalProjectAccess, async (req: Request, res: Response) => {
-    const { projectId, id } = req.params;
+    const { projectId, id } = req.params as Record<string, string>;
     if (!projectId || !id) return void res.status(400).json({ error: 'Missing projectId or id' });
     try {
         const nav = req.user
@@ -65,7 +65,7 @@ router.get('/:id', optionalProjectAccess, async (req: Request, res: Response) =>
 });
 
 router.patch('/:id', requireProjectAccess, async (req: Request, res: Response) => {
-    const { projectId, id } = req.params;
+    const { projectId, id } = req.params as Record<string, string>;
     if (!projectId || !id) return void res.status(400).json({ error: 'Missing projectId or id' });
     try {
         const nav = await updateNavigation(projectId, req.user!, id, req.body);
@@ -87,7 +87,7 @@ router.patch('/:id', requireProjectAccess, async (req: Request, res: Response) =
 });
 
 router.delete('/:id', requireProjectAccess, async (req: Request, res: Response) => {
-    const { projectId, id } = req.params;
+    const { projectId, id } = req.params as Record<string, string>;
     if (!projectId || !id) return void res.status(400).json({ error: 'Missing projectId or id' });
     try {
         await deleteNavigation(projectId, req.user!, id);

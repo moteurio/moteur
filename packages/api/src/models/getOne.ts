@@ -8,7 +8,7 @@ import { getMessage } from '../utils/apiError.js';
 const router: Router = Router({ mergeParams: true });
 
 router.get('/:modelId', requireProjectAccess, async (req: Request, res: Response) => {
-    const { projectId, modelId } = req.params;
+    const { projectId, modelId } = req.params as Record<string, string>;
     try {
         const model = await getModelSchema(req.user!, projectId, modelId);
 

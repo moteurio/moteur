@@ -16,7 +16,7 @@ import { sendApiError } from '../../utils/apiError.js';
 const router: Router = Router({ mergeParams: true });
 
 router.get('/', requireProjectAccess, async (req: Request, res: Response) => {
-    const { projectId } = req.params;
+    const { projectId } = req.params as Record<string, string>;
     if (!projectId) return void res.status(400).json({ error: 'Missing projectId' });
     try {
         const registry = await listStructures(projectId);
@@ -28,7 +28,7 @@ router.get('/', requireProjectAccess, async (req: Request, res: Response) => {
 });
 
 router.get('/:id', requireProjectAccess, async (req: Request, res: Response) => {
-    const { projectId, id } = req.params;
+    const { projectId, id } = req.params as Record<string, string>;
     if (!projectId || !id) return void res.status(400).json({ error: 'Missing projectId or id' });
     try {
         const structure = await getStructure(id, projectId);
@@ -39,7 +39,7 @@ router.get('/:id', requireProjectAccess, async (req: Request, res: Response) => 
 });
 
 router.post('/', requireProjectAccess, async (req: Request, res: Response) => {
-    const { projectId } = req.params;
+    const { projectId } = req.params as Record<string, string>;
     if (!projectId) return void res.status(400).json({ error: 'Missing projectId' });
     try {
         const body = req.body || {};
@@ -70,7 +70,7 @@ router.post('/', requireProjectAccess, async (req: Request, res: Response) => {
 });
 
 router.patch('/:id', requireProjectAccess, async (req: Request, res: Response) => {
-    const { projectId, id } = req.params;
+    const { projectId, id } = req.params as Record<string, string>;
     if (!projectId || !id) return void res.status(400).json({ error: 'Missing projectId or id' });
     try {
         const updated = await updateStructure(projectId, id, req.body, req.user);
@@ -81,7 +81,7 @@ router.patch('/:id', requireProjectAccess, async (req: Request, res: Response) =
 });
 
 router.delete('/:id', requireProjectAccess, async (req: Request, res: Response) => {
-    const { projectId, id } = req.params;
+    const { projectId, id } = req.params as Record<string, string>;
     if (!projectId || !id) return void res.status(400).json({ error: 'Missing projectId or id' });
     try {
         await deleteStructure(projectId, id, req.user);

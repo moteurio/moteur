@@ -6,9 +6,9 @@ export function projectLayoutsApi(client: MoteurClient) {
     return {
         list(projectId: string): Promise<{ layouts: Record<string, unknown>[] }> {
             return client
-                .get<
-                    Record<string, unknown>[] | { layouts: Record<string, unknown>[] }
-                >(base(projectId))
+                .get<Record<string, unknown>[] | { layouts: Record<string, unknown>[] }>(
+                    base(projectId)
+                )
                 .then(data =>
                     Array.isArray(data)
                         ? { layouts: data }

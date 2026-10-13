@@ -97,30 +97,38 @@ export function validateStorageConfig(): void {
     if (!fs.existsSync(projectsDir)) {
         try {
             fs.mkdirSync(projectsDir, { recursive: true });
-        } catch (_e) {
-            throw new Error(`[Moteur] PROJECTS_DIR cannot be created: ${projectsDir}`);
+        } catch (e) {
+            throw new Error(`[Moteur] PROJECTS_DIR cannot be created: ${projectsDir}`, {
+                cause: e
+            });
         }
     }
     const blueprintsDir = storageConfig.blueprintsDir;
     if (!fs.existsSync(blueprintsDir)) {
         try {
             fs.mkdirSync(blueprintsDir, { recursive: true });
-        } catch (_e) {
-            throw new Error(`[Moteur] BLUEPRINTS_DIR cannot be created: ${blueprintsDir}`);
+        } catch (e) {
+            throw new Error(`[Moteur] BLUEPRINTS_DIR cannot be created: ${blueprintsDir}`, {
+                cause: e
+            });
         }
     }
     if (!fs.existsSync(usersDir)) {
         try {
             fs.mkdirSync(usersDir, { recursive: true });
-        } catch (_e) {
-            throw new Error(`[Moteur] AUTH_USERS_FILE directory cannot be created: ${usersDir}`);
+        } catch (e) {
+            throw new Error(`[Moteur] AUTH_USERS_FILE directory cannot be created: ${usersDir}`, {
+                cause: e
+            });
         }
     }
     if (!fs.existsSync(usersFile)) {
         try {
             fs.writeFileSync(usersFile, '[]', 'utf-8');
-        } catch (_e) {
-            throw new Error(`[Moteur] AUTH_USERS_FILE cannot be created: ${usersFile}`);
+        } catch (e) {
+            throw new Error(`[Moteur] AUTH_USERS_FILE cannot be created: ${usersFile}`, {
+                cause: e
+            });
         }
     }
 }

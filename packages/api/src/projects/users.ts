@@ -37,7 +37,7 @@ function toProjectUserDto(
 }
 
 router.get('/:projectId/users', requireProjectAccess, (req: Request, res: Response) => {
-    const { projectId } = req.params;
+    const { projectId } = req.params as Record<string, string>;
 
     if (!projectId) {
         return void res.status(400).json({ error: 'Missing projectId' });
@@ -66,7 +66,7 @@ router.get('/:projectId/users', requireProjectAccess, (req: Request, res: Respon
 });
 
 router.patch('/:projectId/users/:userId', requireProjectAccess, (req: Request, res: Response) => {
-    const { projectId, userId } = req.params;
+    const { projectId, userId } = req.params as Record<string, string>;
     const actor = req.user;
 
     if (!projectId || !userId) {

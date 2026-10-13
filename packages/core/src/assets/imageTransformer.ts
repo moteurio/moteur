@@ -1,4 +1,4 @@
-import sharp from 'sharp';
+import sharp, { type Sharp } from 'sharp';
 import type { FocalPoint } from '@moteurio/types/Asset.js';
 import type { VariantDefinition } from '@moteurio/types/VariantDefinition.js';
 
@@ -24,7 +24,7 @@ export async function generateVariants(
     focalPoint: FocalPoint
 ): Promise<GeneratedVariant[]> {
     const results: GeneratedVariant[] = [];
-    let meta: { width: number; height: number } = { width: 0, height: 0 };
+    let meta: { width: number; height: number };
 
     try {
         const metaResult = await sharp(buffer).metadata();
@@ -63,7 +63,7 @@ export async function generateVariants(
             const quality = def.quality ?? 85;
             const fmt = def.format;
 
-            let pipeline: sharp.Sharp;
+            let pipeline: Sharp;
             if (def.fit === 'cover' && width && height) {
                 const isCentreFocal = focalPoint.x === 0.5 && focalPoint.y === 0.5;
                 if (isCentreFocal) {

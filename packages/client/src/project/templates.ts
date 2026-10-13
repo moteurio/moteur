@@ -6,9 +6,9 @@ export function projectTemplatesApi(client: MoteurClient) {
     return {
         list(projectId: string): Promise<{ templates: Record<string, unknown>[] }> {
             return client
-                .get<
-                    Record<string, unknown>[] | { templates: Record<string, unknown>[] }
-                >(base(projectId))
+                .get<Record<string, unknown>[] | { templates: Record<string, unknown>[] }>(
+                    base(projectId)
+                )
                 .then(data =>
                     Array.isArray(data)
                         ? { templates: data }

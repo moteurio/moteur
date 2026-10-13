@@ -55,7 +55,7 @@ function toPublicForm(form: FormSchema): Record<string, unknown> {
 router.use('/:formId/submissions', submissionsRouter);
 
 router.get('/', requireProjectAccess, async (req: Request, res: Response) => {
-    const { projectId } = req.params;
+    const { projectId } = req.params as Record<string, string>;
     if (!projectId) return void res.status(400).json({ error: 'Missing projectId' });
     try {
         const forms = await listForms(req.user!, projectId);
@@ -66,7 +66,7 @@ router.get('/', requireProjectAccess, async (req: Request, res: Response) => {
 });
 
 router.get('/:formId', optionalProjectAccess, async (req: Request, res: Response) => {
-    const { projectId, formId } = req.params;
+    const { projectId, formId } = req.params as Record<string, string>;
     if (!projectId || !formId)
         return void res.status(400).json({ error: 'Missing projectId or formId' });
     try {
@@ -90,7 +90,7 @@ router.post(
     express.urlencoded({ extended: false }),
     formsSubmitRateLimiter,
     async (req: Request, res: Response): Promise<void> => {
-        const { projectId, formId } = req.params;
+        const { projectId, formId } = req.params as Record<string, string>;
         if (!projectId || !formId) {
             res.status(400).json({ error: 'Missing projectId or formId' });
             return;
@@ -140,7 +140,7 @@ router.post(
 );
 
 router.post('/', requireProjectAccess, async (req: Request, res: Response) => {
-    const { projectId } = req.params;
+    const { projectId } = req.params as Record<string, string>;
     if (!projectId) return void res.status(400).json({ error: 'Missing projectId' });
     try {
         const body = req.body ?? {};
@@ -158,7 +158,7 @@ router.post('/', requireProjectAccess, async (req: Request, res: Response) => {
 });
 
 router.patch('/:formId', requireProjectAccess, async (req: Request, res: Response) => {
-    const { projectId, formId } = req.params;
+    const { projectId, formId } = req.params as Record<string, string>;
     if (!projectId || !formId) {
         return void res.status(400).json({ error: 'Missing projectId or formId' });
     }
@@ -174,7 +174,7 @@ router.patch('/:formId', requireProjectAccess, async (req: Request, res: Respons
 });
 
 router.delete('/:formId', requireProjectAccess, async (req: Request, res: Response) => {
-    const { projectId, formId } = req.params;
+    const { projectId, formId } = req.params as Record<string, string>;
     if (!projectId || !formId) {
         return void res.status(400).json({ error: 'Missing projectId or formId' });
     }

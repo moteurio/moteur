@@ -8,7 +8,7 @@ import { getMessage } from '../utils/apiError.js';
 const router: Router = Router({ mergeParams: true });
 
 router.post('/:entryId/publish', requireProjectAccess, async (req: Request, res: Response) => {
-    const { projectId, modelId, entryId } = req.params;
+    const { projectId, modelId, entryId } = req.params as Record<string, string>;
     if (!projectId || !modelId || !entryId) {
         return void res.status(400).json({ error: 'Missing path parameters' });
     }

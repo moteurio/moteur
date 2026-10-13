@@ -33,11 +33,9 @@ export function validateObjectField(
     const childFields =
         (field.data as Record<string, Field> | undefined) ??
         ((field as Field & { fields?: Record<string, Field> }).fields as
-            | Record<string, Field>
-            | undefined) ??
+            Record<string, Field> | undefined) ??
         ((field as Field & { properties?: Record<string, Field> }).properties as
-            | Record<string, Field>
-            | undefined) ??
+            Record<string, Field> | undefined) ??
         {};
 
     for (const [key, subField] of Object.entries(childFields)) {

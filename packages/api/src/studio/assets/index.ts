@@ -54,7 +54,7 @@ router.post(
     requireProjectAccess,
     upload.single('file'),
     async (req: Request<ProjectParams, unknown, AssetUploadBody>, res: Response) => {
-        const { projectId } = req.params;
+        const { projectId } = req.params as Record<string, string>;
         if (!projectId) return void res.status(400).json({ error: 'Missing projectId' });
         const file = req.file;
         if (!file) return void res.status(400).json({ error: 'Missing file' });
@@ -121,7 +121,7 @@ router.post(
     '/regenerate',
     requireProjectAccess,
     async (req: Request<ProjectParams, unknown, RegenerateBody>, res: Response) => {
-        const { projectId } = req.params;
+        const { projectId } = req.params as Record<string, string>;
         const rawIds = req.body?.assetIds;
         let assetIds: string[] | undefined;
         if (rawIds === undefined) {
@@ -148,7 +148,7 @@ router.get(
     '/',
     requireProjectAccess,
     async (req: Request<ProjectParams, unknown, unknown, AssetListQuery>, res: Response) => {
-        const { projectId } = req.params;
+        const { projectId } = req.params as Record<string, string>;
         const { type: typeRaw, folder, search } = req.query;
         if (!projectId) return void res.status(400).json({ error: 'Missing projectId' });
         if (
@@ -169,7 +169,7 @@ router.get(
 );
 
 router.get('/:id', requireProjectAccess, async (req: Request<AssetIdParams>, res: Response) => {
-    const { projectId, id } = req.params;
+    const { projectId, id } = req.params as Record<string, string>;
     if (!projectId || !id) return void res.status(400).json({ error: 'Missing projectId or id' });
     try {
         const asset = await getAsset(projectId, id);
@@ -181,7 +181,7 @@ router.get('/:id', requireProjectAccess, async (req: Request<AssetIdParams>, res
 });
 
 router.patch('/:id', requireProjectAccess, async (req: Request<AssetIdParams>, res: Response) => {
-    const { projectId, id } = req.params;
+    const { projectId, id } = req.params as Record<string, string>;
     if (!projectId || !id) return void res.status(400).json({ error: 'Missing projectId or id' });
     try {
         const asset = await updateAsset(projectId, req.user!, id, req.body);
@@ -194,7 +194,7 @@ router.patch('/:id', requireProjectAccess, async (req: Request<AssetIdParams>, r
 });
 
 router.delete('/:id', requireProjectAccess, async (req: Request<AssetIdParams>, res: Response) => {
-    const { projectId, id } = req.params;
+    const { projectId, id } = req.params as Record<string, string>;
     if (!projectId || !id) return void res.status(400).json({ error: 'Missing projectId or id' });
     try {
         await deleteAsset(projectId, req.user!, id);
@@ -211,7 +211,7 @@ router.post(
     '/:id/move',
     requireProjectAccess,
     async (req: Request<AssetIdParams, unknown, MoveBody>, res: Response) => {
-        const { projectId, id } = req.params;
+        const { projectId, id } = req.params as Record<string, string>;
         const folder = req.body?.folder;
         if (!projectId || !id)
             return void res.status(400).json({ error: 'Missing projectId or id' });

@@ -44,7 +44,7 @@ router.post(
     requireProjectAccess,
     async (req: Request<ProjectParams, unknown, CreateCommentBody>, res: Response) => {
         try {
-            const { projectId } = req.params;
+            const { projectId } = req.params as Record<string, string>;
             if (!projectId) {
                 return void res.status(400).json({ error: 'Missing projectId in path' });
             }
@@ -95,7 +95,7 @@ router.get(
     requireProjectAccess,
     async (req: Request<ProjectParams, unknown, unknown, CommentsListQuery>, res: Response) => {
         try {
-            const { projectId } = req.params;
+            const { projectId } = req.params as Record<string, string>;
             if (!projectId) {
                 return void res.status(400).json({ error: 'Missing projectId in path' });
             }
@@ -131,7 +131,7 @@ router.patch(
     requireProjectAccess,
     async (req: Request<CommentIdParams, unknown, EditCommentBody>, res: Response) => {
         try {
-            const { projectId, id } = req.params;
+            const { projectId, id } = req.params as Record<string, string>;
             const body = req.body?.body;
             if (body == null || String(body).trim() === '') {
                 return void res.status(400).json({ error: 'body is required' });
@@ -156,7 +156,7 @@ router.post(
     requireProjectAccess,
     async (req: Request<CommentIdParams>, res: Response) => {
         try {
-            const { projectId, id } = req.params;
+            const { projectId, id } = req.params as Record<string, string>;
             const comment = await resolveComment(projectId, req.user!, id);
             return void res.json({ comment });
         } catch (err: unknown) {
@@ -173,7 +173,7 @@ router.delete(
     requireProjectAccess,
     async (req: Request<CommentIdParams>, res: Response) => {
         try {
-            const { projectId, id } = req.params;
+            const { projectId, id } = req.params as Record<string, string>;
             await deleteComment(projectId, req.user!, id);
             return void res.status(204).send();
         } catch (err: unknown) {

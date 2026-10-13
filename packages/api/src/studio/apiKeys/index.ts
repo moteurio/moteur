@@ -14,7 +14,7 @@ import { sendApiError } from '../../utils/apiError.js';
 const router: Router = Router({ mergeParams: true });
 
 router.get('/', requireProjectAccess, async (req: Request, res: Response) => {
-    const { projectId } = req.params;
+    const { projectId } = req.params as Record<string, string>;
     if (!projectId) return void res.status(400).json({ error: 'Missing projectId' });
     try {
         const keys = await listProjectApiKeyMeta(projectId, req.user!);
@@ -25,7 +25,7 @@ router.get('/', requireProjectAccess, async (req: Request, res: Response) => {
 });
 
 router.post('/', requireProjectAccess, async (req: Request, res: Response) => {
-    const { projectId } = req.params;
+    const { projectId } = req.params as Record<string, string>;
     if (!projectId) return void res.status(400).json({ error: 'Missing projectId' });
     try {
         const body = req.body ?? {};
@@ -51,7 +51,7 @@ router.post('/', requireProjectAccess, async (req: Request, res: Response) => {
 });
 
 router.post('/:keyId/rotate', requireProjectAccess, async (req: Request, res: Response) => {
-    const { projectId, keyId } = req.params;
+    const { projectId, keyId } = req.params as Record<string, string>;
     if (!projectId || !keyId)
         return void res.status(400).json({ error: 'Missing projectId or keyId' });
     try {
@@ -68,7 +68,7 @@ router.post('/:keyId/rotate', requireProjectAccess, async (req: Request, res: Re
 });
 
 router.delete('/:keyId', requireProjectAccess, async (req: Request, res: Response) => {
-    const { projectId, keyId } = req.params;
+    const { projectId, keyId } = req.params as Record<string, string>;
     if (!projectId || !keyId)
         return void res.status(400).json({ error: 'Missing projectId or keyId' });
     try {
@@ -80,7 +80,7 @@ router.delete('/:keyId', requireProjectAccess, async (req: Request, res: Respons
 });
 
 router.patch('/:keyId', requireProjectAccess, async (req: Request, res: Response) => {
-    const { projectId, keyId } = req.params;
+    const { projectId, keyId } = req.params as Record<string, string>;
     if (!projectId || !keyId)
         return void res.status(400).json({ error: 'Missing projectId or keyId' });
     try {

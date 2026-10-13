@@ -4,9 +4,7 @@
  */
 
 export type AIErrorCode =
-    | 'insufficient_credits'
-    | 'image_provider_not_configured'
-    | 'not_implemented';
+    'insufficient_credits' | 'image_provider_not_configured' | 'not_implemented';
 
 export interface AIErrorDetails {
     required?: number;

@@ -7,9 +7,9 @@ export function projectPagesApi(client: MoteurClient) {
     return {
         list(projectId: string): Promise<{ pages: Record<string, unknown>[] }> {
             return client
-                .get<
-                    Record<string, unknown>[] | { pages: Record<string, unknown>[] }
-                >(base(projectId))
+                .get<Record<string, unknown>[] | { pages: Record<string, unknown>[] }>(
+                    base(projectId)
+                )
                 .then(data =>
                     Array.isArray(data)
                         ? { pages: data }

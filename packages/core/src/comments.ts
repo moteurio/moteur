@@ -99,7 +99,7 @@ export async function addComment(
         return comment;
     } catch (err) {
         if (err instanceof Error) throw err;
-        throw new Error('Failed to add comment');
+        throw new Error('Failed to add comment', { cause: err });
     }
 }
 
@@ -178,7 +178,7 @@ export async function resolveComment(
         return updated;
     } catch (err) {
         if (err instanceof Error) throw err;
-        throw new Error('Failed to resolve comment');
+        throw new Error('Failed to resolve comment', { cause: err });
     }
 }
 
@@ -209,7 +209,7 @@ export async function deleteComment(
         }
     } catch (err) {
         if (err instanceof Error) throw err;
-        throw new Error('Failed to delete comment');
+        throw new Error('Failed to delete comment', { cause: err });
     }
 }
 
@@ -249,6 +249,6 @@ export async function editComment(
         return updated;
     } catch (err) {
         if (err instanceof Error) throw err;
-        throw new Error('Failed to edit comment');
+        throw new Error('Failed to edit comment', { cause: err });
     }
 }

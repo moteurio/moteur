@@ -17,7 +17,7 @@ import { sendApiError } from '../../utils/apiError.js';
 const router: Router = Router({ mergeParams: true });
 
 router.get('/', optionalProjectAccess, async (req: Request, res: Response) => {
-    const { projectId } = req.params;
+    const { projectId } = req.params as Record<string, string>;
     if (!projectId) return void res.status(400).json({ error: 'Missing projectId' });
     try {
         const templates = await listTemplates(projectId);
@@ -28,7 +28,7 @@ router.get('/', optionalProjectAccess, async (req: Request, res: Response) => {
 });
 
 router.get('/:id', optionalProjectAccess, async (req: Request, res: Response) => {
-    const { projectId, id } = req.params;
+    const { projectId, id } = req.params as Record<string, string>;
     if (!projectId || !id) return void res.status(400).json({ error: 'Missing projectId or id' });
     try {
         const template = req.user
@@ -41,7 +41,7 @@ router.get('/:id', optionalProjectAccess, async (req: Request, res: Response) =>
 });
 
 router.post('/', requireProjectAccess, async (req: Request, res: Response) => {
-    const { projectId } = req.params;
+    const { projectId } = req.params as Record<string, string>;
     if (!projectId) return void res.status(400).json({ error: 'Missing projectId' });
     try {
         const body = req.body as Record<string, unknown>;
@@ -86,7 +86,7 @@ router.post('/', requireProjectAccess, async (req: Request, res: Response) => {
 });
 
 router.put('/:id', requireProjectAccess, async (req: Request, res: Response) => {
-    const { projectId, id } = req.params;
+    const { projectId, id } = req.params as Record<string, string>;
     if (!projectId || !id) return void res.status(400).json({ error: 'Missing projectId or id' });
     try {
         const template = await updateTemplate(projectId, req.user!, id, req.body);
@@ -97,7 +97,7 @@ router.put('/:id', requireProjectAccess, async (req: Request, res: Response) => 
 });
 
 router.patch('/:id', requireProjectAccess, async (req: Request, res: Response) => {
-    const { projectId, id } = req.params;
+    const { projectId, id } = req.params as Record<string, string>;
     if (!projectId || !id) return void res.status(400).json({ error: 'Missing projectId or id' });
     try {
         const template = await updateTemplate(projectId, req.user!, id, req.body);
@@ -108,7 +108,7 @@ router.patch('/:id', requireProjectAccess, async (req: Request, res: Response) =
 });
 
 router.delete('/:id', requireProjectAccess, async (req: Request, res: Response) => {
-    const { projectId, id } = req.params;
+    const { projectId, id } = req.params as Record<string, string>;
     if (!projectId || !id) return void res.status(400).json({ error: 'Missing projectId or id' });
     try {
         await deleteTemplate(projectId, req.user!, id);
@@ -119,7 +119,7 @@ router.delete('/:id', requireProjectAccess, async (req: Request, res: Response) 
 });
 
 router.post('/:id/validate', requireProjectAccess, async (req: Request, res: Response) => {
-    const { projectId, id } = req.params;
+    const { projectId, id } = req.params as Record<string, string>;
     if (!projectId || !id) return void res.status(400).json({ error: 'Missing projectId or id' });
     try {
         const result = await validateTemplateById(projectId, id);

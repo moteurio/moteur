@@ -20,7 +20,7 @@ const RESOURCE_TYPES: ActivityResourceType[] = [
 const router: Router = Router({ mergeParams: true });
 
 router.get('/', requireProjectAccess, async (req: Request, res: Response) => {
-    const { projectId } = req.params;
+    const { projectId } = req.params as Record<string, string>;
     const limit = req.query.limit != null ? Math.min(Number(req.query.limit), 200) : 50;
     const before = typeof req.query.before === 'string' ? req.query.before : undefined;
     try {
@@ -35,7 +35,7 @@ router.get(
     '/:resourceType/:resourceId',
     requireProjectAccess,
     async (req: Request, res: Response) => {
-        const { projectId, resourceType, resourceId } = req.params;
+        const { projectId, resourceType, resourceId } = req.params as Record<string, string>;
         if (!RESOURCE_TYPES.includes(resourceType as ActivityResourceType)) {
             return void res.status(400).json({
                 error: `Invalid resourceType. Must be one of: ${RESOURCE_TYPES.join(', ')}`

@@ -11,7 +11,7 @@ const router: Router = Router({ mergeParams: true });
 
 /** Query: path (optional, relative to project root), max (default 50, max 200). */
 router.get('/log', requireProjectAccess, async (req: Request, res: Response) => {
-    const { projectId } = req.params;
+    const { projectId } = req.params as Record<string, string>;
     const dir = projectDir(projectId);
     if (!isGitRepo(dir)) {
         return void res.status(400).json({ error: 'Project is not a Git repository' });

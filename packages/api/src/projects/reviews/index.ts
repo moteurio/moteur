@@ -21,7 +21,7 @@ router.get(
     '/',
     requireProjectAccess,
     async (req: Request<ReviewsParams, unknown, unknown, ReviewsQuery>, res: Response) => {
-        const { projectId } = req.params;
+        const { projectId } = req.params as Record<string, string>;
         const { modelId, entryId, status } = req.query;
         try {
             const reviews = await getReviews(projectId, {
@@ -40,7 +40,7 @@ router.get(
     '/:reviewId',
     requireProjectAccess,
     async (req: Request<ReviewByIdParams>, res: Response) => {
-        const { projectId, reviewId } = req.params;
+        const { projectId, reviewId } = req.params as Record<string, string>;
         try {
             const review = await getReview(projectId, reviewId);
             if (!review) return void res.status(404).json({ error: 'Review not found' });
@@ -55,7 +55,7 @@ router.post(
     '/:reviewId/approve',
     requireProjectAccess,
     async (req: Request<ReviewByIdParams>, res: Response) => {
-        const { projectId, reviewId } = req.params;
+        const { projectId, reviewId } = req.params as Record<string, string>;
         try {
             const review = await approveReview(projectId, req.user!, reviewId);
             return void res.json({ review });
@@ -79,7 +79,7 @@ router.post(
     '/:reviewId/reject',
     requireProjectAccess,
     async (req: Request<ReviewByIdParams, unknown, RejectBody>, res: Response) => {
-        const { projectId, reviewId } = req.params;
+        const { projectId, reviewId } = req.params as Record<string, string>;
         const reason = req.body?.reason;
         try {
             const review = await rejectReview(

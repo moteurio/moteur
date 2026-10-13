@@ -5,8 +5,7 @@
  */
 
 export type MoteurAuth =
-    | { type: 'bearer'; token: string }
-    | { type: 'apiKey'; apiKey: string; projectId?: string };
+    { type: 'bearer'; token: string } | { type: 'apiKey'; apiKey: string; projectId?: string };
 
 /** Default HTTP timeout in ms when `timeout` is omitted (axios). */
 export const DEFAULT_REQUEST_TIMEOUT_MS = 60_000;

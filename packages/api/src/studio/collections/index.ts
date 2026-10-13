@@ -14,7 +14,7 @@ import { sendApiError, getMessage } from '../../utils/apiError.js';
 const router: Router = Router({ mergeParams: true });
 
 router.get('/', requireProjectAccess, async (req: Request, res: Response) => {
-    const { projectId } = req.params;
+    const { projectId } = req.params as Record<string, string>;
     if (!projectId) return void res.status(400).json({ error: 'Missing projectId' });
     try {
         const list = await listCollections(projectId);
@@ -25,7 +25,7 @@ router.get('/', requireProjectAccess, async (req: Request, res: Response) => {
 });
 
 router.get('/:id', requireProjectAccess, async (req: Request, res: Response) => {
-    const { projectId, id } = req.params;
+    const { projectId, id } = req.params as Record<string, string>;
     if (!projectId || !id) return void res.status(400).json({ error: 'Missing projectId or id' });
     try {
         const collection = await getCollection(projectId, id);
@@ -37,7 +37,7 @@ router.get('/:id', requireProjectAccess, async (req: Request, res: Response) => 
 });
 
 router.post('/', requireProjectAccess, async (req: Request, res: Response) => {
-    const { projectId } = req.params;
+    const { projectId } = req.params as Record<string, string>;
     if (!projectId) return void res.status(400).json({ error: 'Missing projectId' });
     try {
         const { id, label, description, resources } = req.body ?? {};
@@ -54,7 +54,7 @@ router.post('/', requireProjectAccess, async (req: Request, res: Response) => {
 });
 
 router.patch('/:id', requireProjectAccess, async (req: Request, res: Response) => {
-    const { projectId, id } = req.params;
+    const { projectId, id } = req.params as Record<string, string>;
     if (!projectId || !id) return void res.status(400).json({ error: 'Missing projectId or id' });
     try {
         const patch = req.body ?? {};
@@ -68,7 +68,7 @@ router.patch('/:id', requireProjectAccess, async (req: Request, res: Response) =
 });
 
 router.delete('/:id', requireProjectAccess, async (req: Request, res: Response) => {
-    const { projectId, id } = req.params;
+    const { projectId, id } = req.params as Record<string, string>;
     if (!projectId || !id) return void res.status(400).json({ error: 'Missing projectId or id' });
     try {
         await deleteCollection(projectId, req.user!, id);

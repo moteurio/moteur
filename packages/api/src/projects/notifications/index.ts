@@ -8,7 +8,7 @@ import { getMessage } from '../../utils/apiError.js';
 const router: Router = Router({ mergeParams: true });
 
 router.get('/', requireProjectAccess, async (req: Request, res: Response) => {
-    const { projectId } = req.params;
+    const { projectId } = req.params as Record<string, string>;
     const userId = req.user!.id;
     const unreadOnly = req.query.unreadOnly !== 'false' && req.query.unreadOnly !== '0';
     try {
@@ -20,7 +20,7 @@ router.get('/', requireProjectAccess, async (req: Request, res: Response) => {
 });
 
 router.post('/read-all', requireProjectAccess, async (req: Request, res: Response) => {
-    const { projectId } = req.params;
+    const { projectId } = req.params as Record<string, string>;
     const userId = req.user!.id;
     try {
         await markAllRead(projectId, userId);
@@ -31,7 +31,7 @@ router.post('/read-all', requireProjectAccess, async (req: Request, res: Respons
 });
 
 router.post('/:id/read', requireProjectAccess, async (req: Request, res: Response) => {
-    const { projectId, id } = req.params;
+    const { projectId, id } = req.params as Record<string, string>;
     const userId = req.user!.id;
     try {
         const notification = await markRead(projectId, userId, id);

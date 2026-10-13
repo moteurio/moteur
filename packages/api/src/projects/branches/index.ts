@@ -18,7 +18,7 @@ import { log, toActivityEvent } from '@moteurio/core/activityLogger.js';
 const router: Router = Router({ mergeParams: true });
 
 router.get('/', requireProjectAccess, async (req: Request, res: Response) => {
-    const { projectId } = req.params;
+    const { projectId } = req.params as Record<string, string>;
     const dir = projectDir(projectId);
     if (!isGitRepo(dir)) {
         return void res.status(400).json({ error: 'Project is not a Git repository' });
@@ -33,7 +33,7 @@ router.get('/', requireProjectAccess, async (req: Request, res: Response) => {
 });
 
 router.post('/', requireProjectAccess, async (req: Request, res: Response) => {
-    const { projectId } = req.params;
+    const { projectId } = req.params as Record<string, string>;
     const name = req.body?.name as string | undefined;
     const from = (req.body?.from as string) ?? 'HEAD';
     if (!name || typeof name !== 'string' || !/^[a-zA-Z0-9/_.-]+$/.test(name)) {
@@ -54,7 +54,7 @@ router.post('/', requireProjectAccess, async (req: Request, res: Response) => {
 });
 
 router.post('/switch', requireProjectAccess, async (req: Request, res: Response) => {
-    const { projectId } = req.params;
+    const { projectId } = req.params as Record<string, string>;
     const branch = req.body?.branch as string | undefined;
     if (!branch || typeof branch !== 'string') {
         return void res.status(400).json({ error: 'Body "branch" is required' });
@@ -80,7 +80,7 @@ router.post('/switch', requireProjectAccess, async (req: Request, res: Response)
 });
 
 router.post('/merge', requireProjectAccess, async (req: Request, res: Response) => {
-    const { projectId } = req.params;
+    const { projectId } = req.params as Record<string, string>;
     const sourceBranch = req.body?.sourceBranch as string | undefined;
     if (!sourceBranch || typeof sourceBranch !== 'string') {
         return void res.status(400).json({ error: 'Body "sourceBranch" is required' });

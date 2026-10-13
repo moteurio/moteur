@@ -90,7 +90,8 @@ export function setUserPasswordHash(
         users = JSON.parse(data);
     } catch (err) {
         throw new Error(
-            `setUserPasswordHash: failed to read users file (${filePath}): ${err instanceof Error ? err.message : String(err)}`
+            `setUserPasswordHash: failed to read users file (${filePath}): ${err instanceof Error ? err.message : String(err)}`,
+            { cause: err }
         );
     }
 
@@ -112,7 +113,8 @@ export function setUserPasswordHash(
         writeJsonAtomic(filePath, users);
     } catch (err) {
         throw new Error(
-            `setUserPasswordHash: failed to write users file (${filePath}): ${err instanceof Error ? err.message : String(err)}`
+            `setUserPasswordHash: failed to write users file (${filePath}): ${err instanceof Error ? err.message : String(err)}`,
+            { cause: err }
         );
     }
     cachedUsers = null;
@@ -137,7 +139,8 @@ export function addProjectToUser(userId: string, projectId: string): void {
         users = JSON.parse(data);
     } catch (err) {
         throw new Error(
-            `addProjectToUser: failed to read users file (${filePath}): ${err instanceof Error ? err.message : String(err)}`
+            `addProjectToUser: failed to read users file (${filePath}): ${err instanceof Error ? err.message : String(err)}`,
+            { cause: err }
         );
     }
     const index = users.findIndex(u => u.id === userId);
@@ -155,7 +158,8 @@ export function addProjectToUser(userId: string, projectId: string): void {
         writeJsonAtomic(filePath, users);
     } catch (err) {
         throw new Error(
-            `addProjectToUser: failed to write users file (${filePath}): ${err instanceof Error ? err.message : String(err)}`
+            `addProjectToUser: failed to write users file (${filePath}): ${err instanceof Error ? err.message : String(err)}`,
+            { cause: err }
         );
     }
     cachedUsers = null;
@@ -272,7 +276,8 @@ export function updateUserAsOperator(
         users = JSON.parse(data);
     } catch (err) {
         throw new Error(
-            `updateUserAsOperator: failed to read users file (${filePath}): ${err instanceof Error ? err.message : String(err)}`
+            `updateUserAsOperator: failed to read users file (${filePath}): ${err instanceof Error ? err.message : String(err)}`,
+            { cause: err }
         );
     }
     const index = users.findIndex(u => u.id === userId);
@@ -311,7 +316,8 @@ export function updateUserAsOperator(
         writeJsonAtomic(filePath, users);
     } catch (err) {
         throw new Error(
-            `updateUserAsOperator: failed to write users file (${filePath}): ${err instanceof Error ? err.message : String(err)}`
+            `updateUserAsOperator: failed to write users file (${filePath}): ${err instanceof Error ? err.message : String(err)}`,
+            { cause: err }
         );
     }
     cachedUsers = null;

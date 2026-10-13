@@ -11,7 +11,7 @@ router.post(
     '/:entryId/submit-review',
     requireProjectAccess,
     async (req: Request, res: Response) => {
-        const { projectId, modelId, entryId } = req.params;
+        const { projectId, modelId, entryId } = req.params as Record<string, string>;
         if (!projectId || !modelId || !entryId) {
             return void res.status(400).json({ error: 'Missing path parameters' });
         }

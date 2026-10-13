@@ -16,7 +16,7 @@ function assertSafeSegment(value: string, _label: string): boolean {
 export function mountStaticAssets(app: Express, basePath: string): void {
     const prefix = `${basePath}/static/assets/:projectId/:variantKey/:filename`;
     app.get(prefix, (req: Request, res: Response): void => {
-        const { projectId, variantKey, filename } = req.params;
+        const { projectId, variantKey, filename } = req.params as Record<string, string>;
         if (
             !assertSafeSegment(projectId, 'projectId') ||
             !assertSafeSegment(variantKey, 'variantKey') ||

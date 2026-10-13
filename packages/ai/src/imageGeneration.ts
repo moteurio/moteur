@@ -17,11 +17,7 @@ export interface GenerationRequest {
 }
 
 export type StyleHint =
-    | 'photographic'
-    | 'illustration'
-    | 'technical-diagram'
-    | 'editorial'
-    | 'abstract';
+    'photographic' | 'illustration' | 'technical-diagram' | 'editorial' | 'abstract';
 
 export interface GenerationResult {
     variants: GeneratedImage[];

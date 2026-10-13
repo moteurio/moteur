@@ -12,7 +12,7 @@ const router: Router = Router({ mergeParams: true });
 
 router.post('/', requireOperator, async (req: Request, res: Response) => {
     try {
-        const { projectId } = req.params;
+        const { projectId } = req.params as Record<string, string>;
         if (!projectId) {
             return void res.status(400).json({ error: 'Missing projectId in path' });
         }

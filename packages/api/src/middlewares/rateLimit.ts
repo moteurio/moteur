@@ -1,5 +1,9 @@
-import rateLimit from 'express-rate-limit';
+import rateLimit, { ipKeyGenerator } from 'express-rate-limit';
 import { Request, Response, NextFunction } from 'express';
+
+function ipKey(req: Request): string {
+    return ipKeyGenerator(req.ip || 'unknown');
+}
 
 const STUDIO_WINDOW_MS = 15 * 60 * 1000; // 15 minutes
 const PUBLIC_WINDOW_MS = 15 * 60 * 1000;
@@ -43,7 +47,7 @@ export const loginRateLimiter = rateLimit({
     max: getLoginMax(),
     standardHeaders: true,
     legacyHeaders: false,
-    keyGenerator: (req: Request) => (req.ip || 'unknown') as string,
+    keyGenerator: (req: Request) => ipKey(req),
     message: { error: 'Too many login attempts. Please try again later.' }
 });
 
@@ -56,7 +60,7 @@ export const studioRateLimiter = rateLimit({
     max: getStudioMax(),
     standardHeaders: true,
     legacyHeaders: false,
-    keyGenerator: (req: Request) => (req.ip || 'unknown') as string,
+    keyGenerator: (req: Request) => ipKey(req),
     message: { error: 'Too many requests; try again later.' }
 });
 
@@ -71,7 +75,7 @@ export const publicRateLimiter = rateLimit({
     legacyHeaders: false,
     keyGenerator: (req: Request) => {
         const projectId = req.apiRequestProjectId;
-        return projectId ? `public:${projectId}` : req.ip || 'unknown';
+        return projectId ? `public:${projectId}` : ipKey(req);
     },
     message: { error: 'Too many requests for this project; try again later.' }
 });
@@ -101,7 +105,7 @@ export const formsSubmitRateLimiter = rateLimit({
     standardHeaders: true,
     legacyHeaders: false,
     keyGenerator: (req: Request) => {
-        const p = req.params;
+        const p = req.params as Record<string, string>;
         const projectId = p?.projectId ?? '';
         const formId = p?.formId ?? '';
         return `forms:${projectId}:${formId}`;

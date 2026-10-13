@@ -14,7 +14,7 @@ const router: Router = Router({ mergeParams: true });
 
 /** Project members: summary only (no prompts/responses). */
 router.get('/', requireProjectAccess, async (req: Request, res: Response) => {
-    const { projectId } = req.params;
+    const { projectId } = req.params as Record<string, string>;
     const limit = req.query.limit != null ? Number(req.query.limit) : 50;
     const before = typeof req.query.before === 'string' ? req.query.before : undefined;
     try {
@@ -29,7 +29,7 @@ router.get('/', requireProjectAccess, async (req: Request, res: Response) => {
  * One audit row. Operators see full prompt/response; other project members see summary only.
  */
 router.get('/:eventId', requireProjectAccess, async (req: Request, res: Response) => {
-    const { projectId, eventId } = req.params;
+    const { projectId, eventId } = req.params as Record<string, string>;
     try {
         const event = await getAiAuditEventById(projectId, eventId);
         if (!event) {

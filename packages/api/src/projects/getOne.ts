@@ -9,7 +9,7 @@ const router: Router = Router();
 
 router.get('/:projectId', requireProjectAccess, async (req: Request, res: Response) => {
     try {
-        const { projectId } = req.params;
+        const { projectId } = req.params as Record<string, string>;
         const project = await getProject(req.user!, projectId);
 
         if (!project || !project.id) {

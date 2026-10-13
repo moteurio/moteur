@@ -6,7 +6,6 @@
         "declarationMap": false,
         "rootDir": "src",
         "outDir": "dist",
-        "baseUrl": ".",
         "paths": {
             "@moteurio/plugin-sdk": ["../plugin-sdk/src"],
             "@moteurio/plugin-sdk/*": ["../plugin-sdk/src/*"],

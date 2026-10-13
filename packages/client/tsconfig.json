@@ -14,7 +14,7 @@
         "esModuleInterop": true,
         "forceConsistentCasingInFileNames": true,
         "composite": true,
-        "baseUrl": ".",
+        "types": ["node"],
         "paths": {
             "@moteurio/types": ["../types/dist/index.d.ts"]
         }

@@ -8,7 +8,7 @@ import { sendApiError } from '../utils/apiError.js';
 const router: Router = Router();
 
 router.delete('/:projectId', requireOperator, async (req: Request, res: Response) => {
-    const { projectId } = req.params;
+    const { projectId } = req.params as Record<string, string>;
 
     try {
         await deleteProject(req.user!, projectId);

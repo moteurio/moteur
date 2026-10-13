@@ -11,7 +11,7 @@ import { sendApiError } from '../utils/apiError.js';
 const router: Router = Router({ mergeParams: true });
 
 const handler = async (req: Request, res: Response) => {
-    const { projectId, modelId } = req.params;
+    const { projectId, modelId } = req.params as Record<string, string>;
 
     if (!projectId || !modelId) {
         return void res.status(400).json({ error: 'Missing path parameters' });

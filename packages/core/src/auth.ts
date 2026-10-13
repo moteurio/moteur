@@ -107,7 +107,8 @@ export function verifyJWT(token: string): JwtPayload {
         return decoded;
     } catch (err) {
         throw new Error(
-            `Invalid or expired token [ ${err instanceof Error ? err.message : 'Unknown error'} ]`
+            `Invalid or expired token [ ${err instanceof Error ? err.message : 'Unknown error'} ]`,
+            { cause: err }
         );
     }
 }

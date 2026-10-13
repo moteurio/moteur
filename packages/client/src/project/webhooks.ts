@@ -6,9 +6,9 @@ export function projectWebhooksApi(client: MoteurClient) {
     return {
         list(projectId: string): Promise<{ webhooks: Record<string, unknown>[] }> {
             return client
-                .get<
-                    Record<string, unknown>[] | { webhooks: Record<string, unknown>[] }
-                >(base(projectId))
+                .get<Record<string, unknown>[] | { webhooks: Record<string, unknown>[] }>(
+                    base(projectId)
+                )
                 .then(data =>
                     Array.isArray(data)
                         ? { webhooks: data }

@@ -78,7 +78,7 @@ export function requireProjectAccess(req: Request, res: Response, next: NextFunc
         if (!user) {
             return void res.status(401).json({ error: 'Unauthorized' });
         }
-        const projectId = req.params.projectId || req.body.projectId;
+        const projectId = (req.params as Record<string, string>).projectId || req.body.projectId;
 
         if (!projectId) {
             return void res.status(400).json({ error: 'Project ID is required' });
@@ -120,7 +120,7 @@ export function apiKeyAuth(req: Request, res: Response, next: NextFunction): voi
         return;
     }
 
-    const projectId = req.params.projectId;
+    const projectId = (req.params as Record<string, string>).projectId;
     if (!projectId) {
         res.status(400).json({ error: 'Project ID is required' });
         return;

@@ -3,8 +3,7 @@
  */
 
 export type ApiKeyHostCheckResult =
-    | { ok: true }
-    | { ok: false; reason: 'missing_origin' | 'invalid_origin' | 'no_match' };
+    { ok: true } | { ok: false; reason: 'missing_origin' | 'invalid_origin' | 'no_match' };
 
 function firstHeader(v: string | string[] | undefined): string | undefined {
     if (v === undefined) return undefined;

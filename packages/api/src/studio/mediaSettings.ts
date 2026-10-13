@@ -8,7 +8,7 @@ import { sendApiError } from '../utils/apiError.js';
 const router: Router = Router({ mergeParams: true });
 
 router.patch('/', requireProjectAccess, async (req: Request, res: Response) => {
-    const { projectId } = req.params;
+    const { projectId } = req.params as Record<string, string>;
     if (!projectId) return void res.status(400).json({ error: 'Missing projectId' });
     try {
         const result = await updateProjectMediaSettings(projectId, req.user!, req.body ?? {});

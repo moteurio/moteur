@@ -3,13 +3,7 @@ import type { MoteurAdminClient } from '@moteurio/client';
 export type MoteurClient = MoteurAdminClient;
 
 export type MainId =
-    | 'projects'
-    | 'content'
-    | 'schemas'
-    | 'userdata'
-    | 'configuration'
-    | 'account'
-    | 'quit';
+    'projects' | 'content' | 'schemas' | 'userdata' | 'configuration' | 'account' | 'quit';
 
 export type Screen =
     | 'project'

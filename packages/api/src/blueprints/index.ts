@@ -28,7 +28,10 @@ function createKindRouter(kind: BlueprintKind): Router {
     /** Get one blueprint by id */
     router.get('/:blueprintId', requireOperator, (req: Request, res: Response) => {
         try {
-            const blueprint = getBlueprint(kind, req.params.blueprintId);
+            const blueprint = getBlueprint(
+                kind,
+                (req.params as Record<string, string>).blueprintId
+            );
             return void res.json(blueprint);
         } catch (err: unknown) {
             const msg = getMessage(err);
@@ -56,7 +59,7 @@ function createKindRouter(kind: BlueprintKind): Router {
     /** Update a blueprint (partial) */
     router.patch('/:blueprintId', requireOperator, (req: Request, res: Response) => {
         try {
-            const { blueprintId } = req.params;
+            const { blueprintId } = req.params as Record<string, string>;
             const blueprint = updateBlueprint(kind, blueprintId, req.body, req.user);
             return void res.json(blueprint);
         } catch (err: unknown) {
@@ -71,7 +74,7 @@ function createKindRouter(kind: BlueprintKind): Router {
     /** Delete a blueprint */
     router.delete('/:blueprintId', requireOperator, (req: Request, res: Response) => {
         try {
-            deleteBlueprint(kind, req.params.blueprintId, req.user);
+            deleteBlueprint(kind, (req.params as Record<string, string>).blueprintId, req.user);
             return void res.status(204).send();
         } catch (err: unknown) {
             return void sendApiError(res, req, err);

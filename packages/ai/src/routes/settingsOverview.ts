@@ -12,7 +12,11 @@ export function createSettingsOverviewRouter(ctx: PluginRouteContext): Router {
         ctx.requireAuth,
         ctx.requireProjectAccess,
         async (req: Request, res: Response) => {
-            const { projectId } = req.params;
+            const projectId = (req.params as Record<string, string>).projectId;
+            if (typeof projectId !== 'string' || !projectId) {
+                res.status(400).json({ error: 'Missing projectId' });
+                return;
+            }
             const adapter = await getAdapter();
             const raw = (process.env.MOTEUR_AI_PROVIDER ?? '').trim();
             const textProvider = raw.length > 0 ? raw : null;

@@ -6,9 +6,9 @@ export function projectStructuresApi(client: MoteurClient) {
     return {
         list(projectId: string): Promise<{ structures: Record<string, unknown>[] }> {
             return client
-                .get<
-                    Record<string, unknown>[] | { structures: Record<string, unknown>[] }
-                >(base(projectId))
+                .get<Record<string, unknown>[] | { structures: Record<string, unknown>[] }>(
+                    base(projectId)
+                )
                 .then(data =>
                     Array.isArray(data)
                         ? { structures: data }

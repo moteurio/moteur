@@ -14,7 +14,7 @@ import { sendApiError } from '../../utils/apiError.js';
 const router: Router = Router({ mergeParams: true });
 
 router.get('/', requireProjectAccess, async (req: Request, res: Response) => {
-    const { projectId } = req.params;
+    const { projectId } = req.params as Record<string, string>;
     if (!projectId) return void res.status(400).json({ error: 'Missing projectId' });
     try {
         const layouts = await listLayouts(req.user!, projectId);
@@ -25,7 +25,7 @@ router.get('/', requireProjectAccess, async (req: Request, res: Response) => {
 });
 
 router.get('/:layoutId', requireProjectAccess, async (req: Request, res: Response) => {
-    const { projectId, layoutId } = req.params;
+    const { projectId, layoutId } = req.params as Record<string, string>;
     if (!projectId || !layoutId)
         return void res.status(400).json({ error: 'Missing projectId or layoutId' });
     try {
@@ -37,7 +37,7 @@ router.get('/:layoutId', requireProjectAccess, async (req: Request, res: Respons
 });
 
 router.post('/', requireProjectAccess, async (req: Request, res: Response) => {
-    const { projectId } = req.params;
+    const { projectId } = req.params as Record<string, string>;
     if (!projectId) return void res.status(400).json({ error: 'Missing projectId' });
     try {
         const layout = await createLayout(req.user!, projectId, req.body);
@@ -48,7 +48,7 @@ router.post('/', requireProjectAccess, async (req: Request, res: Response) => {
 });
 
 router.patch('/:layoutId', requireProjectAccess, async (req: Request, res: Response) => {
-    const { projectId, layoutId } = req.params;
+    const { projectId, layoutId } = req.params as Record<string, string>;
     if (!projectId || !layoutId)
         return void res.status(400).json({ error: 'Missing projectId or layoutId' });
     try {
@@ -60,7 +60,7 @@ router.patch('/:layoutId', requireProjectAccess, async (req: Request, res: Respo
 });
 
 router.delete('/:layoutId', requireProjectAccess, async (req: Request, res: Response) => {
-    const { projectId, layoutId } = req.params;
+    const { projectId, layoutId } = req.params as Record<string, string>;
     if (!projectId || !layoutId)
         return void res.status(400).json({ error: 'Missing projectId or layoutId' });
     try {

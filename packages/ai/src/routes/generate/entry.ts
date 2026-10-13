@@ -115,8 +115,8 @@ export function createEntryRouter(ctx: PluginRouteContext): Router {
     const router = express.Router({ mergeParams: true });
     router.post('/', ctx.requireProjectAccess, async (req: any, res: any) => {
         const { prompt, projectId, modelId, locale: localeFromBody = 'en' } = req.body;
-        const pid = projectId || req.params.projectId;
-        const mid = modelId || req.params.modelId;
+        const pid = projectId || (req.params as Record<string, string>).projectId;
+        const mid = modelId || (req.params as Record<string, string>).modelId;
         const locale =
             typeof localeFromBody === 'string' && localeFromBody.trim()
                 ? localeFromBody.trim()

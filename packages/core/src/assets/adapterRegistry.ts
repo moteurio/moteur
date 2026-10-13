@@ -28,7 +28,8 @@ export function getProjectAdapter(project: ProjectSchema): StorageAdapter {
             return factory(config);
         } catch (e) {
             throw new Error(
-                (e as Error)?.message ?? `[moteur] Asset storage adapter "${id}" failed to create.`
+                (e as Error)?.message ?? `[moteur] Asset storage adapter "${id}" failed to create.`,
+                { cause: e }
             );
         }
     }

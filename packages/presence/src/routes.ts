@@ -21,8 +21,8 @@ export function createPresenceRouter(ctx: PluginRouteContext): ReturnType<typeof
         '/:projectId/presence/screen/:screenId',
         ctx.requireAuth,
         (req: Request, res: Response) => {
-            const { screenId } = req.params;
-            if (!screenId) {
+            const screenId = (req.params as Record<string, string>).screenId;
+            if (typeof screenId !== 'string' || !screenId) {
                 res.status(400).json({ error: 'Missing screenId' });
                 return;
             }
@@ -35,8 +35,8 @@ export function createPresenceRouter(ctx: PluginRouteContext): ReturnType<typeof
         '/:projectId/presence/debug',
         ctx.requireProjectAccess,
         (req: Request, res: Response) => {
-            const { projectId } = req.params;
-            if (!projectId) {
+            const projectId = (req.params as Record<string, string>).projectId;
+            if (typeof projectId !== 'string' || !projectId) {
                 res.status(400).json({ error: 'Missing projectId' });
                 return;
             }

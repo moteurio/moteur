@@ -8,7 +8,7 @@ LABEL fly_launch_runtime="Node.js"
 WORKDIR /app
 ENV NODE_ENV="production"
 
-ARG PNPM_VERSION=10.12.1
+ARG PNPM_VERSION=11.22.0
 RUN npm install -g pnpm@$PNPM_VERSION
 
 

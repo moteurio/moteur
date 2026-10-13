@@ -8,7 +8,7 @@ import { sendApiError } from '../utils/apiError.js';
 const router: Router = Router({ mergeParams: true });
 
 router.get('/', requireProjectAccess, async (req: Request, res: Response) => {
-    const { projectId } = req.params;
+    const { projectId } = req.params as Record<string, string>;
     if (!projectId) return void res.status(400).json({ error: 'Missing projectId' });
     try {
         const config = await getAssetConfig(projectId, req.user!);
@@ -19,7 +19,7 @@ router.get('/', requireProjectAccess, async (req: Request, res: Response) => {
 });
 
 router.patch('/', requireProjectAccess, async (req: Request, res: Response) => {
-    const { projectId } = req.params;
+    const { projectId } = req.params as Record<string, string>;
     if (!projectId) return void res.status(400).json({ error: 'Missing projectId' });
     try {
         const config = await updateAssetConfig(projectId, req.user!, req.body);

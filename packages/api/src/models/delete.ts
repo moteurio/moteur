@@ -8,7 +8,7 @@ import { sendApiError } from '../utils/apiError.js';
 const router: Router = Router({ mergeParams: true });
 
 router.delete('/:modelId', requireOperator, async (req: Request, res: Response) => {
-    const { projectId, modelId } = req.params;
+    const { projectId, modelId } = req.params as Record<string, string>;
     if (!projectId || !modelId) {
         return void res.status(400).json({ error: 'Missing projectId or modelId in path' });
     }

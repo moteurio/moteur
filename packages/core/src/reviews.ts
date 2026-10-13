@@ -158,7 +158,7 @@ export async function submitForReview(
         return review;
     } catch (err) {
         if (err instanceof Error) throw err;
-        throw new Error('Failed to submit for review');
+        throw new Error('Failed to submit for review', { cause: err });
     }
 }
 
@@ -332,7 +332,7 @@ export async function approveReview(
         return updated;
     } catch (err) {
         if (err instanceof Error) throw err;
-        throw new Error('Failed to approve review');
+        throw new Error('Failed to approve review', { cause: err });
     }
 }
 
@@ -511,7 +511,7 @@ export async function rejectReview(
         return updated;
     } catch (err) {
         if (err instanceof Error) throw err;
-        throw new Error('Failed to reject review');
+        throw new Error('Failed to reject review', { cause: err });
     }
 }
 

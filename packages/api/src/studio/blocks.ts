@@ -16,7 +16,7 @@ import { getMessage } from '../utils/apiError.js';
 const router: Router = express.Router({ mergeParams: true });
 
 router.get('/', requireProjectAccess, (req: Request, res: Response) => {
-    const projectId = req.params.projectId as string;
+    const projectId = (req.params as Record<string, string>).projectId as string;
     const blocks = listBlocks(projectId);
     const stripped = Object.fromEntries(
         Object.entries(blocks).map(([k, v]) => [
@@ -42,8 +42,8 @@ function resolveBlockTypeKey(projectId: string, slugParam: string): string | und
 }
 
 router.get('/:slug', requireProjectAccess, (req: Request, res: Response) => {
-    const projectId = req.params.projectId as string;
-    const slug = req.params.slug as string;
+    const projectId = (req.params as Record<string, string>).projectId as string;
+    const slug = (req.params as Record<string, string>).slug as string;
     const key = resolveBlockTypeKey(projectId, slug);
     if (!key) {
         return void res.status(404).json({ error: 'Block type not found' });
@@ -58,7 +58,7 @@ router.get('/:slug', requireProjectAccess, (req: Request, res: Response) => {
 });
 
 router.post('/', requireProjectAccess, (req: Request, res: Response) => {
-    const projectId = req.params.projectId as string;
+    const projectId = (req.params as Record<string, string>).projectId as string;
     try {
         const body = req.body as BlockSchema;
         if (!body || typeof body !== 'object') {
@@ -75,8 +75,8 @@ router.post('/', requireProjectAccess, (req: Request, res: Response) => {
 });
 
 router.put('/:slug', requireProjectAccess, (req: Request, res: Response) => {
-    const projectId = req.params.projectId as string;
-    const slug = req.params.slug as string;
+    const projectId = (req.params as Record<string, string>).projectId as string;
+    const slug = (req.params as Record<string, string>).slug as string;
     try {
         const body = req.body as Partial<BlockSchema>;
         if (!body || typeof body !== 'object') {
@@ -94,8 +94,8 @@ router.put('/:slug', requireProjectAccess, (req: Request, res: Response) => {
 });
 
 router.patch('/:slug', requireProjectAccess, (req: Request, res: Response) => {
-    const projectId = req.params.projectId as string;
-    const slug = req.params.slug as string;
+    const projectId = (req.params as Record<string, string>).projectId as string;
+    const slug = (req.params as Record<string, string>).slug as string;
     try {
         const body = req.body as Partial<BlockSchema>;
         if (!body || typeof body !== 'object') {
@@ -111,8 +111,8 @@ router.patch('/:slug', requireProjectAccess, (req: Request, res: Response) => {
 });
 
 router.delete('/:slug', requireProjectAccess, (req: Request, res: Response) => {
-    const projectId = req.params.projectId as string;
-    const slug = req.params.slug as string;
+    const projectId = (req.params as Record<string, string>).projectId as string;
+    const slug = (req.params as Record<string, string>).slug as string;
     try {
         deleteProjectBlock(projectId, slug);
         return void res.status(204).send();

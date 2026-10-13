@@ -27,7 +27,7 @@ function parsePositiveInt(raw: string | undefined, fallback: number): number {
 }
 
 router.get('/', requireProjectAccess, async (req: Request, res: Response) => {
-    const { projectId } = req.params;
+    const { projectId } = req.params as Record<string, string>;
     if (!projectId) return void res.status(400).json({ error: 'Missing projectId' });
     try {
         const list = await listWebhooks(projectId);
@@ -38,7 +38,7 @@ router.get('/', requireProjectAccess, async (req: Request, res: Response) => {
 });
 
 router.post('/', requireProjectAccess, async (req: Request<WebhookParams>, res: Response) => {
-    const { projectId } = req.params;
+    const { projectId } = req.params as Record<string, string>;
     if (!projectId) return void res.status(400).json({ error: 'Missing projectId' });
     const user = req.user!;
     try {
@@ -55,7 +55,7 @@ router.post('/', requireProjectAccess, async (req: Request<WebhookParams>, res: 
 });
 
 router.get('/:webhookId', requireProjectAccess, async (req: Request, res: Response) => {
-    const { projectId, webhookId } = req.params;
+    const { projectId, webhookId } = req.params as Record<string, string>;
     if (!projectId || !webhookId) return void res.status(400).json({ error: 'Missing parameters' });
     try {
         const webhook = await getWebhook(projectId, webhookId);
@@ -71,7 +71,7 @@ router.patch(
     '/:webhookId',
     requireProjectAccess,
     async (req: Request<WebhookParams>, res: Response) => {
-        const { projectId, webhookId } = req.params;
+        const { projectId, webhookId } = req.params as Record<string, string>;
         if (!projectId || !webhookId)
             return void res.status(400).json({ error: 'Missing parameters' });
         try {
@@ -93,7 +93,7 @@ router.delete(
     '/:webhookId',
     requireProjectAccess,
     async (req: Request<WebhookParams>, res: Response) => {
-        const { projectId, webhookId } = req.params;
+        const { projectId, webhookId } = req.params as Record<string, string>;
         if (!projectId || !webhookId)
             return void res.status(400).json({ error: 'Missing parameters' });
         try {
@@ -113,7 +113,7 @@ router.post(
     '/:webhookId/rotate-secret',
     requireProjectAccess,
     async (req: Request<WebhookParams>, res: Response) => {
-        const { projectId, webhookId } = req.params;
+        const { projectId, webhookId } = req.params as Record<string, string>;
         if (!projectId || !webhookId)
             return void res.status(400).json({ error: 'Missing parameters' });
         try {
@@ -133,7 +133,7 @@ router.post(
     '/:webhookId/test',
     requireProjectAccess,
     async (req: Request<WebhookParams>, res: Response) => {
-        const { projectId, webhookId } = req.params;
+        const { projectId, webhookId } = req.params as Record<string, string>;
         if (!projectId || !webhookId)
             return void res.status(400).json({ error: 'Missing parameters' });
         try {
@@ -151,7 +151,7 @@ router.get(
     '/:webhookId/log',
     requireProjectAccess,
     async (req: Request<WebhookParams, unknown, unknown, WebhookLogQuery>, res: Response) => {
-        const { projectId, webhookId } = req.params;
+        const { projectId, webhookId } = req.params as Record<string, string>;
         const limit = Math.min(parsePositiveInt(req.query.limit, 50), 200);
         const offset = parsePositiveInt(req.query.offset, 0);
         if (!projectId || !webhookId)
@@ -169,7 +169,7 @@ router.post(
     '/:webhookId/log/:deliveryId/retry',
     requireProjectAccess,
     async (req: Request<WebhookParams>, res: Response) => {
-        const { projectId, webhookId, deliveryId } = req.params;
+        const { projectId, webhookId, deliveryId } = req.params as Record<string, string>;
         if (!projectId || !webhookId || !deliveryId)
             return void res.status(400).json({ error: 'Missing parameters' });
         try {

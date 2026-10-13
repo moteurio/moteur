@@ -30,7 +30,7 @@ function isPublishedContent(page: PageNode): boolean {
 }
 
 router.get('/', optionalProjectAccess, async (req: Request, res: Response) => {
-    const { projectId } = req.params;
+    const { projectId } = req.params as Record<string, string>;
     const templateId = req.query.templateId as string | undefined;
     const parentId = req.query.parentId as string | undefined;
     const status = req.query.status as string | undefined;
@@ -57,7 +57,7 @@ router.get('/', optionalProjectAccess, async (req: Request, res: Response) => {
 });
 
 router.get('/by-slug/:slug', optionalProjectAccess, async (req: Request, res: Response) => {
-    const { projectId, slug } = req.params;
+    const { projectId, slug } = req.params as Record<string, string>;
     if (!projectId || !slug)
         return void res.status(400).json({ error: 'Missing projectId or slug' });
     try {
@@ -72,7 +72,7 @@ router.get('/by-slug/:slug', optionalProjectAccess, async (req: Request, res: Re
 });
 
 router.get('/:id', optionalProjectAccess, async (req: Request, res: Response) => {
-    const { projectId, id } = req.params;
+    const { projectId, id } = req.params as Record<string, string>;
     if (!projectId || !id) return void res.status(400).json({ error: 'Missing projectId or id' });
     try {
         const page = req.user
@@ -92,7 +92,7 @@ router.get('/:id', optionalProjectAccess, async (req: Request, res: Response) =>
 });
 
 router.post('/', requireProjectAccess, async (req: Request, res: Response) => {
-    const { projectId } = req.params;
+    const { projectId } = req.params as Record<string, string>;
     if (!projectId) return void res.status(400).json({ error: 'Missing projectId' });
     const body = req.body || {};
     if (!body.type) {
@@ -117,7 +117,7 @@ router.post('/', requireProjectAccess, async (req: Request, res: Response) => {
 });
 
 router.post('/reorder', requireProjectAccess, async (req: Request, res: Response) => {
-    const { projectId } = req.params;
+    const { projectId } = req.params as Record<string, string>;
     if (!projectId) return void res.status(400).json({ error: 'Missing projectId' });
     const updates = req.body;
     if (!Array.isArray(updates))
@@ -138,7 +138,7 @@ router.post('/reorder', requireProjectAccess, async (req: Request, res: Response
 });
 
 router.put('/:id', requireProjectAccess, async (req: Request, res: Response) => {
-    const { projectId, id } = req.params;
+    const { projectId, id } = req.params as Record<string, string>;
     if (!projectId || !id) return void res.status(400).json({ error: 'Missing projectId or id' });
     try {
         const page = await updatePage(projectId, req.user!, id, req.body);
@@ -154,7 +154,7 @@ router.put('/:id', requireProjectAccess, async (req: Request, res: Response) => 
 });
 
 router.patch('/:id', requireProjectAccess, async (req: Request, res: Response) => {
-    const { projectId, id } = req.params;
+    const { projectId, id } = req.params as Record<string, string>;
     if (!projectId || !id) return void res.status(400).json({ error: 'Missing projectId or id' });
     try {
         const page = await updatePage(projectId, req.user!, id, req.body);
@@ -170,7 +170,7 @@ router.patch('/:id', requireProjectAccess, async (req: Request, res: Response) =
 });
 
 router.delete('/:id', requireProjectAccess, async (req: Request, res: Response) => {
-    const { projectId, id } = req.params;
+    const { projectId, id } = req.params as Record<string, string>;
     if (!projectId || !id) return void res.status(400).json({ error: 'Missing projectId or id' });
     try {
         await deletePage(projectId, req.user!, id);
@@ -183,7 +183,7 @@ router.delete('/:id', requireProjectAccess, async (req: Request, res: Response) 
 });
 
 router.patch('/:id/status', requireProjectAccess, async (req: Request, res: Response) => {
-    const { projectId, id } = req.params;
+    const { projectId, id } = req.params as Record<string, string>;
     const status = req.body?.status as string | undefined;
     if (!projectId || !id) return void res.status(400).json({ error: 'Missing projectId or id' });
     if (!status || !VALID_PAGE_STATUSES.includes(status as 'draft' | 'published')) {
@@ -209,7 +209,7 @@ router.patch('/:id/status', requireProjectAccess, async (req: Request, res: Resp
 });
 
 router.post('/:id/submit-review', requireProjectAccess, async (req: Request, res: Response) => {
-    const { projectId, id } = req.params;
+    const { projectId, id } = req.params as Record<string, string>;
     const assignedTo = req.body?.assignedTo as string | undefined;
     if (!projectId || !id) return void res.status(400).json({ error: 'Missing projectId or id' });
     try {
@@ -230,7 +230,7 @@ router.post('/:id/submit-review', requireProjectAccess, async (req: Request, res
 });
 
 router.post('/validate-all', requireProjectAccess, async (req: Request, res: Response) => {
-    const { projectId } = req.params;
+    const { projectId } = req.params as Record<string, string>;
     if (!projectId) return void res.status(400).json({ error: 'Missing projectId' });
     try {
         const results = await validateAllPages(projectId);
@@ -241,7 +241,7 @@ router.post('/validate-all', requireProjectAccess, async (req: Request, res: Res
 });
 
 router.post('/:id/validate', requireProjectAccess, async (req: Request, res: Response) => {
-    const { projectId, id } = req.params;
+    const { projectId, id } = req.params as Record<string, string>;
     if (!projectId || !id) return void res.status(400).json({ error: 'Missing projectId or id' });
     try {
         const result = await validatePageById(projectId, id);

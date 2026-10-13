@@ -127,7 +127,9 @@ async function parsePatchInput(input: string): Promise<Record<string, unknown>> 
         try {
             return JSON.parse(trimmed) as Record<string, unknown>;
         } catch (e) {
-            throw new Error('Invalid JSON: ' + (e instanceof Error ? e.message : String(e)));
+            throw new Error('Invalid JSON: ' + (e instanceof Error ? e.message : String(e)), {
+                cause: e
+            });
         }
     }
     const filePath = path.resolve(trimmed);
@@ -136,7 +138,9 @@ async function parsePatchInput(input: string): Promise<Record<string, unknown>> 
     try {
         return JSON.parse(raw) as Record<string, unknown>;
     } catch (e) {
-        throw new Error('Invalid JSON in file: ' + (e instanceof Error ? e.message : String(e)));
+        throw new Error('Invalid JSON in file: ' + (e instanceof Error ? e.message : String(e)), {
+            cause: e
+        });
     }
 }
 

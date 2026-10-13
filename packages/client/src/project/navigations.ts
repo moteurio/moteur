@@ -6,9 +6,9 @@ export function projectNavigationsApi(client: MoteurClient) {
     return {
         list(projectId: string): Promise<{ navigations: Record<string, unknown>[] }> {
             return client
-                .get<
-                    Record<string, unknown>[] | { navigations: Record<string, unknown>[] }
-                >(base(projectId))
+                .get<Record<string, unknown>[] | { navigations: Record<string, unknown>[] }>(
+                    base(projectId)
+                )
                 .then(data =>
                     Array.isArray(data)
                         ? { navigations: data }

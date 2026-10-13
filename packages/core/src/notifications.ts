@@ -86,7 +86,7 @@ export async function markRead(
         return updated;
     } catch (err) {
         if (err instanceof Error) throw err;
-        throw new Error('Failed to mark notification as read');
+        throw new Error('Failed to mark notification as read', { cause: err });
     }
 }
 

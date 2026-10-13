@@ -33,7 +33,8 @@ export async function resolveInputData(
             return JSON.parse(raw) as Record<string, unknown>;
         } catch (e) {
             throw new Error(
-                `Invalid JSON in ${args.file}. ${e instanceof Error ? e.message : String(e)}`
+                `Invalid JSON in ${args.file}. ${e instanceof Error ? e.message : String(e)}`,
+                { cause: e }
             );
         }
     }
@@ -41,7 +42,9 @@ export async function resolveInputData(
         try {
             return JSON.parse(args.data) as Record<string, unknown>;
         } catch (e) {
-            throw new Error(`Invalid --data JSON. ${e instanceof Error ? e.message : String(e)}`);
+            throw new Error(`Invalid --data JSON. ${e instanceof Error ? e.message : String(e)}`, {
+                cause: e
+            });
         }
     }
     if (shouldReadStdin(args)) {
@@ -53,7 +56,8 @@ export async function resolveInputData(
             return JSON.parse(raw) as Record<string, unknown>;
         } catch (e) {
             throw new Error(
-                `Invalid JSON from stdin. ${e instanceof Error ? e.message : String(e)}`
+                `Invalid JSON from stdin. ${e instanceof Error ? e.message : String(e)}`,
+                { cause: e }
             );
         }
     }
@@ -103,7 +107,8 @@ export function resolveInputDataSync(args: {
             return JSON.parse(raw) as Record<string, unknown>;
         } catch (e) {
             throw new Error(
-                `Invalid JSON in ${args.file}. ${e instanceof Error ? e.message : String(e)}`
+                `Invalid JSON in ${args.file}. ${e instanceof Error ? e.message : String(e)}`,
+                { cause: e }
             );
         }
     }
@@ -111,7 +116,9 @@ export function resolveInputDataSync(args: {
         try {
             return JSON.parse(args.data) as Record<string, unknown>;
         } catch (e) {
-            throw new Error(`Invalid --data JSON. ${e instanceof Error ? e.message : String(e)}`);
+            throw new Error(`Invalid --data JSON. ${e instanceof Error ? e.message : String(e)}`, {
+                cause: e
+            });
         }
     }
     if (args.allowEmpty) return {};
