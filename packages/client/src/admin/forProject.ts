@@ -11,6 +11,7 @@ import { projectFormsApi } from '../project/forms.js';
 import { projectSubmissionsApi } from '../project/submissions.js';
 import { projectNavigationsApi } from '../project/navigations.js';
 import { projectWebhooksApi } from '../project/webhooks.js';
+import { projectSchedulesApi } from '../project/schedules.js';
 import { projectAssetsApi } from '../project/assets.js';
 import { projectAssetConfigApi } from '../project/assetConfig.js';
 import { projectBlocksApi } from '../project/blocks.js';
@@ -19,6 +20,7 @@ import {
     type ProjectApiKeyCreateBody,
     type ProjectApiKeyPatchBody
 } from '../project/apiKeys.js';
+import type { CreateScheduleInput, ListSchedulesOptions } from '@moteurio/types';
 
 /** Project-scoped API: same HTTP routes as the root client, with `projectId` fixed. */
 export function createProjectClient(client: MoteurClient, projectId: string) {
@@ -35,6 +37,7 @@ export function createProjectClient(client: MoteurClient, projectId: string) {
     const submissions = projectSubmissionsApi(client);
     const navigations = projectNavigationsApi(client);
     const webhooks = projectWebhooksApi(client);
+    const schedules = projectSchedulesApi(client);
     const assets = projectAssetsApi(client);
     const assetConfig = projectAssetConfigApi(client);
     const blocks = projectBlocksApi(client);
@@ -202,6 +205,14 @@ export function createProjectClient(client: MoteurClient, projectId: string) {
                 webhooks.update(pid, webhookId, body),
             delete: (webhookId: string) => webhooks.delete(pid, webhookId),
             test: (webhookId: string) => webhooks.test(pid, webhookId)
+        },
+
+        schedules: {
+            list: (options?: ListSchedulesOptions) => schedules.list(pid, options),
+            get: (scheduleId: string) => schedules.get(pid, scheduleId),
+            create: (body: CreateScheduleInput) => schedules.create(pid, body),
+            cancel: (scheduleId: string) => schedules.cancel(pid, scheduleId),
+            delete: (scheduleId: string) => schedules.delete(pid, scheduleId)
         },
 
         assets: {

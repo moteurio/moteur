@@ -12,6 +12,7 @@ import { projectFormsApi } from '../project/forms.js';
 import { projectSubmissionsApi } from '../project/submissions.js';
 import { projectNavigationsApi } from '../project/navigations.js';
 import { projectWebhooksApi } from '../project/webhooks.js';
+import { projectSchedulesApi } from '../project/schedules.js';
 import { projectAssetsApi } from '../project/assets.js';
 import { projectAssetConfigApi } from '../project/assetConfig.js';
 import { projectBlocksApi } from '../project/blocks.js';
@@ -41,6 +42,7 @@ export function createMoteurAdminClient(config: MoteurClientConfig) {
         submissions: projectSubmissionsApi(client),
         navigations: projectNavigationsApi(client),
         webhooks: projectWebhooksApi(client),
+        schedules: projectSchedulesApi(client),
         assets: projectAssetsApi(client),
         assetConfig: projectAssetConfigApi(client),
         blocks: projectBlocksApi(client),

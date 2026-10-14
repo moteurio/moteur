@@ -1,6 +1,6 @@
 # REST API Reference
 
-This document describes the **HTTP API** for integrating with Moteur: authenticate, manage projects and content (JWT + project-scoped routes), or read published content for your frontend (public collections). All paths are relative to the API base path (e.g. empty or `/api` via `API_BASE_PATH`). **Project-scoped routes** (webhooks, forms, pages, navigations, collections, API keys, assets, templates, layouts, structures, blocks) live under `/projects/:projectId/...`. Global **studio** routes (request usage counters, blueprint seed, asset migration between providers) use the `/studio/` prefix. For interactive docs, use **Scalar** at `{API_BASE_PATH}/docs` when the server is running; for the OpenAPI spec, see [OpenAPI](#-openapi) below. Authentication uses JWT (Bearer token) for all routes by default, or **project API key** for read-only access to collections, page outputs, and radar (see [Authentication](Authentication.md)).
+This document describes the **HTTP API** for integrating with Moteur: authenticate, manage projects and content (JWT + project-scoped routes), or read published content for your frontend (public collections). All paths are relative to the API base path (e.g. empty or `/api` via `API_BASE_PATH`). **Project-scoped routes** (webhooks, forms, pages, navigations, collections, API keys, assets, templates, layouts, structures, blocks, schedules) live under `/projects/:projectId/...`. Global **studio** routes (request usage counters, blueprint seed, asset migration between providers) use the `/studio/` prefix. For interactive docs, use **Scalar** at `{API_BASE_PATH}/docs` when the server is running; for the OpenAPI spec, see [OpenAPI](#-openapi) below. Authentication uses JWT (Bearer token) for all routes by default, or **project API key** for read-only access to collections, page outputs, and radar (see [Authentication](Authentication.md)).
 
 **Response convention:** List endpoints return a wrapper object `{ resourceName: T[] }` or a bare array where noted. Single-resource endpoints return `{ resourceName: T }` or `{ token, user }` for auth. Errors return `{ error: string }`.
 
@@ -246,7 +246,7 @@ JWT + project access. Outbound webhooks POST a signed JSON payload to your HTTPS
 }
 ```
 
-Event types include: `entry.created`, `entry.updated`, `entry.published`, `entry.unpublished`, `entry.deleted`, `asset.created`, `asset.updated`, `asset.deleted`, `page.published`, `page.unpublished`, `page.deleted`, `review.submitted`, `review.approved`, `review.rejected`, `comment.created`, `form.submitted`. The `data` object shape depends on the event (see types in `@moteurio/types/Webhook`).
+Event types include: `entry.created`, `entry.updated`, `entry.published`, `entry.unpublished`, `entry.deleted`, `entry.scheduled`, `entry.unscheduled`, `entry.schedule.failed`, `asset.created`, `asset.updated`, `asset.deleted`, `page.published`, `page.unpublished`, `page.deleted`, `page.scheduled`, `page.unscheduled`, `page.schedule.failed`, `review.submitted`, `review.approved`, `review.rejected`, `comment.created`, `form.submitted`. The `data` object shape depends on the event (see types in `@moteurio/types/Webhook`).
 
 **Headers:** Each request includes:
 
@@ -281,6 +281,24 @@ def verify_signature(secret: bytes, raw_body: bytes, signature_header: str) -> b
 ```
 
 **Retry schedule:** On non-2xx or network error, Moteur retries with exponential backoff: attempt 2 after 30s, 3 after 5min, 4 after 30min, 5 after 2hr. After 5 attempts the delivery is marked `failed` and can be retried manually via the API or Studio. Retries are in-process (`setTimeout`); they are lost on server restart.
+
+---
+
+## ⏱ Schedules
+
+JWT + project access. Schedule future **publish** / **unpublish** for entries or pages. The API process runs an in-process scheduler (`schedulerEngine`); pending jobs are also swept periodically after restart.
+
+| Method | Endpoint                                            | Description                                                                                                                                                                                                          |
+| ------ | --------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| GET    | `/projects/:projectId/schedules`                    | List schedules (sorted by `scheduledAt` ascending). Query: `resourceType` (`entry`\|`page`), `resourceId`, `action` (`publish`\|`unpublish`), `status` (single, comma-separated, or repeated). Returns `Schedule[]`. |
+| GET    | `/projects/:projectId/schedules/:scheduleId`        | Get one schedule.                                                                                                                                                                                                    |
+| POST   | `/projects/:projectId/schedules`                    | Create. Body: `{ resourceType, resourceId, modelId?, action, scheduledAt }` (`modelId` required for entries; `scheduledAt` ISO 8601 in the future). Returns created `Schedule` (**201**).                            |
+| POST   | `/projects/:projectId/schedules/:scheduleId/cancel` | Cancel a **pending** schedule. Returns updated `Schedule`.                                                                                                                                                           |
+| DELETE | `/projects/:projectId/schedules/:scheduleId`        | Delete a **terminal** schedule (`done` / `failed` / `cancelled`). **204**. Cannot delete `pending` or `processing` — cancel first.                                                                                   |
+
+**Upcoming / history:** use list filters — e.g. `?status=pending` (upcoming) or `?status=done,failed,cancelled` (history). There is no dedicated `reschedule` endpoint; cancel and create a new schedule.
+
+**Client:** `@moteurio/client` exposes `schedules.list/get/create/cancel/delete` (and the same under `forProject(projectId).schedules`).
 
 ---
 
@@ -343,18 +361,18 @@ JWT + project access. CRUD for API collections (define which models/pages and fi
 
 JWT + project access. Pages are a **typed tree**: **static** (authored content), **collection** (bound to a model, N URLs per entries), **folder** (structure only). List returns a flat array of `PageNode`; client builds tree from `parentId` and `order`.
 
-| Method | Endpoint                                       | Description                                                                                                                                                                                                                                                                                      |
+| Method | Endpoint | Description |
 | ------ | ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------- |
-| GET    | `/projects/:projectId/pages`                   | List all page nodes. Query: `templateId?`, `parentId?`, `status?` (draft \| published), `type?` (static \| collection \| folder).                                                                                                                                                                |
-| POST   | `/projects/:projectId/pages`                   | Create. Body: `type`, `label`, `slug`; for static/collection: `templateId`; for collection: `modelId`; optional `parentId`, `urlPattern`, `navInclude`, `sitemapInclude`, etc. Returns `PageNode`. 409 if slug conflict among siblings; 422 if validation fails (cycle, unknown template/model). |
-| GET    | `/projects/:projectId/pages/:id`               | Get one.                                                                                                                                                                                                                                                                                         |
-| PATCH  | `/projects/:projectId/pages/:id`               | Update. Same validations as create.                                                                                                                                                                                                                                                              |
-| DELETE | `/projects/:projectId/pages/:id`               | Soft-delete. **409** if node has children (move or delete children first). 204 on success.                                                                                                                                                                                                       |
-| POST   | `/projects/:projectId/pages/reorder`           | Batch reorder. Body: `[{ id, parentId, order }]`. Returns updated `PageNode[]`. Used by Studio drag-and-drop.                                                                                                                                                                                    |
-| PATCH  | `/projects/:projectId/pages/:id/status`        | Set status. Body: `{ status: 'draft'                                                                                                                                                                                                                                                             | 'published' }`. |
-| POST   | `/projects/:projectId/pages/:id/submit-review` | Submit for review.                                                                                                                                                                                                                                                                               |
-| POST   | `/projects/:projectId/pages/validate-all`      | Validate all pages.                                                                                                                                                                                                                                                                              |
-| POST   | `/projects/:projectId/pages/:id/validate`      | Validate one page.                                                                                                                                                                                                                                                                               |
+| GET | `/projects/:projectId/pages` | List all page nodes. Query: `templateId?`, `parentId?`, `status?` (draft \| published), `type?` (static \| collection \| folder). |
+| POST | `/projects/:projectId/pages` | Create. Body: `type`, `label`, `slug`; for static/collection: `templateId`; for collection: `modelId`; optional `parentId`, `urlPattern`, `navInclude`, `sitemapInclude`, etc. Returns `PageNode`. 409 if slug conflict among siblings; 422 if validation fails (cycle, unknown template/model). |
+| GET | `/projects/:projectId/pages/:id` | Get one. |
+| PATCH | `/projects/:projectId/pages/:id` | Update. Same validations as create. |
+| DELETE | `/projects/:projectId/pages/:id` | Soft-delete. **409** if node has children (move or delete children first). 204 on success. |
+| POST | `/projects/:projectId/pages/reorder` | Batch reorder. Body: `[{ id, parentId, order }]`. Returns updated `PageNode[]`. Used by Studio drag-and-drop. |
+| PATCH | `/projects/:projectId/pages/:id/status` | Set status. Body: `{ status: 'draft'                                                                                                                                                                                                                                                             | 'published' }`. |
+| POST | `/projects/:projectId/pages/:id/submit-review` | Submit for review. |
+| POST | `/projects/:projectId/pages/validate-all` | Validate all pages. |
+| POST | `/projects/:projectId/pages/:id/validate` | Validate one page. |
 
 ---
 
@@ -390,17 +408,17 @@ Under a project. JWT + project access. Path param: `projectId`, `modelId`.
 
 Under a project and model. JWT + project access. Path param: `projectId`, `modelId`, `entryId`.
 
-| Method | Endpoint                                                              | Description                                                                                                                                                                                                                                     |
+| Method | Endpoint | Description |
 | ------ | --------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------- | ----------- | --------------------------------------------------------------------------------------- |
-| GET    | `/projects/:projectId/models/:modelId/entries`                        | List entries. Returns `{ entries }`. Query: **`?resolveUrl=1`** to add computed `resolvedUrl` when a collection page is bound to this model.                                                                                                    |
-| GET    | `/projects/:projectId/models/:modelId/entries/:entryId`               | Get one. Returns `{ entry }`. Query: **`?resolveUrl=1`** to add computed `resolvedUrl`.                                                                                                                                                         |
-| POST   | `/projects/:projectId/models/:modelId/entries`                        | Create. Returns created entry.                                                                                                                                                                                                                  |
-| PATCH  | `/projects/:projectId/models/:modelId/entries/:entryId`               | Update. Returns `{ entry }`.                                                                                                                                                                                                                    |
-| DELETE | `/projects/:projectId/models/:modelId/entries/:entryId`               | Delete.                                                                                                                                                                                                                                         |
-| POST   | `/projects/:projectId/models/:modelId/entries/:entryId/submit-review` | Submit for review (see Workflow).                                                                                                                                                                                                               |
-| PATCH  | `/projects/:projectId/models/:modelId/entries/:entryId/status`        | Set status. Body: `{ status: 'draft'                                                                                                                                                                                                            | 'in_review' | 'published' | 'unpublished' }`. Operators can bypass review when `workflow.requireReview` is enabled. |
-| POST   | `/projects/:projectId/models/:modelId/entries/:entryId/publish`       | Publish the current revision. Captures a git commit hash as `publishedCommit` so the public API can serve frozen content even after further edits. Subject to review guard when `workflow.requireReview` is enabled. Returns the updated entry. |
-| GET    | `/projects/:projectId/models/:modelId/entries/:entryId/revisions`     | Revision history from git (newest first). Each commit that touched the entry is one revision. Query: `?max=N` (default 20, max 100). Returns `[{ id, number, message, savedAt, savedBy }]`.                                                     |
+| GET | `/projects/:projectId/models/:modelId/entries` | List entries. Returns `{ entries }`. Query: **`?resolveUrl=1`** to add computed `resolvedUrl` when a collection page is bound to this model. |
+| GET | `/projects/:projectId/models/:modelId/entries/:entryId` | Get one. Returns `{ entry }`. Query: **`?resolveUrl=1`** to add computed `resolvedUrl`. |
+| POST | `/projects/:projectId/models/:modelId/entries` | Create. Returns created entry. |
+| PATCH | `/projects/:projectId/models/:modelId/entries/:entryId` | Update. Returns `{ entry }`. |
+| DELETE | `/projects/:projectId/models/:modelId/entries/:entryId` | Delete. |
+| POST | `/projects/:projectId/models/:modelId/entries/:entryId/submit-review` | Submit for review (see Workflow). |
+| PATCH | `/projects/:projectId/models/:modelId/entries/:entryId/status` | Set status. Body: `{ status: 'draft'                                                                                                                                                                                                            | 'in_review' | 'published' | 'unpublished' }`. Operators can bypass review when `workflow.requireReview` is enabled. |
+| POST | `/projects/:projectId/models/:modelId/entries/:entryId/publish` | Publish the current revision. Captures a git commit hash as `publishedCommit` so the public API can serve frozen content even after further edits. Subject to review guard when `workflow.requireReview` is enabled. Returns the updated entry. |
+| GET | `/projects/:projectId/models/:modelId/entries/:entryId/revisions` | Revision history from git (newest first). Each commit that touched the entry is one revision. Query: `?max=N` (default 20, max 100). Returns `[{ id, number, message, savedAt, savedBy }]`. |
 
 ---
 
@@ -491,5 +509,6 @@ Output is JSON: `{ source, window, totals: { [windowKey]: { studio, public: { [p
 ## 📌 Notes on routes
 
 - **Layout CRUD** and **Structure CRUD** are mounted under `/projects/:projectId/layouts` and `/projects/:projectId/structures` (JWT + project access). See the Projects section and the table above.
+- **Schedules** (publish/unpublish jobs) are at `/projects/:projectId/schedules` (JWT + project access). See [Schedules](#-schedules).
 - **Blocks (global catalog):** `GET|POST {basePath}/moteur/blocks` (JWT; POST requires operator). If `API_BASE_PATH` is empty, `/api/moteur/blocks` is also mounted for compatibility. Project-scoped block CRUD is at `/projects/:projectId/blocks` (JWT + project access).
 - For **TypeScript/JavaScript over HTTP**, use [`@moteurio/client`](../packages/client/README.md). For **in-process** access inside the monorepo (same Node process as the engine), see [Embedded core API](Developer%20API.md) (`@moteurio/core`).

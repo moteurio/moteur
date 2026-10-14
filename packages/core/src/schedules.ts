@@ -24,6 +24,15 @@ import { dispatch as webhookDispatch } from './webhooks/webhookService.js';
 import { hasApprovedReview, hasApprovedReviewForPage } from './reviews.js';
 import * as schedulerEngine from './schedulerEngine.js';
 
+const RESOURCE_TYPES: ReadonlySet<string> = new Set(['entry', 'page']);
+const ACTIONS: ReadonlySet<string> = new Set(['publish', 'unpublish']);
+
+function badRequest(message: string): Error {
+    const err = new Error(message);
+    (err as Error & { statusCode?: number }).statusCode = 400;
+    return err;
+}
+
 function canSchedule(
     user: User,
     project: { workflow?: { enabled?: boolean; requireReview?: boolean } }
@@ -108,18 +117,24 @@ export async function createSchedule(
     assertUserCanAccessProject(user, project);
 
     if (!input.resourceType || !input.resourceId) {
-        throw new Error('resourceType and resourceId are required.');
+        throw badRequest('resourceType and resourceId are required.');
+    }
+    if (!RESOURCE_TYPES.has(input.resourceType)) {
+        throw badRequest('resourceType must be "entry" or "page".');
+    }
+    if (!ACTIONS.has(input.action)) {
+        throw badRequest('action must be "publish" or "unpublish".');
     }
     if (input.resourceType === 'entry' && !input.modelId) {
-        throw new Error('modelId is required when resourceType is entry.');
+        throw badRequest('modelId is required when resourceType is entry.');
     }
 
     const scheduledDate = new Date(input.scheduledAt);
     if (Number.isNaN(scheduledDate.getTime())) {
-        throw new Error('Invalid scheduledAt date.');
+        throw badRequest('Invalid scheduledAt date.');
     }
     if (scheduledDate.getTime() < Date.now()) {
-        throw new Error('scheduledAt must be in the future.');
+        throw badRequest('scheduledAt must be in the future.');
     }
     const scheduledAt = scheduledDate.toISOString();
 
@@ -253,7 +268,7 @@ export async function cancelSchedule(
         throw new Error(`Schedule "${scheduleId}" not found in project "${projectId}".`);
     }
     if (schedule.status !== 'pending') {
-        throw new Error('Only pending schedules can be cancelled.');
+        throw badRequest('Only pending schedules can be cancelled.');
     }
 
     const now = new Date().toISOString();
@@ -317,7 +332,7 @@ export async function deleteSchedule(
         throw new Error(`Schedule "${scheduleId}" not found in project "${projectId}".`);
     }
     if (schedule.status === 'pending' || schedule.status === 'processing') {
-        throw new Error('Cancel the schedule before deleting it.');
+        throw badRequest('Cancel the schedule before deleting it.');
     }
 
     const trashDir = trashScheduleDir(projectId, scheduleId);
