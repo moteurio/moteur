@@ -37,6 +37,7 @@ import assetConfigRouter, { openapi as assetConfigSpec } from '../studio/assetCo
 import mediaSettingsRouter, { openapi as mediaSettingsSpec } from '../studio/mediaSettings.js';
 import navigationsRouter, { openapi as navigationsSpec } from '../studio/navigations/index.js';
 import webhooksRouter, { openapi as webhooksSpec } from '../studio/webhooks/index.js';
+import schedulesRouter, { openapi as schedulesSpec } from '../studio/schedules/index.js';
 import formsStudioRouter, { openapi as formsStudioSpec } from '../studio/forms/index.js';
 import blocksStudioRouter, { openapi as blocksStudioSpec } from '../studio/blocks.js';
 import collectionsPublicRouter, { openapi as collectionsPublicSpec } from './collections/public.js';
@@ -61,6 +62,7 @@ router.use('/:projectId/assets', assetsRouter);
 router.use('/:projectId/asset-config', assetConfigRouter);
 router.use('/:projectId/media-settings', mediaSettingsRouter);
 router.use('/:projectId/webhooks', webhooksRouter);
+router.use('/:projectId/schedules', schedulesRouter);
 router.use('/:projectId/blocks', blocksStudioRouter);
 router.use(
     '/:projectId/collections',
@@ -102,6 +104,7 @@ export const projectsSpecs = {
         mediaSettingsSpec,
         navigationsSpec,
         webhooksSpec,
+        schedulesSpec,
         formsStudioSpec,
         blocksStudioSpec,
         collectionsPublicSpec,
