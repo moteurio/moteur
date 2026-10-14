@@ -18,13 +18,16 @@ import updateRoute from '../../src/entries/update';
 import { vi, describe, it, expect, beforeEach } from 'vitest';
 
 import { getModelSchema } from '@moteurio/core/models';
-import { updateEntry } from '@moteurio/core/entries';
+import { getEntry, updateEntry } from '@moteurio/core/entries';
 import { validateEntry } from '@moteurio/core/validators/validateEntry';
 
 vi.mock('@moteurio/core/models', () => ({
     getModelSchema: vi.fn()
 }));
-vi.mock('@moteurio/core/entries', () => ({
+vi.mock('@moteurio/core/entries', async () => ({
+    // The real merge, so the route validates what will actually be saved.
+    mergeEntryPatch: (await vi.importActual<any>('@moteurio/core/entries')).mergeEntryPatch,
+    getEntry: vi.fn(),
     updateEntry: vi.fn()
 }));
 vi.mock('@moteurio/core/validators/validateEntry', () => ({
@@ -51,6 +54,50 @@ describe('PATCH /projects/:projectId/models/:modelId/entries/:entryId', () => {
 
     beforeEach(() => {
         vi.clearAllMocks();
+        (getEntry as any).mockResolvedValue({
+            id: 'entry-1',
+            type: 'article',
+            status: 'draft',
+            data: { title: 'Stored title', body: 'Stored body' }
+        });
+    });
+
+    it('validates the entry as merged with the stored data', async () => {
+        (getModelSchema as any).mockReturnValue(mockSchema);
+        (validateEntry as any).mockResolvedValue({ valid: true });
+        (updateEntry as any).mockResolvedValue({ id: 'entry-1' });
+
+        const res = await request(app)
+            .patch(basePath)
+            .send({ data: { title: 'New title' } });
+
+        expect(res.status).toBe(200);
+        expect((validateEntry as any).mock.calls[0][1].data).toEqual({
+            title: 'New title',
+            body: 'Stored body'
+        });
+        expect(updateEntry).toHaveBeenCalledWith(
+            expect.anything(),
+            'test-project',
+            'article',
+            'entry-1',
+            { data: { title: 'New title' } }
+        );
+    });
+
+    it('returns 404 when the entry does not exist', async () => {
+        (getModelSchema as any).mockReturnValue(mockSchema);
+        (getEntry as any).mockRejectedValue(
+            new Error('Entry "entry-1" not found in model "article" of project "test-project".')
+        );
+
+        const res = await request(app)
+            .patch(basePath)
+            .send({ data: { title: 'x' } });
+
+        expect(res.status).toBe(404);
+        expect(validateEntry).not.toHaveBeenCalled();
+        expect(updateEntry).not.toHaveBeenCalled();
     });
 
     it('should update an entry and return 200', async () => {
