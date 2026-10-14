@@ -1,6 +1,6 @@
 import type { Request, Response } from 'express';
 import { Router } from 'express';
-import { listEntries } from '@moteurio/core/entries.js';
+import { queryEntries } from '@moteurio/core/entries.js';
 import { getModelSchema } from '@moteurio/core/models.js';
 import { resolveEntryAssets } from '@moteurio/core/assets/assetResolver.js';
 import { resolveEntryUrl } from '@moteurio/core/pages.js';
@@ -9,6 +9,8 @@ import { requireProjectAccess } from '../middlewares/auth.js';
 import { listBlocks } from '@moteurio/core/blocks.js';
 import { stripEditorialBlocksFromPayload } from '../utils/stripBlockSchema.js';
 import { sendApiError } from '../utils/apiError.js';
+import type { EntryQuery } from '@moteurio/core/contentIndex/index.js';
+import { entryQueryParameters, parseEntryQuery } from '../utils/entryQuery.js';
 
 const router: Router = Router({ mergeParams: true });
 
@@ -19,8 +21,16 @@ router.get('/', requireProjectAccess, async (req: Request, res: Response) => {
         return void res.status(400).json({ error: 'Missing projectId or modelId in path' });
     }
 
+    let parsed: EntryQuery;
     try {
-        let entries = await listEntries(req.user!, projectId, modelId);
+        parsed = parseEntryQuery(req, { allowStatus: true });
+    } catch (err: unknown) {
+        return void res.status(400).json({ error: (err as Error).message });
+    }
+
+    try {
+        const result = await queryEntries(req.user!, projectId, modelId, parsed);
+        let entries = result.items;
         if (req.query.resolveAssets === '1') {
             const schema = await getModelSchema(req.user!, projectId, modelId);
             entries = await Promise.all(entries.map(e => resolveEntryAssets(projectId, e, schema)));
@@ -34,7 +44,7 @@ router.get('/', requireProjectAccess, async (req: Request, res: Response) => {
             );
         }
         const filtered = stripEditorialBlocksFromPayload(entries, listBlocks(projectId));
-        return void res.json({ entries: filtered });
+        return void res.json({ entries: filtered, total: result.total });
     } catch (err: unknown) {
         return void sendApiError(res, req, err);
     }
@@ -47,7 +57,8 @@ export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
             tags: ['Entries'],
             parameters: [
                 { name: 'projectId', in: 'path', required: true, schema: { type: 'string' } },
-                { name: 'modelId', in: 'path', required: true, schema: { type: 'string' } }
+                { name: 'modelId', in: 'path', required: true, schema: { type: 'string' } },
+                ...entryQueryParameters({ allowStatus: true })
             ],
             responses: {
                 '200': {
@@ -59,7 +70,7 @@ export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
                     }
                 },
                 '400': {
-                    description: 'Missing parameters',
+                    description: 'Missing or invalid parameters',
                     content: {
                         'application/json': {
                             schema: {

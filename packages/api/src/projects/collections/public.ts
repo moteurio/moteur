@@ -10,10 +10,9 @@ import {
 } from '@moteurio/core/apiCollections.js';
 import { requireProjectAccess } from '../../middlewares/auth.js';
 import {
-    listEntriesForProject,
     getEntryForProject,
-    listPublishedEntriesForProject,
-    getPublishedEntryForProject
+    getPublishedEntryForProject,
+    queryEntriesForProject
 } from '@moteurio/core/entries.js';
 import { listPages, getPage, getPageBySlug, resolveEntryUrl } from '@moteurio/core/pages.js';
 import type { PageNode } from '@moteurio/types/Page.js';
@@ -37,6 +36,8 @@ import type { FormSchema } from '@moteurio/types/Form.js';
 import type { ApiCollectionResource } from '@moteurio/types/ApiCollection.js';
 import type { EntryStatus } from '@moteurio/types/Model.js';
 import { sendApiError, getMessage } from '../../utils/apiError.js';
+import type { EntryQuery } from '@moteurio/core/contentIndex/index.js';
+import { entryQueryParameters, parseEntryQuery } from '../../utils/entryQuery.js';
 
 const router: Router = Router({ mergeParams: true });
 
@@ -268,9 +269,18 @@ router.get('/:collectionId/:resourceId/entries', async (req: Request, res: Respo
         const apiKeyOnly = !req.user && Boolean(req.apiKeyAuth);
         const statuses = getStatusFilter(resource, apiKeyOnly);
         const usePublished = statuses.length === 1 && statuses[0] === 'published';
-        let entries = usePublished
-            ? await listPublishedEntriesForProject(projectId, resourceId, { status: statuses })
-            : await listEntriesForProject(projectId, resourceId, { status: statuses });
+        let parsed: EntryQuery;
+        try {
+            parsed = parseEntryQuery(req, { allowStatus: false });
+        } catch (err: unknown) {
+            return void res.status(400).json({ error: (err as Error).message });
+        }
+        const { items: entries, total } = await queryEntriesForProject(projectId, resourceId, {
+            ...parsed,
+            view: usePublished ? 'published' : 'latest',
+            status: statuses
+        });
+        res.setHeader('X-Total-Count', String(total));
         const depth = (resource.resolve ?? 0) as 0 | 1 | 2;
         const fields = resource.fields && resource.fields.length > 0 ? resource.fields : undefined;
         const resolver: EntryResolver | undefined = usePublished
@@ -643,11 +653,16 @@ export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
                     required: false,
                     schema: { type: 'string' },
                     description: 'Alias for locale.'
-                }
+                },
+                ...entryQueryParameters({ allowStatus: false })
             ],
             responses: {
                 '200': {
-                    description: 'Entries',
+                    description:
+                        'Entries. The X-Total-Count header holds the number of matching entries before limit/offset.',
+                    headers: {
+                        'X-Total-Count': { schema: { type: 'integer' } }
+                    },
                     content: {
                         'application/json': {
                             schema: {
@@ -657,6 +672,7 @@ export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
                         }
                     }
                 },
+                '400': { description: 'Invalid limit, offset or sort', ...jsonErrorBody },
                 '404': { description: 'Not found', ...jsonErrorBody }
             }
         }

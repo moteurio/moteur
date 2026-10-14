@@ -6,6 +6,7 @@ import { baseModelsDir } from './utils/pathUtils.js';
 import { User } from '@moteurio/types/User.js';
 import { assertUserCanAccessProject } from './utils/access.js';
 import { getProject } from './projects.js';
+import { getContentIndex } from './contentIndex/index.js';
 import { triggerEvent } from './utils/eventBus.js';
 import {
     getProjectJson,
@@ -153,6 +154,7 @@ export async function deleteModelSchema(
 
     fs.mkdirSync(destDir, { recursive: true });
     fs.renameSync(source, dest);
+    await (await getContentIndex()).modelRemoved(projectId, schemaId);
 
     triggerEvent('content.deleted', {
         projectId,

@@ -9,9 +9,15 @@ vi.mock('@moteurio/core/apiCollections.js', () => ({
 vi.mock('@moteurio/core/projectApiKey.js', () => ({
     verifyProjectApiKey: vi.fn()
 }));
+vi.mock('@moteurio/core/entries.js', () => ({
+    queryEntriesForProject: vi.fn(),
+    getEntryForProject: vi.fn(),
+    getPublishedEntryForProject: vi.fn()
+}));
 
 import { listCollections, getCollection } from '@moteurio/core/apiCollections.js';
 import { verifyProjectApiKey } from '@moteurio/core/projectApiKey.js';
+import { queryEntriesForProject } from '@moteurio/core/entries.js';
 import collectionsPublicRouter from '../../../src/projects/collections/public.js';
 import {
     optionalAuth,
@@ -159,5 +165,86 @@ describe('GET /projects/:projectId/collections/:collectionId', () => {
         const res = await request(app).get('/projects/demo/collections/c1').set('x-api-key', 'key');
         expect(res.status).toBe(200);
         expect(res.body.label).toBe('API');
+    });
+});
+
+describe('GET /projects/:projectId/collections/:collectionId/:resourceId/entries', () => {
+    const collection = {
+        id: 'c1',
+        projectId: 'demo',
+        label: 'API',
+        resources: [{ resourceType: 'model' as const, resourceId: 'articles' }],
+        createdAt: '',
+        updatedAt: ''
+    };
+
+    beforeEach(() => {
+        vi.clearAllMocks();
+        vi.mocked(verifyProjectApiKey).mockResolvedValue({
+            ok: true,
+            keyId: 'k1',
+            policy: { collectionWhitelist: null, allowSiteWideReads: true }
+        });
+        vi.mocked(getCollection).mockResolvedValue(collection);
+        vi.mocked(queryEntriesForProject).mockResolvedValue({
+            items: [
+                { id: 'a', type: 'articles', status: 'published', data: {} },
+                { id: 'b', type: 'articles', status: 'published', data: {} }
+            ],
+            total: 7
+        });
+    });
+
+    it('lists published versions, unpaged by default, with the total in X-Total-Count', async () => {
+        const res = await request(app)
+            .get('/projects/demo/collections/c1/articles/entries')
+            .set('x-api-key', 'key');
+        expect(res.status).toBe(200);
+        expect(res.body.map((e: { id: string }) => e.id)).toEqual(['a', 'b']);
+        expect(res.headers['x-total-count']).toBe('7');
+        expect(queryEntriesForProject).toHaveBeenCalledWith('demo', 'articles', {
+            view: 'published',
+            status: ['published']
+        });
+    });
+
+    it('passes limit, offset and sort to the content index', async () => {
+        const res = await request(app)
+            .get(
+                '/projects/demo/collections/c1/articles/entries?limit=2&offset=4&sort=-publishedAt'
+            )
+            .set('x-api-key', 'key');
+        expect(res.status).toBe(200);
+        expect(queryEntriesForProject).toHaveBeenCalledWith('demo', 'articles', {
+            view: 'published',
+            status: ['published'],
+            limit: 2,
+            offset: 4,
+            sort: { field: 'publishedAt', direction: 'desc' }
+        });
+    });
+
+    it('ignores a status parameter: the collection decides which statuses are public', async () => {
+        await request(app)
+            .get('/projects/demo/collections/c1/articles/entries?status=draft')
+            .set('x-api-key', 'key');
+        expect(vi.mocked(queryEntriesForProject).mock.calls[0][2]).toMatchObject({
+            status: ['published']
+        });
+    });
+
+    it.each([
+        ['limit=0', /limit/],
+        ['limit=5000', /limit/],
+        ['limit=abc', /limit/],
+        ['offset=-1', /offset/],
+        ['sort=title', /sort/]
+    ])('rejects %s with 400', async (qs, message) => {
+        const res = await request(app)
+            .get(`/projects/demo/collections/c1/articles/entries?${qs}`)
+            .set('x-api-key', 'key');
+        expect(res.status).toBe(400);
+        expect(res.body.error).toMatch(message);
+        expect(queryEntriesForProject).not.toHaveBeenCalled();
     });
 });

@@ -7,6 +7,7 @@ export {
     getLog,
     getRepoLog,
     show,
+    readBlobs,
     setRemoteOrigin,
     push,
     pushBranch,

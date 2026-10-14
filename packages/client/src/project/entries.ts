@@ -6,12 +6,20 @@ export function entriesApi(client: MoteurClient) {
         list(
             projectId: string,
             modelId: string,
-            params?: { status?: string; limit?: number; offset?: string }
-        ): Promise<{ entries: Entry[] }> {
+            params?: {
+                /** Comma-separated statuses, e.g. `draft,in_review`. */
+                status?: string;
+                limit?: number;
+                offset?: number | string;
+                /** `id`, `createdAt`, `updatedAt` or `publishedAt`; prefix `-` for descending. */
+                sort?: string;
+            }
+        ): Promise<{ entries: Entry[]; total: number }> {
             const q: Record<string, string | number> = {};
             if (params?.status) q.status = params.status;
             if (params?.limit != null) q.limit = params.limit;
-            if (params?.offset) q.offset = params.offset;
+            if (params?.offset != null && params.offset !== '') q.offset = params.offset;
+            if (params?.sort) q.sort = params.sort;
             return client.get(
                 `/projects/${encodeURIComponent(projectId)}/models/${encodeURIComponent(modelId)}/entries`,
                 q as Record<string, string>

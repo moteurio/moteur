@@ -1,4 +1,4 @@
-import { execSync, spawnSync } from 'child_process';
+import { execSync, spawn, spawnSync } from 'child_process';
 import fs from 'fs/promises';
 import path from 'path';
 import { existsSync } from 'fs';
@@ -262,6 +262,111 @@ export function show(projectDir: string, rev: string, relativePath: string): str
     }
 }
 
+/** Run git asynchronously and collect stdout (binary-safe). Rejects on a non-zero exit. */
+function gitAsync(projectDir: string, args: string[], input?: string): Promise<Buffer> {
+    return new Promise((resolve, reject) => {
+        const child = spawn('git', args, { cwd: projectDir });
+        const out: Buffer[] = [];
+        const err: Buffer[] = [];
+        child.stdout.on('data', (chunk: Buffer) => out.push(chunk));
+        child.stderr.on('data', (chunk: Buffer) => err.push(chunk));
+        child.on('error', reject);
+        child.on('close', code => {
+            if (code === 0) resolve(Buffer.concat(out));
+            else reject(new Error(Buffer.concat(err).toString() || `git ${args[0]} failed`));
+        });
+        child.stdin.end(input ?? '');
+    });
+}
+
+/** Above this many files at one revision, list its tree once instead of resolving each path. */
+const LS_TREE_THRESHOLD = 64;
+
+/** Blob id of every file at a revision. */
+async function blobIds(projectDir: string, rev: string): Promise<Map<string, string>> {
+    const ids = new Map<string, string>();
+    const out = await gitAsync(projectDir, ['ls-tree', '-r', '-z', '--full-tree', rev]);
+    // "<mode> blob <sha>\t<path>\0"
+    for (const line of out.toString('utf-8').split('\0')) {
+        const tab = line.indexOf('\t');
+        if (tab < 0) continue;
+        const [, type, sha] = line.slice(0, tab).split(' ');
+        if (type === 'blob') ids.set(line.slice(tab + 1), sha);
+    }
+    return ids;
+}
+
+/**
+ * Read many files at given revisions without blocking the event loop, with one
+ * `git cat-file --batch` process. Specs are `<rev>:<path>`; the result maps each spec to its
+ * content, or null when the file did not exist at that revision.
+ *
+ * git resolves `<rev>:<path>` by scanning each directory on the path, which gets slow for
+ * thousands of files in a large directory, so big batches look blob ids up from one tree
+ * listing per revision instead.
+ */
+export async function readBlobs(
+    projectDir: string,
+    specs: string[]
+): Promise<Map<string, string | null>> {
+    const result = new Map<string, string | null>();
+    if (specs.length === 0 || !isGitRepo(projectDir)) {
+        for (const spec of specs) result.set(spec, null);
+        return result;
+    }
+
+    const byRev = new Map<string, string[]>();
+    for (const spec of specs) {
+        const rev = spec.slice(0, spec.indexOf(':'));
+        const list = byRev.get(rev);
+        if (list) list.push(spec);
+        else byRev.set(rev, [spec]);
+    }
+    // What cat-file is asked for each spec: a blob id, the spec itself, or nothing (missing).
+    const objects = new Map<string, string | null>(specs.map(spec => [spec, spec]));
+    for (const [rev, revSpecs] of byRev) {
+        if (revSpecs.length < LS_TREE_THRESHOLD) continue;
+        let ids: Map<string, string>;
+        try {
+            ids = await blobIds(projectDir, rev);
+        } catch {
+            continue; // unknown revision: cat-file reports each spec missing
+        }
+        for (const spec of revSpecs) {
+            objects.set(spec, ids.get(spec.slice(rev.length + 1).replace(/\\/g, '/')) ?? null);
+        }
+    }
+
+    const asked = specs.filter(spec => objects.get(spec) != null);
+    for (const spec of specs) if (objects.get(spec) == null) result.set(spec, null);
+    if (asked.length === 0) return result;
+
+    const out = await gitAsync(
+        projectDir,
+        ['cat-file', '--batch'],
+        asked.map(spec => `${objects.get(spec)!.replace(/\\/g, '/')}\n`).join('')
+    );
+    let pos = 0;
+    for (const spec of asked) {
+        const eol = out.indexOf(0x0a, pos);
+        if (eol < 0) {
+            result.set(spec, null);
+            continue;
+        }
+        // "<sha> <type> <size>" followed by the content, or "<object> missing"
+        const header = /^[0-9a-f]+ (\w+) (\d+)$/.exec(out.toString('utf-8', pos, eol));
+        pos = eol + 1;
+        if (!header) {
+            result.set(spec, null);
+            continue;
+        }
+        const size = Number(header[2]);
+        result.set(spec, header[1] === 'blob' ? out.toString('utf-8', pos, pos + size) : null);
+        pos += size + 1;
+    }
+    return result;
+}
+
 /**
  * Ensure `origin` points at the given URL (add or set-url).
  */
@@ -308,6 +413,8 @@ export const WORKSPACE_SNAPSHOT_BRANCH = 'moteur-workspace-snapshots';
 export const USERDATA_SNAPSHOT_BRANCH = 'moteur-userdata-snapshots';
 
 const WORKSPACE_SECRETS_PATH = '.moteur/secrets.json';
+/** Rebuildable caches (content index): never snapshotted. */
+const WORKSPACE_CACHE_PATH = '.moteur/cache/';
 
 /**
  * List local branch names (content branches). Excludes workspace snapshot branch from default list when filterWorkspaceBranch is true.
@@ -432,10 +539,12 @@ export async function snapshotWorkspace(
             // Orphan branch has empty index; nothing to rm
         }
         git(projectDir, ['add', '-f', '.moteur/'], env);
-        try {
-            git(projectDir, ['reset', 'HEAD', '--', WORKSPACE_SECRETS_PATH], env);
-        } catch {
-            // secrets.json may not exist or not be staged
+        for (const excluded of [WORKSPACE_SECRETS_PATH, WORKSPACE_CACHE_PATH]) {
+            try {
+                git(projectDir, ['reset', 'HEAD', '--', excluded], env);
+            } catch {
+                // may not exist or not be staged
+            }
         }
         try {
             git(projectDir, ['diff', '--cached', '--quiet'], env);
