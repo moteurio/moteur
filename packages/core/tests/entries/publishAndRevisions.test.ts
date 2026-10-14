@@ -12,6 +12,7 @@ import {
     listPublishedEntriesForProject
 } from '../../src/entries.js';
 import * as publishedCache from '../../src/git/publishedContentCache.js';
+import { resetContentIndex } from '../../src/contentIndex/index.js';
 import type { Entry } from '@moteurio/types/Model.js';
 
 const projectId = 'pub-test-proj';
@@ -157,7 +158,7 @@ describe('publish & revisions (git integration)', () => {
             expect(result!.data?.title).not.toBe('Draft Title');
         });
 
-        it('serves from cache on second call (no git show needed)', async () => {
+        it('serves the published version from the content index, without git', async () => {
             await seedEntry(makeEntry());
             await publishEntry(testUser, projectId, modelId, entryId);
 
@@ -167,16 +168,35 @@ describe('publish & revisions (git integration)', () => {
             await putProjectJson(projectId, entryKey(modelId, entryId), draft!);
 
             publishedCache.clear();
-            expect(publishedCache.size()).toBe(0);
-
-            // First call — cache miss, calls git show
-            await getPublishedEntryForProject(projectId, modelId, entryId);
-            expect(publishedCache.size()).toBe(1);
-
-            // Second call — cache hit
             const result = await getPublishedEntryForProject(projectId, modelId, entryId);
             expect(result!.data?.title).toBe('Hello World');
-            expect(publishedCache.size()).toBe(1);
+            expect(publishedCache.size()).toBe(0);
+        });
+
+        it('without an index, reads git once then serves from cache', async () => {
+            vi.stubEnv('MOTEUR_CONTENT_INDEX', 'files');
+            await resetContentIndex();
+            try {
+                await seedEntry(makeEntry());
+                await publishEntry(testUser, projectId, modelId, entryId);
+
+                const draft = await getProjectJson<Entry>(projectId, entryKey(modelId, entryId));
+                draft!.data!.title = 'Draft V2';
+                draft!.meta!.audit!.revision = 50;
+                await putProjectJson(projectId, entryKey(modelId, entryId), draft!);
+
+                publishedCache.clear();
+                await getPublishedEntryForProject(projectId, modelId, entryId);
+                expect(publishedCache.size()).toBe(1);
+
+                const result = await getPublishedEntryForProject(projectId, modelId, entryId);
+                expect(result!.data?.title).toBe('Hello World');
+                expect(publishedCache.size()).toBe(1);
+            } finally {
+                vi.unstubAllEnvs();
+                vi.stubEnv('DATA_ROOT', tempDir);
+                await resetContentIndex();
+            }
         });
 
         it('returns null for non-existent entry', async () => {

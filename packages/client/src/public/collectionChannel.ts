@@ -3,10 +3,16 @@ import type { MoteurClient } from '../client.js';
 function qEntries(opts?: {
     resolveAssets?: boolean;
     resolveUrl?: boolean;
+    limit?: number;
+    offset?: number;
+    sort?: string;
 }): Record<string, string> | undefined {
     const o: Record<string, string> = {};
     if (opts?.resolveAssets) o.resolveAssets = '1';
     if (opts?.resolveUrl) o.resolveUrl = '1';
+    if (opts?.limit != null) o.limit = String(opts.limit);
+    if (opts?.offset != null) o.offset = String(opts.offset);
+    if (opts?.sort) o.sort = opts.sort;
     return Object.keys(o).length ? o : undefined;
 }
 
@@ -39,7 +45,20 @@ export function createPublicCollectionChannel(
         },
 
         entries: {
-            list(resourceId: string, options?: { resolveAssets?: boolean; resolveUrl?: boolean }) {
+            /**
+             * `limit`/`offset` page the list; `sort` is `id`, `createdAt`, `updatedAt` or
+             * `publishedAt`, prefixed with `-` for descending.
+             */
+            list(
+                resourceId: string,
+                options?: {
+                    resolveAssets?: boolean;
+                    resolveUrl?: boolean;
+                    limit?: number;
+                    offset?: number;
+                    sort?: string;
+                }
+            ) {
                 return client.get(`${root}/${enc(resourceId)}/entries`, qEntries(options));
             },
             get(

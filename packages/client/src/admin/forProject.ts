@@ -106,10 +106,8 @@ export function createProjectClient(client: MoteurClient, projectId: string) {
         },
 
         entries: {
-            list: (
-                modelId: string,
-                params?: { status?: string; limit?: number; offset?: string }
-            ) => entries.list(pid, modelId, params),
+            list: (modelId: string, params?: Parameters<typeof entries.list>[2]) =>
+                entries.list(pid, modelId, params),
             get: (modelId: string, entryId: string) => entries.get(pid, modelId, entryId),
             create: (modelId: string, body: Record<string, unknown>) =>
                 entries.create(pid, modelId, body),

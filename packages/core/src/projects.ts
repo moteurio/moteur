@@ -12,6 +12,7 @@ import { validateProject } from './validators/validateProject.js';
 import { getProjectJson, putProjectJson } from './utils/projectStorage.js';
 import { PROJECT_KEY } from './utils/storageKeys.js';
 import { ensureWorkspace } from './utils/workspaceStore.js';
+import { getContentIndex } from './contentIndex/index.js';
 import { ensureUserData } from './utils/userDataStore.js';
 import { initRepo, cloneFromRemote, addAllAndCommit, push } from './git/index.js';
 import { getEffectiveGitRemoteUrl, applyProjectGitSideEffects } from './utils/projectGit.js';
@@ -302,6 +303,7 @@ export async function deleteProject(user: User, projectId: string): Promise<void
     const dest = path.join(destDir, projectId);
 
     fs.mkdirSync(destDir, { recursive: true });
+    (await getContentIndex()).close(projectId);
     fs.renameSync(source, dest);
 
     removeProjectFromAllUsers(projectId);
@@ -351,6 +353,8 @@ export async function copyProjectForNewUser(
     if (fs.existsSync(destGit)) {
         fs.rmSync(destGit, { recursive: true });
     }
+    // The source's content index is rebuilt for the copy on first use.
+    fs.rmSync(path.join(destDir, '.moteur', 'cache'), { recursive: true, force: true });
     await initRepo(destDir);
 
     const project = await getProjectJson<ProjectSchema>(newProjectId, PROJECT_KEY);

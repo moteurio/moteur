@@ -11,6 +11,7 @@ import {
     isGitRepo,
     push
 } from '@moteurio/core/git/index.js';
+import { getContentIndex } from '@moteurio/core/contentIndex/index.js';
 import { requireProjectAccess } from '../../middlewares/auth.js';
 import { sendApiError } from '../../utils/apiError.js';
 import { log, toActivityEvent } from '@moteurio/core/activityLogger.js';
@@ -65,6 +66,7 @@ router.post('/switch', requireProjectAccess, async (req: Request, res: Response)
     }
     try {
         checkoutBranch(dir, branch);
+        (await getContentIndex()).invalidate(projectId);
         if (!push(dir)) {
             log(
                 toActivityEvent(projectId, 'git', 'repo', 'git_push_failed', req.user, undefined, {
@@ -93,6 +95,7 @@ router.post('/merge', requireProjectAccess, async (req: Request, res: Response) 
     const author = user ? { name: user.name, email: user.email, id: user.id } : undefined;
     try {
         mergeBranch(dir, sourceBranch, author);
+        (await getContentIndex()).invalidate(projectId);
         if (!push(dir)) {
             log(
                 toActivityEvent(projectId, 'git', 'repo', 'git_push_failed', req.user, undefined, {

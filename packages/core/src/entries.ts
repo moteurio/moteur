@@ -8,14 +8,9 @@ import { getModelSchema } from './models.js';
 import { getProject } from './projects.js';
 import { hasApprovedReview } from './reviews.js';
 import { triggerEvent } from './utils/eventBus.js';
-import {
-    getProjectJson,
-    putProjectJson,
-    hasProjectKey,
-    listProjectKeys
-} from './utils/projectStorage.js';
-import { entryKey, entryListPrefix } from './utils/storageKeys.js';
-import { addAndCommit, getLog, isGitRepo, push, show, type CommitInfo } from './git/gitService.js';
+import { getProjectJson, putProjectJson, hasProjectKey } from './utils/projectStorage.js';
+import { entryKey } from './utils/storageKeys.js';
+import { addAndCommit, getLog, isGitRepo, push, type CommitInfo } from './git/gitService.js';
 import { dispatch as webhookDispatch } from './webhooks/webhookService.js';
 import { runEntryScanDebounced } from './radar/index.js';
 import {
@@ -26,6 +21,13 @@ import {
 import { validateBlockLocalesInPayload } from './utils/validateBlockLocales.js';
 import * as publishedCache from './git/publishedContentCache.js';
 import { log, toActivityEvent } from './activityLogger.js';
+import {
+    getContentIndex,
+    publishedSnapshotCommit,
+    type EntryQuery,
+    type EntryQueryResult
+} from './contentIndex/index.js';
+import { readPublishedSnapshots } from './contentIndex/entryFiles.js';
 
 /** How an entry is named in commit messages: its slug when it is a plain string, else its id. */
 function commitRef(entry: Entry, entryId: string): string {
@@ -36,6 +38,25 @@ function commitRef(entry: Entry, entryId: string): string {
 export type ListEntriesForProjectOptions = {
     status?: EntryStatus | EntryStatus[];
 };
+
+export type { EntryQuery, EntryQueryResult };
+
+function statusList(status: EntryStatus | EntryStatus[] | undefined): EntryStatus[] {
+    const value = status ?? ['published'];
+    return Array.isArray(value) ? value : [value];
+}
+
+/**
+ * Filter, sort and page a model's entries through the content index, without user check.
+ * `view: 'published'` returns each entry's public version.
+ */
+export async function queryEntriesForProject(
+    projectId: string,
+    modelId: string,
+    query: EntryQuery = {}
+): Promise<EntryQueryResult> {
+    return (await getContentIndex()).queryEntries(projectId, modelId, query);
+}
 
 export type EntryServiceOptions = {
     source?: 'api' | 'studio' | 'scheduler';
@@ -80,13 +101,10 @@ export async function listEntriesForProject(
     modelId: string,
     options?: ListEntriesForProjectOptions
 ): Promise<Entry[]> {
-    const ids = await listProjectKeys(projectId, entryListPrefix(modelId));
-    const entries = (
-        await Promise.all(ids.map(id => getProjectJson<Entry>(projectId, entryKey(modelId, id))))
-    ).filter((e): e is Entry => e != null);
-    const statusFilter = options?.status ?? ['published'];
-    const statuses = Array.isArray(statusFilter) ? statusFilter : [statusFilter];
-    return entries.filter(e => statuses.includes((e.status ?? 'draft') as EntryStatus));
+    const { items } = await queryEntriesForProject(projectId, modelId, {
+        status: statusList(options?.status)
+    });
+    return items;
 }
 
 /**
@@ -107,12 +125,18 @@ export async function listEntries(
     projectId: string,
     modelId: string
 ): Promise<Entry[]> {
-    const _schema = await getModelSchema(user, projectId, modelId);
+    return (await queryEntries(user, projectId, modelId)).items;
+}
 
-    const ids = await listProjectKeys(projectId, entryListPrefix(modelId));
-    return (
-        await Promise.all(ids.map(id => getProjectJson<Entry>(projectId, entryKey(modelId, id))))
-    ).filter((e): e is Entry => e != null);
+/** Filter, sort and page a model's entries (every status unless `query.status` is given). */
+export async function queryEntries(
+    user: User,
+    projectId: string,
+    modelId: string,
+    query: EntryQuery = {}
+): Promise<EntryQueryResult> {
+    await getModelSchema(user, projectId, modelId);
+    return queryEntriesForProject(projectId, modelId, query);
 }
 
 export async function getEntry(
@@ -312,6 +336,7 @@ export async function deleteEntry(
 
     const dest = path.join(trashDir, `${entryId}-${Date.now()}.json`);
     fs.renameSync(entryFilePath(projectId, modelId, entryId), dest);
+    await (await getContentIndex()).entryRemoved(projectId, modelId, entryId);
 
     triggerEvent('content.deleted', {
         projectId,
@@ -430,6 +455,13 @@ export async function publishEntry(
         // git show <commitHash>:path would return, so we can cache it directly.
         const key = entryKey(modelId, entryId);
         publishedCache.set(commitHash, key, JSON.stringify(entry));
+        (await getContentIndex()).publishedSnapshotTaken(
+            projectId,
+            modelId,
+            entryId,
+            commitHash,
+            entry
+        );
 
         entry.meta.audit.publishedCommit = commitHash;
         await putProjectJson(projectId, entryKey(modelId, entryId), entry);
@@ -557,11 +589,12 @@ export function getEntryRevisions(
 // ---------------------------------------------------------------------------
 
 /**
- * Get the published version of an entry via git show.
+ * Get the public version of an entry.
  *
- * - If publishedCommit exists and revision > publishedRevision, reads the entry
- *   from git at that commit (the frozen published content).
- * - Otherwise falls back to entry.json (either fully published or legacy entry).
+ * An entry edited after publishing keeps serving the content committed at publish time
+ * (`publishedCommit`), read from the content index or, failing that, from git. Otherwise the
+ * entry file is the public version. An unpublished entry is returned as is (status
+ * `unpublished`), so callers filtering on `published` hide it.
  */
 export async function getPublishedEntryForProject(
     projectId: string,
@@ -572,54 +605,28 @@ export async function getPublishedEntryForProject(
     const entry = await getProjectJson<Entry>(projectId, entryKey(modelId, entryId));
     if (!entry) return null;
 
-    const audit = entry.meta?.audit;
-    if (
-        audit?.publishedCommit &&
-        audit.publishedRevision != null &&
-        audit.revision != null &&
-        audit.revision > audit.publishedRevision
-    ) {
-        const key = entryKey(modelId, entryId);
-
-        // Check in-memory cache first (commit hashes are immutable — always fresh)
-        const cached = publishedCache.get(audit.publishedCommit, key);
-        if (cached) {
-            try {
-                return JSON.parse(cached) as Entry;
-            } catch {
-                /* fall through */
-            }
-        }
-
-        // Cache miss: read from git, then populate cache
-        const dir = projectDir(projectId);
-        const raw = show(dir, audit.publishedCommit, key);
-        if (raw) {
-            try {
-                const parsed = JSON.parse(raw) as Entry;
-                publishedCache.set(audit.publishedCommit, key, raw);
-                return parsed;
-            } catch {
-                // corrupt git data — fall through to latest
-            }
-        }
-    }
-    return entry;
+    const commit = publishedSnapshotCommit(entry);
+    if (!commit) return entry;
+    const indexed = await (
+        await getContentIndex()
+    ).getPublishedSnapshot(projectId, modelId, entryId, commit);
+    if (indexed) return indexed;
+    const snapshots = await readPublishedSnapshots(projectId, [{ modelId, entryId, commit }]);
+    // Unreadable snapshot (e.g. history rewritten): serve the entry file.
+    return snapshots.get(`${commit}:${entryKey(modelId, entryId)}`) ?? entry;
 }
 
 /**
- * List published entries. Uses git show for entries with unpublished changes.
+ * List the public version of a model's entries, filtered on that version's status.
  */
 export async function listPublishedEntriesForProject(
     projectId: string,
     modelId: string,
     options?: ListEntriesForProjectOptions
 ): Promise<Entry[]> {
-    const ids = await listProjectKeys(projectId, entryListPrefix(modelId));
-    const entries = (
-        await Promise.all(ids.map(id => getPublishedEntryForProject(projectId, modelId, id)))
-    ).filter((e): e is Entry => e != null);
-    const statusFilter = options?.status ?? ['published'];
-    const statuses = Array.isArray(statusFilter) ? statusFilter : [statusFilter];
-    return entries.filter(e => statuses.includes((e.status ?? 'draft') as EntryStatus));
+    const { items } = await queryEntriesForProject(projectId, modelId, {
+        view: 'published',
+        status: statusList(options?.status)
+    });
+    return items;
 }
