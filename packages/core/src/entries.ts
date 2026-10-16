@@ -10,7 +10,7 @@ import { hasApprovedReview } from './reviews.js';
 import { triggerEvent } from './utils/eventBus.js';
 import { getProjectJson, putProjectJson, hasProjectKey } from './utils/projectStorage.js';
 import { entryKey } from './utils/storageKeys.js';
-import { addAndCommit, getLog, isGitRepo, push, type CommitInfo } from './git/gitService.js';
+import { addAndCommit, getLog, isGitRepo, push, show, type CommitInfo } from './git/gitService.js';
 import { dispatch as webhookDispatch } from './webhooks/webhookService.js';
 import { runEntryScanDebounced } from './radar/index.js';
 import {
@@ -28,18 +28,6 @@ import {
     type EntryQueryResult
 } from './contentIndex/index.js';
 import { readPublishedSnapshots } from './contentIndex/entryFiles.js';
-
-/** How an entry is named in commit messages: its slug when it is a plain string, else its id. */
-function commitRef(entry: Entry, entryId: string): string {
-    const slug = entry.data?.slug;
-    return typeof slug === 'string' && slug ? slug : entryId;
-}
-
-/** How an entry is named in commit messages: its slug when it is a plain string, else its id. */
-function commitRef(entry: Entry, entryId: string): string {
-    const slug = entry.data?.slug;
-    return typeof slug === 'string' && slug ? slug : entryId;
-}
 
 /** How an entry is named in commit messages: its slug when it is a plain string, else its id. */
 function commitRef(entry: Entry, entryId: string): string {
