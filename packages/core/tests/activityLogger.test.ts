@@ -217,6 +217,24 @@ describe('activityLogger', () => {
             expect(page.events[0].id).toBe('ev-1');
         });
 
+        it('keeps every event when several are logged at once', async () => {
+            const event = (id: string): ActivityEvent => ({
+                id,
+                projectId,
+                resourceType: 'entry',
+                resourceId: 'm__e',
+                action: 'updated',
+                userId: 'u1',
+                userName: 'Alice',
+                timestamp: new Date().toISOString()
+            });
+            // An entry update and the git commit it triggers log in the same tick.
+            await Promise.all(['a', 'b', 'c', 'd', 'e'].map(id => log(event(id))));
+
+            const page = await getProjectLog(projectId, 10);
+            expect(page.events.map(e => e.id).sort()).toEqual(['a', 'b', 'c', 'd', 'e']);
+        });
+
         it('does not throw when called with invalid projectId', () => {
             const event: ActivityEvent = {
                 id: 'x',
