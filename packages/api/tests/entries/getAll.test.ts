@@ -52,6 +52,58 @@ describe('GET /projects/:projectId/models/:modelId/entries', () => {
         });
     });
 
+    it('passes list parameters (search, filters, languages, sort, group, counts, fields)', async () => {
+        const { queryEntries } = await import('@moteurio/core/entries');
+        (queryEntries as any).mockResolvedValue({
+            items: [],
+            total: 7,
+            facets: { issue: { 'nº-05': 4 } },
+            missingCounts: { en: 2 }
+        });
+        const res = await request(app).get('/projects/demo/models/article/entries').query({
+            q: 'glace',
+            'filter.issue': 'nº-05,nº-06',
+            'filter.$workflow': 'edits',
+            missing: 'title:en',
+            sort: '-data.title',
+            sortLocale: 'fr',
+            group: 'issue',
+            groupOrder: 'nº-06,nº-05',
+            facets: 'issue,$workflow',
+            missingCounts: 'title:fr,en',
+            fields: 'title,cover',
+            limit: '0'
+        });
+        expect(res.status).toBe(200);
+        expect(queryEntries).toHaveBeenCalledWith({ id: 'mock-user' }, 'demo', 'article', {
+            limit: 0,
+            sort: { field: 'data', key: 'title', locale: 'fr', direction: 'desc' },
+            search: 'glace',
+            filters: { issue: ['nº-05', 'nº-06'], $workflow: ['edits'] },
+            missing: { field: 'title', locales: ['en'] },
+            missingCounts: { field: 'title', locales: ['fr', 'en'] },
+            group: { key: 'issue', order: ['nº-06', 'nº-05'] },
+            facets: ['issue', '$workflow'],
+            fields: ['title', 'cover']
+        });
+        expect(res.body).toEqual({
+            entries: [],
+            total: 7,
+            facets: { issue: { 'nº-05': 4 } },
+            missingCounts: { en: 2 }
+        });
+    });
+
+    it.each([
+        ['a field name that is not one', { 'filter.a.b': 'x' }],
+        ['missing without languages', { missing: 'title' }],
+        ['a sort on an unknown audit date', { sort: 'deletedAt' }],
+        ['facets with a path', { facets: 'data.title' }]
+    ])('rejects %s with 400', async (_label, query) => {
+        const res = await request(app).get('/projects/demo/models/article/entries').query(query);
+        expect(res.status).toBe(400);
+    });
+
     it('rejects an unknown status with 400', async () => {
         const res = await request(app).get('/projects/demo/models/article/entries?status=live');
         expect(res.status).toBe(400);

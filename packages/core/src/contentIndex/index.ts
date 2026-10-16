@@ -23,7 +23,7 @@ export type {
     EntryView,
     ReindexStats
 } from './types.js';
-export { ENTRY_SORT_FIELDS } from './types.js';
+export { ENTRY_SORT_FIELDS, ENTRY_VIRTUAL_KEYS, LIST_KEY, usesListFeatures } from './types.js';
 export { publishedSnapshotCommit } from './publishedView.js';
 
 const DEFAULT_RECHECK_MS = 30_000;

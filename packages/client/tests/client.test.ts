@@ -288,3 +288,39 @@ describe('MoteurApiError', () => {
         expect(err.response).toEqual({ data: {} });
     });
 });
+
+describe('entryListQuery', () => {
+    it('writes list parameters the API reads', async () => {
+        const { entryListQuery } = await import('../src/project/entries.js');
+        expect(
+            entryListQuery({
+                limit: 50,
+                offset: 0,
+                sort: 'data.title',
+                sortLocale: 'fr',
+                q: '  glace ',
+                filters: { issue: ['n5', 'n6'], $workflow: ['edits'], author: [] },
+                missing: { field: 'title', locales: ['en'] },
+                group: { key: 'issue', order: ['n6', 'n5'] },
+                facets: ['issue', '$workflow'],
+                missingCounts: { field: 'title', locales: ['fr', 'en'] },
+                fields: ['title', 'cover']
+            })
+        ).toEqual({
+            limit: 50,
+            offset: 0,
+            sort: 'data.title',
+            sortLocale: 'fr',
+            q: 'glace',
+            'filter.issue': 'n5,n6',
+            'filter.$workflow': 'edits',
+            missing: 'title:en',
+            group: 'issue',
+            groupOrder: 'n6,n5',
+            facets: 'issue,$workflow',
+            missingCounts: 'title:fr,en',
+            fields: 'title,cover'
+        });
+        expect(entryListQuery()).toEqual({});
+    });
+});

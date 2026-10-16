@@ -207,6 +207,247 @@ for (const adapter of ['sqlite', 'files'] as const) {
             );
         });
 
+        describe('list queries', () => {
+            const article = (
+                id: string,
+                data: Record<string, unknown>,
+                opts: {
+                    status?: Entry['status'];
+                    updatedAt: string;
+                    updatedBy?: string;
+                    edits?: boolean;
+                }
+            ): Entry => ({
+                id,
+                type: modelId,
+                status: opts.status ?? 'draft',
+                data,
+                meta: {
+                    audit: {
+                        createdAt: opts.updatedAt,
+                        updatedAt: opts.updatedAt,
+                        updatedBy: opts.updatedBy,
+                        revision: opts.edits ? 3 : 1,
+                        ...(opts.edits && { publishedRevision: 2 })
+                    }
+                }
+            });
+
+            beforeEach(async () => {
+                await seed([
+                    article(
+                        'sous-la-glace',
+                        {
+                            title: { fr: 'Sous la glace d’Ungava', en: 'Under the ice' },
+                            author: { id: 'sophie' },
+                            category: 'ocean',
+                            tags: ['ice', 'north']
+                        },
+                        {
+                            status: 'published',
+                            edits: true,
+                            updatedAt: '2025-01-05T00:00:00Z',
+                            updatedBy: 'u-sophie'
+                        }
+                    ),
+                    article(
+                        'eclair',
+                        {
+                            title: { fr: 'Éclair au chocolat', en: '' },
+                            author: { id: 'celeste' },
+                            category: 'food'
+                        },
+                        {
+                            status: 'in_review',
+                            updatedAt: '2025-01-04T00:00:00Z',
+                            updatedBy: 'u-celeste'
+                        }
+                    ),
+                    article(
+                        'paris',
+                        {
+                            title: { fr: 'Paris, un an après', en: 'Paris, one year on' },
+                            author: { id: 'sophie' },
+                            category: 'city'
+                        },
+                        { updatedAt: '2025-01-03T00:00:00Z', updatedBy: 'u-sophie' }
+                    ),
+                    article(
+                        'zebre',
+                        { title: { fr: 'Zèbre' }, category: 'food' },
+                        { updatedAt: '2025-01-02T00:00:00Z', updatedBy: 'u-celeste' }
+                    ),
+                    article(
+                        'notitle',
+                        { category: 'city', body: `${'filler '.repeat(80)}needle` },
+                        { status: 'published', updatedAt: '2025-01-01T00:00:00Z' }
+                    )
+                ]);
+            });
+
+            const ids = async (q: Parameters<typeof queryEntriesForProject>[2]) =>
+                (await queryEntriesForProject(projectId, modelId, q)).items.map(e => e.id);
+
+            it('searches ids and short texts in every language, ignoring case and accents', async () => {
+                expect(await ids({ search: 'ECLAIR' })).toEqual(['eclair']);
+                expect(await ids({ search: 'glace ungava' })).toEqual(['sous-la-glace']);
+                expect(await ids({ search: 'under ice' })).toEqual(['sous-la-glace']);
+                expect(await ids({ search: 'zebre' })).toEqual(['zebre']);
+                expect(await ids({ search: 'paris tokyo' })).toEqual([]);
+                // Long texts (bodies) are not searched.
+                expect(await ids({ search: 'needle' })).toEqual([]);
+            });
+
+            it('filters on field values, references, lists and virtual keys', async () => {
+                expect(await ids({ filters: { author: ['sophie'] } })).toEqual([
+                    'paris',
+                    'sous-la-glace'
+                ]);
+                expect(
+                    await ids({ filters: { author: ['sophie'], category: ['food', 'city'] } })
+                ).toEqual(['paris']);
+                expect(await ids({ filters: { tags: ['north'] } })).toEqual(['sous-la-glace']);
+                expect(await ids({ filters: { $workflow: ['edits'] } })).toEqual(['sous-la-glace']);
+                expect(await ids({ filters: { $editor: ['u-celeste'] } })).toEqual([
+                    'eclair',
+                    'zebre'
+                ]);
+                expect(await ids({ filters: { category: [] } })).toHaveLength(5);
+            });
+
+            it('finds entries missing a language', async () => {
+                expect(await ids({ missing: { field: 'title', locales: ['en'] } })).toEqual([
+                    'eclair',
+                    'notitle',
+                    'zebre'
+                ]);
+                expect(await ids({ missing: { field: 'title', locales: ['fr'] } })).toEqual([
+                    'notitle'
+                ]);
+            });
+
+            it('counts values per facet, each ignoring its own filter', async () => {
+                const r = await queryEntriesForProject(projectId, modelId, {
+                    filters: { category: ['food'] },
+                    facets: ['category', 'author', '$workflow'],
+                    missingCounts: { field: 'title', locales: ['fr', 'en'] },
+                    limit: 1
+                });
+                expect(r.total).toBe(2);
+                expect(r.items).toHaveLength(1);
+                expect(r.facets).toEqual({
+                    category: { ocean: 1, food: 2, city: 2 },
+                    author: { celeste: 1 },
+                    $workflow: { in_review: 1, draft: 1 }
+                });
+                expect(r.missingCounts).toEqual({ fr: 0, en: 2 });
+
+                const sophie = await queryEntriesForProject(projectId, modelId, {
+                    filters: { author: ['sophie'] },
+                    missing: { field: 'title', locales: ['en'] },
+                    missingCounts: { field: 'title', locales: ['en'] },
+                    limit: 0
+                });
+                expect(sophie.items).toEqual([]);
+                expect(sophie.total).toBe(0);
+                // missingCounts ignores the missing filter itself.
+                expect(sophie.missingCounts).toEqual({ en: 0 });
+            });
+
+            it('sorts on a field’s text, ignoring case and accents, empty values last', async () => {
+                const byTitle = (direction: 'asc' | 'desc', locale?: string) =>
+                    ids({ sort: { field: 'data', key: 'title', locale, direction } });
+                expect(await byTitle('asc', 'fr')).toEqual([
+                    'eclair',
+                    'paris',
+                    'sous-la-glace',
+                    'zebre',
+                    'notitle'
+                ]);
+                expect(await byTitle('desc', 'fr')).toEqual([
+                    'zebre',
+                    'sous-la-glace',
+                    'paris',
+                    'eclair',
+                    'notitle'
+                ]);
+                // An empty translation falls back to the first language that has text.
+                expect(await byTitle('asc', 'en')).toEqual([
+                    'eclair',
+                    'paris',
+                    'sous-la-glace',
+                    'zebre',
+                    'notitle'
+                ]);
+            });
+
+            it('groups rows in the given order, then by value, entries without a value last', async () => {
+                const query = {
+                    group: { key: 'category', order: ['food'] },
+                    sort: { field: 'updatedAt' as const, direction: 'desc' as const }
+                };
+                expect(await ids(query)).toEqual([
+                    'eclair',
+                    'zebre',
+                    'paris',
+                    'notitle',
+                    'sous-la-glace'
+                ]);
+                expect(await ids({ ...query, limit: 2, offset: 2 })).toEqual(['paris', 'notitle']);
+                expect(await ids({ group: { key: 'author' }, sort: query.sort, limit: 3 })).toEqual(
+                    ['eclair', 'sous-la-glace', 'paris']
+                );
+            });
+
+            it('returns only the requested fields', async () => {
+                const [first] = (
+                    await queryEntriesForProject(projectId, modelId, {
+                        filters: { author: ['celeste'] },
+                        fields: ['title', 'nope']
+                    })
+                ).items;
+                expect(first.data).toEqual({ title: { fr: 'Éclair au chocolat', en: '' } });
+                expect(first.status).toBe('in_review');
+                expect(first.meta?.audit?.updatedBy).toBe('u-celeste');
+            });
+
+            it('refuses list features on the published view', async () => {
+                await expect(
+                    queryEntriesForProject(projectId, modelId, {
+                        view: 'published',
+                        search: 'paris'
+                    })
+                ).rejects.toThrow();
+            });
+
+            it('keeps list facts in step with entry files', async () => {
+                const changed = article(
+                    'zebre',
+                    { title: { fr: 'Zèbre', en: 'Zebra' }, category: 'ocean' },
+                    { updatedAt: '2025-01-06T00:00:00Z' }
+                );
+                await putProjectJson(projectId, entryKey(modelId, 'zebre'), changed);
+                (await getContentIndex()).invalidate(projectId);
+                expect(await ids({ filters: { category: ['ocean'] } })).toEqual([
+                    'sous-la-glace',
+                    'zebre'
+                ]);
+                expect(await ids({ search: 'zebra' })).toEqual(['zebre']);
+                expect(await ids({ missing: { field: 'title', locales: ['en'] } })).toEqual([
+                    'eclair',
+                    'notitle'
+                ]);
+
+                await fs.rm(path.join(projDir, entryKey(modelId, 'zebre')));
+                (await getContentIndex()).invalidate(projectId);
+                const r = await queryEntriesForProject(projectId, modelId, {
+                    facets: ['category'],
+                    limit: 0
+                });
+                expect(r.facets).toEqual({ category: { ocean: 1, food: 1, city: 2 } });
+            });
+        });
+
         it('returns nothing for a missing project or model', async () => {
             expect(await queryEntriesForProject('no-such-project', modelId)).toEqual({
                 items: [],
