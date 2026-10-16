@@ -2,14 +2,24 @@ import { validateFieldValue } from './validateFieldValue.js';
 import { ValidationIssue } from '@moteurio/types/ValidationResult.js';
 import type { Field, FieldValidationContext } from '@moteurio/types/Field.js';
 
-function isFieldRequired(fieldSchema: Field): boolean {
+export function isFieldRequired(fieldSchema: Field): boolean {
     return fieldSchema.required === true || fieldSchema.options?.required === true;
+}
+
+/** Whether a value counts as missing for a required field. */
+export function isMissingValue(value: unknown): boolean {
+    return value === undefined || value === null || value === '';
 }
 
 export interface ValidateFieldsAgainstSchemaOptions {
     projectId?: string;
     allowHtmlIframe?: boolean;
     allowHtmlEmbed?: boolean;
+    /**
+     * Report missing required fields as warnings (drafts may be incomplete; they are enforced
+     * when the entry goes to review or live).
+     */
+    requiredAsWarning?: boolean;
 }
 
 function fieldValidationContext(
@@ -39,12 +49,9 @@ export function validateFieldsAgainstSchema(
         const value = data?.[fieldKey];
         const path = `${pathPrefix}.${fieldKey}`;
 
-        if (
-            isFieldRequired(fieldSchema) &&
-            (value === undefined || value === null || value === '')
-        ) {
+        if (isFieldRequired(fieldSchema) && isMissingValue(value)) {
             issues.push({
-                type: 'error',
+                type: options?.requiredAsWarning ? 'warning' : 'error',
                 code: missingFieldCode,
                 message: `Required field "${fieldKey}" is missing.`,
                 path,

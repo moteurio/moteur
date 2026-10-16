@@ -64,6 +64,24 @@ describe('POST /projects/:projectId/models/:modelId/entries', () => {
         expect(res.body).toEqual({ id: 'entry-1', title: 'Hello' });
     });
 
+    it('lets a new draft leave required fields empty, not a new live entry', async () => {
+        (getModelSchema as any).mockReturnValue(mockSchema);
+        (validateEntry as any).mockResolvedValue({ valid: true });
+        (createEntry as any).mockResolvedValue({ id: 'entry-1' });
+
+        await request(app).post(basePath).send({ id: 'a', data: {} });
+        await request(app).post(basePath).send({ id: 'b', status: 'draft', data: {} });
+        await request(app).post(basePath).send({ id: 'c', status: 'published', data: {} });
+        await request(app).post(basePath).send({ id: 'd', status: 'in_review', data: {} });
+
+        expect((validateEntry as any).mock.calls.map((c: any[]) => c[3].draft)).toEqual([
+            true,
+            true,
+            false,
+            false
+        ]);
+    });
+
     it('should return 404 if model schema is not found', async () => {
         (getModelSchema as any).mockReturnValue(null);
         const res = await request(app).post(basePath).send({});

@@ -4,7 +4,7 @@ import type { OpenAPIV3 } from 'openapi-types';
 import { updateEntry } from '@moteurio/core/entries.js';
 import type { EntryStatus } from '@moteurio/types/Model.js';
 import { requireProjectAccess } from '../middlewares/auth.js';
-import { getMessage } from '../utils/apiError.js';
+import { errorFields, getMessage } from '../utils/apiError.js';
 
 const router: Router = Router({ mergeParams: true });
 
@@ -33,7 +33,8 @@ router.patch('/:entryId/status', requireProjectAccess, async (req: Request, res:
               ? 404
               : 400;
         return void res.status(statusCode).json({
-            error: getMessage(err) ?? 'Failed to update entry status'
+            error: getMessage(err) ?? 'Failed to update entry status',
+            ...errorFields(err)
         });
     }
 });

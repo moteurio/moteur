@@ -18,6 +18,7 @@ import {
     stripCoreIdFromData,
     ensureCoreIdValues
 } from './utils/coreIdFields.js';
+import { assertEntryComplete } from './validators/entryComplete.js';
 import { validateBlockLocalesInPayload } from './utils/validateBlockLocales.js';
 import * as publishedCache from './git/publishedContentCache.js';
 import { log, toActivityEvent } from './activityLogger.js';
@@ -283,6 +284,9 @@ export async function updateEntry(
         }
     }
     const updated = mergeEntryPatch(current, patch, getCoreIdFieldIds(schema));
+    if (patch.status === 'in_review' && prevStatus !== 'in_review') {
+        assertEntryComplete(updated, schema, 'review');
+    }
 
     triggerEvent('entry.beforeUpdate', { entry: updated, user, modelId, projectId });
     await putProjectJson(projectId, entryKey(modelId, entryId), updated);
@@ -401,6 +405,7 @@ export async function publishEntry(
     }
 
     const entry = await getEntry(user, projectId, modelId, entryId);
+    assertEntryComplete(entry, await getModelSchema(user, projectId, modelId), 'publish');
     const now = new Date().toISOString();
 
     entry.status = 'published';
