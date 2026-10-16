@@ -25,7 +25,9 @@ function git(projectDir: string, args: string[], env?: Record<string, string>): 
     const r = spawnSync('git', args, {
         cwd: projectDir,
         encoding: 'utf-8',
-        env: fullEnv
+        env: fullEnv,
+        // A commit of thousands of files lists each one; Node's default 1 MB fails with ENOBUFS.
+        maxBuffer: 256 * 1024 * 1024
     });
     if (r.error) throw r.error;
     if (r.status !== 0) {
