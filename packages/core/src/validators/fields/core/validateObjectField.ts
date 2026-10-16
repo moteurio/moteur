@@ -23,13 +23,6 @@ export function validateObjectField(
     }
 
     const v = value as Record<string, unknown>;
-    let inner: Record<string, unknown>;
-    if ('value' in v && isPlainObject(v.value) && !Array.isArray(v.value)) {
-        inner = v.value as Record<string, unknown>;
-    } else {
-        inner = v;
-    }
-
     const childFields =
         (field.data as Record<string, Field> | undefined) ??
         ((field as Field & { fields?: Record<string, Field> }).fields as
@@ -37,6 +30,11 @@ export function validateObjectField(
         ((field as Field & { properties?: Record<string, Field> }).properties as
             Record<string, Field> | undefined) ??
         {};
+
+    // Accept the wrapped form { value: { …fields } }, unless "value" is one of the object's
+    // own fields (e.g. a { label, value } pair), which must not be mistaken for the wrapper.
+    const wrapped = 'value' in v && isPlainObject(v.value) && !('value' in childFields);
+    const inner = (wrapped ? v.value : v) as Record<string, unknown>;
 
     for (const [key, subField] of Object.entries(childFields)) {
         const subValue = inner[key];
