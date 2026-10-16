@@ -35,6 +35,12 @@ function commitRef(entry: Entry, entryId: string): string {
     return typeof slug === 'string' && slug ? slug : entryId;
 }
 
+/** How an entry is named in commit messages: its slug when it is a plain string, else its id. */
+function commitRef(entry: Entry, entryId: string): string {
+    const slug = entry.data?.slug;
+    return typeof slug === 'string' && slug ? slug : entryId;
+}
+
 export type ListEntriesForProjectOptions = {
     status?: EntryStatus | EntryStatus[];
 };
