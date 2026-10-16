@@ -91,8 +91,20 @@ export function validateStructureField(
 
     for (const [subKey, subField] of Object.entries(schemaFields)) {
         const subValue = contentValue[subKey];
-        const subIssues = validateFieldValue(subValue, subField, `${path}.${subKey}`, context);
-        issues.push(...subIssues);
+        const subPath = `${path}.${subKey}`;
+        // Same rule as entry fields: absent optional sub-fields are fine, absent required ones are not.
+        if (subValue === undefined || subValue === null || subValue === '') {
+            if (subField.required === true || subField.options?.required === true) {
+                issues.push({
+                    type: 'error',
+                    code: 'STRUCTURE_REQUIRED_FIELD',
+                    message: `Required field "${subKey}" is missing.`,
+                    path: subPath
+                });
+            }
+            continue;
+        }
+        issues.push(...validateFieldValue(subValue, subField, subPath, context));
     }
 
     return issues;
