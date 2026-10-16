@@ -27,6 +27,12 @@ import { validateBlockLocalesInPayload } from './utils/validateBlockLocales.js';
 import * as publishedCache from './git/publishedContentCache.js';
 import { log, toActivityEvent } from './activityLogger.js';
 
+/** How an entry is named in commit messages: its slug when it is a plain string, else its id. */
+function commitRef(entry: Entry, entryId: string): string {
+    const slug = entry.data?.slug;
+    return typeof slug === 'string' && slug ? slug : entryId;
+}
+
 export type ListEntriesForProjectOptions = {
     status?: EntryStatus | EntryStatus[];
 };
@@ -170,7 +176,7 @@ export async function createEntry(
     triggerEvent('content.saved', {
         projectId,
         paths: [entryKey(modelId, entry.id)],
-        message: `Create ${modelId}/${entry.data?.slug ?? entry.id} — ${user.name ?? user.id}`,
+        message: `Create ${modelId}/${commitRef(entry, entry.id)} — ${user.name ?? user.id}`,
         user
     });
     triggerEvent('entry.afterCreate', { entry, user, modelId, projectId });
@@ -259,7 +265,7 @@ export async function updateEntry(
     triggerEvent('content.saved', {
         projectId,
         paths: [entryKey(modelId, entryId)],
-        message: `Update ${modelId}/${updated.data?.slug ?? entryId} — ${user.name ?? user.id}`,
+        message: `Update ${modelId}/${commitRef(updated, entryId)} — ${user.name ?? user.id}`,
         user
     });
     triggerEvent('entry.afterUpdate', { entry: updated, user, modelId, projectId });
@@ -310,7 +316,7 @@ export async function deleteEntry(
     triggerEvent('content.deleted', {
         projectId,
         paths: [entryKey(modelId, entryId)],
-        message: `Delete ${modelId}/${entry.data?.slug ?? entryId} — ${user.name ?? user.id}`,
+        message: `Delete ${modelId}/${commitRef(entry, entryId)} — ${user.name ?? user.id}`,
         user
     });
     triggerEvent('entry.afterDelete', { entry, user, modelId, projectId });
@@ -392,7 +398,7 @@ export async function publishEntry(
             const h = addAndCommit(
                 dir,
                 [entryKey(modelId, entryId)],
-                `Publish ${modelId}/${entry.data?.slug ?? entryId} — ${user.name ?? user.id}`,
+                `Publish ${modelId}/${commitRef(entry, entryId)} — ${user.name ?? user.id}`,
                 user
             );
             commitHash = h || undefined;
@@ -492,7 +498,7 @@ export async function publishEntry(
         triggerEvent('content.saved', {
             projectId,
             paths: [entryKey(modelId, entryId)],
-            message: `Publish ${modelId}/${entry.data?.slug ?? entryId} — ${user.name ?? user.id}`,
+            message: `Publish ${modelId}/${commitRef(entry, entryId)} — ${user.name ?? user.id}`,
             user
         });
     }
