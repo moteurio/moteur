@@ -21,6 +21,7 @@ import { modelsSpecs } from '../models/index.js';
 import { entriesSpecs } from '../entries/index.js';
 import { openapi as activityGlobalSpec } from '../activity/index.js';
 import { openapi as usageSpec } from '../studio/usage.js';
+import { openapi as fieldTypesSpec } from '../studio/fieldTypes.js';
 import { openapi as assetsMigrateSpec } from '../studio/assets/migrate.js';
 import { openapi as seedSpec } from '../studio/seed.js';
 import { openapi as blocksSpec } from '../public/blocks.js';
@@ -239,6 +240,10 @@ export async function bootstrapApi(options?: {
             { owner: 'models-core', paths: modelsSpecs.paths as OpenAPIV3.PathsObject },
             { owner: 'entries-core', paths: entriesSpecs.paths as OpenAPIV3.PathsObject },
             { owner: 'studio-usage-core', paths: usageSpec as OpenAPIV3.PathsObject },
+            {
+                owner: 'studio-field-types-core',
+                paths: fieldTypesSpec as OpenAPIV3.PathsObject
+            },
             { owner: 'studio-assets-core', paths: assetsMigrateSpec as OpenAPIV3.PathsObject },
             { owner: 'studio-seed-core', paths: seedSpec as OpenAPIV3.PathsObject },
             { owner: 'public-blocks-core', paths: blocksSpec as OpenAPIV3.PathsObject },
