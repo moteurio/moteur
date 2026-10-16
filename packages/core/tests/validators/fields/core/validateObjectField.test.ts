@@ -17,4 +17,25 @@ describe('validateObjectField', () => {
             expect.arrayContaining([expect.objectContaining({ type: 'error' })])
         );
     });
+
+    it('accepts the wrapped form { value: {...} }', () => {
+        expect(validateObjectField({ value: { name: 'John' } }, field, 'data.person')).toEqual([]);
+    });
+
+    it('does not mistake a field named "value" for the wrapper', () => {
+        const pair: Field = {
+            type: 'core/object',
+            label: 'Spec',
+            fields: {
+                label: { type: 'core/text', label: 'Label', options: { multilingual: true } },
+                value: { type: 'core/text', label: 'Value', options: { multilingual: true } }
+            }
+        } as Field;
+        const issues = validateObjectField(
+            { label: { fr: 'Garantie', en: 'Warranty' }, value: { fr: '30 ans', en: '30 years' } },
+            pair,
+            'data.spec'
+        );
+        expect(issues).toEqual([]);
+    });
 });
