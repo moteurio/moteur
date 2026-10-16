@@ -3,7 +3,7 @@ import { Router } from 'express';
 import type { OpenAPIV3 } from 'openapi-types';
 import { submitForReview } from '@moteurio/core/reviews.js';
 import { requireProjectAccess } from '../middlewares/auth.js';
-import { getMessage } from '../utils/apiError.js';
+import { errorFields, getMessage } from '../utils/apiError.js';
 
 const router: Router = Router({ mergeParams: true });
 
@@ -33,9 +33,10 @@ router.post(
                     : getMessage(err)?.includes('not found')
                       ? 404
                       : 403;
-            return void res
-                .status(status)
-                .json({ error: getMessage(err) ?? 'Failed to submit for review' });
+            return void res.status(status).json({
+                error: getMessage(err) ?? 'Failed to submit for review',
+                ...errorFields(err)
+            });
         }
     }
 );

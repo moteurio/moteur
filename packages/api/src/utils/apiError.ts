@@ -7,6 +7,19 @@ export function getMessage(err: unknown): string {
 }
 
 /**
+ * Machine-readable parts of a client error, for the response body: a `code` and, for
+ * ENTRY_INCOMPLETE, the `missing` required fields.
+ */
+export function errorFields(err: unknown): { code?: string; missing?: string[] } {
+    if (typeof err !== 'object' || err === null) return {};
+    const { code, missing } = err as { code?: unknown; missing?: unknown };
+    return {
+        ...(typeof code === 'string' && { code }),
+        ...(Array.isArray(missing) && { missing: missing.map(String) })
+    };
+}
+
+/**
  * Map thrown errors to HTTP status. Core uses plain Error messages; this keeps routes consistent.
  */
 export function getHttpStatusForError(err: unknown): number {
@@ -75,6 +88,7 @@ export function sendApiError(
         error: clientMessage,
         requestId
     };
+    if (status < 500) Object.assign(body, errorFields(err));
     if (exposeDetails && err instanceof Error && err.stack) {
         body.details = err.stack;
     }

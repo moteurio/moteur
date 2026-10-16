@@ -268,7 +268,12 @@ const requiredEverything: SourceEntry[] = [
             )
         )
     },
-    { id: 'missing-everything', data: { title: 'Every other required field is missing' } }
+    // A draft: drafts may leave required fields empty; review and publishing refuse it.
+    {
+        id: 'missing-everything',
+        state: 'draft',
+        data: { title: 'Every other required field is missing' }
+    }
 ];
 
 const wide: SourceEntry[] = Array.from({ length: 3 }, (_, n) => ({

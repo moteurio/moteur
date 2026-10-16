@@ -3,7 +3,7 @@ import { Router } from 'express';
 import type { OpenAPIV3 } from 'openapi-types';
 import { publishEntry } from '@moteurio/core/entries.js';
 import { requireProjectAccess } from '../middlewares/auth.js';
-import { getMessage } from '../utils/apiError.js';
+import { errorFields, getMessage } from '../utils/apiError.js';
 
 const router: Router = Router({ mergeParams: true });
 
@@ -22,7 +22,8 @@ router.post('/:entryId/publish', requireProjectAccess, async (req: Request, res:
               ? 404
               : 400;
         return void res.status(statusCode).json({
-            error: getMessage(err) ?? 'Failed to publish entry'
+            error: getMessage(err) ?? 'Failed to publish entry',
+            ...errorFields(err)
         });
     }
 });

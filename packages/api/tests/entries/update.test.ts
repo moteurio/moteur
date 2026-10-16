@@ -85,6 +85,30 @@ describe('PATCH /projects/:projectId/models/:modelId/entries/:entryId', () => {
         );
     });
 
+    it('validates required fields strictly only on a live entry', async () => {
+        (getModelSchema as any).mockReturnValue(mockSchema);
+        (validateEntry as any).mockResolvedValue({ valid: true });
+        (updateEntry as any).mockResolvedValue({ id: 'entry-1' });
+
+        await request(app)
+            .patch(basePath)
+            .send({ data: { title: '' } });
+        (getEntry as any).mockResolvedValue({
+            id: 'entry-1',
+            type: 'article',
+            status: 'published',
+            data: { title: 'Live' }
+        });
+        await request(app)
+            .patch(basePath)
+            .send({ data: { title: '' } });
+
+        expect((validateEntry as any).mock.calls.map((c: any[]) => c[3].draft)).toEqual([
+            true,
+            false
+        ]);
+    });
+
     it('returns 404 when the entry does not exist', async () => {
         (getModelSchema as any).mockReturnValue(mockSchema);
         (getEntry as any).mockRejectedValue(

@@ -1,4 +1,5 @@
 import { randomUUID } from 'crypto';
+import { assertEntryComplete } from './validators/entryComplete.js';
 import type { Review, GetReviewsOptions } from '@moteurio/types/Review.js';
 import type { User } from '@moteurio/types/User.js';
 import { getProject } from './projects.js';
@@ -43,13 +44,14 @@ export async function submitForReview(
         throw new Error('Review workflow is not enabled for this project');
     }
 
-    await getModelSchema(user, projectId, modelId);
+    const schema = await getModelSchema(user, projectId, modelId);
     const entry = await getProjectJson<Entry>(projectId, entryKey(modelId, entryId));
     if (!entry) {
         throw new Error(
             `Entry "${entryId}" not found in model "${modelId}" of project "${projectId}".`
         );
     }
+    assertEntryComplete(entry, schema, 'review');
     const now = new Date().toISOString();
 
     try {

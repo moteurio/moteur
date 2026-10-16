@@ -12,13 +12,19 @@ export async function validateEntry(
         projectLocales?: string[];
         allowHtmlIframe?: boolean;
         allowHtmlEmbed?: boolean;
+        /**
+         * The entry is a draft (not live): a missing required field is a warning, not an error.
+         * Review and publishing check them (assertEntryComplete).
+         */
+        draft?: boolean;
     }
 ): Promise<ValidationResult> {
     const pathPrefix = `models/${schema.id}/entries/${entry.id}.data`;
     const fieldOpts = {
         projectId,
         allowHtmlIframe: options?.allowHtmlIframe === true,
-        allowHtmlEmbed: options?.allowHtmlEmbed === true
+        allowHtmlEmbed: options?.allowHtmlEmbed === true,
+        requiredAsWarning: options?.draft === true
     };
     const issues = validateFieldsAgainstSchema(
         entry.data,

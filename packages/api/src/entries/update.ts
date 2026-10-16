@@ -36,10 +36,12 @@ router.patch('/:entryId', requireProjectAccess, async (req: Request, res: Respon
     } catch (err: unknown) {
         return void sendApiError(res, req, err);
     }
+    // Until an entry is live, required fields may be empty; review and publishing check them.
     const validation = await validateEntry(projectId, merged, modelSchema, {
         projectLocales: projectLocales?.length ? projectLocales : undefined,
         allowHtmlIframe: proj?.allowHtmlIframe === true,
-        allowHtmlEmbed: proj?.allowHtmlEmbed === true
+        allowHtmlEmbed: proj?.allowHtmlEmbed === true,
+        draft: (merged.status ?? 'draft') !== 'published'
     });
 
     if (!validation.valid) {

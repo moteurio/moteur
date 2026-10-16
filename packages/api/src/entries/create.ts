@@ -26,10 +26,13 @@ const handler = async (req: Request, res: Response) => {
     const projectLocales = proj
         ? ([proj.defaultLocale, ...(proj.supportedLocales ?? [])].filter(Boolean) as string[])
         : undefined;
+    // A new draft may leave required fields empty; they are checked on review and publish.
+    const status = (req.body?.status ?? 'draft') as string;
     const validation = await validateEntry(projectId, req.body, modelSchema, {
         projectLocales: projectLocales?.length ? projectLocales : undefined,
         allowHtmlIframe: proj?.allowHtmlIframe === true,
-        allowHtmlEmbed: proj?.allowHtmlEmbed === true
+        allowHtmlEmbed: proj?.allowHtmlEmbed === true,
+        draft: status !== 'published' && status !== 'in_review'
     });
     if (!validation.valid) {
         return void res.status(400).json({
