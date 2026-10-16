@@ -24,7 +24,8 @@
         "usage:recalc": "tsx packages/api/scripts/recalculate-usage.ts",
         "openapi:export": "pnpm --filter @moteurio/api run openapi:export",
         "openapi:check": "pnpm --filter @moteurio/api run openapi:check-responses",
-        "prepare": "husky"
+        "prepare": "husky",
+        "demo:build": "pnpm --filter @moteurio/demo run build:demo"
     },
     "dependencies": {
         "@moteurio/api": "workspace:*",

@@ -1,0 +1,9 @@
+{
+    "extends": "../../tsconfig.server-dev.json",
+    "compilerOptions": {
+        "noEmit": true,
+        "ignoreDeprecations": "6.0",
+        "rootDir": "."
+    },
+    "include": ["src", "tests"]
+}
