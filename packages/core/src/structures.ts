@@ -6,6 +6,7 @@ import { validateStructure } from './validators/validateStructure.js';
 import { normalizeType } from './utils/normalizeType.js';
 import { isValidId } from './utils/idUtils.js';
 import { baseProjectsDir } from './utils/pathUtils.js';
+import { storageConfig } from './config/storageConfig.js';
 import {
     getProjectJson,
     putProjectJson,
@@ -19,15 +20,22 @@ function systemUser(): User {
     return { id: 'system', name: 'System', isActive: true, email: '', roles: [], projects: [] };
 }
 
+/** Core structures live next to core blocks: {dataRoot}/data/core/structures. */
+function coreStructuresDir(): string {
+    return path.join(storageConfig.dataRoot, 'data', 'core', 'structures');
+}
+
 function loadFromDir(dirPath: string, registry: Record<string, StructureSchema>): void {
     if (!fs.existsSync(dirPath)) return;
 
-    const files = fs.readdirSync(dirPath).filter(f => f.endsWith('on'));
+    const files = fs.readdirSync(dirPath).filter(f => f.endsWith('.json'));
 
     for (const file of files) {
         try {
             const raw = fs.readFileSync(path.join(dirPath, file), 'utf-8');
-            const schema = JSON.parse(raw) as StructureSchema;
+            const parsed = JSON.parse(raw) as StructureSchema & { id?: string };
+            // Core structure files name themselves with "id"; accept it as the type.
+            const schema: StructureSchema = { ...parsed, type: parsed.type ?? parsed.id ?? '' };
 
             if (!schema.type) {
                 console.warn(`[Moteur] Skipping invalid structure: ${file}`);
@@ -45,10 +53,7 @@ function loadFromDir(dirPath: string, registry: Record<string, StructureSchema>)
 export async function listStructures(project?: string): Promise<Record<string, StructureSchema>> {
     const registry: Record<string, StructureSchema> = {};
 
-    for (const ns of ['core']) {
-        const nsDir = path.resolve('structures', ns);
-        loadFromDir(nsDir, registry);
-    }
+    loadFromDir(coreStructuresDir(), registry);
 
     if (project) {
         const ids = await listProjectKeys(project, structureListPrefix());
@@ -68,7 +73,7 @@ export function getStructureFromCore(id: string): StructureSchema {
     const type = id.endsWith('.json') ? id.replace(/\.json$/, '') : id;
     const normalized = normalizeType(type);
     const registry: Record<string, StructureSchema> = {};
-    loadFromDir(path.resolve('structures', 'core'), registry);
+    loadFromDir(coreStructuresDir(), registry);
     const resolved = registry[normalized];
     if (!resolved) {
         throw new Error(`Structure "${id}" not found in core`);
@@ -78,7 +83,9 @@ export function getStructureFromCore(id: string): StructureSchema {
 
 /** Get a specific structure (project takes priority if provided) */
 export async function getStructure(id: string, project?: string): Promise<StructureSchema> {
-    if (!isValidId(id)) {
+    // Core structures are namespaced ("core/seo"): accept "name" or "namespace/name".
+    const segments = id.replace(/\.json$/, '').split('/');
+    if (segments.length > 2 || !segments.every(isValidId)) {
         throw new Error(`Invalid structureId: "${id}"`);
     }
     if (project && !isValidId(project)) {
