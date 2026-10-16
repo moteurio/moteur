@@ -1,8 +1,10 @@
 import type { Entry } from '@moteurio/types/Model.js';
 import { entryKey } from '../utils/storageKeys.js';
 import { listEntryFiles, mapSliced, readEntryFile, readPublishedSnapshots } from './entryFiles.js';
-import { applyQuery, publishedSnapshotCommit } from './publishedView.js';
+import { applyQuery } from './listQuery.js';
+import { publishedSnapshotCommit } from './publishedView.js';
 import type { ContentIndex, EntryQuery, EntryQueryResult, ReindexStats } from './types.js';
+import { usesListFeatures } from './types.js';
 
 /**
  * No index: every query reads and parses every entry file of the model. Always correct, cost
@@ -22,6 +24,9 @@ export class FileScanIndex implements ContentIndex {
             (e): e is Entry => e != null
         );
         if (query.view === 'published') {
+            if (usesListFeatures(query)) {
+                throw new Error('Search, filters, groups and counts only work on the latest view');
+            }
             entries = await this.toPublished(projectId, modelId, entries);
         }
         return applyQuery(entries, query);

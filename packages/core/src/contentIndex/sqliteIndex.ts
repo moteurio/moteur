@@ -12,6 +12,7 @@ import {
     statEntryFile
 } from './entryFiles.js';
 import { entryStatus, publishedSnapshotCommit, sortValue } from './publishedView.js';
+import { fold, listFacts, project, searchTerms, type ListFacts } from './listQuery.js';
 import type {
     ContentIndex,
     EntryQuery,
@@ -19,11 +20,12 @@ import type {
     EntrySortField,
     ReindexStats
 } from './types.js';
+import { usesListFeatures } from './types.js';
 
 type DatabaseConstructor = typeof DatabaseSync;
 
 /** Bump when the table layout changes: an index with another version is rebuilt from scratch. */
-const SCHEMA_VERSION = '1';
+const SCHEMA_VERSION = '3';
 
 const SCHEMA = `
 CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
@@ -44,8 +46,28 @@ CREATE TABLE IF NOT EXISTS entries (
     pub_commit TEXT,
     file_mtime REAL NOT NULL,
     file_size INTEGER NOT NULL,
+    -- folded id and short texts of the latest version, for search
+    search TEXT NOT NULL,
     UNIQUE (model_id, id)
 );
+-- list facts of the latest version (see listQuery.ts): field and virtual-key values, and the
+-- languages that have text in each localized field
+CREATE TABLE IF NOT EXISTS entry_values (
+    model_id TEXT NOT NULL,
+    entry_id TEXT NOT NULL,
+    key TEXT NOT NULL,
+    value TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS entry_values_lookup ON entry_values (model_id, key, value, entry_id);
+CREATE INDEX IF NOT EXISTS entry_values_entry ON entry_values (model_id, entry_id, key, value);
+CREATE TABLE IF NOT EXISTS entry_locales (
+    model_id TEXT NOT NULL,
+    entry_id TEXT NOT NULL,
+    field TEXT NOT NULL,
+    locale TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS entry_locales_lookup ON entry_locales (model_id, field, locale, entry_id);
+CREATE INDEX IF NOT EXISTS entry_locales_entry ON entry_locales (model_id, entry_id, field, locale);
 CREATE INDEX IF NOT EXISTS entries_status ON entries (model_id, status, id);
 CREATE INDEX IF NOT EXISTS entries_created ON entries (model_id, created_at, id);
 CREATE INDEX IF NOT EXISTS entries_updated ON entries (model_id, updated_at, id);
@@ -80,6 +102,7 @@ type Row = {
     pub_commit: string | null;
     file_mtime: number;
     file_size: number;
+    search: string;
 };
 
 type FileStamp = { mtimeMs: number; size: number };
@@ -91,6 +114,10 @@ type ProjectIndex = {
     db: DatabaseSync;
     upsert: StatementSync;
     getRow: StatementSync;
+    clearValues: StatementSync;
+    clearLocales: StatementSync;
+    addValue: StatementSync;
+    addLocale: StatementSync;
     /** Serializes writes and re-checks for one project. */
     tail: Promise<unknown>;
     checked: boolean;
@@ -106,7 +133,8 @@ function rowFor(
     entryId: string,
     entry: Entry,
     published: { entry: Entry; json: string; commit: string } | null,
-    stamp: FileStamp
+    stamp: FileStamp,
+    facts: ListFacts
 ): Row {
     const pub = published?.entry ?? entry;
     return {
@@ -124,9 +152,33 @@ function rowFor(
         pub_json: published?.json ?? null,
         pub_commit: published?.commit ?? null,
         file_mtime: stamp.mtimeMs,
-        file_size: stamp.size
+        file_size: stamp.size,
+        search: facts.search
     };
 }
+
+/** Replace an entry's row and its list facts. Call inside serialize (and a transaction for many). */
+function writeEntry(
+    p: ProjectIndex,
+    modelId: string,
+    entryId: string,
+    entry: Entry,
+    published: { entry: Entry; json: string; commit: string } | null,
+    stamp: FileStamp
+): void {
+    const facts = listFacts(entry);
+    p.upsert.run(rowFor(modelId, entryId, entry, published, stamp, facts));
+    p.clearValues.run(modelId, entryId);
+    p.clearLocales.run(modelId, entryId);
+    for (const [key, value] of facts.values) p.addValue.run(modelId, entryId, key, value);
+    for (const [field, locale] of facts.locales) p.addLocale.run(modelId, entryId, field, locale);
+}
+
+const PLACEHOLDERS = (n: number) => Array.from({ length: n }, () => '?').join(', ');
+
+/** A JSON path to a top-level data field (and a locale), passed as a parameter, never spliced. */
+const dataPath = (key: string, locale?: string) =>
+    `$.data.${JSON.stringify(key)}${locale ? `.${JSON.stringify(locale)}` : ''}`;
 
 /**
  * One SQLite database per project at `.moteur/cache/content-index.sqlite`, holding a copy of
@@ -158,41 +210,141 @@ export class SqliteIndex implements ContentIndex {
         if (!p) return { items: [], total: 0 };
 
         const published = query.view === 'published';
-        const where = ['model_id = ?'];
-        const params: SQLInputValue[] = [modelId];
-        if (query.status) {
-            if (query.status.length === 0) return { items: [], total: 0 };
-            where.push(
-                `${published ? 'pub_status' : 'status'} IN (${query.status.map(() => '?').join(', ')})`
-            );
-            params.push(...query.status);
+        if (published && usesListFeatures(query)) {
+            throw new Error('Search, filters, groups and counts only work on the latest view');
         }
-        const whereSql = where.join(' AND ');
-        const { field, direction } = query.sort ?? { field: 'id', direction: 'asc' };
-        const column = SORT_COLUMNS[field][published ? 1 : 0];
-        const dir = direction === 'desc' ? 'DESC' : 'ASC';
-        const order = field === 'id' ? `id ${dir}` : `${column} ${dir}, id ${dir}`;
+        if (query.status?.length === 0) return { items: [], total: 0 };
+
+        // Conditions as SQL fragments with their parameters, so counts can leave one out.
+        type Cond = { sql: string; params: SQLInputValue[]; filter?: string; missing?: true };
+        const conds: Cond[] = [{ sql: 'model_id = ?', params: [modelId] }];
+        if (query.status) {
+            conds.push({
+                sql: `${published ? 'pub_status' : 'status'} IN (${PLACEHOLDERS(query.status.length)})`,
+                params: [...query.status]
+            });
+        }
+        for (const term of searchTerms(query.search)) {
+            conds.push({
+                sql: 'instr(search, ?) > 0',
+                params: [term]
+            });
+        }
+        for (const [key, values] of Object.entries(query.filters ?? {})) {
+            if (values.length === 0) continue;
+            conds.push({
+                sql: `EXISTS (SELECT 1 FROM entry_values v WHERE v.model_id = entries.model_id
+                      AND v.entry_id = entries.id AND v.key = ? AND v.value IN (${PLACEHOLDERS(values.length)}))`,
+                params: [key, ...values],
+                filter: key
+            });
+        }
+        if (query.missing && query.missing.locales.length > 0) {
+            const { field, locales } = query.missing;
+            conds.push({
+                sql: `(SELECT count(DISTINCT l.locale) FROM entry_locales l WHERE l.model_id = entries.model_id
+                      AND l.entry_id = entries.id AND l.field = ? AND l.locale IN (${PLACEHOLDERS(locales.length)})) < ?`,
+                params: [field, ...locales, locales.length],
+                missing: true
+            });
+        }
+        const whereOf = (keep: (c: Cond) => boolean) => {
+            const kept = conds.filter(keep);
+            return { sql: kept.map(c => c.sql).join(' AND '), params: kept.flatMap(c => c.params) };
+        };
+        const where = whereOf(() => true);
+
+        // Order: group rank, then the sort, then id.
+        const orderParts: string[] = [];
+        const orderParams: SQLInputValue[] = [];
+        if (query.group) {
+            const { key, order = [] } = query.group;
+            const ranks = order.map((_, i) => `WHEN ? THEN ${i}`).join(' ');
+            const rank = order.length ? `CASE v.value ${ranks} ELSE ${order.length} END` : '0';
+            orderParts.push(
+                `coalesce((SELECT min(${rank}) FROM entry_values v WHERE v.model_id = entries.model_id
+                  AND v.entry_id = entries.id AND v.key = ?), ${order.length + 1})`,
+                `(SELECT min(v.value) FROM entry_values v WHERE v.model_id = entries.model_id
+                  AND v.entry_id = entries.id AND v.key = ?
+                  ${order.length ? `AND v.value NOT IN (${PLACEHOLDERS(order.length)})` : ''})`
+            );
+            orderParams.push(...order, key, key, ...order);
+        }
+        const sort = query.sort ?? { field: 'id', direction: 'asc' };
+        const dir = sort.direction === 'desc' ? 'DESC' : 'ASC';
+        if (sort.field === 'data') {
+            const text = `moteur_fold(CASE json_type(json, ?) WHEN 'object' THEN coalesce(
+                nullif(trim(json_extract(json, ?)), ''),
+                (SELECT j.value FROM json_each(entries.json, ?) j WHERE j.type = 'text' AND trim(j.value) <> '' LIMIT 1))
+              WHEN 'text' THEN json_extract(json, ?) WHEN 'integer' THEN json_extract(json, ?)
+              WHEN 'real' THEN json_extract(json, ?) ELSE '' END)`;
+            const path = dataPath(sort.key);
+            const localePath = sort.locale ? dataPath(sort.key, sort.locale) : '$.__none__';
+            // Empty values last whatever the direction.
+            orderParts.push(`(${text}) = ''`, `${text} ${dir}`, `id ${dir}`);
+            const textParams = [path, localePath, path, path, path, path];
+            orderParams.push(...textParams, ...textParams);
+        } else {
+            const column = SORT_COLUMNS[sort.field][published ? 1 : 0];
+            if (sort.field !== 'id') orderParts.push(`${column} ${dir}`);
+            orderParts.push(`id ${dir}`);
+        }
+
         const limit = query.limit ?? -1;
         const offset = query.offset ?? 0;
+        const rows = (
+            limit === 0
+                ? []
+                : p.db
+                      .prepare(
+                          `SELECT ${published ? 'coalesce(pub_json, json)' : 'json'} AS json FROM entries
+                           WHERE ${where.sql} ORDER BY ${orderParts.join(', ')} LIMIT ? OFFSET ?`
+                      )
+                      .all(...where.params, ...orderParams, limit, offset)
+        ) as Array<{ json: string }>;
+        const items = rows.map(r => project(JSON.parse(r.json) as Entry, query.fields));
+        const count = (w: { sql: string; params: SQLInputValue[] }) =>
+            Number(
+                (
+                    p.db
+                        .prepare(`SELECT count(*) AS n FROM entries WHERE ${w.sql}`)
+                        .get(...w.params) as { n: number }
+                ).n
+            );
+        const total = query.limit == null && offset === 0 ? items.length : count(where);
+        const result: EntryQueryResult = { items, total };
 
-        const rows = p.db
-            .prepare(
-                `SELECT ${published ? 'coalesce(pub_json, json)' : 'json'} AS json FROM entries
-                 WHERE ${whereSql} ORDER BY ${order} LIMIT ? OFFSET ?`
-            )
-            .all(...params, limit, offset) as Array<{ json: string }>;
-        const items = rows.map(r => JSON.parse(r.json) as Entry);
-        const total =
-            query.limit == null && offset === 0
-                ? items.length
-                : Number(
-                      (
-                          p.db
-                              .prepare(`SELECT count(*) AS n FROM entries WHERE ${whereSql}`)
-                              .get(...params) as { n: number }
-                      ).n
-                  );
-        return { items, total };
+        if (query.facets?.length) {
+            result.facets = {};
+            for (const key of query.facets) {
+                const w = whereOf(c => c.filter !== key);
+                const rows = p.db
+                    .prepare(
+                        `SELECT v.value AS value, count(DISTINCT v.entry_id) AS n FROM entry_values v
+                         WHERE v.model_id = ? AND v.key = ? AND v.entry_id IN
+                           (SELECT id FROM entries WHERE ${w.sql})
+                         GROUP BY v.value`
+                    )
+                    .all(modelId, key, ...w.params) as Array<{ value: string; n: number }>;
+                result.facets[key] = Object.fromEntries(rows.map(r => [r.value, Number(r.n)]));
+            }
+        }
+        if (query.missingCounts) {
+            const { field, locales } = query.missingCounts;
+            const w = whereOf(c => !c.missing);
+            result.missingCounts = Object.fromEntries(
+                locales.map(locale => [
+                    locale,
+                    count({
+                        sql: `${w.sql} AND NOT EXISTS (SELECT 1 FROM entry_locales l
+                              WHERE l.model_id = entries.model_id AND l.entry_id = entries.id
+                              AND l.field = ? AND l.locale = ?)`,
+                        params: [...w.params, field, locale]
+                    })
+                ])
+            );
+        }
+        return result;
     }
 
     async getPublishedSnapshot(
@@ -225,7 +377,7 @@ export class SqliteIndex implements ContentIndex {
             const [published] = await this.publishedVersions(p, projectId, [
                 { modelId, entryId, entry }
             ]);
-            p.upsert.run(rowFor(modelId, entryId, entry, published, stat));
+            writeEntry(p, modelId, entryId, entry, published, stat);
         });
     }
 
@@ -234,6 +386,8 @@ export class SqliteIndex implements ContentIndex {
         if (!p) return;
         await this.serialize(p, async () => {
             p.db.prepare('DELETE FROM entries WHERE model_id = ? AND id = ?').run(modelId, entryId);
+            p.clearValues.run(modelId, entryId);
+            p.clearLocales.run(modelId, entryId);
         });
     }
 
@@ -241,7 +395,9 @@ export class SqliteIndex implements ContentIndex {
         const p = this.open(projectId);
         if (!p) return;
         await this.serialize(p, async () => {
-            p.db.prepare('DELETE FROM entries WHERE model_id = ?').run(modelId);
+            for (const table of ['entries', 'entry_values', 'entry_locales']) {
+                p.db.prepare(`DELETE FROM ${table} WHERE model_id = ?`).run(modelId);
+            }
         });
     }
 
@@ -343,7 +499,16 @@ export class SqliteIndex implements ContentIndex {
             db = this.connect(dbFile);
         }
         const columns = Object.keys(
-            rowFor('', '', { id: '' } as Entry, null, { mtimeMs: 0, size: 0 })
+            rowFor(
+                '',
+                '',
+                { id: '' } as Entry,
+                null,
+                { mtimeMs: 0, size: 0 },
+                listFacts({
+                    id: ''
+                } as Entry)
+            )
         );
         const p: ProjectIndex = {
             dir,
@@ -360,6 +525,16 @@ export class SqliteIndex implements ContentIndex {
                      .join(', ')}`
             ),
             getRow: db.prepare('SELECT * FROM entries WHERE model_id = ? AND id = ?'),
+            clearValues: db.prepare('DELETE FROM entry_values WHERE model_id = ? AND entry_id = ?'),
+            clearLocales: db.prepare(
+                'DELETE FROM entry_locales WHERE model_id = ? AND entry_id = ?'
+            ),
+            addValue: db.prepare(
+                'INSERT INTO entry_values (model_id, entry_id, key, value) VALUES (?, ?, ?, ?)'
+            ),
+            addLocale: db.prepare(
+                'INSERT INTO entry_locales (model_id, entry_id, field, locale) VALUES (?, ?, ?, ?)'
+            ),
             tail: Promise.resolve(),
             checked: false,
             dirty: false,
@@ -386,8 +561,13 @@ export class SqliteIndex implements ContentIndex {
                     return undefined;
                 }
             })();
+            // Text sorts and search ignore case and accents the same way as listQuery.ts.
+            db.function('moteur_fold', { deterministic: true }, (v: unknown) => fold(v));
             if (version !== SCHEMA_VERSION) {
-                db.exec('DROP TABLE IF EXISTS entries; DROP TABLE IF EXISTS meta;');
+                db.exec(
+                    'DROP TABLE IF EXISTS entries; DROP TABLE IF EXISTS entry_values; ' +
+                        'DROP TABLE IF EXISTS entry_locales; DROP TABLE IF EXISTS meta;'
+                );
                 db.exec(SCHEMA);
                 db.prepare("INSERT INTO meta (key, value) VALUES ('schema', ?)").run(
                     SCHEMA_VERSION
@@ -513,11 +693,14 @@ export class SqliteIndex implements ContentIndex {
         p.db.exec('BEGIN');
         try {
             readable.forEach((r, i) =>
-                p.upsert.run(rowFor(r.modelId, r.entryId, r.entry, published[i], r.stamp))
+                writeEntry(p, r.modelId, r.entryId, r.entry, published[i], r.stamp)
             );
             for (const key of removed) {
                 const slash = key.indexOf('/');
-                remove.run(key.slice(0, slash), key.slice(slash + 1));
+                const [modelId, entryId] = [key.slice(0, slash), key.slice(slash + 1)];
+                remove.run(modelId, entryId);
+                p.clearValues.run(modelId, entryId);
+                p.clearLocales.run(modelId, entryId);
             }
             p.db.exec('COMMIT');
         } catch (err) {

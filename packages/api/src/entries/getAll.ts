@@ -23,7 +23,7 @@ router.get('/', requireProjectAccess, async (req: Request, res: Response) => {
 
     let parsed: EntryQuery;
     try {
-        parsed = parseEntryQuery(req, { allowStatus: true });
+        parsed = parseEntryQuery(req, { allowStatus: true, allowList: true });
     } catch (err: unknown) {
         return void res.status(400).json({ error: (err as Error).message });
     }
@@ -44,7 +44,12 @@ router.get('/', requireProjectAccess, async (req: Request, res: Response) => {
             );
         }
         const filtered = stripEditorialBlocksFromPayload(entries, listBlocks(projectId));
-        return void res.json({ entries: filtered, total: result.total });
+        return void res.json({
+            entries: filtered,
+            total: result.total,
+            ...(result.facets && { facets: result.facets }),
+            ...(result.missingCounts && { missingCounts: result.missingCounts })
+        });
     } catch (err: unknown) {
         return void sendApiError(res, req, err);
     }
@@ -58,7 +63,7 @@ export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
             parameters: [
                 { name: 'projectId', in: 'path', required: true, schema: { type: 'string' } },
                 { name: 'modelId', in: 'path', required: true, schema: { type: 'string' } },
-                ...entryQueryParameters({ allowStatus: true })
+                ...entryQueryParameters({ allowStatus: true, allowList: true })
             ],
             responses: {
                 '200': {

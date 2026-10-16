@@ -184,7 +184,21 @@ const baseSchemas: OpenAPIV3.ComponentsObject['schemas'] = {
         type: 'object',
         required: ['entries'],
         properties: {
-            entries: { type: 'array', items: { $ref: '#/components/schemas/Entry' } }
+            entries: { type: 'array', items: { $ref: '#/components/schemas/Entry' } },
+            total: { type: 'integer', description: 'Matching entries before limit and offset' },
+            facets: {
+                type: 'object',
+                description: 'Per key asked in `facets`: value → matching entries',
+                additionalProperties: {
+                    type: 'object',
+                    additionalProperties: { type: 'integer' }
+                }
+            },
+            missingCounts: {
+                type: 'object',
+                description: 'Per language asked in `missingCounts`: matching entries missing it',
+                additionalProperties: { type: 'integer' }
+            }
         }
     },
     EntryOneResponse: {
