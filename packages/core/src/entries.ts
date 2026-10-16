@@ -44,6 +44,29 @@ export type EntryRevision = {
 };
 
 /**
+ * Apply a partial update to an entry.
+ *
+ * `data` merges field by field: each field in the patch replaces the stored value (send `null`
+ * to clear one), fields left out keep their value. Core-id fields, the entry id and audit
+ * metadata are managed by the server and can't be overwritten.
+ */
+export function mergeEntryPatch(
+    current: Entry,
+    patch: Partial<Entry>,
+    coreIdFields: string[] = []
+): Entry {
+    const merged: Entry = { ...current, ...patch, id: current.id };
+    if (patch.data !== undefined) {
+        merged.data = { ...current.data, ...stripCoreIdFromData(patch.data, coreIdFields) };
+    }
+    if (patch.meta !== undefined) {
+        merged.meta = { ...current.meta, ...patch.meta, audit: current.meta?.audit };
+        if (merged.meta.audit === undefined) delete merged.meta.audit;
+    }
+    return merged;
+}
+
+/**
  * List entries for a project/model without user check. For internal use (e.g. collection API).
  */
 export async function listEntriesForProject(
@@ -229,15 +252,7 @@ export async function updateEntry(
             throw new Error(localeErrors.join(' '));
         }
     }
-    const coreIdFields = getCoreIdFieldIds(schema);
-    let sanitizedPatch: Partial<Entry> = { ...patch };
-    if (patch.data && coreIdFields.length > 0) {
-        sanitizedPatch = {
-            ...patch,
-            data: { ...current.data, ...stripCoreIdFromData(patch.data, coreIdFields) }
-        };
-    }
-    const updated = { ...current, ...sanitizedPatch };
+    const updated = mergeEntryPatch(current, patch, getCoreIdFieldIds(schema));
 
     triggerEvent('entry.beforeUpdate', { entry: updated, user, modelId, projectId });
     await putProjectJson(projectId, entryKey(modelId, entryId), updated);
@@ -356,17 +371,17 @@ export async function publishEntry(
 
     const entry = await getEntry(user, projectId, modelId, entryId);
     const now = new Date().toISOString();
-    const revision = entry.meta?.audit?.revision ?? 1;
 
     entry.status = 'published';
     entry.meta = entry.meta || {};
+    // Hooks run first (the audit plugin bumps the revision), so the published revision is the
+    // one being saved; otherwise every freshly published entry looks edited since publishing.
+    await triggerEvent('entry.beforeUpdate', { entry, user, modelId, projectId });
     entry.meta.audit = {
         ...entry.meta.audit,
-        publishedRevision: revision,
+        publishedRevision: entry.meta.audit?.revision ?? 1,
         publishedAt: now
     };
-
-    triggerEvent('entry.beforeUpdate', { entry, user, modelId, projectId });
 
     // Write + commit to capture the published content
     await putProjectJson(projectId, entryKey(modelId, entryId), entry);

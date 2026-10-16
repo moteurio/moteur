@@ -1,6 +1,7 @@
 import type { Request, Response } from 'express';
 import { Router } from 'express';
-import { updateEntry } from '@moteurio/core/entries.js';
+import { getEntry, mergeEntryPatch, updateEntry } from '@moteurio/core/entries.js';
+import { getCoreIdFieldIds } from '@moteurio/core/utils/coreIdFields.js';
 import { getModelSchema } from '@moteurio/core/models.js';
 import { validateEntry } from '@moteurio/core/validators/validateEntry.js';
 import type { OpenAPIV3 } from 'openapi-types';
@@ -26,7 +27,16 @@ router.patch('/:entryId', requireProjectAccess, async (req: Request, res: Respon
     const projectLocales = proj
         ? ([proj.defaultLocale, ...(proj.supportedLocales ?? [])].filter(Boolean) as string[])
         : undefined;
-    const validation = await validateEntry(projectId, req.body, modelSchema, {
+    // Validate the entry as it will be saved: fields left out of a partial update keep their
+    // stored value, so required fields don't have to be resent.
+    let merged;
+    try {
+        const current = await getEntry(req.user!, projectId, modelId, entryId);
+        merged = mergeEntryPatch(current, req.body ?? {}, getCoreIdFieldIds(modelSchema));
+    } catch (err: unknown) {
+        return void sendApiError(res, req, err);
+    }
+    const validation = await validateEntry(projectId, merged, modelSchema, {
         projectLocales: projectLocales?.length ? projectLocales : undefined,
         allowHtmlIframe: proj?.allowHtmlIframe === true,
         allowHtmlEmbed: proj?.allowHtmlEmbed === true
@@ -54,6 +64,8 @@ export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
     '/projects/{projectId}/models/{modelId}/entries/{entryId}': {
         patch: {
             summary: 'Update an entry',
+            description:
+                'Partial update. Fields in `data` replace the stored value (send null to clear one); fields left out keep their value. The resulting entry is validated against the model.',
             tags: ['Entries'],
             parameters: [
                 {

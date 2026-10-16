@@ -14,6 +14,7 @@ import { createNotification } from './notifications.js';
 import { sendReviewEmail } from './emailNotifier.js';
 import { getProjectUsers, getUserById } from './users.js';
 import { dispatch as webhookDispatch } from './webhooks/webhookService.js';
+import { publishEntry } from './entries.js';
 
 function normalizeUserName(user: User): string {
     return user?.name ?? user?.id ?? 'Unknown';
@@ -253,22 +254,16 @@ export async function approveReview(
                 // swallow
             }
         } else if (review.modelId && review.entryId) {
-            const entry = await getProjectJson<Entry>(
+            // Publish for real (commit + publishedCommit pointer), not just flip the status:
+            // otherwise the public API keeps serving the previous publish-time snapshot. The
+            // review is already saved as approved, which satisfies publishEntry's review check.
+            const exists = await getProjectJson<Entry>(
                 projectId,
                 entryKey(review.modelId, review.entryId)
             );
-            if (entry) {
-                await putProjectJson(projectId, entryKey(review.modelId, review.entryId), {
-                    ...entry,
-                    status: 'published'
-                });
+            if (exists) {
+                await publishEntry(user, projectId, review.modelId, review.entryId);
             }
-            triggerEvent('content.saved', {
-                projectId,
-                paths: [REVIEWS_KEY, entryKey(review.modelId, review.entryId)],
-                message: `Approve review (entry) — ${normalizeUserName(user)}`,
-                user
-            });
             log(
                 toActivityEvent(
                     projectId,

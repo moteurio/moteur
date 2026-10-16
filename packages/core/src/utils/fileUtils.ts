@@ -1,3 +1,4 @@
+import { randomUUID } from 'crypto';
 import fs from 'fs';
 import fsp from 'fs/promises';
 import path from 'path';
@@ -34,10 +35,18 @@ export function writeJson(file: string, data: any): void {
  * Use for critical single-file data (e.g. users.json).
  * Note: No cross-process locking; avoid concurrent writes to the same file from multiple processes.
  */
+/**
+ * A temp file unique to this write. With a shared name, two concurrent writes to the same file
+ * write into the same temp file and one can rename the other's half-written data into place.
+ */
+function tempPathFor(dir: string, name: string): string {
+    return path.join(dir, `.${name}.${process.pid}.${randomUUID()}.tmp`);
+}
+
 export function writeJsonAtomic(file: string, data: any): void {
     const dir = path.dirname(file);
     const name = path.basename(file);
-    const tmp = path.join(dir, `.${name}.tmp`);
+    const tmp = tempPathFor(dir, name);
     fs.writeFileSync(tmp, JSON.stringify(data, null, 2), 'utf-8');
     fs.renameSync(tmp, file);
 }
@@ -46,7 +55,7 @@ export function writeJsonAtomic(file: string, data: any): void {
 export async function writeJsonAtomicAsync(file: string, data: unknown): Promise<void> {
     const dir = path.dirname(file);
     const name = path.basename(file);
-    const tmp = path.join(dir, `.${name}.tmp`);
+    const tmp = tempPathFor(dir, name);
     await fsp.writeFile(tmp, JSON.stringify(data, null, 2), 'utf-8');
     await fsp.rename(tmp, file);
 }

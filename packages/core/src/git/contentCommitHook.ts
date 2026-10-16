@@ -6,13 +6,26 @@ import { onEvent } from '../utils/eventBus.js';
 import { getProjectById } from '../projects.js';
 import { projectDir } from '../utils/pathUtils.js';
 import { log, toActivityEvent } from '../activityLogger.js';
-import { addAndCommit, isGitRepo, push } from './gitService.js';
+import { addAndCommit, GITIGNORE_LINES, isGitRepo, push } from './gitService.js';
 import type { User } from '@moteurio/types/User.js';
 
 type ContentEventPayload = { projectId: string; paths: string[]; message: string; user: User };
 
+/**
+ * Events may list workspace files (e.g. .moteur/reviews.json) next to content. Those are
+ * gitignored, and `git add` fails outright when given an ignored path, which would leave the
+ * content change uncommitted too.
+ */
+function trackedPaths(paths: string[]): string[] {
+    return paths.filter(p => {
+        const normalized = p.replace(/\\/g, '/');
+        return !GITIGNORE_LINES.some(ignored => normalized.startsWith(ignored));
+    });
+}
+
 async function handleContentChange(payload: ContentEventPayload): Promise<void> {
-    const { projectId, paths, message, user } = payload;
+    const { projectId, message, user } = payload;
+    const paths = trackedPaths(payload.paths);
     if (paths.length === 0) return;
 
     const project = await getProjectById(projectId);
