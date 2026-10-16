@@ -12,6 +12,8 @@ import { getProjectUsers } from './users.js';
 import { dispatch as webhookDispatch } from './webhooks/webhookService.js';
 
 const timeouts = new Map<string, NodeJS.Timeout>();
+/** setTimeout fires at once for delays above 2^31−1 ms (~24.8 days): longer waits are re-armed. */
+const MAX_TIMER_MS = 2 ** 31 - 1;
 let sweepInterval: NodeJS.Timeout | null = null;
 
 const SCHEDULER_USER: User = {
@@ -220,10 +222,14 @@ export function register(schedule: Schedule): void {
         return;
     }
 
-    const handle = setTimeout(() => {
-        timeouts.delete(schedule.id);
-        void executeSchedule(schedule.projectId, schedule.id);
-    }, delay);
+    const handle = setTimeout(
+        () => {
+            timeouts.delete(schedule.id);
+            if (delay > MAX_TIMER_MS) register(schedule);
+            else void executeSchedule(schedule.projectId, schedule.id);
+        },
+        Math.min(delay, MAX_TIMER_MS)
+    );
     timeouts.set(schedule.id, handle);
 }
 
