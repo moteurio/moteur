@@ -1,5 +1,6 @@
 import { Audit } from './Audit.js';
 import { Field } from './Field.js';
+import type { ModelStudio } from './StudioForm.js';
 
 export type EntryStatus = 'draft' | 'in_review' | 'published' | 'unpublished';
 
@@ -23,6 +24,8 @@ export interface ModelSchema {
     optionsSchema?: Record<string, any>; // Additional config (e.g., versioning)
     /** Default URL segment pattern for entries of this model. e.g. '[post.slug]', '[category.slug]/[post.slug]'. Used by CollectionPage unless overridden by urlPattern on the node. */
     urlPattern?: string;
+    /** How the Studio presents this model's entries (its form). Presentation only. */
+    studio?: ModelStudio;
     meta?: {
         audit?: Audit;
     };

@@ -27,3 +27,4 @@ export * from './ValidationResult.js';
 export * from './Webhook.js';
 export * from './Radar.js';
 export * from './Schedule.js';
+export * from './StudioForm.js';
