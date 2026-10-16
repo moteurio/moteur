@@ -45,6 +45,11 @@ export function mountStaticAssets(app: Express, basePath: string): void {
             res.status(404).end();
             return;
         }
-        res.sendFile(filePath);
+        // Media is meant to be embedded by sites and the Studio on other origins; the global
+        // security headers (Helmet) would otherwise mark it same-origin only.
+        res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+        // The path is validated above; the data root itself may sit under a dot-directory
+        // (e.g. ~/.moteur), which send() would otherwise refuse with a 404.
+        res.sendFile(filePath, { dotfiles: 'allow' });
     });
 }
