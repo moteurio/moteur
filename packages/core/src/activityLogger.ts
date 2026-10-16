@@ -61,30 +61,36 @@ function toActivityEvent(
     };
 }
 
+/** Pending appends per project. Appends are read-modify-write, so they run one at a time. */
+const writeQueues = new Map<string, Promise<void>>();
+
 /**
  * Appends an activity event to the project's activity log.
  * Never throws; failures are swallowed so logging cannot break content operations.
+ * Appends to one project run in order: two events logged at once (an entry update and the
+ * git commit it triggers) would otherwise both read the old log and one would be lost.
  */
-export function log(event: ActivityEvent): void {
-    try {
-        const projectId = event.projectId;
-        getProjectJson<ActivityEvent[]>(projectId, ACTIVITY_KEY)
-            .then(events => {
-                const list = Array.isArray(events) ? events : [];
-                const next = [...list, event];
-                const trimmed =
-                    next.length > MAX_EVENTS_IN_FILE ? next.slice(-MAX_EVENTS_IN_FILE) : next;
-                return putProjectJson(projectId, ACTIVITY_KEY, trimmed);
-            })
-            .then(() => {
-                triggerEvent('activity.logged', { event });
-            })
-            .catch(() => {
-                // fail silently
-            });
-    } catch {
-        // fail silently
-    }
+export function log(event: ActivityEvent): Promise<void> {
+    const projectId = event.projectId;
+    const previous = writeQueues.get(projectId) ?? Promise.resolve();
+    const append = previous
+        .then(async () => {
+            const events = await getProjectJson<ActivityEvent[]>(projectId, ACTIVITY_KEY);
+            const list = Array.isArray(events) ? events : [];
+            const next = [...list, event];
+            const trimmed =
+                next.length > MAX_EVENTS_IN_FILE ? next.slice(-MAX_EVENTS_IN_FILE) : next;
+            await putProjectJson(projectId, ACTIVITY_KEY, trimmed);
+            triggerEvent('activity.logged', { event });
+        })
+        .catch(() => {
+            // fail silently
+        });
+    writeQueues.set(projectId, append);
+    void append.then(() => {
+        if (writeQueues.get(projectId) === append) writeQueues.delete(projectId);
+    });
+    return append;
 }
 
 /**
