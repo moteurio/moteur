@@ -13,7 +13,9 @@ vi.mock('../../src/middlewares/auth', () => ({
 }));
 
 vi.mock('@moteurio/core/models', () => ({
-    updateModelSchema: vi.fn()
+    getModelSchema: vi.fn(),
+    updateModelSchema: vi.fn(),
+    validateModelUrlPattern: vi.fn()
 }));
 
 vi.mock('@moteurio/core/validators/validateModel', () => ({
@@ -21,7 +23,7 @@ vi.mock('@moteurio/core/validators/validateModel', () => ({
 }));
 
 import updateRoute from '../../src/models/update';
-import { updateModelSchema } from '@moteurio/core/models';
+import { getModelSchema, updateModelSchema } from '@moteurio/core/models';
 import { validateModel } from '@moteurio/core/validators/validateModel';
 
 const app = express();
@@ -31,6 +33,7 @@ app.use('/projects/:projectId/models', updateRoute);
 describe('PATCH /projects/:projectId/models/:modelId', () => {
     beforeEach(() => {
         vi.clearAllMocks();
+        (getModelSchema as any).mockResolvedValue({ id: 'article', label: 'Article', fields: {} });
     });
 
     const updatePayload = {
@@ -59,6 +62,25 @@ describe('PATCH /projects/:projectId/models/:modelId', () => {
             'article',
             updatePayload
         );
+    });
+
+    it('validates the model as it will be after a partial update', async () => {
+        (validateModel as any).mockReturnValue({ valid: true });
+        (updateModelSchema as any).mockReturnValue({ ...updatePayload });
+        const studio = { form: { sections: [] } };
+
+        const res = await request(app).patch('/projects/demo/models/article').send({ studio });
+
+        expect(res.status).toBe(200);
+        expect(validateModel).toHaveBeenCalledWith({
+            id: 'article',
+            label: 'Article',
+            fields: {},
+            studio
+        });
+        expect(updateModelSchema).toHaveBeenCalledWith(expect.anything(), 'demo', 'article', {
+            studio
+        });
     });
 
     it('should return 400 if projectId or modelId is missing (bad path)', async () => {
