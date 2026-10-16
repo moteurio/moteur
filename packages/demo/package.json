@@ -1,0 +1,24 @@
+{
+    "name": "@moteurio/demo",
+    "version": "0.0.0",
+    "private": true,
+    "description": "Generator for Moteur's demo projects: Moteur Journal (showcase), fixtures (edge cases) and scale (bulk entries)",
+    "type": "module",
+    "scripts": {
+        "build:demo": "tsx --tsconfig ../../tsconfig.server-dev.json src/cli.ts",
+        "test": "vitest run",
+        "lint": "eslint . --ext .ts"
+    },
+    "dependencies": {
+        "@moteurio/core": "workspace:*",
+        "@moteurio/types": "workspace:*",
+        "sharp": "^0.35.5",
+        "bcrypt": "^6.0.0"
+    },
+    "engines": {
+        "node": ">=22"
+    },
+    "devDependencies": {
+        "@types/bcrypt": "^6.0.0"
+    }
+}
