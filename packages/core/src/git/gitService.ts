@@ -280,6 +280,16 @@ export function setRemoteOrigin(projectDir: string, remoteUrl: string): void {
 /**
  * Push current branch to remote. Fails silently and returns false on error (e.g. no remote, auth).
  */
+/** Whether the repository has at least one remote to push to. */
+export function hasRemote(projectDir: string): boolean {
+    if (!isGitRepo(projectDir)) return false;
+    try {
+        return git(projectDir, ['remote']).trim().length > 0;
+    } catch {
+        return false;
+    }
+}
+
 export function push(projectDir: string): boolean {
     if (!isGitRepo(projectDir)) return false;
     try {
