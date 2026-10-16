@@ -1,6 +1,6 @@
 import { ModelSchema } from '@moteurio/types/Model.js';
 import { ValidationResult } from '@moteurio/types/ValidationResult.js';
-import { checkStudioForm } from '@moteurio/types/StudioForm.js';
+import { checkStudioForm, checkStudioList } from '@moteurio/types/StudioForm.js';
 import { createValidationResult, addIssue } from '../utils/validation.js';
 
 export function validateModel(model: ModelSchema): ValidationResult {
@@ -87,6 +87,17 @@ export function validateModel(model: ModelSchema): ValidationResult {
             addIssue(result, {
                 type: 'warning',
                 code: 'MODEL_STUDIO_FORM',
+                message: problem.message,
+                path: `studio.${problem.path}`
+            });
+        }
+    }
+
+    if (model.studio?.list !== undefined && model.fields && typeof model.fields === 'object') {
+        for (const problem of checkStudioList(model.studio.list, model.fields)) {
+            addIssue(result, {
+                type: 'warning',
+                code: 'MODEL_STUDIO_LIST',
                 message: problem.message,
                 path: `studio.${problem.path}`
             });

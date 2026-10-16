@@ -116,3 +116,57 @@ describe('checkStudioForm', () => {
         ]);
     });
 });
+
+describe('validateModel · studio list', () => {
+    const withImage = {
+        ...fields,
+        cover: { type: 'core/image', label: 'Cover' },
+        author: { type: 'core/relation', label: 'Author', options: { model: 'author' } }
+    };
+    const listModel = (list: unknown): ModelSchema =>
+        ({ id: 'article', label: 'Article', fields: withImage, studio: { list } }) as ModelSchema;
+
+    it('accepts good list settings', () => {
+        const result = validateModel(
+            listModel({
+                views: ['list', 'cards', 'split'],
+                defaultView: 'cards',
+                thumbnail: 'cover',
+                subtitle: ['kind', 'author'],
+                columns: ['author', 'kind'],
+                filters: ['author', 'kind'],
+                sort: 'title',
+                groupBy: 'author'
+            })
+        );
+        expect(result.issues).toEqual([]);
+        expect(validateModel(listModel({ thumbnail: false, groupBy: '$workflow' })).issues).toEqual(
+            []
+        );
+    });
+
+    it('warns about list mistakes without blocking the save', () => {
+        const result = validateModel(
+            listModel({
+                views: ['list', 'table'],
+                defaultView: 'board',
+                thumbnail: 'title',
+                columns: ['author', 'gone'],
+                sort: 'random',
+                groupBy: 'body'
+            })
+        );
+        expect(result.valid).toBe(true);
+        expect(
+            result.issues.every(i => i.type === 'warning' && i.code === 'MODEL_STUDIO_LIST')
+        ).toBe(true);
+        expect(result.issues.map(i => i.path)).toEqual([
+            'studio.list.views[1]',
+            'studio.list.defaultView',
+            'studio.list.thumbnail',
+            'studio.list.columns[1]',
+            'studio.list.sort',
+            'studio.list.groupBy'
+        ]);
+    });
+});

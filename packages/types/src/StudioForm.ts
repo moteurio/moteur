@@ -7,6 +7,41 @@ import type { Field } from './Field.js';
  */
 export interface ModelStudio {
     form?: StudioForm;
+    /** How the model's entry list looks. Without it, the Studio infers one from the fields. */
+    list?: StudioList;
+}
+
+/** A way to show a model's entries: rows, list beside a preview, picture cards, workflow board. */
+export type StudioListView = 'list' | 'split' | 'cards' | 'board';
+export const STUDIO_LIST_VIEWS: StudioListView[] = ['list', 'split', 'cards', 'board'];
+
+/** Sorts a list can start from: last edited, newest, or by title. */
+export type StudioListSort = 'edited' | 'created' | 'title';
+export const STUDIO_LIST_SORTS: StudioListSort[] = ['edited', 'created', 'title'];
+
+/** Field types a list can group by (one value per entry), besides `$workflow`. */
+export const STUDIO_GROUP_TYPES = ['core/relation', 'core/select', 'core/status'];
+
+/**
+ * A model's entry list (Paperback › Lists › spec). Every key is optional: what's left out is
+ * inferred from the fields, and each person can still change view, sort and grouping.
+ */
+export interface StudioList {
+    /** Views offered, in this order. Cards need a thumbnail; board needs the review workflow. */
+    views?: StudioListView[];
+    /** The view people start in (they can switch; the Studio remembers their choice). */
+    defaultView?: StudioListView;
+    /** An image or asset field, or false for no picture. */
+    thumbnail?: string | false;
+    /** Fields shown under the title, joined by " · ". */
+    subtitle?: string[];
+    /** Fields shown as columns in the list view, in order. */
+    columns?: string[];
+    /** Fields offered as filters (besides status, languages and who edited). */
+    filters?: string[];
+    sort?: StudioListSort;
+    /** A relation, select or status field, or `$workflow`, to group rows by. */
+    groupBy?: string;
 }
 
 export interface StudioForm {
@@ -156,5 +191,68 @@ export function checkStudioForm(form: unknown, fields: Record<string, Field>): S
             }
         }
     });
+    return problems;
+}
+
+/**
+ * Checks list settings against the model's fields. Problems are warnings: a list naming a
+ * field that is gone still shows, without that field.
+ */
+export function checkStudioList(list: unknown, fields: Record<string, Field>): StudioFormProblem[] {
+    const problems: StudioFormProblem[] = [];
+    const push = (path: string, message: string) => problems.push({ path, message });
+    if (!list || typeof list !== 'object' || Array.isArray(list)) {
+        push('list', 'List settings must be an object.');
+        return problems;
+    }
+    const l = list as StudioList;
+    const fieldList = (key: 'subtitle' | 'columns' | 'filters') => {
+        const value = l[key];
+        if (value === undefined) return;
+        if (!Array.isArray(value))
+            return push(`list.${key}`, `"${key}" must be a list of field names.`);
+        value.forEach((name, i) => {
+            if (typeof name !== 'string' || !fields[name])
+                push(`list.${key}[${i}]`, `"${String(name)}" is not a field of this model.`);
+        });
+    };
+    if (l.views !== undefined) {
+        if (!Array.isArray(l.views) || l.views.length === 0)
+            push('list.views', '"views" must list at least one view.');
+        else
+            l.views.forEach((v, i) => {
+                if (!STUDIO_LIST_VIEWS.includes(v))
+                    push(
+                        `list.views[${i}]`,
+                        `"${String(v)}" is not a view (${STUDIO_LIST_VIEWS.join(', ')}).`
+                    );
+            });
+    }
+    if (l.defaultView !== undefined) {
+        if (!STUDIO_LIST_VIEWS.includes(l.defaultView))
+            push('list.defaultView', `"${String(l.defaultView)}" is not a view.`);
+        else if (Array.isArray(l.views) && !l.views.includes(l.defaultView))
+            push('list.defaultView', `"${l.defaultView}" is not among the views offered.`);
+    }
+    if (l.thumbnail !== undefined && l.thumbnail !== false) {
+        const f = typeof l.thumbnail === 'string' ? fields[l.thumbnail] : undefined;
+        if (!f) push('list.thumbnail', `"${String(l.thumbnail)}" is not a field of this model.`);
+        else if (f.type !== 'core/image' && f.type !== 'core/asset')
+            push('list.thumbnail', `"${l.thumbnail}" is not an image field.`);
+    }
+    fieldList('subtitle');
+    fieldList('columns');
+    fieldList('filters');
+    if (l.sort !== undefined && !STUDIO_LIST_SORTS.includes(l.sort))
+        push('list.sort', `"sort" must be one of ${STUDIO_LIST_SORTS.join(', ')}.`);
+    if (l.groupBy !== undefined && l.groupBy !== '$workflow') {
+        const f = fields[l.groupBy];
+        if (!f) push('list.groupBy', `"${String(l.groupBy)}" is not a field of this model.`);
+        else if (!STUDIO_GROUP_TYPES.includes(f.type))
+            push(
+                'list.groupBy',
+                `"${l.groupBy}" can't group rows: use a relation, select or status field.`
+            );
+    }
     return problems;
 }
