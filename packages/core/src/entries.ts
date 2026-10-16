@@ -590,6 +590,28 @@ export function getEntryRevisions(
     }));
 }
 
+/**
+ * The entry as it was saved in one revision (a commit hash from getEntryRevisions or
+ * meta.audit.publishedCommit). Returns null when the hash is malformed or the entry
+ * did not exist at that commit.
+ */
+export function getEntryAtRevision(
+    projectId: string,
+    modelId: string,
+    entryId: string,
+    revisionId: string
+): Entry | null {
+    if (!isValidId(modelId) || !isValidId(entryId) || !/^[0-9a-f]{7,40}$/i.test(revisionId))
+        return null;
+    const raw = show(projectDir(projectId), revisionId, entryKey(modelId, entryId));
+    if (!raw) return null;
+    try {
+        return JSON.parse(raw) as Entry;
+    } catch {
+        return null;
+    }
+}
+
 // ---------------------------------------------------------------------------
 // Public API: git-based published content
 // ---------------------------------------------------------------------------

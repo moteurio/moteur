@@ -7,6 +7,7 @@ import { getProjectJson, putProjectJson } from '../../src/utils/projectStorage.j
 import { entryKey, modelKey } from '../../src/utils/storageKeys.js';
 import {
     publishEntry,
+    getEntryAtRevision,
     getEntryRevisions,
     getPublishedEntryForProject,
     listPublishedEntriesForProject
@@ -272,6 +273,34 @@ describe('publish & revisions (git integration)', () => {
 
             const limited = getEntryRevisions(projectId, modelId, entryId, 2);
             expect(limited.length).toBe(2);
+        });
+    });
+
+    describe('getEntryAtRevision', () => {
+        it('returns the entry as saved in an older revision', async () => {
+            await seedEntry(makeEntry());
+            const entry = await getProjectJson<Entry>(projectId, entryKey(modelId, entryId));
+            entry!.data!.title = 'V2';
+            await putProjectJson(projectId, entryKey(modelId, entryId), entry!);
+            const { addAndCommit } = await import('../../src/git/gitService.js');
+            addAndCommit(projDir, [entryKey(modelId, entryId)], 'Update to V2', testUser);
+
+            const [latest, first] = getEntryRevisions(projectId, modelId, entryId);
+            expect(getEntryAtRevision(projectId, modelId, entryId, first.id)?.data?.title).toBe(
+                'Hello World'
+            );
+            expect(getEntryAtRevision(projectId, modelId, entryId, latest.id)?.data?.title).toBe(
+                'V2'
+            );
+        });
+
+        it('refuses anything but a commit hash', async () => {
+            await seedEntry(makeEntry());
+            for (const rev of ['HEAD', 'HEAD~1', '"; touch pwned; "', '../x', 'zzzzzzz']) {
+                expect(getEntryAtRevision(projectId, modelId, entryId, rev)).toBeNull();
+            }
+            expect(getEntryAtRevision(projectId, modelId, entryId, 'abcdef1')).toBeNull();
+            await expect(fs.access(path.join(projDir, 'pwned'))).rejects.toThrow();
         });
     });
 });
