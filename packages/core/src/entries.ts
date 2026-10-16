@@ -371,17 +371,17 @@ export async function publishEntry(
 
     const entry = await getEntry(user, projectId, modelId, entryId);
     const now = new Date().toISOString();
-    const revision = entry.meta?.audit?.revision ?? 1;
 
     entry.status = 'published';
     entry.meta = entry.meta || {};
+    // Hooks run first (the audit plugin bumps the revision), so the published revision is the
+    // one being saved; otherwise every freshly published entry looks edited since publishing.
+    await triggerEvent('entry.beforeUpdate', { entry, user, modelId, projectId });
     entry.meta.audit = {
         ...entry.meta.audit,
-        publishedRevision: revision,
+        publishedRevision: entry.meta.audit?.revision ?? 1,
         publishedAt: now
     };
-
-    triggerEvent('entry.beforeUpdate', { entry, user, modelId, projectId });
 
     // Write + commit to capture the published content
     await putProjectJson(projectId, entryKey(modelId, entryId), entry);
