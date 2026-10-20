@@ -2,7 +2,6 @@ import type { Request, Response } from 'express';
 import { Router } from 'express';
 import {
     listPages,
-    getPage as getPagePublic,
     getPageWithAuth,
     getPageBySlug,
     createPage,
@@ -17,7 +16,7 @@ import { resolvePageAssets } from '@moteurio/core/assets/assetResolver.js';
 import { submitForPageReview } from '@moteurio/core/reviews.js';
 import { PlanLimitError } from '@moteurio/core/planLimits.js';
 import type { PageNode } from '@moteurio/types/Page.js';
-import { optionalProjectAccess, requireProjectAccess } from '../../middlewares/auth.js';
+import { requireProjectAccess } from '../../middlewares/auth.js';
 import { queryFlag } from '../../utils/queryFlag.js';
 import type { OpenAPIV3 } from 'openapi-types';
 import { sendApiError, getMessage, getHttpStatusForError } from '../../utils/apiError.js';
@@ -30,12 +29,7 @@ router.use(revisionsRouter);
 
 const VALID_PAGE_STATUSES = ['draft', 'published'] as const;
 
-function isPublishedContent(page: PageNode): boolean {
-    if (page.type === 'folder') return false;
-    return (page as { status?: string }).status === 'published';
-}
-
-router.get('/', optionalProjectAccess, async (req: Request, res: Response) => {
+router.get('/', requireProjectAccess, async (req: Request, res: Response) => {
     const { projectId } = req.params as Record<string, string>;
     const templateId = req.query.templateId as string | undefined;
     const parentId = req.query.parentId as string | undefined;
@@ -43,51 +37,38 @@ router.get('/', optionalProjectAccess, async (req: Request, res: Response) => {
     const type = req.query.type as PageNode['type'] | undefined;
     if (!projectId) return void res.status(400).json({ error: 'Missing projectId' });
     try {
-        const options = req.user
-            ? {
-                  templateId,
-                  parentId: parentId === '' || parentId === 'null' ? null : parentId,
-                  status: status as 'draft' | 'published' | undefined,
-                  type
-              }
-            : {
-                  templateId,
-                  parentId: parentId === '' || parentId === 'null' ? null : parentId,
-                  status: 'published' as const
-              };
-        const pages = await listPages(projectId, options);
+        const pages = await listPages(projectId, {
+            templateId,
+            parentId: parentId === '' || parentId === 'null' ? null : parentId,
+            status: status as 'draft' | 'published' | undefined,
+            type
+        });
         return void res.json(pages);
     } catch (err: unknown) {
         return void sendApiError(res, req, err);
     }
 });
 
-router.get('/by-slug/:slug', optionalProjectAccess, async (req: Request, res: Response) => {
+router.get('/by-slug/:slug', requireProjectAccess, async (req: Request, res: Response) => {
     const { projectId, slug } = req.params as Record<string, string>;
     if (!projectId || !slug)
         return void res.status(400).json({ error: 'Missing projectId or slug' });
     try {
         const page = await getPageBySlug(projectId, slug);
         if (!page) return void res.status(404).json({ error: 'Page not found' });
-        if (!req.user && !isPublishedContent(page))
-            return void res.status(404).json({ error: 'Page not found' });
         return void res.json(page);
     } catch (err: unknown) {
         return void sendApiError(res, req, err);
     }
 });
 
-router.get('/:id', optionalProjectAccess, async (req: Request, res: Response) => {
+router.get('/:id', requireProjectAccess, async (req: Request, res: Response) => {
     const { projectId, id } = req.params as Record<string, string>;
     if (!projectId || !id) return void res.status(400).json({ error: 'Missing projectId or id' });
     try {
-        const page = req.user
-            ? await getPageWithAuth(req.user, projectId, id)
-            : await getPagePublic(projectId, id);
-        if (!req.user && !isPublishedContent(page))
-            return void res.status(404).json({ error: 'Page not found' });
+        const page = await getPageWithAuth(req.user!, projectId, id);
         let out = page;
-        if (req.user && queryFlag(req.query.resolveAssets) && 'templateId' in page) {
+        if (queryFlag(req.query.resolveAssets) && 'templateId' in page) {
             const template = await getTemplate(projectId, page.templateId);
             out = await resolvePageAssets(projectId, page, template);
         }

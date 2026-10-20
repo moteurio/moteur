@@ -34,31 +34,26 @@ describe('requestClassifier', () => {
         expect(res.body.projectId).toBe('demo');
     });
 
-    it('sets public and projectId for /projects/:id/pages', async () => {
-        const res = await request(app).get('/projects/foo/pages');
-        expect(res.body.type).toBe('public');
-        expect(res.body.projectId).toBe('foo');
+    it.each([
+        '/projects/foo/pages',
+        '/projects/bar/templates',
+        '/projects/s/forms/contact',
+        '/projects/s/navigations'
+    ])('leaves Studio reads (%s) unclassified', async path => {
+        const res = await request(app).get(path);
+        expect(res.body.type).toBeNull();
     });
 
-    it('sets public and projectId for /projects/:id/templates', async () => {
-        const res = await request(app).get('/projects/bar/templates');
-        expect(res.body.type).toBe('public');
-        expect(res.body.projectId).toBe('bar');
-    });
-
-    it('sets public and projectId for /projects/:id/forms', async () => {
-        const res = await request(app).get('/projects/site1/forms');
+    it('sets public and projectId for form submissions', async () => {
+        const res = await request(app).post('/projects/site1/forms/contact/submit');
         expect(res.body.type).toBe('public');
         expect(res.body.projectId).toBe('site1');
     });
 
-    it('sets public and projectId for /projects/:id/forms/:formId and submit', async () => {
-        const resGet = await request(app).get('/projects/site1/forms/contact');
-        expect(resGet.body.type).toBe('public');
-        expect(resGet.body.projectId).toBe('site1');
-        const resSubmit = await request(app).post('/projects/site1/forms/contact/submit');
-        expect(resSubmit.body.type).toBe('public');
-        expect(resSubmit.body.projectId).toBe('site1');
+    it('sets public for page outputs', async () => {
+        const res = await request(app).get('/projects/site1/sitemap.xml');
+        expect(res.body.type).toBe('public');
+        expect(res.body.projectId).toBe('site1');
     });
 
     it('sets null type for non-studio non-public path', async () => {

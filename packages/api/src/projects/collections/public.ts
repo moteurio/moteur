@@ -29,6 +29,7 @@ import {
     getNavigationByHandle,
     resolveNavigation
 } from '@moteurio/core/navigations.js';
+import { toPublicForm } from '../../utils/publicForm.js';
 import { getProjectJson, listProjectKeys } from '@moteurio/core/utils/projectStorage.js';
 import {
     layoutKey,
@@ -482,7 +483,7 @@ router.get('/:collectionId/forms', async (req: Request, res: Response) => {
             );
             forms = form ? [form] : [];
         }
-        return void res.json(forms);
+        return void res.json(forms.filter(f => f.status === 'active').map(toPublicForm));
     } catch (err: unknown) {
         return void sendApiError(res, req, err);
     }
@@ -503,8 +504,9 @@ router.get('/:collectionId/forms/:id', async (req: Request, res: Response) => {
         if (formResource.resourceId !== 'forms' && formResource.resourceId !== id)
             return void res.status(404).json({ error: 'Form not found in collection' });
         const form = await getProjectJson<FormSchema>(projectId, formKey(id));
-        if (!form) return void res.status(404).json({ error: 'Form not found' });
-        return void res.json(form);
+        if (!form || form.status !== 'active')
+            return void res.status(404).json({ error: 'Form not found' });
+        return void res.json(toPublicForm(form));
     } catch (err: unknown) {
         return void sendApiError(res, req, err);
     }
@@ -586,7 +588,7 @@ export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
     '/projects/{projectId}/collections': {
         get: {
             summary: 'List collections (API key or JWT)',
-            tags: ['Collections'],
+            tags: ['Public API — Collections'],
             parameters: [
                 { name: 'projectId', in: 'path', required: true, schema: { type: 'string' } }
             ],
@@ -606,7 +608,7 @@ export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
         },
         post: {
             summary: 'Create a collection (JWT + project access)',
-            tags: ['Collections'],
+            tags: ['Public API — Collections'],
             parameters: [
                 { name: 'projectId', in: 'path', required: true, schema: { type: 'string' } }
             ],
@@ -643,7 +645,7 @@ export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
     '/projects/{projectId}/collections/{collectionId}': {
         get: {
             summary: 'Get one collection',
-            tags: ['Collections'],
+            tags: ['Public API — Collections'],
             parameters: [
                 { name: 'projectId', in: 'path', required: true, schema: { type: 'string' } },
                 { name: 'collectionId', in: 'path', required: true, schema: { type: 'string' } }
@@ -662,7 +664,7 @@ export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
         },
         patch: {
             summary: 'Update a collection',
-            tags: ['Collections'],
+            tags: ['Public API — Collections'],
             parameters: [
                 { name: 'projectId', in: 'path', required: true, schema: { type: 'string' } },
                 { name: 'collectionId', in: 'path', required: true, schema: { type: 'string' } }
@@ -689,7 +691,7 @@ export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
         },
         delete: {
             summary: 'Delete a collection',
-            tags: ['Collections'],
+            tags: ['Public API — Collections'],
             parameters: [
                 { name: 'projectId', in: 'path', required: true, schema: { type: 'string' } },
                 { name: 'collectionId', in: 'path', required: true, schema: { type: 'string' } }
@@ -704,7 +706,7 @@ export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
     '/projects/{projectId}/collections/{collectionId}/{resourceId}/entries': {
         get: {
             summary: 'List entries for a collection resource (model)',
-            tags: ['Collections'],
+            tags: ['Public API — Collections'],
             parameters: [
                 { name: 'projectId', in: 'path', required: true, schema: { type: 'string' } },
                 { name: 'collectionId', in: 'path', required: true, schema: { type: 'string' } },
@@ -752,7 +754,7 @@ export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
     '/projects/{projectId}/collections/{collectionId}/{resourceId}/entries/{id}': {
         get: {
             summary: 'Get one entry in a collection',
-            tags: ['Collections'],
+            tags: ['Public API — Collections'],
             parameters: [
                 { name: 'projectId', in: 'path', required: true, schema: { type: 'string' } },
                 { name: 'collectionId', in: 'path', required: true, schema: { type: 'string' } },
@@ -792,7 +794,7 @@ export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
     '/projects/{projectId}/collections/{collectionId}/pages': {
         get: {
             summary: 'List pages in a collection',
-            tags: ['Collections'],
+            tags: ['Public API — Collections'],
             parameters: [
                 { name: 'projectId', in: 'path', required: true, schema: { type: 'string' } },
                 { name: 'collectionId', in: 'path', required: true, schema: { type: 'string' } }
@@ -816,7 +818,7 @@ export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
     '/projects/{projectId}/collections/{collectionId}/pages/{id}': {
         get: {
             summary: 'Get one page by id',
-            tags: ['Collections'],
+            tags: ['Public API — Collections'],
             parameters: [
                 { name: 'projectId', in: 'path', required: true, schema: { type: 'string' } },
                 { name: 'collectionId', in: 'path', required: true, schema: { type: 'string' } },
@@ -838,7 +840,7 @@ export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
     '/projects/{projectId}/collections/{collectionId}/pages/by-slug/{slug}': {
         get: {
             summary: 'Get one page by slug',
-            tags: ['Collections'],
+            tags: ['Public API — Collections'],
             parameters: [
                 { name: 'projectId', in: 'path', required: true, schema: { type: 'string' } },
                 { name: 'collectionId', in: 'path', required: true, schema: { type: 'string' } },
@@ -860,7 +862,7 @@ export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
     '/projects/{projectId}/collections/{collectionId}/layouts': {
         get: {
             summary: 'List layouts exposed by the collection',
-            tags: ['Collections'],
+            tags: ['Public API — Collections'],
             parameters: [
                 { name: 'projectId', in: 'path', required: true, schema: { type: 'string' } },
                 { name: 'collectionId', in: 'path', required: true, schema: { type: 'string' } }
@@ -884,7 +886,7 @@ export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
     '/projects/{projectId}/collections/{collectionId}/layouts/{id}': {
         get: {
             summary: 'Get one layout by id',
-            tags: ['Collections'],
+            tags: ['Public API — Collections'],
             parameters: [
                 { name: 'projectId', in: 'path', required: true, schema: { type: 'string' } },
                 { name: 'collectionId', in: 'path', required: true, schema: { type: 'string' } },
@@ -906,7 +908,7 @@ export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
     '/projects/{projectId}/collections/{collectionId}/forms': {
         get: {
             summary: 'List forms exposed by the collection',
-            tags: ['Collections'],
+            tags: ['Public API — Collections'],
             parameters: [
                 { name: 'projectId', in: 'path', required: true, schema: { type: 'string' } },
                 { name: 'collectionId', in: 'path', required: true, schema: { type: 'string' } }
@@ -930,7 +932,7 @@ export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
     '/projects/{projectId}/collections/{collectionId}/forms/{id}': {
         get: {
             summary: 'Get one form by id',
-            tags: ['Collections'],
+            tags: ['Public API — Collections'],
             parameters: [
                 { name: 'projectId', in: 'path', required: true, schema: { type: 'string' } },
                 { name: 'collectionId', in: 'path', required: true, schema: { type: 'string' } },
