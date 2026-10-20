@@ -1,7 +1,8 @@
 import bcrypt from 'bcrypt';
+import { randomUUID } from 'crypto';
 import jwt, { JwtPayload, Secret, SignOptions } from 'jsonwebtoken';
 
-import { getUserByEmail, reloadUsers, recordUserLogin } from './users.js';
+import { createUser, getUserByEmail, reloadUsers, recordUserLogin } from './users.js';
 import { getProjectIdsForUser } from './projects.js';
 import { hasRole } from '@moteurio/types';
 import { User } from '@moteurio/types/User.js';
@@ -69,6 +70,53 @@ export async function loginUser(
         token: generateJWT(displayUser),
         user: displayUser
     };
+}
+
+/** Someone an OAuth provider vouches for. Only pass an address the provider has verified. */
+export type ProviderIdentity = {
+    /** Stored under `user.auth`, e.g. `{ githubId: 123 }`. */
+    auth: Record<string, string | number>;
+    email: string;
+    name?: string;
+};
+
+/**
+ * Sign in through an OAuth provider: the account with that verified address, or a new one.
+ * `onNewUser` runs once for a new account (onboarding); a disabled account is refused.
+ */
+export async function loginWithProvider(
+    identity: ProviderIdentity,
+    onNewUser?: (user: User) => Promise<void>
+): Promise<{ token: string; user: User; isNew: boolean }> {
+    const email = identity.email.trim();
+    if (!email) throw new Error('The provider gave no email address');
+
+    reloadUsers();
+    let user = getUserByEmail(email) ?? getUserByEmail(email.toLowerCase());
+    const isNew = !user;
+    if (!user) {
+        user = createUser({
+            id: `user:${randomUUID()}`,
+            isActive: true,
+            email: email.toLowerCase(),
+            name: identity.name?.trim() || email,
+            roles: [],
+            auth: identity.auth,
+            projects: []
+        });
+        if (onNewUser) await onNewUser(user);
+    }
+    if (!user.isActive) {
+        throw new Error('User is not active');
+    }
+
+    const loginAt = recordUserLogin(user.id);
+    const displayUser: User = {
+        ...user,
+        ...(loginAt ? { lastLoginAt: loginAt } : {}),
+        projects: getProjectIdsForUser(user.id)
+    };
+    return { token: generateJWT(displayUser), user: displayUser, isNew };
 }
 
 export function generateJWT(user: User): string {

@@ -13,7 +13,8 @@ export function authApi(client: MoteurClient) {
         refresh(): Promise<{ token: string }> {
             return client.post<{ token: string }>('/auth/refresh');
         },
-        providers(): Promise<{ providers: string[] }> {
+        /** OAuth providers the server can sign in with; send people to `/auth/{id}?next=…`. */
+        providers(): Promise<{ providers: { id: string; label: string }[] }> {
             return client.get('/auth/providers');
         }
     };
