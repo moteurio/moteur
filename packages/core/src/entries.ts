@@ -1,6 +1,14 @@
 import fs from 'fs';
 import path from 'path';
+import { hasRole } from '@moteurio/types';
 import { Entry, type EntryStatus } from '@moteurio/types/Model.js';
+import {
+    assertCanEdit,
+    assertCanWrite,
+    contentForbidden,
+    translationOnlyChange,
+    translatorOnly
+} from './contentAccess.js';
 import { isValidId } from './utils/idUtils.js';
 import { entryFilePath, trashEntryDir, projectDir } from './utils/pathUtils.js';
 import { User } from '@moteurio/types/User.js';
@@ -171,6 +179,7 @@ export async function createEntry(
     if (!entry || !entry.id || !isValidId(entry.id)) {
         throw new Error('Entry ID is required to create an entry.');
     }
+    assertCanWrite(user);
 
     const schema = await getModelSchema(user, projectId, modelId);
     const project = await getProject(user, projectId);
@@ -245,6 +254,15 @@ export async function updateEntry(
     const current = await getEntry(user, projectId, modelId, entryId);
     const prevStatus = (current.status ?? 'draft') as string;
     const wantsPublish = patch.status === 'published' && prevStatus !== 'published';
+    assertCanEdit(user);
+    if (
+        translatorOnly(user) &&
+        (wantsPublish ||
+            (patch.status != null && patch.status !== prevStatus) ||
+            patch.meta != null)
+    ) {
+        throw contentForbidden('A translator can only change other languages.');
+    }
 
     // When transitioning to published, save data first then delegate to publishEntry
     // so that publishedCommit/publishedRevision are always set correctly.
@@ -259,8 +277,7 @@ export async function updateEntry(
     if (patch.status === 'published') {
         const project = await getProject(user, projectId);
         if (project.workflow?.enabled && project.workflow?.requireReview) {
-            const isAdmin = Array.isArray(user.roles) && user.roles.includes('admin');
-            if (!isAdmin) {
+            if (!hasRole(user, 'admin')) {
                 const approved = await hasApprovedReview(projectId, modelId, entryId);
                 if (!approved) {
                     throw new Error(
@@ -284,6 +301,17 @@ export async function updateEntry(
         }
     }
     const updated = mergeEntryPatch(current, patch, getCoreIdFieldIds(schema));
+    if (
+        translatorOnly(user) &&
+        !translationOnlyChange(
+            current.data ?? {},
+            updated.data ?? {},
+            projectLocales,
+            project.defaultLocale
+        )
+    ) {
+        throw contentForbidden('A translator can only change other languages.');
+    }
     if (patch.status === 'in_review' && prevStatus !== 'in_review') {
         assertEntryComplete(updated, schema, 'review');
     }
@@ -332,6 +360,7 @@ export async function deleteEntry(
     options?: EntryServiceOptions
 ): Promise<void> {
     const entry = await getEntry(user, projectId, modelId, entryId);
+    assertCanWrite(user);
 
     triggerEvent('entry.beforeDelete', { entry, user, modelId, projectId });
 
@@ -391,10 +420,10 @@ export async function publishEntry(
         throw new Error(`Invalid entry ID: ${entryId}`);
     }
 
+    assertCanWrite(user);
     const project = await getProject(user, projectId);
     if (project.workflow?.enabled && project.workflow?.requireReview) {
-        const isAdmin = Array.isArray(user.roles) && user.roles.includes('admin');
-        if (!isAdmin) {
+        if (!hasRole(user, 'admin')) {
             const approved = await hasApprovedReview(projectId, modelId, entryId);
             if (!approved) {
                 throw new Error(

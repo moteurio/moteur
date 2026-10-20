@@ -16,6 +16,13 @@ export interface ProjectSchema {
     users?: string[]; // Optional list of authorized users
 
     /**
+     * Roles per member on this project, by user id. A member listed here has these roles in this
+     * project instead of their account roles; others keep their account roles. Written through
+     * `PATCH /projects/:projectId/users/:userId`, not through a project update.
+     */
+    memberRoles?: Record<string, string[]>;
+
+    /**
      * Plugin IDs enabled for this project (optional plugins only).
      * When unset, all server-enabled optional plugins apply. When set, only listed IDs run for this project.
      * Enable at server level via MOTEUR_OPTIONAL_PLUGINS; enable/disable per-project here.

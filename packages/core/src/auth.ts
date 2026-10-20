@@ -3,6 +3,7 @@ import jwt, { JwtPayload, Secret, SignOptions } from 'jsonwebtoken';
 
 import { getUserByEmail, reloadUsers, recordUserLogin } from './users.js';
 import { getProjectIdsForUser } from './projects.js';
+import { hasRole } from '@moteurio/types';
 import { User } from '@moteurio/types/User.js';
 
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRY ?? '1h';
@@ -130,7 +131,7 @@ export function requireRole(user: User, requiredRole: string): User {
     if (!user.isActive) {
         throw new Error('User is not active');
     }
-    if (!user.roles?.includes(requiredRole)) {
+    if (!hasRole(user, requiredRole)) {
         throw new Error(`Access denied: ${requiredRole} role required.`);
     }
     return user;

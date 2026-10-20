@@ -1,7 +1,9 @@
 import { randomUUID } from 'crypto';
 import { assertEntryComplete } from './validators/entryComplete.js';
 import type { Review, GetReviewsOptions } from '@moteurio/types/Review.js';
+import { canReview } from '@moteurio/types';
 import type { User } from '@moteurio/types/User.js';
+import { assertCanSubmit } from './contentAccess.js';
 import { getProject } from './projects.js';
 import { addComment } from './comments.js';
 import { getProjectJson, putProjectJson } from './utils/projectStorage.js';
@@ -22,9 +24,7 @@ function normalizeUserName(user: User): string {
 }
 
 function assertReviewerOrAdmin(user: User): void {
-    const isAdmin = Array.isArray(user.roles) && user.roles.includes('admin');
-    const isReviewer = Array.isArray(user.roles) && user.roles.includes('reviewer');
-    if (!isAdmin && !isReviewer) {
+    if (!canReview(user)) {
         throw new Error('Only users with reviewer or admin role can perform this action');
     }
 }
@@ -40,6 +40,7 @@ export async function submitForReview(
     assignedTo?: string
 ): Promise<Review> {
     const project = await getProject(user, projectId);
+    assertCanSubmit(user);
     if (!project.workflow?.enabled) {
         throw new Error('Review workflow is not enabled for this project');
     }
@@ -131,8 +132,8 @@ export async function submitForReview(
 
         const recipients: string[] = assignedTo
             ? [assignedTo]
-            : getProjectUsers(projectId)
-                  .filter(u => u.roles?.includes('reviewer') || u.roles?.includes('admin'))
+            : getProjectUsers(projectId, project)
+                  .filter(u => canReview(u))
                   .map(u => u.id);
         for (const recipientId of recipients) {
             try {
@@ -579,6 +580,7 @@ export async function submitForPageReview(
     assignedTo?: string
 ): Promise<Review> {
     const project = await getProject(user, projectId);
+    assertCanSubmit(user);
     if (!project.workflow?.enabled) {
         throw new Error('Review workflow is not enabled for this project');
     }
@@ -646,8 +648,8 @@ export async function submitForPageReview(
 
     const recipients: string[] = assignedTo
         ? [assignedTo]
-        : getProjectUsers(projectId)
-              .filter(u => u.roles?.includes('reviewer') || u.roles?.includes('admin'))
+        : getProjectUsers(projectId, project)
+              .filter(u => canReview(u))
               .map(u => u.id);
     for (const recipientId of recipients) {
         try {
