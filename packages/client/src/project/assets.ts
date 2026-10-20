@@ -18,8 +18,12 @@ export function projectAssetsApi(client: MoteurClient) {
             return client.get(`${base(projectId)}/${encodeURIComponent(id)}`);
         },
         upload(projectId: string, formData: FormData): Promise<Record<string, unknown>> {
+            // The instance defaults to JSON, and axios turns FormData into JSON for a JSON
+            // request: say multipart, and axios (or the browser) adds the boundary.
             return client._raw
-                .post(base(projectId), formData)
+                .post(base(projectId), formData, {
+                    headers: { 'Content-Type': 'multipart/form-data' }
+                })
                 .then(r => r.data as Record<string, unknown>);
         },
         update(

@@ -54,8 +54,8 @@ vi.mock('axios', () => ({
                 get(url: string, opts?: Record<string, unknown>) {
                     return this.request({ method: 'get', url, ...opts });
                 },
-                post(url: string, data?: unknown) {
-                    return this.request({ method: 'post', url, data });
+                post(url: string, data?: unknown, opts?: Record<string, unknown>) {
+                    return this.request({ method: 'post', url, data, ...opts });
                 },
                 patch(url: string, data?: unknown) {
                     return this.request({ method: 'patch', url, data });
@@ -161,6 +161,19 @@ describe('createMoteurAdminClient', () => {
         expect(capturedRequests[0].method).toBe('post');
         expect(capturedRequests[0].url).toBe('/projects/p1/models/posts/entries');
         expect(capturedRequests[0].data).toEqual({ title: 'Hello' });
+    });
+
+    it('assets.upload sends the form as multipart, not JSON', async () => {
+        const client = createMoteurAdminClient({ baseURL: 'https://api.example.com' });
+        const form = new FormData();
+        form.append('file', 'png');
+        await client.assets.upload('demo', form);
+        expect(capturedRequests[0].method).toBe('post');
+        expect(capturedRequests[0].url).toBe('/projects/demo/assets');
+        expect(capturedRequests[0].data).toBe(form);
+        expect((capturedRequests[0].headers as Record<string, string>)['Content-Type']).toBe(
+            'multipart/form-data'
+        );
     });
 
     it('forProject omits project id from paths', async () => {
