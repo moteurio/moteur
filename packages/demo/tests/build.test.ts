@@ -9,8 +9,6 @@ import { fileURLToPath } from 'url';
 const run = promisify(execFile);
 const PKG = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const REPO = path.resolve(PKG, '../..');
-// Core block definitions come from data/core (installed by @moteurio/plugin-core-blocks).
-const hasCoreData = fs.existsSync(path.join(REPO, 'data', 'core', 'blocks'));
 
 async function build(args: string[], into?: string) {
     const out = into ?? fs.mkdtempSync(path.join(os.tmpdir(), 'moteur-demo-build-'));
@@ -35,7 +33,7 @@ async function build(args: string[], into?: string) {
     }
 }
 
-describe.skipIf(!hasCoreData)('demo builds', () => {
+describe('demo builds', () => {
     it('builds the fixtures project with exactly the expected invalid entries', async () => {
         const { stdout, out } = await build(['fixtures']);
         try {

@@ -14,7 +14,7 @@
  */
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { boot, ensureCoreDefinitions } from './runtime/boot.js';
+import { boot } from './runtime/boot.js';
 import { installClock, uninstallClock } from './runtime/clock.js';
 import { setAside, type ValidationReport } from './runtime/project.js';
 
@@ -73,7 +73,6 @@ async function main(): Promise<number> {
     quietCoreNoise();
     const opts = parseArgs(process.argv.slice(2));
     await boot({ dataRoot: opts.out, assetBaseUrl: opts.assetBaseUrl });
-    ensureCoreDefinitions(opts.out, REPO_ROOT);
     const projectIds: Record<Exclude<Target, 'all'>, string> = {
         journal: 'demo',
         fixtures: 'fixtures',
