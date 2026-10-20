@@ -18,6 +18,7 @@ export type { GenerateEntryParams, GenerateEntryResult, AiProjectOverview } from
 export type { MoteurPublicClient } from './public/createPublicClient.js';
 export type { EntryListParams, EntryListResult, FieldLocales } from './project/entries.js';
 export { entryListQuery } from './project/entries.js';
+export type { AssetUsage } from './project/assets.js';
 
 export { createMoteurAdminClient } from './admin/adminClient.js';
 export { createMoteurPublicClient } from './public/createPublicClient.js';
