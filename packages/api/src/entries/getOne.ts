@@ -10,6 +10,7 @@ import { requireProjectAccess } from '../middlewares/auth.js';
 import { listBlocks } from '@moteurio/core/blocks.js';
 import { stripEditorialBlocksFromPayload } from '../utils/stripBlockSchema.js';
 import { sendApiError } from '../utils/apiError.js';
+import { queryFlag } from '../utils/queryFlag.js';
 
 const router: Router = Router({ mergeParams: true });
 
@@ -25,12 +26,12 @@ router.get('/:entryId', requireProjectAccess, async (req: Request, res: Response
         if (!entry) {
             return void res.status(404).json({ error: 'Entry not found' });
         }
-        if (req.query.resolveAssets === '1') {
+        if (queryFlag(req.query.resolveAssets)) {
             const schema = await getModelSchema(req.user!, projectId, modelId);
             entry = await resolveEntryAssets(projectId, entry, schema);
         }
         let resolvedUrl: string | null | undefined;
-        if (req.query.resolveUrl === '1') {
+        if (queryFlag(req.query.resolveUrl)) {
             resolvedUrl = await resolveEntryUrl(projectId, entryId, modelId);
         }
         const payload = {

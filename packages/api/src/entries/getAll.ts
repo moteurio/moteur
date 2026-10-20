@@ -11,6 +11,7 @@ import { stripEditorialBlocksFromPayload } from '../utils/stripBlockSchema.js';
 import { sendApiError } from '../utils/apiError.js';
 import type { EntryQuery } from '@moteurio/core/contentIndex/index.js';
 import { entryQueryParameters, parseEntryQuery } from '../utils/entryQuery.js';
+import { queryFlag } from '../utils/queryFlag.js';
 
 const router: Router = Router({ mergeParams: true });
 
@@ -31,11 +32,11 @@ router.get('/', requireProjectAccess, async (req: Request, res: Response) => {
     try {
         const result = await queryEntries(req.user!, projectId, modelId, parsed);
         let entries = result.items;
-        if (req.query.resolveAssets === '1') {
+        if (queryFlag(req.query.resolveAssets)) {
             const schema = await getModelSchema(req.user!, projectId, modelId);
             entries = await Promise.all(entries.map(e => resolveEntryAssets(projectId, e, schema)));
         }
-        if (req.query.resolveUrl === '1') {
+        if (queryFlag(req.query.resolveUrl)) {
             entries = await Promise.all(
                 entries.map(async e => {
                     const url = await resolveEntryUrl(projectId, e.id, modelId);
