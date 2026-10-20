@@ -177,6 +177,16 @@ describe('createMoteurAdminClient', () => {
         );
     });
 
+    it('assets.usage and usageCounts call the usage routes', async () => {
+        const client = createMoteurAdminClient({ baseURL: 'https://api.example.com' });
+        await client.assets.usageCounts('demo');
+        await client.assets.usage('demo', 'a 1');
+        expect(capturedRequests.map(r => r.url)).toEqual([
+            '/projects/demo/assets/usage',
+            '/projects/demo/assets/a%201/usage'
+        ]);
+    });
+
     it('forProject omits project id from paths', async () => {
         const client = createMoteurAdminClient({ baseURL: 'https://api.example.com' });
         await client.forProject('my-project').pages.list();
