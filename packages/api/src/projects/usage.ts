@@ -123,7 +123,21 @@ export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
             parameters: [
                 { name: 'projectId', in: 'path', required: true, schema: { type: 'string' } }
             ],
-            responses: { '200': { description: '`{ limits }`' } }
+            responses: {
+                '200': {
+                    description: '`{ limits }`',
+                    content: {
+                        'application/json': {
+                            schema: {
+                                type: 'object',
+                                properties: {
+                                    limits: { $ref: '#/components/schemas/ProjectLimits' }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
         }
     },
     '/projects/{projectId}/usage': {
@@ -154,6 +168,46 @@ export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
 };
 
 export const schemas: OpenAPIV3.ComponentsObject['schemas'] = {
+    ProjectLimits: {
+        type: 'object',
+        description: "What the project's plan allows. Null: no limit.",
+        required: [
+            'people',
+            'storage',
+            'requests',
+            'submissions',
+            'channels',
+            'models',
+            'entries',
+            'forms',
+            'structures',
+            'blocks',
+            'templates',
+            'pages'
+        ],
+        properties: {
+            people: { type: 'integer', nullable: true },
+            storage: { type: 'integer', nullable: true, description: 'Bytes of files' },
+            requests: {
+                type: 'integer',
+                nullable: true,
+                description: 'Public API requests a month'
+            },
+            submissions: {
+                type: 'integer',
+                nullable: true,
+                description: 'Form submissions a month'
+            },
+            channels: { type: 'integer', nullable: true },
+            models: { type: 'integer', nullable: true },
+            entries: { type: 'integer', nullable: true },
+            forms: { type: 'integer', nullable: true },
+            structures: { type: 'integer', nullable: true },
+            blocks: { type: 'integer', nullable: true },
+            templates: { type: 'integer', nullable: true },
+            pages: { type: 'integer', nullable: true }
+        }
+    },
     ProjectUsage: {
         type: 'object',
         required: [
