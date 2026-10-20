@@ -14,7 +14,16 @@ export { DEFAULT_REQUEST_TIMEOUT_MS } from './types.js';
 export type { MoteurClient } from './client.js';
 export type { ProjectClient } from './admin/forProject.js';
 export type { MoteurAdminClient } from './admin/adminClient.js';
-export type { GenerateEntryParams, GenerateEntryResult, AiProjectOverview } from './admin/ai.js';
+export type {
+    GenerateEntryParams,
+    GenerateEntryResult,
+    AiProjectOverview,
+    AiHelpers,
+    AiHelperName,
+    AiHelperState,
+    AiTextResult,
+    WritingAction
+} from './admin/ai.js';
 export type { MoteurPublicClient } from './public/createPublicClient.js';
 export type { EntryListParams, EntryListResult, FieldLocales } from './project/entries.js';
 export { entryListQuery } from './project/entries.js';
