@@ -1,5 +1,6 @@
 import { randomUUID } from 'crypto';
 import type {
+    FormSchema,
     FormSubmission,
     FormSubmissionMeta,
     FormSubmissionStatus,
@@ -9,16 +10,58 @@ import type {
 import type { Entry } from '@moteurio/types/Model.js';
 import { User } from '@moteurio/types/User.js';
 import { isValidId } from './utils/idUtils.js';
+import { systemActor } from './utils/systemActor.js';
 import { getForm, getFormForProject } from './forms.js';
 import { createEntry } from './entries.js';
+import { getModelSchemaForProject } from './models.js';
 import { UserDataStore } from './utils/userDataStore.js';
 import { triggerEvent } from './utils/eventBus.js';
 import { dispatch as webhookDispatch } from './webhooks/webhookService.js';
+import { sendEmail } from './emailNotifier.js';
 import { recordRequest, submissionCount } from './metering.js';
 import { assertSubmissionRoom } from './planLimits.js';
 
-function systemUser(): User {
-    return { id: 'system', name: 'System', isActive: true, email: '', roles: [], projects: [] };
+/** Form actions are the engine's own work, done for whoever sent the form. */
+const systemUser = (): User => systemActor('_forms', 'Forms');
+
+const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+/** A submitted value as text for an email: lists joined, objects as their values. */
+function asText(value: unknown): string {
+    if (value === null || value === undefined) return '';
+    if (Array.isArray(value)) return value.map(asText).join(', ');
+    if (typeof value === 'object')
+        return Object.values(value).map(asText).filter(Boolean).join(', ');
+    return String(value);
+}
+
+/** `{{name}}` in a subject or body becomes that answer. */
+export function fillIn(template: string, data: Record<string, unknown>): string {
+    return template.replace(/\{\{\s*([\w-]+)\s*\}\}/g, (_m, key: string) => asText(data[key]));
+}
+
+/** The address to reply to: the form's email field, when it holds one. */
+function senderEmail(form: FormSchema, data: Record<string, unknown>): string | undefined {
+    const key =
+        Object.entries(form.fields ?? {}).find(([, f]) => f.type === 'core/email')?.[0] ??
+        Object.keys(form.fields ?? {}).find(k => /^(e-?mail|courriel)$/i.test(k));
+    const v = key ? data[key] : undefined;
+    return typeof v === 'string' && EMAIL.test(v.trim()) ? v.trim() : undefined;
+}
+
+/** Every answer, one per line, labelled: the team's notice. */
+function answersText(form: FormSchema, data: Record<string, unknown>): string {
+    const label = (key: string) => {
+        const l = form.fields?.[key]?.label as unknown;
+        if (typeof l === 'string') return l;
+        if (l && typeof l === 'object') return String(Object.values(l)[0] ?? key);
+        return key;
+    };
+    const keys = [...new Set([...Object.keys(form.fields ?? {}), ...Object.keys(data)])];
+    return keys
+        .filter(k => data[k] !== undefined && data[k] !== '')
+        .map(k => `${label(k)}:\n${asText(data[k])}`)
+        .join('\n\n');
 }
 
 function generateSubmissionId(): string {
@@ -238,10 +281,15 @@ async function processSubmission(
         if (action.type === 'createEntry') {
             try {
                 const fieldMap = action.fieldMap ?? {};
+                const model = await getModelSchemaForProject(projectId, action.modelId);
                 const entryData: Record<string, unknown> = {};
                 for (const [formFieldId, value] of Object.entries(submission.data)) {
                     if (value === undefined) continue;
+                    // An empty mapping means "not kept"; by default, the field of the same name.
                     const modelFieldId = fieldMap[formFieldId] ?? formFieldId;
+                    if (!modelFieldId) continue;
+                    // Answers the model has no field for are left out (they stay in the letter).
+                    if (model?.fields && !model.fields[modelFieldId]) continue;
                     entryData[modelFieldId] = value;
                 }
                 const entryId = randomUUID().replace(/-/g, '').slice(0, 12);
@@ -263,12 +311,21 @@ async function processSubmission(
                 });
             }
         } else if (action.type === 'email') {
-            // Stub: real email sending out of scope
-            actionResults.push({
-                type: 'email',
-                status: 'success',
-                error: '(email stub: not sent)'
-            });
+            try {
+                await sendEmail({
+                    to: action.to,
+                    subject: fillIn(action.subject, submission.data),
+                    text: fillIn(action.body, submission.data),
+                    replyTo: senderEmail(form, submission.data)
+                });
+                actionResults.push({ type: 'email', status: 'success' });
+            } catch (err) {
+                actionResults.push({
+                    type: 'email',
+                    status: 'failed',
+                    error: err instanceof Error ? err.message : String(err)
+                });
+            }
         } else if (action.type === 'webhook') {
             try {
                 await webhookDispatch(
@@ -284,6 +341,47 @@ async function processSubmission(
             } catch {
                 // never fail the operation
             }
+        }
+    }
+
+    // The team's notice, then the sender's confirmation.
+    const notify = form.notifications?.onSubmit;
+    if (notify?.to?.length) {
+        try {
+            await sendEmail({
+                to: notify.to,
+                subject: fillIn(notify.subject || `New message: ${form.label}`, submission.data),
+                text: answersText(form, submission.data),
+                replyTo: senderEmail(form, submission.data)
+            });
+            actionResults.push({ type: 'notify', status: 'success' });
+        } catch (err) {
+            actionResults.push({
+                type: 'notify',
+                status: 'failed',
+                error: err instanceof Error ? err.message : String(err)
+            });
+        }
+    }
+    const confirm = form.notifications?.confirmationEmail;
+    const confirmTo = confirm ? submission.data[confirm.fieldRef] : undefined;
+    if (confirm && typeof confirmTo === 'string' && EMAIL.test(confirmTo.trim())) {
+        const locale = submission.metadata.locale;
+        const body =
+            (locale && confirm.body?.[locale]) ?? Object.values(confirm.body ?? {})[0] ?? '';
+        try {
+            await sendEmail({
+                to: [confirmTo.trim()],
+                subject: fillIn(confirm.subject || form.label, submission.data),
+                text: fillIn(body, submission.data)
+            });
+            actionResults.push({ type: 'confirm', status: 'success' });
+        } catch (err) {
+            actionResults.push({
+                type: 'confirm',
+                status: 'failed',
+                error: err instanceof Error ? err.message : String(err)
+            });
         }
     }
 
