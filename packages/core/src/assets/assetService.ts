@@ -1,6 +1,7 @@
 import type { Asset, AssetType, ImageVariant } from '@moteurio/types/Asset.js';
 import type { VideoProviderId } from '@moteurio/types/Asset.js';
 import type { User } from '@moteurio/types/User.js';
+import { assertCanEdit, assertCanWrite } from '../contentAccess.js';
 import type { ProjectSchema } from '@moteurio/types/Project.js';
 import { getProject } from '../projects.js';
 import { getProjectJson, putProjectJson } from '../utils/projectStorage.js';
@@ -83,6 +84,7 @@ export async function uploadAsset(
     file: UploadFile,
     options?: UploadOptions
 ): Promise<Asset> {
+    assertCanWrite(user);
     const buffer = file.buffer;
     const safeOriginalName = sanitizeUploadFilename(file.originalName);
     const project = await getProject(user, projectId);
@@ -544,6 +546,7 @@ export async function updateAsset(
     }
 ): Promise<Asset> {
     await getProject(user, projectId);
+    assertCanEdit(user);
     const assets = await loadAssetsIndex(projectId);
     const idx = assets.findIndex(a => a.id === id);
     if (idx < 0) throw new Error(`Asset "${id}" not found`);
@@ -570,6 +573,7 @@ export async function updateAsset(
 }
 
 export async function deleteAsset(projectId: string, user: User, id: string): Promise<void> {
+    assertCanWrite(user);
     const project = await getProject(user, projectId);
     const assets = await loadAssetsIndex(projectId);
     const idx = assets.findIndex(a => a.id === id);

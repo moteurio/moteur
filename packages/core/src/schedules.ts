@@ -6,6 +6,7 @@ import type {
     CreateScheduleInput,
     ListSchedulesOptions
 } from '@moteurio/types/Schedule.js';
+import { canReview } from '@moteurio/types';
 import type { User } from '@moteurio/types/User.js';
 
 export type { CreateScheduleInput, ListSchedulesOptions };
@@ -40,9 +41,7 @@ function canSchedule(
     if (!project.workflow?.enabled || !project.workflow?.requireReview) {
         return true;
     }
-    const isAdmin = Array.isArray(user.roles) && user.roles.includes('admin');
-    const isReviewer = Array.isArray(user.roles) && user.roles.includes('reviewer');
-    return isAdmin || isReviewer;
+    return canReview(user);
 }
 
 async function loadAllSchedulesForProject(projectId: string): Promise<Schedule[]> {

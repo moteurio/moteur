@@ -1,5 +1,6 @@
 import fs from 'fs';
 import path from 'path';
+import { creatorRoles, PROJECT_CREATOR_ROLES } from '@moteurio/types';
 import { ProjectSchema } from '@moteurio/types/Project.js';
 import { User } from '@moteurio/types/User.js';
 import { ValidationResult } from '@moteurio/types/ValidationResult.js';
@@ -155,6 +156,10 @@ export async function createProject(
     } else if (!projectWithUsers.users.includes(user.id)) {
         projectWithUsers.users = [...projectWithUsers.users, user.id];
     }
+    projectWithUsers.memberRoles = {
+        ...projectWithUsers.memberRoles,
+        [user.id]: creatorRoles(user)
+    };
     // Ensure new projects are active
     projectWithUsers.isActive = project.isActive !== undefined ? project.isActive : true;
 
@@ -364,7 +369,8 @@ export async function copyProjectForNewUser(
         ...project,
         id: newProjectId,
         label: (project.label || 'Demo').replace(/^demo$/i, 'My Demo') || 'My Demo',
-        users: [userId]
+        users: [userId],
+        memberRoles: { [userId]: [...PROJECT_CREATOR_ROLES] }
     };
     await putProjectJson(newProjectId, PROJECT_KEY, updated);
     const userForCommit = {

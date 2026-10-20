@@ -1,5 +1,7 @@
 import type { Schedule } from '@moteurio/types/Schedule.js';
+import { canReview } from '@moteurio/types';
 import type { User } from '@moteurio/types/User.js';
+import { systemActor } from './utils/systemActor.js';
 import { getProjectJson, putProjectJson, listProjectKeys } from './utils/projectStorage.js';
 import { scheduleKey, scheduleListPrefix } from './utils/storageKeys.js';
 import { loadProjects } from './projects.js';
@@ -16,14 +18,7 @@ const timeouts = new Map<string, NodeJS.Timeout>();
 const MAX_TIMER_MS = 2 ** 31 - 1;
 let sweepInterval: NodeJS.Timeout | null = null;
 
-const SCHEDULER_USER: User = {
-    id: '_scheduler',
-    name: 'Scheduler',
-    isActive: true,
-    email: '',
-    roles: ['admin'],
-    projects: []
-};
+const SCHEDULER_USER: User = systemActor('_scheduler', 'Scheduler');
 
 async function loadSchedule(projectId: string, scheduleId: string): Promise<Schedule | null> {
     return getProjectJson<Schedule>(projectId, scheduleKey(scheduleId));
@@ -177,9 +172,8 @@ async function executeSchedule(projectId: string, scheduleId: string): Promise<v
             // never fail the operation
         }
 
-        const recipients = getProjectUsers(projectId).filter(
-            u => u.roles?.includes('reviewer') || u.roles?.includes('admin')
-        );
+        const project = loadProjects().find(p => p.id === projectId);
+        const recipients = getProjectUsers(projectId, project).filter(u => canReview(u));
         const message = `Scheduled ${schedule.action} failed for ${schedule.resourceType} ${schedule.resourceId}: ${errorMessage}`;
         for (const recipient of recipients) {
             try {

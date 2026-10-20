@@ -252,6 +252,30 @@ export function validateProject(
         }
     }
 
+    // memberRoles: optional, user id -> array of strings
+    if (project.memberRoles !== undefined) {
+        const roles = project.memberRoles;
+        if (typeof roles !== 'object' || roles === null || Array.isArray(roles)) {
+            addIssue(result, {
+                type: 'error',
+                code: 'PROJECT_INVALID_MEMBER_ROLES',
+                message: 'Project "memberRoles" must be an object of user id to roles if provided.',
+                path: 'memberRoles'
+            });
+        } else {
+            for (const [userId, list] of Object.entries(roles)) {
+                if (!Array.isArray(list) || list.some(r => typeof r !== 'string')) {
+                    addIssue(result, {
+                        type: 'error',
+                        code: 'PROJECT_INVALID_MEMBER_ROLES',
+                        message: 'Each entry in "memberRoles" must be an array of strings.',
+                        path: `memberRoles.${userId}`
+                    });
+                }
+            }
+        }
+    }
+
     // assetConfig.enabled: optional boolean
     if (
         project.assetConfig?.enabled !== undefined &&

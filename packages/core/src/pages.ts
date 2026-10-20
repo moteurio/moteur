@@ -10,7 +10,15 @@ import type {
 } from '@moteurio/types/Page.js';
 import { ValidationResult } from '@moteurio/types/ValidationResult.js';
 import { isValidId } from './utils/idUtils.js';
+import { hasRole } from '@moteurio/types';
 import { User } from '@moteurio/types/User.js';
+import {
+    assertCanEdit,
+    assertCanWrite,
+    contentForbidden,
+    translationOnlyChange,
+    translatorOnly
+} from './contentAccess.js';
 import { getProject, getProjectById } from './projects.js';
 import { assertUserCanAccessProject } from './utils/access.js';
 import { getTemplate } from './templates.js';
@@ -246,6 +254,7 @@ export async function createPage(
 ): Promise<PageNode> {
     const project = await getProject(user, projectId);
     assertUserCanAccessProject(user, project);
+    assertCanWrite(user);
 
     const id = randomUUID();
     const parentId = data.parentId ?? null;
@@ -318,8 +327,7 @@ export async function updatePage(
     if ((patch as any).status === 'published') {
         const project = await getProject(user, projectId);
         if (project.workflow?.enabled && project.workflow?.requireReview) {
-            const isAdmin = Array.isArray(user.roles) && user.roles.includes('admin');
-            if (!isAdmin) {
+            if (!hasRole(user, 'admin')) {
                 const approved = await hasApprovedReviewForPage(projectId, id);
                 if (!approved) {
                     throw new Error(
@@ -331,6 +339,25 @@ export async function updatePage(
     }
 
     const current = await getPageWithAuth(user, projectId, id);
+    assertCanEdit(user);
+    if (translatorOnly(user)) {
+        const project = await getProject(user, projectId);
+        const locales = [project.defaultLocale, ...(project.supportedLocales ?? [])].filter(
+            Boolean
+        );
+        const extra = Object.keys(patch).filter(key => key !== 'fields' && key !== 'updatedAt');
+        const beforeFields = (current as { fields?: unknown }).fields ?? {};
+        const afterFields =
+            (patch as { fields?: unknown }).fields === undefined
+                ? beforeFields
+                : { ...(beforeFields as object), ...((patch as { fields?: object }).fields ?? {}) };
+        if (
+            extra.length > 0 ||
+            !translationOnlyChange(beforeFields, afterFields, locales, project.defaultLocale)
+        ) {
+            throw contentForbidden('A translator can only change other languages.');
+        }
+    }
     const updated = { ...current, ...patch } as PageNode;
 
     if (updated.type === 'static' || updated.type === 'collection') {
@@ -409,6 +436,7 @@ export async function updatePage(
 }
 
 export async function deletePage(projectId: string, user: User, id: string): Promise<void> {
+    assertCanWrite(user);
     const current = await getPageWithAuth(user, projectId, id);
     const allPages = await loadAllPages(projectId);
     const children = allPages.filter(p => (p.parentId ?? null) === id);

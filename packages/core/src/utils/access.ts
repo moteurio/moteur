@@ -1,7 +1,10 @@
 import { User } from '@moteurio/types/User.js';
 import { ProjectSchema } from '@moteurio/types/Project.js';
+import { isSystemActor } from './systemActor.js';
 
 export function assertUserCanAccessProject(user: User, project: ProjectSchema): void {
+    // The engine's own work (scheduled publishing, form actions) is not a person's.
+    if (isSystemActor(user)) return;
     if (!project.users || project.users.length === 0) {
         throw new Error(`Project "${project.id}" has no specific users defined.`);
     }

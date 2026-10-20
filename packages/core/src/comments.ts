@@ -5,6 +5,7 @@ import type {
     CommentResourceType,
     GetCommentsOptions
 } from '@moteurio/types/Comment.js';
+import { hasRole } from '@moteurio/types';
 import type { User } from '@moteurio/types/User.js';
 import { getProject } from './projects.js';
 import { getProjectJson, putProjectJson } from './utils/projectStorage.js';
@@ -196,8 +197,7 @@ export async function deleteComment(
         const idx = list.findIndex(c => c.id === commentId && c.projectId === projectId);
         if (idx === -1) throw new Error('Comment not found');
         const comment = list[idx]!;
-        const isAdmin = Array.isArray(user.roles) && user.roles.includes('admin');
-        if (comment.authorId !== user.id && !isAdmin) {
+        if (comment.authorId !== user.id && !hasRole(user, 'admin')) {
             throw new Error('Only the author or an admin can delete this comment');
         }
         list.splice(idx, 1);

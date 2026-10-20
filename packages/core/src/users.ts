@@ -1,4 +1,5 @@
 import fs from 'fs';
+import { hasRole, inProject, normalizeStoredRoles } from '@moteurio/types';
 import { User } from '@moteurio/types/User.js';
 import { storageConfig } from './config/storageConfig.js';
 import { writeJsonAtomic } from './utils/fileUtils.js';
@@ -40,8 +41,13 @@ export function getUserById(id: string): User | undefined {
     return getCachedUsers().find(u => u.id === id);
 }
 
-export function getProjectUsers(projectId: string): User[] {
-    return getCachedUsers().filter(user => user.projects?.includes(projectId));
+/** Members of a project. Pass the project to get each member with their roles in it. */
+export function getProjectUsers(
+    projectId: string,
+    project?: { memberRoles?: Record<string, readonly string[]> }
+): User[] {
+    const members = getCachedUsers().filter(user => user.projects?.includes(projectId));
+    return project ? members.map(user => inProject(user, project)) : members;
 }
 
 /**
@@ -263,7 +269,7 @@ export function updateUserAsOperator(
     patch: OperatorUserPatch,
     performedBy: User
 ): User {
-    if (!performedBy.roles?.includes('admin')) {
+    if (!hasRole(performedBy, 'admin')) {
         throw new Error('Admin role required');
     }
     if (!userId) {
@@ -305,7 +311,7 @@ export function updateUserAsOperator(
         ...(patch.name !== undefined ? { name: patch.name.trim() || undefined } : {}),
         ...(patch.email !== undefined ? { email: patch.email.trim() } : {}),
         ...(patch.isActive !== undefined ? { isActive: patch.isActive } : {}),
-        ...(patch.roles !== undefined ? { roles: [...patch.roles] } : {}),
+        ...(patch.roles !== undefined ? { roles: normalizeStoredRoles(patch.roles) } : {}),
         ...(patch.avatar !== undefined ? { avatar: nextAvatar } : {})
     };
 
