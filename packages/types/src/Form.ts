@@ -79,4 +79,9 @@ export interface FormSubmission {
     metadata: FormSubmissionMeta;
     actionResults: FormActionResult[];
     status: FormSubmissionStatus;
+    /** When someone in the Studio first opened it; absent while unread. */
+    readAt?: string;
+    readBy?: string;
+    /** Set while marked spam by hand: what "not spam" puts back. */
+    statusBeforeSpam?: FormSubmissionStatus;
 }
