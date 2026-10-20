@@ -125,6 +125,13 @@ export async function whoamiCommand(): Promise<void> {
 
 const MIN_PASSWORD_LEN = 8;
 
+/** The engine's password rule, so a password set here can also sign in through the API. */
+async function passwordRefusal(password: string | undefined): Promise<string | null> {
+    if (!password) return 'A password is required';
+    const { passwordProblem } = await import('@moteurio/core/auth.js');
+    return passwordProblem(password);
+}
+
 function isValidEmail(s: string): boolean {
     const t = s.trim();
     return t.length > 0 && t.includes('@') && !t.includes(' ');
@@ -204,10 +211,9 @@ export async function createUserCommand(args: Record<string, unknown>): Promise<
             process.exit(1);
         }
     }
-    if (!password || password.length < MIN_PASSWORD_LEN) {
-        console.error(
-            `Password must be at least ${MIN_PASSWORD_LEN} characters (use --password= in CI only).`
-        );
+    const weak = await passwordRefusal(password);
+    if (weak || !password) {
+        console.error(`${weak} (use --password= in CI only).`);
         process.exit(1);
     }
 
@@ -344,10 +350,9 @@ export async function resetPasswordCommand(args: Record<string, unknown>): Promi
             process.exit(1);
         }
     }
-    if (!newPassword || newPassword.length < MIN_PASSWORD_LEN) {
-        console.error(
-            `Password must be at least ${MIN_PASSWORD_LEN} characters (use --password= in CI only).`
-        );
+    const weakNew = await passwordRefusal(newPassword);
+    if (weakNew || !newPassword) {
+        console.error(`${weakNew} (use --password= in CI only).`);
         process.exit(1);
     }
 
