@@ -13,8 +13,12 @@ import { requireProjectAccess } from '../middlewares/auth.js';
 import { stripVariantHintsFromBlockSchema } from '../utils/stripBlockSchema.js';
 import { getMessage, sendApiError } from '../utils/apiError.js';
 import { PlanLimitError } from '@moteurio/core/planLimits.js';
+import { mergePathSpecs } from '../utils/mergePathSpecs.js';
+import { blocksRevisionsOpenapi, blocksRevisionsRouter } from './blocksRevisions.js';
 
 const router: Router = express.Router({ mergeParams: true });
+
+router.use(blocksRevisionsRouter);
 
 router.get('/', requireProjectAccess, (req: Request, res: Response) => {
     const projectId = (req.params as Record<string, string>).projectId as string;
@@ -127,7 +131,7 @@ router.delete('/:slug', requireProjectAccess, (req: Request, res: Response) => {
 
 const blocksSecurity: OpenAPIV3.SecurityRequirementObject[] = [{ bearerAuth: [] }];
 
-export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
+const blockPaths: Record<string, OpenAPIV3.PathItemObject> = {
     '/projects/{projectId}/blocks': {
         get: {
             summary: 'List block types (core + project overrides)',
@@ -331,5 +335,7 @@ export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
         }
     }
 };
+
+export const openapi = mergePathSpecs(blocksRevisionsOpenapi, blockPaths);
 
 export default router;
