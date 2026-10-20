@@ -1,6 +1,6 @@
 import type { Request, Response } from 'express';
 import express, { Router } from 'express';
-import { loginUser } from '@moteurio/core/auth.js';
+import { loginUser, PASSWORD_MAX_LENGTH } from '@moteurio/core/auth.js';
 import { loginRateLimiter } from '../middlewares/rateLimit.js';
 import type { OpenAPIV3 } from 'openapi-types';
 import { getMessage, sendApiError } from '../utils/apiError.js';
@@ -17,7 +17,6 @@ import {
 const router: Router = express.Router();
 
 const EMAIL_MAX_LENGTH = 255;
-const PASSWORD_MAX_LENGTH = 128;
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 function sanitizeEmail(value: unknown): string {

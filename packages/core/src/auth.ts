@@ -17,6 +17,19 @@ function getJwtSecret(): string {
     return secret;
 }
 
+/** One rule wherever a password is set or checked, so any password that can be set can sign in. */
+export const PASSWORD_MIN_LENGTH = 8;
+export const PASSWORD_MAX_LENGTH = 200;
+
+/** Why a new password can't be used, or null when it can. */
+export function passwordProblem(password: string): string | null {
+    if (password.length < PASSWORD_MIN_LENGTH)
+        return `The password needs at least ${PASSWORD_MIN_LENGTH} characters`;
+    if (password.length > PASSWORD_MAX_LENGTH)
+        return `The password can have at most ${PASSWORD_MAX_LENGTH} characters`;
+    return null;
+}
+
 /** Hash a password for storage in users.json (bcrypt cost factor 10). */
 export async function hashPassword(plain: string): Promise<string> {
     return bcrypt.hash(plain, 10);

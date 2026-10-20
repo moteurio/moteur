@@ -3,7 +3,8 @@ import express from 'express';
 import { describe, it, expect, vi, beforeEach, beforeAll } from 'vitest';
 
 vi.mock('@moteurio/core/auth', () => ({
-    loginUser: vi.fn()
+    loginUser: vi.fn(),
+    PASSWORD_MAX_LENGTH: 200
 }));
 
 vi.mock('../../src/middlewares/rateLimit', () => ({
@@ -112,7 +113,7 @@ describe('POST /auth/login', () => {
     });
 
     it('should return 400 if password exceeds max length (bcrypt DoS mitigation)', async () => {
-        const longPassword = 'a'.repeat(129);
+        const longPassword = 'a'.repeat(201);
         const res = await request(app)
             .post('/auth/login')
             .send({ username: 'tester@example.com', password: longPassword });
@@ -123,7 +124,8 @@ describe('POST /auth/login', () => {
     });
 
     it('should accept password at max length and call loginUser', async () => {
-        const maxPassword = 'b'.repeat(128);
+        // As long as invite registration allows, so every password that can be set can sign in.
+        const maxPassword = 'b'.repeat(200);
         (loginUser as any).mockResolvedValue({
             token: 'fake-jwt-token',
             user: { id: 'user123', email: 'tester@example.com' }
