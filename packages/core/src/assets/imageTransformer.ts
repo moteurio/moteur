@@ -13,9 +13,32 @@ export interface GeneratedVariant {
     format: string;
 }
 
+/** How an image reads once turned upright, and whether it moves. */
+export interface ImageShape {
+    width: number;
+    height: number;
+    animated: boolean;
+}
+
+/**
+ * The image's size as people see it: phone photos are stored sideways with an orientation tag
+ * (5–8 mean a quarter turn), and an animated image's height is one frame, not the whole strip.
+ */
+export async function readImageShape(buffer: Buffer): Promise<ImageShape> {
+    const meta = await sharp(buffer).metadata();
+    const animated = (meta.pages ?? 1) > 1;
+    const width = meta.width ?? 0;
+    const height = animated ? (meta.pageHeight ?? meta.height ?? 0) : (meta.height ?? 0);
+    const turned = (meta.orientation ?? 1) >= 5;
+    return { width: turned ? height : width, height: turned ? width : height, animated };
+}
+
 /**
  * Generate image variants. Always includes original (source buffer + metadata).
  * Per-variant errors are logged and skipped; never abort the batch.
+ *
+ * Every variant is turned upright first (its orientation tag is dropped with the rest of the
+ * metadata), is never larger than the original, and keeps an animation when its format can.
  */
 export async function generateVariants(
     buffer: Buffer,
@@ -24,11 +47,10 @@ export async function generateVariants(
     focalPoint: FocalPoint
 ): Promise<GeneratedVariant[]> {
     const results: GeneratedVariant[] = [];
-    let meta: { width: number; height: number };
+    let shape: ImageShape;
 
     try {
-        const metaResult = await sharp(buffer).metadata();
-        meta = { width: metaResult.width ?? 0, height: metaResult.height ?? 0 };
+        shape = await readImageShape(buffer);
     } catch (err) {
         console.error('[moteur] Failed to read image metadata', err);
         return results;
@@ -44,37 +66,40 @@ export async function generateVariants(
         });
     }
 
+    // Upright, every frame of an animation; metadata (location, camera) is not carried over.
+    const open = (): Sharp => sharp(buffer, { animated: shape.animated }).rotate();
+
     for (const def of allDefs) {
         try {
             if (def.key === RESERVED_ORIGINAL) {
                 results.push({
                     key: RESERVED_ORIGINAL,
                     buffer,
-                    width: meta.width,
-                    height: meta.height,
+                    width: shape.width,
+                    height: shape.height,
                     size: buffer.length,
                     format: mimeType.split('/')[1] ?? 'webp'
                 });
                 continue;
             }
 
-            const width = def.width;
-            const height = def.height;
             const quality = def.quality ?? 85;
             const fmt = def.format;
 
             let pipeline: Sharp;
-            if (def.fit === 'cover' && width && height) {
+            if (def.fit === 'cover' && def.width && def.height) {
+                // A crop is never bigger than the picture: a small image gets a smaller crop
+                // with the same proportions instead of a blurry enlargement.
+                const shrink = Math.min(1, shape.width / def.width, shape.height / def.height);
+                const width = Math.max(1, Math.round(def.width * shrink));
+                const height = Math.max(1, Math.round(def.height * shrink));
                 const isCentreFocal = focalPoint.x === 0.5 && focalPoint.y === 0.5;
-                if (isCentreFocal) {
-                    pipeline = sharp(buffer).resize(width, height, {
-                        fit: 'cover',
-                        position: 'centre'
-                    });
+                if (isCentreFocal || shape.animated) {
+                    pipeline = open().resize(width, height, { fit: 'cover', position: 'centre' });
                 } else {
-                    const scale = Math.max(width / meta.width, height / meta.height);
-                    const interimW = Math.ceil(meta.width * scale);
-                    const interimH = Math.ceil(meta.height * scale);
+                    const scale = Math.max(width / shape.width, height / shape.height);
+                    const interimW = Math.max(width, Math.round(shape.width * scale));
+                    const interimH = Math.max(height, Math.round(shape.height * scale));
                     const left = Math.max(
                         0,
                         Math.min(interimW - width, Math.round(focalPoint.x * interimW - width / 2))
@@ -86,12 +111,15 @@ export async function generateVariants(
                             Math.round(focalPoint.y * interimH - height / 2)
                         )
                     );
-                    pipeline = sharp(buffer)
+                    pipeline = open()
                         .resize(interimW, interimH)
                         .extract({ left, top, width, height });
                 }
             } else {
-                pipeline = sharp(buffer).resize(width, height, { fit: def.fit });
+                pipeline = open().resize(def.width, def.height, {
+                    fit: def.fit,
+                    withoutEnlargement: true
+                });
             }
 
             let outBuffer: Buffer;
@@ -107,12 +135,12 @@ export async function generateVariants(
                 outBuffer = await pipeline.webp({ quality }).toBuffer();
             }
 
-            const outMeta = await sharp(outBuffer).metadata();
+            const out = await readImageShape(outBuffer);
             results.push({
                 key: def.key,
                 buffer: outBuffer,
-                width: outMeta.width ?? 0,
-                height: outMeta.height ?? 0,
+                width: out.width,
+                height: out.height,
                 size: outBuffer.length,
                 format: fmt
             });

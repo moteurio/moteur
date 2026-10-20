@@ -21,4 +21,9 @@ export interface StorageAdapter {
     download(path: string): Promise<Buffer>;
     delete(path: string): Promise<void>;
     getUrl(path: string): Promise<string>;
+    /**
+     * Removes every file of one kind for a project (e.g. an image's resized copies). Optional:
+     * storages without it keep those files until cleaned up by hand.
+     */
+    deleteFolder?(projectId: string, variantKey: string): Promise<void>;
 }
