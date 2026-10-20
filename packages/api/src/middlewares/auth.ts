@@ -157,7 +157,11 @@ export function apiKeyAuth(req: Request, res: Response, next: NextFunction): voi
     verifyProjectApiKey(projectId, rawKey)
         .then(result => {
             if (!result.ok) {
-                res.status(401).json({ error: 'Invalid API key' });
+                res.status(401).json(
+                    result.reason === 'expired'
+                        ? { error: 'API key expired', code: 'API_KEY_EXPIRED' }
+                        : { error: 'Invalid API key' }
+                );
                 return;
             }
             const patterns = result.allowedHosts;
