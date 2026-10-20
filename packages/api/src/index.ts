@@ -122,9 +122,11 @@ const { mergedApiSpecs, serverUrl, hostPlugins, pluginRouteContributions, authPr
 
 const webhookContribs = pluginRouteContributions.filter(c => c.path === '/webhooks');
 // Mount webhooks before JSON body parser so signature verification gets raw body
+const bodyLimit = process.env.API_BODY_LIMIT || '1mb';
+
 app.use(
     basePath + '/webhooks',
-    express.raw({ type: 'application/json', limit: '1mb' }),
+    express.raw({ type: 'application/json', limit: bodyLimit }),
     (req: express.Request, _res: express.Response, next: express.NextFunction) => {
         if (Buffer.isBuffer(req.body)) req.rawBody = req.body.toString('utf8');
         next();
@@ -133,7 +135,6 @@ app.use(
     ...webhookContribs.map(c => c.router)
 );
 
-const bodyLimit = process.env.API_BODY_LIMIT || '1mb';
 app.use(express.json({ limit: bodyLimit }));
 
 // Request classification (studio vs public), usage logging, and rate limiting
