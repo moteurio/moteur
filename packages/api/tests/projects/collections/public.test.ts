@@ -14,10 +14,23 @@ vi.mock('@moteurio/core/entries.js', () => ({
     getEntryForProject: vi.fn(),
     getPublishedEntryForProject: vi.fn()
 }));
+vi.mock('@moteurio/core/navigations.js', () => ({
+    listNavigations: vi.fn(),
+    getNavigationByHandle: vi.fn(),
+    resolveNavigation: vi.fn(async (_p: string, nav: any) => ({ ...nav, resolved: true }))
+}));
+vi.mock('@moteurio/core/projects.js', () => ({
+    getProjectById: vi.fn(async () => ({ defaultLocale: 'fr' }))
+}));
 
 import { listCollections, getCollection } from '@moteurio/core/apiCollections.js';
 import { verifyProjectApiKey } from '@moteurio/core/projectApiKey.js';
 import { queryEntriesForProject } from '@moteurio/core/entries.js';
+import {
+    listNavigations,
+    getNavigationByHandle,
+    resolveNavigation
+} from '@moteurio/core/navigations.js';
 import collectionsPublicRouter from '../../../src/projects/collections/public.js';
 import {
     optionalAuth,
@@ -246,5 +259,102 @@ describe('GET /projects/:projectId/collections/:collectionId/:resourceId/entries
         expect(res.status).toBe(400);
         expect(res.body.error).toMatch(message);
         expect(queryEntriesForProject).not.toHaveBeenCalled();
+    });
+});
+const menus = [
+    { id: 'n1', handle: 'main', name: 'Main', items: [] },
+    { id: 'n2', handle: 'footer', name: 'Footer', items: [] }
+];
+
+function channelWith(resources: Array<{ resourceType: any; resourceId: string }>) {
+    return { id: 'c1', projectId: 'demo', label: 'API', resources, createdAt: '', updatedAt: '' };
+}
+
+describe('GET /projects/:projectId/collections/:collectionId/menus', () => {
+    beforeEach(() => {
+        vi.clearAllMocks();
+        vi.mocked(verifyProjectApiKey).mockResolvedValue({
+            ok: true,
+            keyId: 'k1',
+            policy: { collectionWhitelist: null, allowSiteWideReads: true }
+        });
+        vi.mocked(listNavigations).mockResolvedValue(menus as any);
+        vi.mocked(getNavigationByHandle).mockImplementation(
+            async (_p, handle) => (menus.find(m => m.handle === handle) as any) ?? null
+        );
+    });
+
+    it('lists every menu, resolved, when the channel gives every menu', async () => {
+        vi.mocked(getCollection).mockResolvedValue(
+            channelWith([{ resourceType: 'menu', resourceId: 'menus' }])
+        );
+        const res = await request(app)
+            .get('/projects/demo/collections/c1/menus')
+            .set('x-api-key', 'k');
+        expect(res.status).toBe(200);
+        expect(res.body.map((m: any) => m.handle)).toEqual(['main', 'footer']);
+        expect(res.body[0].resolved).toBe(true);
+    });
+
+    it('lists only the handles the channel names', async () => {
+        vi.mocked(getCollection).mockResolvedValue(
+            channelWith([{ resourceType: 'menu', resourceId: 'footer' }])
+        );
+        const res = await request(app)
+            .get('/projects/demo/collections/c1/menus')
+            .set('x-api-key', 'k');
+        expect(res.body.map((m: any) => m.handle)).toEqual(['footer']);
+    });
+
+    it('refuses a menu the channel does not give', async () => {
+        vi.mocked(getCollection).mockResolvedValue(
+            channelWith([{ resourceType: 'menu', resourceId: 'footer' }])
+        );
+        const res = await request(app)
+            .get('/projects/demo/collections/c1/menus/main')
+            .set('x-api-key', 'k');
+        expect(res.status).toBe(404);
+        expect(getNavigationByHandle).not.toHaveBeenCalled();
+    });
+
+    it('asks for labels in the requested language', async () => {
+        vi.mocked(getCollection).mockResolvedValue(
+            channelWith([{ resourceType: 'menu', resourceId: 'menus' }])
+        );
+        const res = await request(app)
+            .get('/projects/demo/collections/c1/menus/main?locale=en')
+            .set('x-api-key', 'k');
+        expect(res.status).toBe(200);
+        expect(resolveNavigation).toHaveBeenCalledWith(
+            'demo',
+            expect.objectContaining({ handle: 'main' }),
+            { locale: 'en', fallback: 'fr' }
+        );
+    });
+
+    it('returns one menu by handle', async () => {
+        vi.mocked(getCollection).mockResolvedValue(
+            channelWith([{ resourceType: 'menu', resourceId: 'menus' }])
+        );
+        const res = await request(app)
+            .get('/projects/demo/collections/c1/menus/main')
+            .set('x-api-key', 'k');
+        expect(res.status).toBe(200);
+        expect(res.body).toMatchObject({ handle: 'main', resolved: true });
+    });
+
+    it('404s when the channel gives no menus', async () => {
+        vi.mocked(getCollection).mockResolvedValue(
+            channelWith([{ resourceType: 'model', resourceId: 'models' }])
+        );
+        const res = await request(app)
+            .get('/projects/demo/collections/c1/menus')
+            .set('x-api-key', 'k');
+        expect(res.status).toBe(404);
+    });
+
+    it('needs a key or a session', async () => {
+        const res = await request(app).get('/projects/demo/collections/c1/menus');
+        expect(res.status).toBe(401);
     });
 });

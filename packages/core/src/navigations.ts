@@ -63,6 +63,35 @@ function isHandleUrlSafe(handle: string): boolean {
     return HANDLE_REGEX.test(handle) && !handle.startsWith('-') && !handle.endsWith('-');
 }
 
+function isNavLabel(label: unknown): boolean {
+    if (typeof label === 'string') return true;
+    if (!label || typeof label !== 'object' || Array.isArray(label)) return false;
+    return Object.values(label).every(v => typeof v === 'string');
+}
+
+function assertLabels(items: NavItem[]): void {
+    for (const item of items) {
+        if (!isNavLabel(item.label)) {
+            throw new Error('Each menu item label must be text, or one text per language.');
+        }
+        if (item.children?.length) assertLabels(item.children);
+    }
+}
+
+/** The label in `locale`, or the project default, or a plain string stored as-is. */
+export function navLabelForLocale(
+    label: NavItem['label'],
+    locale: string,
+    fallback: string
+): string {
+    if (typeof label === 'string') return label;
+    if (!label || typeof label !== 'object') return '';
+    const direct = label[locale];
+    if (typeof direct === 'string' && direct.trim()) return direct;
+    const fb = label[fallback];
+    return typeof fb === 'string' ? fb : '';
+}
+
 async function loadNavigations(projectId: string): Promise<Navigation[]> {
     const list = (await getProjectJson<Navigation[]>(projectId, NAVIGATIONS_KEY)) ?? [];
     return list;
@@ -172,6 +201,7 @@ export async function createNavigation(
         Math.max(MIN_MAX_DEPTH, data.maxDepth ?? DEFAULT_MAX_DEPTH)
     );
     const items = ensureNavItemIds(data.items ?? []);
+    assertLabels(items);
     if (!validateDepth(items, maxDepth)) {
         throw new Error(
             `Items exceed max depth (${maxDepth}). Reduce nesting or increase maxDepth (1–5).`
@@ -246,6 +276,7 @@ export async function updateNavigation(
     let items = current.items;
     if (patch.items !== undefined) {
         items = ensureNavItemIds(patch.items);
+        assertLabels(items);
         if (!validateDepth(items, maxDepth)) {
             const deepest = getDeepestDepth(items);
             throw new Error(
@@ -330,31 +361,39 @@ async function resolveItemUrl(
 async function resolveItem(
     projectId: string,
     item: NavItem,
-    nodeMap: Map<string, PageNode>
+    nodeMap: Map<string, PageNode>,
+    language?: { locale: string; fallback: string }
 ): Promise<ResolvedNavItem> {
     const url = await resolveItemUrl(projectId, item, nodeMap);
     const { pageId: _p, assetId: _a, children, ...rest } = item;
     const resolved: ResolvedNavItem = {
         ...rest,
+        ...(language && {
+            label: navLabelForLocale(item.label, language.locale, language.fallback)
+        }),
         ...(url !== undefined && { url })
     };
     if (children && children.length > 0) {
         resolved.children = await Promise.all(
-            children.map(child => resolveItem(projectId, child, nodeMap))
+            children.map(child => resolveItem(projectId, child, nodeMap, language))
         );
     }
     return resolved;
 }
 
-/** Resolve a navigation — hydrate all URLs and assets. Never throws on missing refs; url is undefined for those items. */
+/**
+ * Resolve a navigation — hydrate all URLs and assets. Never throws on missing refs; url is undefined for those items.
+ * When `language` is set, each label becomes the string for that locale.
+ */
 export async function resolveNavigation(
     projectId: string,
-    navigation: Navigation
+    navigation: Navigation,
+    language?: { locale: string; fallback: string }
 ): Promise<ResolvedNavigation> {
     const pages = await listPages(projectId);
     const nodeMap = buildNodeMap(pages);
     const items = await Promise.all(
-        navigation.items.map(item => resolveItem(projectId, item, nodeMap))
+        navigation.items.map(item => resolveItem(projectId, item, nodeMap, language))
     );
     const { items: _i, ...rest } = navigation;
     return {
