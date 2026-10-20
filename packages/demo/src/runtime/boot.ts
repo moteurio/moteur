@@ -50,27 +50,6 @@ export async function boot(options: BootOptions): Promise<void> {
     await registerHostPlugins(hostPlugins);
 }
 
-/**
- * Core block and structure definitions are read from data/core/{blocks,structures}; copy them
- * from a source data root when the target lacks them.
- */
-export function ensureCoreDefinitions(dataRoot: string, sourceDataRoot: string): void {
-    for (const kind of ['blocks', 'structures']) {
-        const target = path.join(dataRoot, 'data', 'core', kind);
-        if (fs.existsSync(target) && fs.readdirSync(target).some(f => f.endsWith('.json')))
-            continue;
-        const source = path.join(sourceDataRoot, 'data', 'core', kind);
-        if (!fs.existsSync(source)) {
-            throw new Error(
-                `No core ${kind} in ${target} or ${source}. ` +
-                    'Install @moteurio/plugin-core-blocks or copy data/core first.'
-            );
-        }
-        fs.mkdirSync(path.dirname(target), { recursive: true });
-        fs.cpSync(source, target, { recursive: true });
-    }
-}
-
 /** A user object for core service calls (core only reads id, name, email, roles). */
 export function asUser(p: { id: string; name: string; email: string; roles: string[] }): User {
     return { id: p.id, name: p.name, email: p.email, roles: p.roles, isActive: true, projects: [] };

@@ -17,6 +17,7 @@ import { structureKey, structureListPrefix } from './utils/storageKeys.js';
 import { checkCountRoom } from './planLimits.js';
 import { countOf } from './projectCounts.js';
 import { triggerEvent } from './utils/eventBus.js';
+import { builtinStructureSchemas } from './plugins/builtinContent.js';
 
 function systemUser(): User {
     return { id: 'system', name: 'System', isActive: true, email: '', roles: [], projects: [] };
@@ -25,6 +26,27 @@ function systemUser(): User {
 /** Core structures live next to core blocks: {dataRoot}/data/core/structures. */
 function coreStructuresDir(): string {
     return path.join(storageConfig.dataRoot, 'data', 'core', 'structures');
+}
+
+/** Shipped structures. A file in data/core/structures overrides the same type. */
+const pluginStructureRegistry: Record<string, StructureSchema> = {};
+
+export function registerStructureSchema(schema: StructureSchema): void {
+    if (!schema?.type) return;
+    pluginStructureRegistry[normalizeType(schema.type)] = schema;
+}
+
+for (const schema of builtinStructureSchemas) registerStructureSchema(schema);
+
+/** Structures that ship with the engine or a plugin, before any file in data/core overrides them. */
+export function shippedStructureSchemas(): Record<string, StructureSchema> {
+    return { ...pluginStructureRegistry };
+}
+
+function withPluginStructures(
+    registry: Record<string, StructureSchema>
+): Record<string, StructureSchema> {
+    return { ...pluginStructureRegistry, ...registry };
 }
 
 function loadFromDir(dirPath: string, registry: Record<string, StructureSchema>): void {
@@ -56,18 +78,19 @@ export async function listStructures(project?: string): Promise<Record<string, S
     const registry: Record<string, StructureSchema> = {};
 
     loadFromDir(coreStructuresDir(), registry);
+    const merged = withPluginStructures(registry);
 
     if (project) {
         const ids = await listProjectKeys(project, structureListPrefix());
         for (const id of ids) {
             const schema = await getProjectJson<StructureSchema>(project, structureKey(id));
             if (schema?.type) {
-                registry[normalizeType(schema.type)] = schema;
+                merged[normalizeType(schema.type)] = schema;
             }
         }
     }
 
-    return registry;
+    return merged;
 }
 
 /** Sync: get a structure from core namespace only. Used by validators. */
@@ -76,7 +99,7 @@ export function getStructureFromCore(id: string): StructureSchema {
     const normalized = normalizeType(type);
     const registry: Record<string, StructureSchema> = {};
     loadFromDir(coreStructuresDir(), registry);
-    const resolved = registry[normalized];
+    const resolved = withPluginStructures(registry)[normalized];
     if (!resolved) {
         throw new Error(`Structure "${id}" not found in core`);
     }

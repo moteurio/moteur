@@ -65,4 +65,10 @@ describe('core structures', () => {
     it('reports an unknown structure', () => {
         expect(() => getStructureFromCore('core/nope')).toThrow(/not found/);
     });
+
+    it('lets a file in data/core override the shipped structure', () => {
+        const seo = getStructureFromCore('core/seo');
+        expect(seo.fields.seoImage.type).toBe('core/image');
+        expect(seo.fields.seoDescription).toBeUndefined();
+    });
 });
