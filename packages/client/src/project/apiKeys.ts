@@ -7,6 +7,8 @@ export type ProjectApiKeyMeta = {
     prefix: string;
     createdAt: string;
     label?: string;
+    expiresAt?: string;
+    expired?: boolean;
     allowedHosts: string[];
     allowedCollectionIds?: string[];
     allowSiteWideReads?: boolean;
@@ -14,6 +16,7 @@ export type ProjectApiKeyMeta = {
 
 export type ProjectApiKeyCreateBody = {
     label?: string;
+    expiresAt?: string | null;
     allowedCollectionIds?: string[];
     allowSiteWideReads?: boolean;
 };
@@ -25,6 +28,7 @@ export type ProjectApiKeyCreateResponse = ProjectApiKeyMeta & {
 
 export type ProjectApiKeyPatchBody = {
     label?: string | null;
+    expiresAt?: string | null;
     allowedHosts?: string[];
     allowedCollectionIds?: string[] | null;
     allowSiteWideReads?: boolean;

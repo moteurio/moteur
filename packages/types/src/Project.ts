@@ -124,6 +124,8 @@ export interface ProjectApiKeyEntry {
     prefix: string;
     createdAt: string;
     label?: string;
+    /** ISO date-time after which the key is refused. Omitted = never expires. */
+    expiresAt?: string;
     /**
      * When non-empty, x-api-key requests must send Origin or Referer whose hostname matches
      * one entry (exact or single leading *. wildcard). Empty or omitted = no host restriction.

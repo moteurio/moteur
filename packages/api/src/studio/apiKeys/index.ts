@@ -29,13 +29,15 @@ router.post('/', requireDeveloper, async (req: Request, res: Response) => {
     if (!projectId) return void res.status(400).json({ error: 'Missing projectId' });
     try {
         const body = req.body ?? {};
-        const { label, allowedCollectionIds, allowSiteWideReads } = body as {
+        const { label, expiresAt, allowedCollectionIds, allowSiteWideReads } = body as {
             label?: string;
+            expiresAt?: string | null;
             allowedCollectionIds?: string[];
             allowSiteWideReads?: boolean;
         };
         const { rawKey, prefix, meta } = await createKey(projectId, req.user!, {
             ...(label !== undefined ? { label } : {}),
+            ...(expiresAt !== undefined ? { expiresAt } : {}),
             ...(allowedCollectionIds !== undefined ? { allowedCollectionIds } : {}),
             ...(allowSiteWideReads !== undefined ? { allowSiteWideReads } : {})
         });
@@ -85,14 +87,17 @@ router.patch('/:keyId', requireDeveloper, async (req: Request, res: Response) =>
         return void res.status(400).json({ error: 'Missing projectId or keyId' });
     try {
         const body = req.body ?? {};
-        const { label, allowedHosts, allowedCollectionIds, allowSiteWideReads } = body as {
-            label?: string | null;
-            allowedHosts?: unknown;
-            allowedCollectionIds?: string[] | null;
-            allowSiteWideReads?: boolean;
-        };
+        const { label, expiresAt, allowedHosts, allowedCollectionIds, allowSiteWideReads } =
+            body as {
+                label?: string | null;
+                expiresAt?: string | null;
+                allowedHosts?: unknown;
+                allowedCollectionIds?: string[] | null;
+                allowSiteWideReads?: boolean;
+            };
         const hasAny =
             label !== undefined ||
+            expiresAt !== undefined ||
             allowedHosts !== undefined ||
             allowedCollectionIds !== undefined ||
             allowSiteWideReads !== undefined;
@@ -101,6 +106,7 @@ router.patch('/:keyId', requireDeveloper, async (req: Request, res: Response) =>
         }
         const meta = await patchKey(projectId, req.user!, keyId, {
             ...(label !== undefined ? { label } : {}),
+            ...(expiresAt !== undefined ? { expiresAt } : {}),
             ...(allowedHosts !== undefined ? { allowedHosts } : {}),
             ...(allowedCollectionIds !== undefined ? { allowedCollectionIds } : {}),
             ...(allowSiteWideReads !== undefined ? { allowSiteWideReads } : {})
