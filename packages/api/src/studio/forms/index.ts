@@ -1,4 +1,5 @@
 import express, { Router, type Request, type Response } from 'express';
+import cors from 'cors';
 import type { OpenAPIV3 } from 'openapi-types';
 import type { MultilingualString } from '@moteurio/types/Form.js';
 import {
@@ -55,9 +56,14 @@ router.get('/:formId', requireProjectAccess, async (req: Request, res: Response)
     }
 });
 
+// Sites on any domain send their forms here: no cookies or credentials, so any origin may.
+const anySite = cors({ origin: '*', methods: ['POST', 'OPTIONS'], credentials: false });
+router.options('/:formId/submit', anySite);
+
 // Public form submit (no auth)
 router.post(
     '/:formId/submit',
+    anySite,
     express.urlencoded({ extended: false }),
     formsSubmitRateLimiter,
     async (req: Request, res: Response): Promise<void> => {
