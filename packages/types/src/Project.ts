@@ -92,6 +92,10 @@ export interface ProjectSchema {
         autoAnalyseImages?: boolean;
         /** Image generation provider: openai (DALL-E), fal, replicate, or null if not set. */
         imageProvider?: 'openai' | 'fal' | 'replicate' | null;
+        /** Text-to-speech / audio generation provider, or null if not set. */
+        audioProvider?: 'elevenlabs' | 'fal' | null;
+        /** Text-to-3D model generation provider, or null if not set. */
+        model3dProvider?: 'meshy' | 'fal' | null;
         /** When true, the licensing acknowledgement for generated images has been shown and accepted. */
         imageGenerationAcknowledged?: boolean;
     };
@@ -221,6 +225,14 @@ export const projectSchemaFields: Record<string, Field> = {
 };
 
 /** Studio helpers a project can turn on one by one. */
-export type AiHelper = 'write' | 'translate' | 'alt' | 'notes' | 'images';
-export const AI_HELPERS: AiHelper[] = ['write', 'translate', 'alt', 'notes', 'images'];
+export type AiHelper = 'write' | 'translate' | 'alt' | 'notes' | 'images' | 'audio' | 'model3d';
+export const AI_HELPERS: AiHelper[] = [
+    'write',
+    'translate',
+    'alt',
+    'notes',
+    'images',
+    'audio',
+    'model3d'
+];
 export const DEFAULT_AI_ROLES = ['admin', 'writer'];

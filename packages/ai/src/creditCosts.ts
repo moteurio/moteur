@@ -18,7 +18,9 @@ export const DEFAULT_CREDIT_COSTS: Record<string, number> = {
     'translate.block': 1,
     'generate.entry': 5,
     'analyse.image': 2,
-    'generate.image': 10
+    'generate.image': 10,
+    'generate.audio': 5,
+    'generate.model3d': 25
 };
 
 let overrides: Record<string, number> | null = null;

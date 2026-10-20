@@ -9,6 +9,10 @@ export type {
     GenerateOptions,
     ImageGenerateOptions,
     ImageResult,
+    AudioGenerateOptions,
+    AudioResult,
+    Model3dGenerateOptions,
+    Model3dResult,
     MoteurAIAdapter
 } from './types.js';
 
@@ -27,7 +31,23 @@ export { AIError, NotImplementedError } from './errors.js';
 export type { AIErrorCode, AIErrorDetails } from './errors.js';
 export { getImageAdapter } from './getImageAdapter.js';
 export type { ProjectAISettings } from './getImageAdapter.js';
+export { getAudioAdapter } from './getAudioAdapter.js';
+export type { ProjectAudioSettings } from './getAudioAdapter.js';
+export { getModel3dAdapter } from './getModel3dAdapter.js';
+export type { ProjectModel3dSettings } from './getModel3dAdapter.js';
 export { generateImages } from './imageGeneration.js';
+export { generateAudio } from './audioGeneration.js';
+export type {
+    AudioGenerationRequest,
+    AudioGenerationResult,
+    GeneratedAudio
+} from './audioGeneration.js';
+export { generateModels3d } from './model3dGeneration.js';
+export type {
+    Model3dGenerationRequest,
+    Model3dGenerationResult,
+    GeneratedModel3d
+} from './model3dGeneration.js';
 export type {
     GenerationRequest,
     GenerationResult,
