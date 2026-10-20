@@ -14,6 +14,8 @@ import {
     listProjectKeys
 } from './utils/projectStorage.js';
 import { formKey, formListPrefix } from './utils/storageKeys.js';
+import { checkCountRoom } from './planLimits.js';
+import { countOf } from './projectCounts.js';
 
 export async function listForms(user: User, projectId: string): Promise<FormSchema[]> {
     if (!isValidId(projectId)) {
@@ -126,6 +128,7 @@ export async function createForm(
     if (exists) {
         throw new Error(`Form "${form.id}" already exists in project "${projectId}".`);
     }
+    await checkCountRoom(projectId, 'forms', () => countOf(projectId, 'forms'));
 
     const now = new Date().toISOString();
     const toStore: FormSchema = {

@@ -21,6 +21,7 @@ import { detectVideoDuration } from './videoMetadata.js';
 import { isAllowedMime, getAssetTypeFromMime } from './allowedTypes.js';
 import { dispatch as webhookDispatch } from '../webhooks/webhookService.js';
 import { sanitizeUploadFilename } from './safeUploadFilename.js';
+import { assertStorageRoom } from '../planLimits.js';
 
 const DEFAULT_MAX_SIZE_MB = 50;
 
@@ -44,6 +45,12 @@ const SYSTEM_USER = {
 async function loadAssetsIndex(projectId: string): Promise<Asset[]> {
     const list = await getProjectJson<Asset[]>(projectId, ASSETS_KEY);
     return Array.isArray(list) ? list : [];
+}
+
+/** Bytes a project's files take, as uploaded (the copies made from images aren't counted). */
+export async function storageUsed(projectId: string): Promise<number> {
+    const assets = await loadAssetsIndex(projectId);
+    return assets.reduce((n, a) => n + (Number.isFinite(a.size) ? a.size : 0), 0);
 }
 
 async function saveAssetsIndex(projectId: string, assets: Asset[], user?: User): Promise<void> {
@@ -96,6 +103,7 @@ export async function uploadAsset(
     if (buffer.length > maxBytes) {
         throw new Error(`File exceeds max upload size (${maxSizeMb} MB)`);
     }
+    assertStorageRoom(projectId, await storageUsed(projectId), buffer.length);
     const allowedTypes = project.assetConfig?.allowedTypes;
     if (!isAllowedMime(file.mimeType, allowedTypes)) {
         throw new Error(`MIME type not allowed: ${file.mimeType}`);

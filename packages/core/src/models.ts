@@ -8,6 +8,8 @@ import { assertUserCanAccessProject } from './utils/access.js';
 import { getProject } from './projects.js';
 import { getContentIndex } from './contentIndex/index.js';
 import { triggerEvent } from './utils/eventBus.js';
+import { checkCountRoom } from './planLimits.js';
+import { countOf } from './projectCounts.js';
 import {
     getProjectJson,
     putProjectJson,
@@ -73,6 +75,7 @@ export async function createModelSchema(
     if (exists) {
         throw new Error(`Model schema "${schema.id}" already exists in project "${projectId}".`);
     }
+    await checkCountRoom(projectId, 'models', () => countOf(projectId, 'models'));
 
     triggerEvent('model.beforeCreate', { model: schema, user, projectId });
 

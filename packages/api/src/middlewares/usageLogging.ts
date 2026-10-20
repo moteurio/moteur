@@ -16,7 +16,7 @@ export function usageLogging(req: Request, res: Response, next: NextFunction): v
         res.removeListener('finish', onFinish);
         if (type === 'studio') {
             recordStudioRequest();
-        } else if (type === 'public' && projectId) {
+        } else if (type === 'public' && projectId && !res.locals.overQuota) {
             recordPublicRequest(projectId);
         }
         logRequest(req, res, type, projectId, startTime);

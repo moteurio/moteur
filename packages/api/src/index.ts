@@ -67,6 +67,7 @@ import '@moteurio/core';
 import { securityHeaders } from './middlewares/security.js';
 import { requestClassifier } from './middlewares/requestClassifier.js';
 import { usageLogging } from './middlewares/usageLogging.js';
+import { requestQuota } from './middlewares/requestQuota.js';
 import { studioRateLimiter, publicRateLimitGate } from './middlewares/rateLimit.js';
 import { bootstrapApi } from './openapi/bootstrapApi.js';
 import { attachPresenceServer } from '@moteurio/presence';
@@ -157,6 +158,7 @@ app.use(basePath, requestClassifier);
 app.use(basePath, usageLogging);
 app.use(basePath + '/studio', studioRateLimiter);
 app.use(basePath, publicRateLimitGate);
+app.use(basePath, requestQuota);
 
 const router: Router = express.Router();
 router.get('/health', (_req, res) => {

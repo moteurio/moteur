@@ -7,15 +7,22 @@ export function getMessage(err: unknown): string {
 }
 
 /**
- * Machine-readable parts of a client error, for the response body: a `code` and, for
- * ENTRY_INCOMPLETE, the `missing` required fields.
+ * Machine-readable parts of a client error, for the response body: a `code`, the `missing`
+ * required fields (ENTRY_INCOMPLETE), and which `limit` and its `max` (plan_limit).
  */
-export function errorFields(err: unknown): { code?: string; missing?: string[] } {
+export function errorFields(err: unknown): {
+    code?: string;
+    missing?: string[];
+    limit?: string;
+    max?: number;
+} {
     if (typeof err !== 'object' || err === null) return {};
-    const { code, missing } = err as { code?: unknown; missing?: unknown };
+    const { code, missing, limit, max } = err as Record<string, unknown>;
     return {
         ...(typeof code === 'string' && { code }),
-        ...(Array.isArray(missing) && { missing: missing.map(String) })
+        ...(Array.isArray(missing) && { missing: missing.map(String) }),
+        ...(typeof limit === 'string' && { limit }),
+        ...(typeof max === 'number' && { max })
     };
 }
 

@@ -57,6 +57,7 @@ import invitesRouter from '../../src/invites/index.js';
 import { consumeInvite } from '@moteurio/core/invites.js';
 import { createUser } from '@moteurio/core/users.js';
 import { addProjectMember } from '@moteurio/core/projects.js';
+import { setPeopleLimit } from '@moteurio/core/planLimits.js';
 
 const app = express();
 app.use(express.json());
@@ -160,5 +161,20 @@ describe('invites', () => {
         expect(res.status).toBe(409);
         expect(res.body.code).toBe('account_exists');
         expect(createUser).not.toHaveBeenCalled();
+    });
+
+    it('creates no account when the project is full for its plan', async () => {
+        setPeopleLimit(() => 1);
+        try {
+            const res = await request(app)
+                .post(`/invites/${TOKEN}/register`)
+                .send({ name: 'Louise', password: 'long enough' });
+            expect(res.status).toBe(402);
+            expect(res.body).toMatchObject({ code: 'plan_limit', limit: 'people', max: 1 });
+            expect(createUser).not.toHaveBeenCalled();
+            expect(consumeInvite).not.toHaveBeenCalled();
+        } finally {
+            setPeopleLimit(null);
+        }
     });
 });

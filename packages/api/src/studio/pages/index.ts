@@ -15,6 +15,7 @@ import {
 import { getTemplate } from '@moteurio/core/templates.js';
 import { resolvePageAssets } from '@moteurio/core/assets/assetResolver.js';
 import { submitForPageReview } from '@moteurio/core/reviews.js';
+import { PlanLimitError } from '@moteurio/core/planLimits.js';
 import type { PageNode } from '@moteurio/types/Page.js';
 import { optionalProjectAccess, requireProjectAccess } from '../../middlewares/auth.js';
 import { queryFlag } from '../../utils/queryFlag.js';
@@ -106,6 +107,7 @@ router.post('/', requireProjectAccess, async (req: Request, res: Response) => {
         const page = await createPage(projectId, req.user!, data);
         return void res.status(201).json(page);
     } catch (err: unknown) {
+        if (err instanceof PlanLimitError) return void sendApiError(res, req, err);
         const code = getMessage(err)?.includes('slug')
             ? 409
             : getMessage(err)?.includes('validation')

@@ -13,6 +13,7 @@ import {
 } from '@moteurio/core/users.js';
 import { addProjectMember, getProjectById, getProjectIdsForUser } from '@moteurio/core/projects.js';
 import { generateJWT, hashPassword, passwordProblem } from '@moteurio/core/auth.js';
+import { assertPeopleRoom } from '@moteurio/core/planLimits.js';
 import { requireAuth } from '../middlewares/auth.js';
 import { sendApiError } from '../utils/apiError.js';
 
@@ -95,6 +96,7 @@ router.post('/:token/register', async (req: Request, res: Response) => {
     try {
         const project = await getProjectById(invite.projectId);
         if (!project) return void res.status(404).json(GONE);
+        assertPeopleRoom(invite.projectId, project.users?.length ?? 0);
         const user = createUser({
             id: `user:${randomUUID()}`,
             isActive: true,

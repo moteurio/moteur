@@ -17,6 +17,7 @@ import { stripUiFromFieldOptions } from '../../utils/stripUiFromFields.js';
 import submissionsRouter, { openapi as submissionsOpenapi } from './submissions.js';
 import { mergePathSpecs } from '../../utils/mergePathSpecs.js';
 import { sendApiError, getMessage as getErrorMessage } from '../../utils/apiError.js';
+import { PlanLimitError } from '@moteurio/core/planLimits.js';
 
 const router: Router = Router({ mergeParams: true });
 
@@ -148,6 +149,7 @@ router.post('/', requireProjectAccess, async (req: Request, res: Response) => {
         const form = await createForm(req.user!, projectId, rest as any);
         return void res.status(201).json({ form });
     } catch (err: unknown) {
+        if (err instanceof PlanLimitError) return void sendApiError(res, req, err);
         const msg = getErrorMessage(err) || 'Failed to create form';
         const isValidation =
             msg.includes('Invalid') || msg.includes('already exists') || msg.includes('required');

@@ -37,6 +37,8 @@ import {
     type EntryQueryResult
 } from './contentIndex/index.js';
 import { readPublishedSnapshots } from './contentIndex/entryFiles.js';
+import { checkCountRoom } from './planLimits.js';
+import { countOf } from './projectCounts.js';
 
 /** How an entry is named in commit messages: its slug when it is a plain string, else its id. */
 function commitRef(entry: Entry, entryId: string): string {
@@ -204,6 +206,7 @@ export async function createEntry(
     if (exists) {
         throw new Error(`Entry "${entry.id}" already exists in model "${modelId}".`);
     }
+    await checkCountRoom(projectId, 'entries', () => countOf(projectId, 'entries'));
 
     triggerEvent('entry.beforeCreate', { entry, user, modelId, projectId });
     await putProjectJson(projectId, entryKey(modelId, entry.id), entry);

@@ -11,6 +11,7 @@ import {
     regenerateVariants
 } from '@moteurio/core/assets/assetService.js';
 import { getProject } from '@moteurio/core/projects.js';
+import { PlanLimitError } from '@moteurio/core/planLimits.js';
 import { getAdapter } from '@moteurio/ai';
 import { getCredits, deductCredits, getCreditCost } from '@moteurio/ai';
 import { analyseImage as runImageAnalysis } from '@moteurio/ai';
@@ -102,6 +103,7 @@ router.post(
 
             return void res.status(201).json(asset);
         } catch (err: unknown) {
+            if (err instanceof PlanLimitError) return void sendApiError(res, req, err);
             if (getMessage(err)?.includes('exceeds max'))
                 return void res.status(413).json({ error: getMessage(err) });
             if (

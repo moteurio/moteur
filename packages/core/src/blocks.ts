@@ -5,6 +5,7 @@ import { storageConfig } from './config/storageConfig.js';
 import { isValidId } from './utils/idUtils.js';
 import { isExistingProjectId, writeJson } from './utils/fileUtils.js';
 import { normalizeType } from './utils/normalizeType.js';
+import { assertCountRoom, getCountLimit } from './planLimits.js';
 
 const isTestEnv = (): boolean => process.env.NODE_ENV === 'test' || process.env.VITEST === 'true';
 
@@ -213,6 +214,10 @@ export function createProjectBlock(projectId: string, schema: BlockSchema): Bloc
     const filePath = projectBlockFilePath(projectId, safeSlug);
     if (fs.existsSync(filePath)) {
         throw new Error(`Block type "${normalizedType}" already exists in this project`);
+    }
+    if (getCountLimit(projectId, 'blocks') !== null) {
+        const taken = fs.readdirSync(dir).filter(f => f.endsWith('.json')).length;
+        assertCountRoom(projectId, 'blocks', taken);
     }
     const toWrite = blockPayloadFromInput(normalizedType, safeSlug, schema);
     writeJson(filePath, toWrite);

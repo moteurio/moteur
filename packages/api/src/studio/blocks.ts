@@ -11,7 +11,8 @@ import {
 import type { OpenAPIV3 } from 'openapi-types';
 import { requireProjectAccess } from '../middlewares/auth.js';
 import { stripVariantHintsFromBlockSchema } from '../utils/stripBlockSchema.js';
-import { getMessage } from '../utils/apiError.js';
+import { getMessage, sendApiError } from '../utils/apiError.js';
+import { PlanLimitError } from '@moteurio/core/planLimits.js';
 
 const router: Router = express.Router({ mergeParams: true });
 
@@ -69,6 +70,7 @@ router.post('/', requireProjectAccess, (req: Request, res: Response) => {
         const created = createProjectBlock(projectId, body);
         return void res.status(201).json(created);
     } catch (err: unknown) {
+        if (err instanceof PlanLimitError) return void sendApiError(res, req, err);
         const msg = err instanceof Error ? getMessage(err) : 'Failed to create block';
         return void res.status(400).json({ error: msg });
     }

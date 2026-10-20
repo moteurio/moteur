@@ -14,6 +14,8 @@ import { createEntry } from './entries.js';
 import { UserDataStore } from './utils/userDataStore.js';
 import { triggerEvent } from './utils/eventBus.js';
 import { dispatch as webhookDispatch } from './webhooks/webhookService.js';
+import { recordRequest, submissionCount } from './metering.js';
+import { assertSubmissionRoom } from './planLimits.js';
 
 function systemUser(): User {
     return { id: 'system', name: 'System', isActive: true, email: '', roles: [], projects: [] };
@@ -118,6 +120,9 @@ export async function createSubmission(
         throw new Error(`Form "${formId}" not found in project "${projectId}".`);
     }
 
+    const caught = meta.honeypotTriggered && form.honeypot !== false;
+    if (!caught) assertSubmissionRoom(projectId, submissionCount(projectId));
+
     let id = generateSubmissionId();
     while (await UserDataStore.getSubmission(projectId, formId, id)) {
         id = generateSubmissionId();
@@ -134,6 +139,7 @@ export async function createSubmission(
     };
 
     await UserDataStore.saveSubmission(projectId, formId, submission);
+    if (!caught) recordRequest('submission', projectId);
 
     void processSubmission(projectId, formId, submission).catch(() => {
         // fire-and-forget; never throw
