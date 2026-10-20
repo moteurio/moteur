@@ -1,17 +1,23 @@
 import type { Request, Response } from 'express';
 import { Router } from 'express';
+import { hasRole } from '@moteurio/types';
 import type { ProjectSchema } from '@moteurio/types/Project.js';
-import { requireOperator } from '../middlewares/auth.js';
+import { requireProjectAdmin } from '../middlewares/auth.js';
 import { getProject, applyProjectPatch, updateProject } from '@moteurio/core/projects.js';
 import { validateProject } from '@moteurio/core/validators/validateProject.js';
 import type { OpenAPIV3 } from 'openapi-types';
 import { sendApiError } from '../utils/apiError.js';
+import { gitRemoteRefusal } from '../utils/gitRemote.js';
 
 const router: Router = Router();
 
-router.patch('/:projectId', requireOperator, async (req: Request, res: Response) => {
+router.patch('/:projectId', requireProjectAdmin, async (req: Request, res: Response) => {
     const { projectId } = req.params as Record<string, string>;
-    const patch = req.body as Partial<ProjectSchema>;
+    const patch = { ...(req.body ?? {}) } as Partial<ProjectSchema>;
+    delete patch.memberRoles;
+    if (!hasRole(req.account, 'admin')) delete patch.users;
+    const refusal = gitRemoteRefusal(patch.git, req.account);
+    if (refusal) return void res.status(400).json({ error: refusal });
 
     try {
         const current = await getProject(req.user!, projectId);
@@ -34,6 +40,8 @@ export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
     '/projects/{projectId}': {
         patch: {
             summary: 'Update a project',
+            description:
+                'Project admins only. `memberRoles` is ignored (use PATCH /projects/{projectId}/users/{userId}); `users` is ignored unless the caller is a platform operator.',
             tags: ['Projects'],
             parameters: [
                 {

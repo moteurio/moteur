@@ -11,7 +11,7 @@ import {
     getDeliveryLog,
     retryDelivery
 } from '@moteurio/core/webhooks/webhookService.js';
-import { requireProjectAccess } from '../../middlewares/auth.js';
+import { requireDeveloper } from '../../middlewares/auth.js';
 import type { OpenAPIV3 } from 'openapi-types';
 import { sendApiError, getMessage } from '../../utils/apiError.js';
 
@@ -26,7 +26,7 @@ function parsePositiveInt(raw: string | undefined, fallback: number): number {
     return Number.isFinite(value) && value >= 0 ? value : fallback;
 }
 
-router.get('/', requireProjectAccess, async (req: Request, res: Response) => {
+router.get('/', requireDeveloper, async (req: Request, res: Response) => {
     const { projectId } = req.params as Record<string, string>;
     if (!projectId) return void res.status(400).json({ error: 'Missing projectId' });
     try {
@@ -37,7 +37,7 @@ router.get('/', requireProjectAccess, async (req: Request, res: Response) => {
     }
 });
 
-router.post('/', requireProjectAccess, async (req: Request<WebhookParams>, res: Response) => {
+router.post('/', requireDeveloper, async (req: Request<WebhookParams>, res: Response) => {
     const { projectId } = req.params as Record<string, string>;
     if (!projectId) return void res.status(400).json({ error: 'Missing projectId' });
     const user = req.user!;
@@ -54,7 +54,7 @@ router.post('/', requireProjectAccess, async (req: Request<WebhookParams>, res: 
     }
 });
 
-router.get('/:webhookId', requireProjectAccess, async (req: Request, res: Response) => {
+router.get('/:webhookId', requireDeveloper, async (req: Request, res: Response) => {
     const { projectId, webhookId } = req.params as Record<string, string>;
     if (!projectId || !webhookId) return void res.status(400).json({ error: 'Missing parameters' });
     try {
@@ -69,7 +69,7 @@ router.get('/:webhookId', requireProjectAccess, async (req: Request, res: Respon
 
 router.patch(
     '/:webhookId',
-    requireProjectAccess,
+    requireDeveloper,
     async (req: Request<WebhookParams>, res: Response) => {
         const { projectId, webhookId } = req.params as Record<string, string>;
         if (!projectId || !webhookId)
@@ -91,7 +91,7 @@ router.patch(
 
 router.delete(
     '/:webhookId',
-    requireProjectAccess,
+    requireDeveloper,
     async (req: Request<WebhookParams>, res: Response) => {
         const { projectId, webhookId } = req.params as Record<string, string>;
         if (!projectId || !webhookId)
@@ -111,7 +111,7 @@ router.delete(
 
 router.post(
     '/:webhookId/rotate-secret',
-    requireProjectAccess,
+    requireDeveloper,
     async (req: Request<WebhookParams>, res: Response) => {
         const { projectId, webhookId } = req.params as Record<string, string>;
         if (!projectId || !webhookId)
@@ -131,7 +131,7 @@ router.post(
 
 router.post(
     '/:webhookId/test',
-    requireProjectAccess,
+    requireDeveloper,
     async (req: Request<WebhookParams>, res: Response) => {
         const { projectId, webhookId } = req.params as Record<string, string>;
         if (!projectId || !webhookId)
@@ -149,7 +149,7 @@ router.post(
 
 router.get(
     '/:webhookId/log',
-    requireProjectAccess,
+    requireDeveloper,
     async (req: Request<WebhookParams, unknown, unknown, WebhookLogQuery>, res: Response) => {
         const { projectId, webhookId } = req.params as Record<string, string>;
         const limit = Math.min(parsePositiveInt(req.query.limit, 50), 200);
@@ -167,7 +167,7 @@ router.get(
 
 router.post(
     '/:webhookId/log/:deliveryId/retry',
-    requireProjectAccess,
+    requireDeveloper,
     async (req: Request<WebhookParams>, res: Response) => {
         const { projectId, webhookId, deliveryId } = req.params as Record<string, string>;
         if (!projectId || !webhookId || !deliveryId)

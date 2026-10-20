@@ -6,8 +6,9 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 // Mocks
 vi.mock('../../src/middlewares/auth', () => ({
-    requireOperator: (req: any, _res: any, next: any) => {
+    requireProjectAdmin: (req: any, _res: any, next: any) => {
         req.user = { id: 'op1', roles: [OPERATOR_ROLE_SLUG] };
+        req.account = req.user;
         next();
     }
 }));

@@ -1,6 +1,6 @@
 import type { Request, Response } from 'express';
 import { Router } from 'express';
-import { requireOperator } from '../middlewares/auth.js';
+import { requireAuth, requireOperator } from '../middlewares/auth.js';
 import {
     listBlueprints,
     getBlueprint,
@@ -15,8 +15,8 @@ import { sendApiError, getMessage } from '../utils/apiError.js';
 function createKindRouter(kind: BlueprintKind): Router {
     const router = Router({ mergeParams: true });
 
-    /** List all blueprints of this kind */
-    router.get('/', requireOperator, (req: Request, res: Response) => {
+    /** List all blueprints of this kind (anyone signed in: they start projects and models) */
+    router.get('/', requireAuth, (req: Request, res: Response) => {
         try {
             const blueprints = listBlueprints(kind);
             return void res.json({ blueprints });
@@ -26,7 +26,7 @@ function createKindRouter(kind: BlueprintKind): Router {
     });
 
     /** Get one blueprint by id */
-    router.get('/:blueprintId', requireOperator, (req: Request, res: Response) => {
+    router.get('/:blueprintId', requireAuth, (req: Request, res: Response) => {
         try {
             const blueprint = getBlueprint(
                 kind,

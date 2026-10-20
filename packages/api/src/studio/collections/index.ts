@@ -8,12 +8,12 @@ import {
     updateCollection,
     deleteCollection
 } from '@moteurio/core/apiCollections.js';
-import { requireProjectAccess } from '../../middlewares/auth.js';
+import { requireDeveloper } from '../../middlewares/auth.js';
 import { sendApiError, getMessage } from '../../utils/apiError.js';
 
 const router: Router = Router({ mergeParams: true });
 
-router.get('/', requireProjectAccess, async (req: Request, res: Response) => {
+router.get('/', requireDeveloper, async (req: Request, res: Response) => {
     const { projectId } = req.params as Record<string, string>;
     if (!projectId) return void res.status(400).json({ error: 'Missing projectId' });
     try {
@@ -24,7 +24,7 @@ router.get('/', requireProjectAccess, async (req: Request, res: Response) => {
     }
 });
 
-router.get('/:id', requireProjectAccess, async (req: Request, res: Response) => {
+router.get('/:id', requireDeveloper, async (req: Request, res: Response) => {
     const { projectId, id } = req.params as Record<string, string>;
     if (!projectId || !id) return void res.status(400).json({ error: 'Missing projectId or id' });
     try {
@@ -36,7 +36,7 @@ router.get('/:id', requireProjectAccess, async (req: Request, res: Response) => 
     }
 });
 
-router.post('/', requireProjectAccess, async (req: Request, res: Response) => {
+router.post('/', requireDeveloper, async (req: Request, res: Response) => {
     const { projectId } = req.params as Record<string, string>;
     if (!projectId) return void res.status(400).json({ error: 'Missing projectId' });
     try {
@@ -53,7 +53,7 @@ router.post('/', requireProjectAccess, async (req: Request, res: Response) => {
     }
 });
 
-router.patch('/:id', requireProjectAccess, async (req: Request, res: Response) => {
+router.patch('/:id', requireDeveloper, async (req: Request, res: Response) => {
     const { projectId, id } = req.params as Record<string, string>;
     if (!projectId || !id) return void res.status(400).json({ error: 'Missing projectId or id' });
     try {
@@ -67,7 +67,7 @@ router.patch('/:id', requireProjectAccess, async (req: Request, res: Response) =
     }
 });
 
-router.delete('/:id', requireProjectAccess, async (req: Request, res: Response) => {
+router.delete('/:id', requireDeveloper, async (req: Request, res: Response) => {
     const { projectId, id } = req.params as Record<string, string>;
     if (!projectId || !id) return void res.status(400).json({ error: 'Missing projectId or id' });
     try {
