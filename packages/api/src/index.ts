@@ -120,7 +120,7 @@ app.use(
         origin: getCorsOrigin(),
         methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
         allowedHeaders: ['Content-Type', 'Authorization', 'x-api-key'],
-        exposedHeaders: ['X-Total-Count']
+        exposedHeaders: ['X-Total-Count', 'Retry-After']
     })
 );
 

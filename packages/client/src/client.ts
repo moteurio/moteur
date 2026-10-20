@@ -72,13 +72,34 @@ function messageFromAxiosError(err: unknown): string {
 export class MoteurApiError extends Error {
     readonly status?: number;
     readonly response?: unknown;
+    /** The JSON body the API answered with, if any. */
+    readonly data?: Record<string, unknown>;
+    /** A machine-readable reason from the body (`code`, else a snake_case `error`), e.g. `insufficient_credits`. */
+    readonly code?: string;
 
     constructor(message: string, options?: { status?: number; response?: unknown }) {
         super(message);
         this.name = 'MoteurApiError';
         this.status = options?.status;
         this.response = options?.response;
+        const body = (options?.response as { data?: unknown } | undefined)?.data;
+        if (body && typeof body === 'object' && !Array.isArray(body)) {
+            this.data = body as Record<string, unknown>;
+            const { code, error } = this.data;
+            if (typeof code === 'string') this.code = code;
+            else if (typeof error === 'string' && /^[a-z][a-z0-9_]*$/.test(error))
+                this.code = error;
+        }
         Object.setPrototypeOf(this, new.target.prototype);
+    }
+
+    /** Seconds the server asked to wait (429 `Retry-After`), if it said. */
+    get retryAfter(): number | undefined {
+        const headers = (this.response as { headers?: Record<string, unknown> } | undefined)
+            ?.headers;
+        const raw = headers?.['retry-after'];
+        const n = Number(Array.isArray(raw) ? raw[0] : raw);
+        return Number.isFinite(n) && n >= 0 ? n : undefined;
     }
 }
 
@@ -107,13 +128,16 @@ export function createRequestClient(config: MoteurClientConfig): AxiosInstance {
     instance.interceptors.response.use(
         res => res,
         err => {
-            const message = messageFromAxiosError(err);
-            return Promise.reject(
-                new MoteurApiError(message, {
-                    status: err.response?.status,
-                    response: err.response
-                })
-            );
+            const error = new MoteurApiError(messageFromAxiosError(err), {
+                status: err.response?.status,
+                response: err.response
+            });
+            try {
+                config.onError?.(error);
+            } catch {
+                // A listener must not change what the caller gets.
+            }
+            return Promise.reject(error);
         }
     );
 
