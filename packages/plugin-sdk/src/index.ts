@@ -49,3 +49,15 @@ export type PluginOpenApiPaths = Record<string, unknown>;
 export function definePlugin(plugin: HostPluginModule): HostPluginModule {
     return plugin;
 }
+
+export {
+    beginOAuth,
+    completeOAuth,
+    oauthConfig,
+    readOAuthConfig,
+    redirectAfterLogin,
+    redirectLoginFailed,
+    safeNext,
+    type OAuthConfig,
+    type OAuthFailure
+} from './oauth.js';
