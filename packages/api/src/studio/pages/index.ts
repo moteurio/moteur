@@ -19,7 +19,12 @@ import type { PageNode } from '@moteurio/types/Page.js';
 import { requireProjectAccess } from '../../middlewares/auth.js';
 import { queryFlag } from '../../utils/queryFlag.js';
 import type { OpenAPIV3 } from 'openapi-types';
-import { sendApiError, getMessage, getHttpStatusForError } from '../../utils/apiError.js';
+import {
+    sendApiError,
+    getMessage,
+    getHttpStatusForError,
+    errorFields
+} from '../../utils/apiError.js';
 import { mergePathSpecs } from '../../utils/mergePathSpecs.js';
 import { revisionsOpenapi, revisionsRouter } from './revisions.js';
 
@@ -100,7 +105,9 @@ router.post('/', requireProjectAccess, async (req: Request, res: Response) => {
               : getMessage(err)?.includes('not found')
                 ? 404
                 : 422;
-        return void res.status(code).json({ error: getMessage(err) ?? 'Failed to create page' });
+        return void res
+            .status(code)
+            .json({ error: getMessage(err) ?? 'Failed to create page', ...errorFields(err) });
     }
 });
 
@@ -137,7 +144,9 @@ router.put('/:id', requireProjectAccess, async (req: Request, res: Response) => 
             : getMessage(err)?.includes('not found')
               ? 404
               : 400;
-        return void res.status(code).json({ error: getMessage(err) ?? 'Failed to update page' });
+        return void res
+            .status(code)
+            .json({ error: getMessage(err) ?? 'Failed to update page', ...errorFields(err) });
     }
 });
 
@@ -153,7 +162,9 @@ router.patch('/:id', requireProjectAccess, async (req: Request, res: Response) =
             : getMessage(err)?.includes('not found')
               ? 404
               : 400;
-        return void res.status(code).json({ error: getMessage(err) ?? 'Failed to patch page' });
+        return void res
+            .status(code)
+            .json({ error: getMessage(err) ?? 'Failed to patch page', ...errorFields(err) });
     }
 });
 
@@ -190,9 +201,10 @@ router.patch('/:id/status', requireProjectAccess, async (req: Request, res: Resp
             : getMessage(err)?.includes('not found')
               ? 404
               : 400;
-        return void res
-            .status(code)
-            .json({ error: getMessage(err) ?? 'Failed to update page status' });
+        return void res.status(code).json({
+            error: getMessage(err) ?? 'Failed to update page status',
+            ...errorFields(err)
+        });
     }
 });
 

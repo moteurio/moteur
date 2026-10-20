@@ -57,7 +57,9 @@ import {
     type BreadcrumbItem
 } from './pages/urlResolver.js';
 import { listEntriesForProject, listPublishedEntriesForProject } from './entries.js';
-import type { Entry } from '@moteurio/types/Model.js';
+import type { Entry, ModelSchema } from '@moteurio/types/Model.js';
+import type { TemplateSchema } from '@moteurio/types/Template.js';
+import { assertEntryComplete } from './validators/entryComplete.js';
 import { dispatch as webhookDispatch } from './webhooks/webhookService.js';
 
 export type { ResolvedUrl, NavigationNode, BreadcrumbItem };
@@ -145,6 +147,18 @@ export async function getPageBySlug(projectId: string, slug: string): Promise<Pa
     const pages = await loadAllPages(projectId);
     const found = pages.find(p => p.slug === slug);
     return found ?? null;
+}
+
+/**
+ * Drafts may leave required fields empty; a page going live may not. Same error as entries
+ * (ENTRY_INCOMPLETE, with the fields missing), so clients explain both the same way.
+ */
+function assertPageComplete(page: StaticPage | CollectionPage, template: TemplateSchema): void {
+    assertEntryComplete(
+        { id: page.label || page.id, data: page.fields ?? {} } as Entry,
+        { id: template.id, label: template.label, fields: template.fields } as ModelSchema,
+        'publish'
+    );
 }
 
 function isUrlSafeSlug(slug: string, isRoot: boolean): boolean {
@@ -289,13 +303,17 @@ export async function createPage(
             {
                 projectLocales: projectLocalesList(project),
                 allowHtmlIframe: project.allowHtmlIframe === true,
-                allowHtmlEmbed: project.allowHtmlEmbed === true
+                allowHtmlEmbed: project.allowHtmlEmbed === true,
+                // Required fields are checked apart, by status (assertPageComplete).
+                draft: true
             }
         );
         if (!validation.valid) {
             const msg = validation.issues.map(i => `${i.path}: ${i.message}`).join('; ');
             throw new Error(`Page validation failed: ${msg}`);
         }
+        if ((page as StaticPage).status === 'published')
+            assertPageComplete(page as StaticPage, await getTemplate(projectId, templateId));
     }
     if (data.type === 'collection') {
         const modelId = (data as CollectionPage).modelId;
@@ -374,13 +392,17 @@ export async function updatePage(
                 {
                     projectLocales: projectLocalesList(proj),
                     allowHtmlIframe: proj?.allowHtmlIframe === true,
-                    allowHtmlEmbed: proj?.allowHtmlEmbed === true
+                    allowHtmlEmbed: proj?.allowHtmlEmbed === true,
+                    // Required fields are checked apart, by status (assertPageComplete).
+                    draft: true
                 }
             );
             if (!validation.valid) {
                 const msg = validation.issues.map(i => `${i.path}: ${i.message}`).join('; ');
                 throw new Error(`Page validation failed: ${msg}`);
             }
+            if ((updated as StaticPage).status === 'published')
+                assertPageComplete(updated as StaticPage, template);
         }
     }
 
