@@ -17,6 +17,7 @@ import { resolvePageAssets } from '@moteurio/core/assets/assetResolver.js';
 import { submitForPageReview } from '@moteurio/core/reviews.js';
 import type { PageNode } from '@moteurio/types/Page.js';
 import { optionalProjectAccess, requireProjectAccess } from '../../middlewares/auth.js';
+import { queryFlag } from '../../utils/queryFlag.js';
 import type { OpenAPIV3 } from 'openapi-types';
 import { sendApiError, getMessage, getHttpStatusForError } from '../../utils/apiError.js';
 
@@ -81,7 +82,7 @@ router.get('/:id', optionalProjectAccess, async (req: Request, res: Response) =>
         if (!req.user && !isPublishedContent(page))
             return void res.status(404).json({ error: 'Page not found' });
         let out = page;
-        if (req.user && req.query.resolveAssets === '1' && 'templateId' in page) {
+        if (req.user && queryFlag(req.query.resolveAssets) && 'templateId' in page) {
             const template = await getTemplate(projectId, page.templateId);
             out = await resolvePageAssets(projectId, page, template);
         }

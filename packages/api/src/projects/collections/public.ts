@@ -38,6 +38,7 @@ import type { EntryStatus } from '@moteurio/types/Model.js';
 import { sendApiError, getMessage } from '../../utils/apiError.js';
 import type { EntryQuery } from '@moteurio/core/contentIndex/index.js';
 import { entryQueryParameters, parseEntryQuery } from '../../utils/entryQuery.js';
+import { queryFlag, resolveAssetsParameter, resolveUrlParameter } from '../../utils/queryFlag.js';
 
 const router: Router = Router({ mergeParams: true });
 
@@ -180,7 +181,7 @@ router.get('/:collectionId/pages', async (req: Request, res: Response) => {
             templateId: pageResource.resourceId === 'pages' ? undefined : pageResource.resourceId
         });
         pages = pages.filter(p => 'status' in p && statuses.includes((p as any).status));
-        if (req.query.resolveAssets === '1') {
+        if (queryFlag(req.query.resolveAssets)) {
             pages = await Promise.all(
                 pages.map(async p => {
                     if (p.type === 'folder' || !('templateId' in p)) return p;
@@ -213,7 +214,7 @@ router.get('/:collectionId/pages/by-slug/:slug', async (req: Request, res: Respo
         const statuses = getStatusFilter(pageResource, apiKeyOnly);
         if (!('status' in page) || !statuses.includes((page as any).status))
             return void res.status(404).json({ error: 'Page not found' });
-        if (req.query.resolveAssets === '1' && 'templateId' in page) {
+        if (queryFlag(req.query.resolveAssets) && 'templateId' in page) {
             const template = await getTemplate(projectId, (page as any).templateId);
             const resolved = await resolvePageAssets(projectId, page as any, template);
             return void res.json(resolved);
@@ -241,7 +242,7 @@ router.get('/:collectionId/pages/:id', async (req: Request, res: Response) => {
         const statuses = getStatusFilter(pageResource, apiKeyOnly);
         if (!('status' in page) || !statuses.includes((page as any).status))
             return void res.status(404).json({ error: 'Page not found' });
-        if (req.query.resolveAssets === '1' && 'templateId' in page) {
+        if (queryFlag(req.query.resolveAssets) && 'templateId' in page) {
             const template = await getTemplate(projectId, (page as any).templateId);
             const resolved = await resolvePageAssets(projectId, page as any, template);
             return void res.json(resolved);
@@ -310,7 +311,7 @@ router.get('/:collectionId/:resourceId/entries', async (req: Request, res: Respo
                 )
             );
         }
-        if (req.query.resolveAssets === '1') {
+        if (queryFlag(req.query.resolveAssets)) {
             const schema = await getModelSchemaForProject(projectId, resourceId);
             if (schema) {
                 resolved = await Promise.all(
@@ -319,7 +320,7 @@ router.get('/:collectionId/:resourceId/entries', async (req: Request, res: Respo
             }
         }
         let projected = selectFieldsFromList(resolved, fields);
-        if (req.query.resolveUrl === '1') {
+        if (queryFlag(req.query.resolveUrl)) {
             projected = await Promise.all(
                 projected.map(async (item: any) => {
                     const url = await resolveEntryUrl(projectId, item.id, resourceId);
@@ -382,13 +383,13 @@ router.get('/:collectionId/:resourceId/entries/:id', async (req: Request, res: R
                 blockRegistry
             );
         }
-        if (req.query.resolveAssets === '1') {
+        if (queryFlag(req.query.resolveAssets)) {
             const schema = await getModelSchemaForProject(projectId, resourceId);
             if (schema) resolved = await resolveEntryAssets(projectId, resolved, schema);
         }
         const fields = resource.fields && resource.fields.length > 0 ? resource.fields : undefined;
         let projected = selectFields(resolved, fields);
-        if (req.query.resolveUrl === '1') {
+        if (queryFlag(req.query.resolveUrl)) {
             const url = await resolveEntryUrl(projectId, id, resourceId);
             projected = { ...projected, ...(url != null && { resolvedUrl: url }) };
         }
@@ -654,7 +655,9 @@ export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
                     schema: { type: 'string' },
                     description: 'Alias for locale.'
                 },
-                ...entryQueryParameters({ allowStatus: false })
+                ...entryQueryParameters({ allowStatus: false }),
+                resolveAssetsParameter(),
+                resolveUrlParameter()
             ],
             responses: {
                 '200': {
@@ -700,7 +703,9 @@ export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
                     required: false,
                     schema: { type: 'string' },
                     description: 'Alias for locale.'
-                }
+                },
+                resolveAssetsParameter(),
+                resolveUrlParameter()
             ],
             responses: {
                 '200': {
