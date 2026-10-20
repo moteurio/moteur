@@ -285,4 +285,43 @@ describe('forms', () => {
             await expect(deleteForm(user, projectId, 'missing')).rejects.toThrow('not found');
         });
     });
+
+    describe('checking and clearing settings', () => {
+        const base = {
+            id: 'contact',
+            label: 'Contact',
+            fields: { email: { type: 'core/email', label: 'Email' } },
+            createdAt: '',
+            updatedAt: ''
+        } as unknown as FormSchema;
+
+        it('refuses a form that would break on submit', async () => {
+            await expect(
+                createForm(user, projectId, { ...base, status: 'open' as never })
+            ).rejects.toThrow('"status" must be one of');
+            await expect(
+                createForm(user, projectId, {
+                    ...base,
+                    actions: [{ type: 'createEntry' } as never]
+                })
+            ).rejects.toThrow('must name the model');
+            await expect(
+                createForm(user, projectId, { ...base, redirectUrl: 'merci.html' })
+            ).rejects.toThrow('"redirectUrl"');
+        });
+
+        it('takes a setting away when it is sent as null', async () => {
+            await createForm(user, projectId, { ...base, redirectUrl: 'https://site.test/merci' });
+            const updated = await updateForm(user, projectId, 'contact', {
+                redirectUrl: null as never,
+                label: 'Écrivez-nous'
+            });
+            expect(updated.redirectUrl).toBeUndefined();
+            expect('redirectUrl' in updated).toBe(false);
+            expect(updated.label).toBe('Écrivez-nous');
+            await expect(updateForm(user, projectId, 'contact', { label: '  ' })).rejects.toThrow(
+                '"label"'
+            );
+        });
+    });
 });
