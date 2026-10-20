@@ -16,8 +16,10 @@ Use JWT when you need to create or update content, manage projects, or use Moteu
 POST {basePath}/auth/login
 Content-Type: application/json
 
-{ "email": "user@example.com", "password": "..." }
+{ "username": "user@example.com", "password": "..." }
 ```
+
+The JSON field is **`username`** (use the account email or username stored in `users.json`).
 
 Response: `{ "token": "<jwt>", "user": { ... } }`. Use `token` in subsequent requests:
 
@@ -33,25 +35,48 @@ Authorization: Bearer <token>
 
 If enabled, use the browser flow:
 
-- `GET {basePath}/auth/github` or `GET {basePath}/auth/google` — redirects to the provider.
-- Provider redirects back to `.../auth/github/callback` or `.../auth/google/callback`.
-- The API sets a session or returns a token; `AUTH_REDIRECT_AFTER_LOGIN` (or default `/auth/callback`) is used as the final redirect.
+- `GET {basePath}/auth/github?next=/projects` (or `/auth/google`) — sets a short-lived `moteur_oauth` cookie and redirects to the provider with a signed `state`. `next` is optional and must be a relative path.
+- The provider redirects back to `.../auth/github/callback` (or `.../auth/google/callback`). The API checks `state` against the cookie (10 minutes, same browser), then signs the person in by their verified email, creating an account with no roles the first time.
+- The API then redirects to `AUTH_REDIRECT_AFTER_LOGIN` (default `/auth/callback`) with the result in the URL fragment, so it never reaches server logs: `#token=<jwt>&next=/projects`, or `#error=state|email|inactive|failed` (bad or expired state, no verified email, account turned off, anything else).
 
-List available providers with `GET {basePath}/auth/providers` (returns `{ "providers": [...] }`).
+The Studio handles this at `/auth/callback`: point `AUTH_REDIRECT_AFTER_LOGIN` at it (e.g. `https://studio.moteur.io/auth/callback`). The `AUTH_*_REDIRECT_URI` values must reach the API **through the same origin the sign-in started on**, or the browser won't send the cookie back. In local development the Studio proxies the API, so use `http://localhost:5173/moteur-api/auth/github/callback` and `AUTH_REDIRECT_AFTER_LOGIN=http://localhost:5173/auth/callback`.
+
+List available providers with `GET {basePath}/auth/providers` (returns `{ "providers": [{ "id": "github", "label": "GitHub" }] }`). The Studio shows a "Continue with…" button for each, and nothing about OAuth when the list is empty.
+
+A provider is listed only when it is turned on and set up correctly; otherwise its routes answer 404. It is left out when:
+
+- it is turned off with `AUTH_<PROVIDER>_ENABLED=false` (also `0`, `off`, `no`), or none of its settings are set;
+- one of its three settings is missing, or the client ID or secret contains spaces;
+- its redirect URI isn't an absolute URL ending in `/auth/<provider>/callback`, or uses plain http outside localhost;
+- `JWT_SECRET` isn't set, or `AUTH_REDIRECT_AFTER_LOGIN` isn't set or isn't a URL or path.
+
+In those cases (except when turned off or not set up at all), the server logs once why, e.g. `[auth] github sign-in is hidden: AUTH_GITHUB_CLIENT_SECRET not set.`
+
+### Invites
+
+Project admins invite people by email: `POST {basePath}/projects/:projectId/invites` with `{ "email", "roles", "appUrl" }`. The link (`<studio>/invite/<token>`) is valid for 7 days, is emailed when SMTP is set up (`SMTP_HOST`, `SMTP_FROM`), and is returned once in the response so it can be shared by hand. Only a hash of the token is stored (`invites.json`, next to the users file). Inviting the same address again, or `POST …/invites/:inviteId/resend`, makes a new link and the old one stops working; `DELETE …/invites/:inviteId` withdraws it.
+
+The link points at the Studio in `appUrl` when its origin is listed in `CORS_ORIGINS` or `STUDIO_URL`, otherwise at `STUDIO_URL`; with neither, nothing is emailed and the Studio shows the link to copy.
+
+On the link, `GET {basePath}/invites/:token` describes the invite. Someone signed in **with the invited address** joins with `POST /invites/:token/accept`; someone with no account creates one with `POST /invites/:token/register` (`{ "name", "password" }`), since the link proves the address. Signing in with GitHub or Google using that address works too. An invite can't be accepted from another address.
+
+**People per plan.** Moteur doesn't limit how many people a project has. A host plugin can, with `ctx.setPeopleLimit(projectId => max | null)` in its `init` (api.moteur.io's billing plugin does, by plan). Members and pending invites both take a seat. Inviting, accepting, registering from an invite, or adding users in a project update all answer **402** `{ code: "plan_limit", limit: "people", max }` when that would go over. A project already over its limit (after a downgrade) keeps its people; it just can't add more. `GET /projects/:projectId/usage` reports `people: { members, invited, max }`. The other plan limits (files, monthly API requests, projects per person) are in [REST API › Plan limits](REST%20API.md#plan-limits).
 
 ### Environment variables (JWT and OAuth)
 
-| Variable                    | Description                                                                               |
-| --------------------------- | ----------------------------------------------------------------------------------------- |
-| `JWT_SECRET`                | **Required.** Secret used to sign and verify JWTs. Use a long random value in production. |
-| `AUTH_USERS_FILE`           | Path to the users file (default: `data/users.json`). See storage config.                  |
-| `AUTH_REDIRECT_AFTER_LOGIN` | Where to redirect after OAuth login (default: `/auth/callback`).                          |
-| `AUTH_GITHUB_CLIENT_ID`     | GitHub OAuth app client ID (enables GitHub login when set with secret and redirect URI).  |
-| `AUTH_GITHUB_CLIENT_SECRET` | GitHub OAuth app secret.                                                                  |
-| `AUTH_GITHUB_REDIRECT_URI`  | GitHub OAuth redirect URI (e.g. `http://localhost:3000/auth/github/callback`).            |
-| `AUTH_GOOGLE_CLIENT_ID`     | Google OAuth client ID.                                                                   |
-| `AUTH_GOOGLE_CLIENT_SECRET` | Google OAuth secret.                                                                      |
-| `AUTH_GOOGLE_REDIRECT_URI`  | Google OAuth redirect URI.                                                                |
+| Variable                    | Description                                                                                          |
+| --------------------------- | ---------------------------------------------------------------------------------------------------- |
+| `JWT_SECRET`                | **Required.** Secret used to sign and verify JWTs. Use a long random value in production.            |
+| `AUTH_USERS_FILE`           | Path to the users file (default: `data/users.json`). See storage config.                             |
+| `AUTH_REDIRECT_AFTER_LOGIN` | **Required for OAuth.** Where to send people after OAuth login (e.g. the Studio's `/auth/callback`). |
+| `AUTH_GITHUB_ENABLED`       | `false` turns GitHub login off while keeping its settings.                                           |
+| `AUTH_GOOGLE_ENABLED`       | `false` turns Google login off while keeping its settings.                                           |
+| `AUTH_GITHUB_CLIENT_ID`     | GitHub OAuth app client ID (enables GitHub login when set with secret and redirect URI).             |
+| `AUTH_GITHUB_CLIENT_SECRET` | GitHub OAuth app secret.                                                                             |
+| `AUTH_GITHUB_REDIRECT_URI`  | GitHub OAuth redirect URI (e.g. `http://localhost:3000/auth/github/callback`).                       |
+| `AUTH_GOOGLE_CLIENT_ID`     | Google OAuth client ID.                                                                              |
+| `AUTH_GOOGLE_CLIENT_SECRET` | Google OAuth secret.                                                                                 |
+| `AUTH_GOOGLE_REDIRECT_URI`  | Google OAuth redirect URI.                                                                           |
 
 ---
 
@@ -88,9 +113,11 @@ Configure with JWT:
 
 The key is created and rotated with **JWT** and **project access**. The raw key is returned **only once** when you generate or rotate it; store it securely (e.g. env var, secrets manager). These routes live under **`/projects/:projectId/...`**. See [REST API](REST%20API.md).
 
-- **Create:** `POST {basePath}/projects/:projectId/api-keys` — optional body `{ label?, allowedCollectionIds?, allowSiteWideReads? }`. Returns metadata plus `rawKey` once.
-- **Rotate:** `POST {basePath}/projects/:projectId/api-keys/:keyId/rotate` — new secret; preserves restrictions.
+- **Create:** `POST {basePath}/projects/:projectId/api-keys` — optional body `{ label?, expiresAt?, allowedCollectionIds?, allowSiteWideReads? }`. Returns metadata plus `rawKey` once.
+- **Rotate:** `POST {basePath}/projects/:projectId/api-keys/:keyId/rotate` — new secret; preserves restrictions. A key with an expiry keeps the same lifetime, counted from the rotation.
 - **Revoke:** `DELETE {basePath}/projects/:projectId/api-keys/:keyId` — removes that key (**204**).
+
+**Expiry:** keys never expire unless `expiresAt` (a future ISO date-time) is set on create or `PATCH`; `null` removes it. After that time, requests with the key get **401** `{ "error": "API key expired", "code": "API_KEY_EXPIRED" }`. Listing keys returns `expiresAt` and `expired`.
 
 See [Public API and Collections](Public%20API%20and%20Collections.md) for using the key with collections.
 
@@ -107,17 +134,28 @@ Details and examples: [packages/client/README.md](../packages/client/README.md).
 
 ## Auth model summary
 
-| Auth method             | Applies to                                                                                                                                                                      | Middleware                                                         |
-| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------ |
-| **JWT** (Bearer token)  | All routes by default (Studio, project CRUD, global studio routes)                                                                                                              | `requireAuth`, `requireProjectAccess`, `requireOperator`           |
-| **API Key** (read-only) | Collections, page outputs, radar                                                                                                                                                | `optionalAuth` + `apiKeyAuth` + `requireCollectionOrProjectAccess` |
-| **None** (intentional)  | `POST /auth/login`, `GET /auth/providers`, form submissions (`POST .../forms/:formId/submit`), inbound webhooks (`POST /webhooks/mux`, `/webhooks/vimeo`), static asset serving | Rate limiting or signature verification                            |
+| Auth method             | Applies to                                                                                                                                                                      | Middleware                                                                      |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
+| **JWT** (Bearer token)  | All routes by default (Studio, project CRUD, global studio routes)                                                                                                              | `requireAuth`, `requireProjectAccess`, `requireProjectAdmin`, `requireOperator` |
+| **API Key** (read-only) | Collections, page outputs, radar                                                                                                                                                | `optionalAuth` + `apiKeyAuth` + `requireCollectionOrProjectAccess`              |
+| **None** (intentional)  | `POST /auth/login`, `GET /auth/providers`, form submissions (`POST .../forms/:formId/submit`), inbound webhooks (`POST /webhooks/mux`, `/webhooks/vimeo`), static asset serving | Rate limiting or signature verification                                         |
+
+### Roles in a project
+
+Each user has **account roles** (`roles` in `users.json`). A project may set other roles for a member in `memberRoles` (user id to roles); in that project those replace the account roles. `requireProjectAccess` resolves them, so after it `req.user.roles` are the member's roles in that project (`req.account` keeps the stored account).
+
+- Whoever creates a project (`POST /projects`, or the demo copy made at sign-up) becomes **Admin** and **Billing** on it, on top of their Studio roles.
+- Project admins (`requireProjectAdmin`) may update or delete the project and create, update or delete its models.
+- `PATCH /projects/:projectId/users/:userId` with `roles` sets that member's roles in this project only. It needs Admin in the project, and the project must keep at least one admin. `memberRoles` cannot be written through `PATCH /projects/:projectId`.
+- `GET /projects` lists the projects the signed-in user belongs to. `GET /blueprints/*` is open to anyone signed in, so they can pick a starting point; changing blueprints stays with operators.
 
 ### Platform operator role
 
-Users who can list all projects, manage global blueprints, and call `/studio/*` routes carry the **operator** role. The exact string stored in JWT and in `users.json` `roles` is **`OPERATOR_ROLE_SLUG`** from `@moteurio/types` (kept stable for existing deployments; today this value is `admin`).
+Users who can manage global blueprints and call `/studio/*` routes carry the **operator** role. The exact string stored in JWT and in `users.json` `roles` is **`OPERATOR_ROLE_SLUG`** from `@moteurio/types` (kept stable for existing deployments; today this value is `admin`). Operator rights come from **account roles only**: being Admin in a project never makes someone an operator.
 
-Operators may also **PATCH** another user who belongs to the same project via `PATCH /projects/:projectId/users/:userId` (Studio **Users & Permissions**). That updates the global `users.json` record (name, email, `isActive`, `roles`, `avatar`), not only the project link.
+Operators may also change another member's account (name, email, `isActive`, `avatar`) via `PATCH /projects/:projectId/users/:userId`. That updates the global `users.json` record. Account roles are set when the user is created (`moteur auth create-user --operator`) or by editing `users.json`.
+
+Studio's **Operator** area (`/operator`) is the same people: every project and account, plans and revenue (when billing is on), blueprints, server-wide blocks and structures, and plugins. The routes live under `/operator` (and `/billing/operator` on api.moteur.io).
 
 ### Sign-in timestamps
 

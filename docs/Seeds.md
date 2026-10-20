@@ -47,4 +47,6 @@ Once blueprints are in `data/blueprints/`, you can:
 - Create a **project** from a project blueprint (e.g. “blog”).
 - Create **models**, **structures**, and **templates** from their blueprints via Studio or the API (pass `blueprintId` when creating).
 
-See [Blueprints](Blueprints.md) for how blueprints are used, and the main [README](../README.md) for quick start. For the exact layout of seed files and folder structure, see [data/seeds/README.md](../data/seeds/README.md).
+See [Blueprints](Blueprints.md) for how blueprints are used, and the main [README](../README.md) for quick start.
+
+**Monorepo note:** Runtime paths always live under `{DATA_ROOT}/data/seeds/blueprints/` (with `data/` gitignored locally). Canonical seed JSON for development is kept at [`_data/seeds/`](../_data/seeds/README.md); copy or sync that tree into `data/seeds/` before running `pnpm run seed`.

@@ -11,15 +11,15 @@ This page lists environment variables used by the Moteur API. Details (rate limi
 | `API_BASE_PATH`          | Base path for all API routes (e.g. `/api`). Default: empty. Also prefixes interactive docs (`{basePath}/docs`), static asset URLs from the local adapter, and the canonical global blocks path (`/moteur/blocks`). |
 | `CORS_ORIGINS`           | Comma-separated allowed origins. **Required for browser access:** if unset, no cross-origin origins are allowed (empty default). For local dev, set e.g. `http://localhost:3000,http://localhost:5173`.            |
 | `STATIC_ASSETS_BASE_URL` | Origin for **local** asset URLs (scheme + host + port, **no** path). Default: `http://localhost:3000`. The API prepends `API_BASE_PATH` before `/static/assets/...` when generating URLs.                          |
-| `API_UPLOAD_MAX_MB`      | Max multipart upload size for **studio** asset uploads (capped at 100). Default: `50` (aligned with per-project limits enforced in core).                                                                          |
+| `API_UPLOAD_MAX_MB`      | Max multipart upload size for **studio** asset uploads. Default: `50` (aligned with per-project limits enforced in core). Each upload is held in memory while it's processed, so size the server's RAM to match.   |
 
 ---
 
 ## Request body
 
-| Variable         | Description                                      |
-| ---------------- | ------------------------------------------------ |
-| `API_BODY_LIMIT` | Max JSON body size (e.g. `1mb`). Default: `1mb`. |
+| Variable         | Description                                                                  |
+| ---------------- | ---------------------------------------------------------------------------- |
+| `API_BODY_LIMIT` | Max JSON body size (e.g. `1mb`), incoming webhooks included. Default: `1mb`. |
 
 ---
 
@@ -72,24 +72,41 @@ This page lists environment variables used by the Moteur API. Details (rate limi
 
 ## AI
 
-| Variable                     | Description                                                                                                                               |
-| ---------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
-| `MOTEUR_AI_PROVIDER`         | Provider: `openai`, `anthropic`, or `mock`. **Required** for AI; when unset, AI is disabled (503, Studio hides AI).                       |
-| `MOTEUR_AI_CREDIT_COSTS`     | Optional. JSON object to override default credit costs per operation (see [AI](AI.md)).                                                   |
-| `MOTEUR_AI_CREDITS_DISABLED` | Set to `1` (or `true`) to disable AI credit checks and deductions (unlimited credits). Temporary until persistent credits/billing exists. |
-| `OPENAI_API_KEY`             | OpenAI key; used when provider is `openai`.                                                                                               |
-| `ANTHROPIC_API_KEY`          | Anthropic key; used when provider is `anthropic`.                                                                                         |
+| Variable                               | Description                                                                                                                                         |
+| -------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `MOTEUR_AI_PROVIDER`                   | Provider: `openai`, `anthropic`, or `mock`. **Required** for AI; when unset, AI is disabled (503, Studio hides AI).                                 |
+| `MOTEUR_AI_CREDIT_COSTS`               | Optional. JSON object to override default credit costs per operation (see [AI](AI.md)).                                                             |
+| `MOTEUR_AI_CREDITS_DISABLED`           | Set to `1` (or `true`) to disable AI credit checks and deductions (unlimited credits).                                                              |
+| `MOTEUR_AI_MONTHLY_CREDITS`            | AI credits each project gets per calendar month (default `1000`, or `unlimited`), unless a host plugin sets allowances. See [AI](AI.md#credits).    |
+| `MOTEUR_METERING_DIR`                  | Where the API server keeps AI credits and request counts across restarts (default `data/metering` under `DATA_ROOT`).                               |
+| `OPENAI_API_KEY`                       | OpenAI key; used when provider is `openai`.                                                                                                         |
+| `ANTHROPIC_API_KEY`                    | Anthropic key; used when provider is `anthropic`.                                                                                                   |
+| `GOOGLE_AI_API_KEY` / `GEMINI_API_KEY` | Google Gemini key; used when `MOTEUR_AI_PROVIDER=google` or project `ai.imageProvider` is `google`. Requires `@moteurio/plugin-ai-provider-google`. |
+| `FAL_KEY`                              | fal.ai key; used when `MOTEUR_AI_PROVIDER=fal` or project `ai.imageProvider` / `audioProvider` / `model3dProvider` is `fal`.                        |
+| `MESHY_API_KEY`                        | Meshy key; used when project `ai.model3dProvider` is `meshy`. Requires `@moteurio/plugin-ai-provider-meshy`.                                        |
+| `ELEVENLABS_API_KEY`                   | ElevenLabs key; used when project `ai.audioProvider` is `elevenlabs`. Requires `@moteurio/plugin-ai-provider-elevenlabs`.                           |
+| `ELEVENLABS_VOICE_ID`                  | Optional default ElevenLabs voice id for TTS (overrides built-in default).                                                                          |
 
 See [AI](AI.md) for full documentation.
 
 ---
 
+## OpenAPI (export / CI)
+
+| Variable                           | Description                                                                            |
+| ---------------------------------- | -------------------------------------------------------------------------------------- |
+| `MOTEUR_FAIL_ON_OPENAPI_COLLISION` | Set to `1` to abort API bootstrap when merged OpenAPI paths collide (core vs plugins). |
+
+Export and response checks do not require the server; see [REST API — OpenAPI](REST%20API.md#-openapi) and [`packages/api/README.md`](../packages/api/README.md).
+
+---
+
 ## Plugins
 
-| Variable                 | Description                                                                                                           |
-| ------------------------ | --------------------------------------------------------------------------------------------------------------------- |
-| `MOTEUR_HOST_PLUGINS`    | Comma-separated module specifiers (npm package names or local file paths) for host-composed plugins.                  |
-| `MOTEUR_ENABLED_PLUGINS` | Optional comma-separated plugin IDs allowlist. If set, only listed plugin IDs from `MOTEUR_HOST_PLUGINS` are enabled. |
+| Variable                 | Description                                                                                                                                                                                                                                                                                                              |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `MOTEUR_HOST_PLUGINS`    | Comma-separated module specifiers (npm package names or local file paths) for host-composed plugins.                                                                                                                                                                                                                     |
+| `MOTEUR_ENABLED_PLUGINS` | Optional comma-separated plugin ID allowlist. When **set** (including empty), only listed ids from loaded host plugins run. When **unset**, every successfully loaded module from `MOTEUR_HOST_PLUGINS` is enabled. Operators can override that list (saved in `data/operator/plugins.json`; applies at the next start). |
 
 ---
 

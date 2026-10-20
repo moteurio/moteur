@@ -6,12 +6,12 @@ Blocks are content units that live inside **layouts** and **block-list** fields.
 
 ## Global vs project block schemas
 
-| Layer        | Storage (typical)                                       | Type id prefix | Who changes it                                                                |
-| ------------ | ------------------------------------------------------- | -------------- | ----------------------------------------------------------------------------- |
-| **Built-in** | Plugin (`core-blocks`) and/or `data/core/blocks/*.json` | `core/`        | Operators (global API) or release/seed                                        |
-| **Project**  | `data/projects/<projectId>/blocks/<slug>.json`          | `<projectId>/` | Anyone with project access (Studio `POST/PATCH/DELETE …/projects/:id/blocks`) |
+| Layer        | Storage (typical)                                            | Type id prefix | Who changes it                                                                                                                             |
+| ------------ | ------------------------------------------------------------ | -------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Built-in** | Shipped in `@moteurio/core` and/or `data/core/blocks/*.json` | `core/`        | Engine release; operators can add or change them in Studio **Operator › Blocks & structures**, or via `{basePath}/operator/schemas/blocks` |
+| **Project**  | `data/projects/<projectId>/blocks/<slug>.json`               | `<projectId>/` | Anyone with project access (Studio `POST/PATCH/DELETE …/projects/:id/blocks`)                                                              |
 
-**Merge order** when resolving types for a project: core files → project block files → plugin registry (later layers override earlier keys with the same type id).
+**Merge order** when resolving types for a project: shipped built-ins, then `data/core` files, then project block files. A later layer overrides the same type id. A plugin that registers a block does so at the shipped layer, so a file still wins.
 
 **Validation** uses the same merged registry for that `projectId`, so project-only types validate correctly for layouts, pages, and entries.
 
@@ -23,17 +23,26 @@ Blocks are content units that live inside **layouts** and **block-list** fields.
 
 ## Core blocks (built-in)
 
-| Name               | Description                       | Typical usage                                | Key fields                          |
-| ------------------ | --------------------------------- | -------------------------------------------- | ----------------------------------- |
-| **core/accordion** | Expandable list of sections       | FAQs, multi-step guides, collapsible content | `items`: list of `title`, `content` |
-| **core/container** | Container for nested blocks       | Layout control, columns, grouped content     | `blocks[]`, `style`, `alignment`    |
-| **core/gallery**   | Image grid or carousel            | Showcases, product images, event photos      | `images[]`, `layout`, `columns`     |
-| **core/hero**      | Large banner with title/cta       | Page header, promo block                     | `title`, `subtitle`, `image`, `cta` |
-| **core/image**     | Full-width or decorative image    | Separators, illustrations, standalone images | `src`, `alt`, `caption`             |
-| **core/quote**     | Highlighted quotation with author | Testimonials, literary quotes, pull quotes   | `text`, `author`, `authorImage`     |
-| **core/spacer**    | Vertical space between blocks     | Layout separation or rhythm                  | `size`, `unit`                      |
-| **core/text**      | Simple paragraph block            | Content sections, intros, descriptions       | `content`: rich text                |
-| **core/video**     | Embedded video block              | YouTube, Vimeo, self-hosted embeds           | `url`, `autoplay`, `caption`        |
+Registered in [`packages/core/src/plugins/builtinContent.ts`](../packages/core/src/plugins/builtinContent.ts) (override with `data/core/blocks/*.json`).
+
+| Type               | Description                 | Key fields                                          |
+| ------------------ | --------------------------- | --------------------------------------------------- |
+| **core/paragraph** | Rich text paragraph         | `content`                                           |
+| **core/heading**   | Semantic heading (h1–h6)    | `text`, `level`                                     |
+| **core/hero**      | Page banner                 | `title`, `subtitle`, `backgroundImage`, `alignment` |
+| **core/image**     | Single image                | `image`, `title`, `caption`, `credit`               |
+| **core/gallery**   | Image row                   | `images`, `caption`                                 |
+| **core/quote**     | Quotation                   | `text`, `author`, `attribution`                     |
+| **core/spacer**    | Vertical space              | `size`, `custom`                                    |
+| **core/divider**   | Horizontal rule             | —                                                   |
+| **core/button**    | CTA link                    | `link`, `label`                                     |
+| **core/code**      | Code listing                | `code`, `language`, `filename`                      |
+| **core/note**      | Editorial note (non-public) | `text`                                              |
+| **core/embed**     | oEmbed-style URL            | `url`, `title`                                      |
+| **core/table**     | Table field                 | `table`, `caption`                                  |
+| **core/video**     | Video asset                 | `video`, `title`, `description`                     |
+| **core/audio**     | Audio file                  | `src`, `title`, `transcript`                        |
+| **core/form**      | Embedded form               | `formId`, `title`, `successMessage`                 |
 
 ---
 

@@ -12,6 +12,10 @@ Moteur stores project content on disk and uses Git for history. Workspace and us
 
 All of these are under the project directory. Every content save or delete triggers a commit (and optional push) when the project is a Git repository.
 
+**Schema history:** Models, structures, templates, forms, and project block JSON files are part of this tree. Each schema save is a commit you can list and restore via the revisions API or Studio **History** tab. See [Schema revisions](Schema%20revisions.md).
+
+**Read-only history API:** `GET /projects/:projectId/git/log?path=<relative-path>` returns commits for one file (or omit `path` for the whole repo). Schema-specific routes are documented in [Schema revisions](Schema%20revisions.md).
+
 ---
 
 ## What is never committed on the main branch
@@ -85,11 +89,12 @@ The API can run an **in-process** snapshot scheduler (no external cron required)
 
 ## Summary
 
-| Topic                       | Detail                                                                                    |
-| --------------------------- | ----------------------------------------------------------------------------------------- |
-| Content                     | Tracked on main (or current) branch; commit on every save; optional push.                 |
-| `.moteur/` and `user-data/` | Gitignored; never committed to content branch.                                            |
-| Snapshots                   | Orphan branches; workspace and user data are separate; `secrets.json` never in snapshots. |
-| Restore                     | Merge snapshot into existing dir; does not delete extra local files.                      |
-| Branches                    | List, create, switch, merge via API and CLI.                                              |
-| Scheduler                   | In-process; per-project `enabled` and `cron` in `.moteur/snapshot-schedule.json`.         |
+| Topic                       | Detail                                                                                       |
+| --------------------------- | -------------------------------------------------------------------------------------------- |
+| Content                     | Tracked on main (or current) branch; commit on every save; optional push.                    |
+| `.moteur/` and `user-data/` | Gitignored; never committed to content branch.                                               |
+| Snapshots                   | Orphan branches; workspace and user data are separate; `secrets.json` never in snapshots.    |
+| Restore                     | Merge snapshot into existing dir; does not delete extra local files.                         |
+| Branches                    | List, create, switch, merge via API and CLI.                                                 |
+| Scheduler                   | In-process; per-project `enabled` and `cron` in `.moteur/snapshot-schedule.json`.            |
+| Schema revisions            | Git log per schema file; stable id = commit hash. [Schema revisions](Schema%20revisions.md). |

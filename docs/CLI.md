@@ -53,6 +53,7 @@ moteur auth login
 | `auth list --json`          | List users as JSON (operator only)                                                                                            |
 | `auth list --quiet`         | Suppress human-readable output                                                                                                |
 | `auth list --project=site1` | List project members via API (JWT); plain output includes **online** / **last login**; `--json` returns `ProjectMemberUser[]` |
+| `auth whoami`               | Show the current JWT user (requires login)                                                                                    |
 
 ---
 
@@ -74,25 +75,25 @@ moteur auth login
 
 ## 📄 Layouts
 
-| Command                                              | Description                  |
+| Command | Description |
 | ---------------------------------------------------- | ---------------------------- | ------------------------ |
-| `layouts list --project=site1`                       | List layouts in a project    |
-| `layouts get --project=site1 --id=homepage`          | Show the full layout content |
-| `layouts create --project=site1 [--file              | --data]`                     | Create a new layout      |
-| `layouts patch --project=site1 --id=homepage [--file | --data]`                     | Patch an existing layout |
-| `layouts delete --project=site1 --id=homepage`       | Move a layout to the trash   |
+| `layouts list --project=site1` | List layouts in a project |
+| `layouts get --project=site1 --id=homepage` | Show the full layout content |
+| `layouts create --project=site1 [--file              | --data]` | Create a new layout |
+| `layouts patch --project=site1 --id=homepage [--file | --data]` | Patch an existing layout |
+| `layouts delete --project=site1 --id=homepage` | Move a layout to the trash |
 
 ---
 
 ## 🧱 Structures
 
-| Command                                                        | Description                                |
+| Command | Description |
 | -------------------------------------------------------------- | ------------------------------------------ | ------------------------------- |
-| `structures list --project=site1`                              | List available structures (global + local) |
-| `structures get --project=site1 --id=core/teamMember`          | Get a structure definition                 |
-| `structures create --project=site1 [--file                     | --data]`                                   | Create a structure in a project |
-| `structures patch --project=site1 --id=core/teamMember [--file | --data]`                                   | Patch a structure               |
-| `structures delete --project=site1 --id=core/teamMember`       | Move a structure to the trash              |
+| `structures list --project=site1` | List available structures (global + local) |
+| `structures get --project=site1 --id=core/teamMember` | Get a structure definition |
+| `structures create --project=site1 [--file                     | --data]` | Create a structure in a project |
+| `structures patch --project=site1 --id=core/teamMember [--file | --data]` | Patch a structure |
+| `structures delete --project=site1 --id=core/teamMember` | Move a structure to the trash |
 
 ---
 
@@ -303,6 +304,55 @@ Permanently delete form submissions (hard delete; deletion is logged to activity
 
 ---
 
+## 📐 Blueprints
+
+Global blueprint files (operator JWT). Use `--kind=project|model|structure|template`.
+
+| Command                                                   | Description                   |
+| --------------------------------------------------------- | ----------------------------- |
+| `blueprints list --kind=project`                          | List blueprint ids for a kind |
+| `blueprints get --kind=model --id=blog-post`              | Get one blueprint JSON        |
+| `blueprints create --kind=... [--file \| --data]`         | Create a blueprint            |
+| `blueprints patch --kind=... --id=... [--file \| --data]` | Update a blueprint            |
+| `blueprints delete --kind=... --id=...`                   | Delete a blueprint            |
+
+---
+
+## 🌱 Seed
+
+| Command        | Description                                                                                     |
+| -------------- | ----------------------------------------------------------------------------------------------- |
+| `seed`         | Copy blueprint seeds from `data/seeds/blueprints/` into `data/blueprints/` (missing files only) |
+| `seed --force` | Overwrite existing blueprint files with seed versions                                           |
+
+Same as `pnpm run seed` / `pnpm run seed:force` from the monorepo root. See [Seeds](Seeds.md).
+
+---
+
+## 🤖 AI
+
+| Command                                                            | Description                                                                             |
+| ------------------------------------------------------------------ | --------------------------------------------------------------------------------------- |
+| `ai generate-entry --project=site1 --model=article --prompt="..."` | Generate a draft entry (JWT). Optional `--locale=`, `--file` / `--data` for prompt JSON |
+
+---
+
+## 📊 Activity, status, doctor, radar
+
+| Command                                  | Description                                                                |
+| ---------------------------------------- | -------------------------------------------------------------------------- |
+| `activity list` / `logs` / `tail`        | Latest activity (optional `--project=`, `--limit=`, `--before=`, `--json`) |
+| `status`                                 | Default project label, host URL, and model list                            |
+| `doctor`                                 | Check config, host reachability, auth, and default project                 |
+| `radar` / `radar report --project=site1` | Radar report (`--fullScan`, `--json`)                                      |
+
+---
+
 ## 🧩 Fields & 📦 Blocks
 
-Field and block type listings are available from the **interactive CLI menu** (run the CLI without a command). Top-level `fields list` and `blocks list` commands are not currently registered; use the menu, [`@moteurio/client`](../packages/client/README.md), or in-process `@moteurio/core` (see [Embedded core API](Developer%20API.md)).
+| Command                       | Description                                         |
+| ----------------------------- | --------------------------------------------------- |
+| `blocks list --project=site1` | List merged block types for a project (`--json`)    |
+| `fields list`                 | Stub — points to API docs / OpenAPI for field types |
+
+Use [`@moteurio/client`](../packages/client/README.md) or [Fields](Fields.md) / [Blocks](Blocks.md) for full type references. In-process registry: [Embedded core API](Developer%20API.md).
