@@ -79,6 +79,15 @@ export interface ProjectSchema {
     /** AI-related project settings. When enabled is false, all AI features (writing, image gen, analysis, translation) are disabled for this project. */
     ai?: {
         enabled?: boolean; // default true when ai config present
+        /**
+         * Helpers people may ask for in the Studio. Each is off unless set to true here, so a
+         * project without AI settings shows none.
+         */
+        helpers?: Partial<Record<AiHelper, boolean>>;
+        /** Roles that may ask for helpers. Default: admin and writer. A translator may always ask for a translation. */
+        roles?: string[];
+        /** Show “with help” in history and review to everyone (default: admins and reviewers). */
+        provenanceForAll?: boolean;
         /** When true, run image analysis (alt/caption) automatically after each image upload. Default: false. */
         autoAnalyseImages?: boolean;
         /** Image generation provider: openai (DALL-E), fal, replicate, or null if not set. */
@@ -210,3 +219,8 @@ export const projectSchemaFields: Record<string, Field> = {
         }
     }
 };
+
+/** Studio helpers a project can turn on one by one. */
+export type AiHelper = 'write' | 'translate' | 'alt' | 'notes' | 'images';
+export const AI_HELPERS: AiHelper[] = ['write', 'translate', 'alt', 'notes', 'images'];
+export const DEFAULT_AI_ROLES = ['admin', 'writer'];

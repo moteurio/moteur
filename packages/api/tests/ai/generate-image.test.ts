@@ -25,7 +25,7 @@ vi.mock('@moteurio/core/projects', () => ({
         defaultLocale: 'en',
         supportedLocales: ['en'],
         users: ['user1'],
-        ai: { imageProvider: 'openai' }
+        ai: { imageProvider: 'openai', helpers: { images: true } }
     })
 }));
 
@@ -65,7 +65,7 @@ describe('POST /ai/generate-image (plugin)', () => {
         vi.mocked(getProject).mockResolvedValueOnce({
             id: 'p1',
             users: ['other-user'],
-            ai: { imageProvider: 'openai' }
+            ai: { imageProvider: 'openai', helpers: { images: true } }
         } as any);
         const res = await request(app)
             .post('/ai/generate-image')
