@@ -8,6 +8,7 @@ import { putProjectJson } from '../../src/utils/projectStorage.js';
 import { ASSETS_KEY, modelKey } from '../../src/utils/storageKeys.js';
 import { createEntry } from '../../src/entries.js';
 import { assetUsage, findAssetRefs } from '../../src/assets/assetUsage.js';
+import { getAsset, updateAsset } from '../../src/assets/assetService.js';
 
 const projectId = 'asset-usage';
 const user = { id: 'u1', name: 'Ada', isActive: true, roles: ['admin'], projects: [projectId] };
@@ -126,5 +127,27 @@ describe('asset usage and metadata', () => {
             })
         ]);
         expect(usage.has(UNUSED)).toBe(false);
+    });
+
+    it('keeps alt and caption per language, drops empty languages, refuses odd shapes', async () => {
+        const updated = await updateAsset(projectId, user, COVER, {
+            alt: { fr: 'Le HORIZON-E sous la banquise', en: '  ' },
+            caption: 'Photo : Sophie Marchand',
+            // Not editable here: ignored.
+            ...({ filename: 'renamed.png' } as object)
+        });
+        expect(updated.alt).toEqual({ fr: 'Le HORIZON-E sous la banquise' });
+        expect(updated.caption).toBe('Photo : Sophie Marchand');
+        expect(updated.filename).toBe(`${COVER}.png`);
+
+        await updateAsset(projectId, user, COVER, { alt: { fr: '' } });
+        expect((await getAsset(projectId, COVER))?.alt).toBeUndefined();
+
+        await expect(
+            updateAsset(projectId, user, COVER, { alt: { fr: 3 } as never })
+        ).rejects.toThrow('"alt.fr" must be text.');
+        await expect(
+            updateAsset(projectId, user, COVER, { focalPoint: { x: 2, y: 0 } })
+        ).rejects.toThrow('focalPoint');
     });
 });

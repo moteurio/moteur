@@ -18,6 +18,9 @@ export type ImageVariant = {
     generatedAt: string;
 };
 
+/** Text describing an asset: one string, or one per language code. */
+export type AssetText = string | Record<string, string>;
+
 export type Asset = {
     id: string;
     projectId: string;
@@ -29,9 +32,10 @@ export type Asset = {
     adapter: string; // 'local' | 's3' | 'r2'
 
     // ── Asset-level metadata ──
-    title?: string;
-    alt?: string;
-    caption?: string;
+    /** A string, or one per language: `{ "fr": "…", "en": "…" }`. Fields may override alt and caption. */
+    title?: AssetText;
+    alt?: AssetText;
+    caption?: AssetText;
     description?: string;
     credit?: string;
 
