@@ -2,6 +2,7 @@ import type { Field, FieldValidationContext } from '@moteurio/types/Field.js';
 import { ValidationIssue } from '@moteurio/types/ValidationResult.js';
 import { isPlainObject } from '../../fieldValueUtils.js';
 import { validateFieldValue } from '../../validateFieldValue.js';
+import { isFieldRequired, isMissingValue } from '../../validateFieldsAgainstSchema.js';
 
 export function validateObjectField(
     value: any,
@@ -39,6 +40,17 @@ export function validateObjectField(
     for (const [key, subField] of Object.entries(childFields)) {
         const subValue = inner[key];
         const subPath = `${path}.${key}`;
+        if (isMissingValue(subValue)) {
+            if (isFieldRequired(subField)) {
+                issues.push({
+                    type: 'error',
+                    code: 'OBJECT_MISSING_REQUIRED_FIELD',
+                    message: `Required field "${key}" is missing.`,
+                    path: subPath
+                });
+            }
+            continue;
+        }
         issues.push(...validateFieldValue(subValue, subField, subPath, context));
     }
 
