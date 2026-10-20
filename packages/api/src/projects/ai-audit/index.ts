@@ -15,7 +15,8 @@ const router: Router = Router({ mergeParams: true });
 /** Project members: summary only (no prompts/responses). */
 router.get('/', requireProjectAccess, async (req: Request, res: Response) => {
     const { projectId } = req.params as Record<string, string>;
-    const limit = req.query.limit != null ? Number(req.query.limit) : 50;
+    const asked = Math.floor(Number(req.query.limit));
+    const limit = asked > 0 ? Math.min(asked, 200) : 50;
     const before = typeof req.query.before === 'string' ? req.query.before : undefined;
     try {
         const page = await getProjectAiAuditLog(projectId, limit, before);
@@ -52,7 +53,11 @@ export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
             tags: ['AI'],
             parameters: [
                 { name: 'projectId', in: 'path', required: true, schema: { type: 'string' } },
-                { name: 'limit', in: 'query', schema: { type: 'integer', default: 50 } },
+                {
+                    name: 'limit',
+                    in: 'query',
+                    schema: { type: 'integer', default: 50, maximum: 200 }
+                },
                 {
                     name: 'before',
                     in: 'query',
