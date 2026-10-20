@@ -543,13 +543,42 @@ export async function reorderPages(
     const updatedNodes = allPages.map(p => {
         const u = updates.find(x => x.id === p.id);
         if (!u) return p;
-        return { ...p, parentId: u.parentId, order: u.order };
+        return { ...p, parentId: u.parentId ?? null, order: u.order };
     });
 
+    // The tree after every move must have no loop (two moves can make one together).
+    const after = new Map(updatedNodes.map(n => [n.id, n]));
+    for (const node of updatedNodes) {
+        const seen = new Set<string>();
+        let cur: string | null = node.id;
+        while (cur) {
+            if (seen.has(cur)) throw new Error('Reorder would create a cycle.');
+            seen.add(cur);
+            cur = after.get(cur)?.parentId ?? null;
+        }
+    }
+
+    // A page moved under a new parent must not take a sibling's address.
+    const seenSlugs = new Map<string, string>();
+    for (const node of updatedNodes) {
+        if (node.slug === '' && (node.parentId ?? null) === null) continue;
+        const key = `${node.parentId ?? ''}/${node.slug}`;
+        const other = seenSlugs.get(key);
+        if (other)
+            throw new Error(
+                `"${node.label}" and "${other}" would both be at the same address ("${node.slug}") under one parent.`
+            );
+        seenSlugs.set(key, node.label);
+    }
+
+    // Only pages that moved are written (and committed).
     const paths: string[] = [];
     for (const node of updatedNodes) {
+        const before = nodeMap.get(node.id)!;
+        if ((before.parentId ?? null) === (node.parentId ?? null) && before.order === node.order)
+            continue;
         const key = pageKey(node.id);
-        await putProjectJson(projectId, key, node);
+        await putProjectJson(projectId, key, { ...node, updatedAt: new Date().toISOString() });
         paths.push(key);
     }
     if (paths.length > 0) {

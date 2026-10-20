@@ -187,6 +187,17 @@ describe('createMoteurAdminClient', () => {
         ]);
     });
 
+    it('pages come back as { page }, and moves are posted as a list', async () => {
+        const client = createMoteurAdminClient({ baseURL: 'https://api.example.com' });
+        expect(await client.pages.get('demo', 'p1')).toEqual({ page: {} });
+        await client.forProject('demo').pages.reorder([{ id: 'p1', parentId: null, order: 0 }]);
+        expect(capturedRequests[1]).toMatchObject({
+            method: 'post',
+            url: '/projects/demo/pages/reorder',
+            data: [{ id: 'p1', parentId: null, order: 0 }]
+        });
+    });
+
     it('forProject omits project id from paths', async () => {
         const client = createMoteurAdminClient({ baseURL: 'https://api.example.com' });
         await client.forProject('my-project').pages.list();
