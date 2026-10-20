@@ -38,7 +38,7 @@ type MoveBody = { folder?: unknown };
 
 function parseOptionalAssetType(raw: string | undefined): AssetType | undefined {
     if (raw === undefined || raw === '') return undefined;
-    if (raw === 'image' || raw === 'video' || raw === 'document') return raw;
+    if (raw === 'image' || raw === 'video' || raw === 'document' || raw === 'model') return raw;
     return undefined;
 }
 

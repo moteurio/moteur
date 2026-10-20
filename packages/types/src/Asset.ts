@@ -1,4 +1,4 @@
-export type AssetType = 'image' | 'video' | 'document';
+export type AssetType = 'image' | 'video' | 'document' | 'model';
 export type AssetStatus = 'processing' | 'ready' | 'error';
 export type VideoProviderStatus = 'uploading' | 'processing' | 'ready' | 'error';
 export type VideoProviderId = 'mux' | 'vimeo' | 'cloudflare-stream' | 'youtube';

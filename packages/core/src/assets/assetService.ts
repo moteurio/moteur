@@ -18,7 +18,7 @@ import {
 import { getVariantDefinitions } from './defaultVariants.js';
 import { generateVariants } from './imageTransformer.js';
 import { detectVideoDuration } from './videoMetadata.js';
-import { isAllowedMime, getAssetTypeFromMime } from './allowedTypes.js';
+import { isAllowedMime, getAssetTypeFromMime, resolveUploadMime } from './allowedTypes.js';
 import { dispatch as webhookDispatch } from '../webhooks/webhookService.js';
 import { sanitizeUploadFilename } from './safeUploadFilename.js';
 import { assertStorageRoom } from '../planLimits.js';
@@ -94,6 +94,7 @@ export async function uploadAsset(
     assertCanWrite(user);
     const buffer = file.buffer;
     const safeOriginalName = sanitizeUploadFilename(file.originalName);
+    file = { ...file, mimeType: resolveUploadMime(file.mimeType, safeOriginalName) };
     const project = await getProject(user, projectId);
     if (project.assetConfig?.enabled === false) {
         throw new Error('Media is disabled for this project');
@@ -214,7 +215,7 @@ export async function uploadAsset(
         return initial;
     }
 
-    // Image, document, or video without provider
+    // Image, document, 3D model, or video without provider
     const initial: Asset = {
         id,
         projectId,
