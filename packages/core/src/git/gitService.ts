@@ -277,6 +277,8 @@ function gitAsync(projectDir: string, args: string[], input?: string): Promise<B
             if (code === 0) resolve(Buffer.concat(out));
             else reject(new Error(Buffer.concat(err).toString() || `git ${args[0]} failed`));
         });
+        // Git may exit before reading its input (EPIPE); 'close' above reports why.
+        child.stdin.on('error', () => {});
         child.stdin.end(input ?? '');
     });
 }
