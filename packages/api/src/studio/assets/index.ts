@@ -40,10 +40,7 @@ function parseOptionalAssetType(raw: string | undefined): AssetType | undefined 
     return undefined;
 }
 
-const uploadMaxMb = Math.min(
-    100,
-    Math.max(1, parseInt(process.env.API_UPLOAD_MAX_MB || '50', 10) || 50)
-);
+const uploadMaxMb = Math.max(1, parseInt(process.env.API_UPLOAD_MAX_MB || '50', 10) || 50);
 const upload = multer({
     storage: multer.memoryStorage(),
     limits: { fileSize: uploadMaxMb * 1024 * 1024 }
