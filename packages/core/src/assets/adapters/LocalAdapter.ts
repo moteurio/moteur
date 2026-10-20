@@ -5,6 +5,12 @@ import type { StorageAdapter, UploadResult } from '../StorageAdapter.js';
 
 const DEFAULT_BASE_URL = process.env.STATIC_ASSETS_BASE_URL || 'http://localhost:3000';
 
+/** Where the API serves files, e.g. `https://api.example.com/static` (no trailing slash). */
+export function staticBaseUrl(): string {
+    const base = (process.env.STATIC_ASSETS_BASE_URL || 'http://localhost:3000').replace(/\/$/, '');
+    return `${base}${httpBasePathPrefix()}/static`;
+}
+
 /** Prefix before `/static/assets/...` (same as `API_BASE_PATH` on the HTTP server). */
 function httpBasePathPrefix(): string {
     const raw = (process.env.API_BASE_PATH ?? '').trim();
@@ -128,5 +134,16 @@ export class LocalAdapter implements StorageAdapter {
     async getUrl(storedPath: string): Promise<string> {
         const { projectId, variantKey, filename } = LocalAdapter.parseStoredPath(storedPath);
         return this.assetUrl(projectId, variantKey, filename, true);
+    }
+
+    async deleteFolder(projectId: string, variantKey: string): Promise<void> {
+        LocalAdapter.assertSafeSegment(projectId, 'projectId');
+        LocalAdapter.assertSafeSegment(variantKey, 'variantKey');
+        // Originals and the shared copy folders are never removed this way.
+        if (variantKey === 'original') throw new Error('Invalid asset folder');
+        const assetsRoot = path.resolve(baseAssetsDir(projectId));
+        const dir = path.resolve(assetsRoot, variantKey);
+        if (!dir.startsWith(assetsRoot + path.sep)) throw new Error('Invalid asset folder');
+        await fs.promises.rm(dir, { recursive: true, force: true });
     }
 }

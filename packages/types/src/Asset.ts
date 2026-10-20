@@ -65,6 +65,8 @@ export type Asset = {
 
     // ── Computed (set at read time via resolveAssetUrl) ──
     url: string;
+    /** Images only: serves any size; add `&w=640`, optionally `&ar=1:1` and `&fmt=avif`. */
+    resizeUrl?: string;
 
     // ── Organisation ──
     folder?: string;
