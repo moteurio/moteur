@@ -5,6 +5,7 @@ import { getModelSchema } from '@moteurio/core/models.js';
 import { appendAiAuditEvent } from '@moteurio/core/aiAuditLogger.js';
 import { getAdapter, getCredits, deductCredits, getCreditCost } from '../../index.js';
 import type { PluginRouteContext } from '@moteurio/types/Plugin.js';
+import { helperState } from '../../helpers.js';
 
 const MAX_FIELD_NEST_DEPTH = 12;
 
@@ -137,9 +138,14 @@ export function createEntryRouter(ctx: PluginRouteContext): Router {
 
         try {
             const project = await getProject(req.user!, pid);
-            if (project.ai?.enabled === false) {
+            const helper = helperState(project, req.user!, 'notes');
+            if (helper !== 'ok') {
                 return res.status(403).json({
-                    error: 'AI is disabled for this project'
+                    error:
+                        helper === 'off'
+                            ? 'This helper is off for this project.'
+                            : "Your role can't ask for this helper in this project.",
+                    code: helper === 'off' ? 'AI_HELPER_OFF' : 'AI_HELPER_ROLE'
                 });
             }
             const model = await getModelSchema(req.user!, pid, mid);

@@ -1,4 +1,5 @@
 import { ProjectSchema } from '@moteurio/types/Project.js';
+import { AI_HELPERS, type AiHelper } from '@moteurio/types/Project.js';
 import { ValidationResult } from '@moteurio/types/ValidationResult.js';
 import { createValidationResult, addIssue } from '../utils/validation.js';
 
@@ -330,6 +331,38 @@ export function validateProject(
             path: 'ai.enabled'
         });
     }
+
+    // ai.helpers: each helper on (true) or off; ai.roles: role slugs allowed to ask.
+    const helpers = project.ai?.helpers;
+    if (helpers !== undefined) {
+        if (!helpers || typeof helpers !== 'object' || Array.isArray(helpers))
+            addIssue(result, {
+                type: 'error',
+                code: 'PROJECT_INVALID_AI',
+                message: 'Project "ai.helpers" must map helpers to true or false.',
+                path: 'ai.helpers'
+            });
+        else
+            for (const [k, v] of Object.entries(helpers))
+                if (!AI_HELPERS.includes(k as AiHelper) || typeof v !== 'boolean')
+                    addIssue(result, {
+                        type: 'error',
+                        code: 'PROJECT_INVALID_AI',
+                        message: `"ai.helpers.${k}" must be one of ${AI_HELPERS.join(', ')}, set to true or false.`,
+                        path: `ai.helpers.${k}`
+                    });
+    }
+    const aiRoles = project.ai?.roles;
+    if (
+        aiRoles !== undefined &&
+        (!Array.isArray(aiRoles) || aiRoles.some(r => typeof r !== 'string'))
+    )
+        addIssue(result, {
+            type: 'error',
+            code: 'PROJECT_INVALID_AI',
+            message: 'Project "ai.roles" must be a list of roles.',
+            path: 'ai.roles'
+        });
 
     // presence.enabled: optional boolean
     if (project.presence?.enabled !== undefined && typeof project.presence.enabled !== 'boolean') {

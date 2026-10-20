@@ -21,6 +21,8 @@ export type { AIProviderFactory } from './providerRegistry.js';
 export { getCredits, deductCredits, setCredits, isAiCreditsDisabled } from './credits.js';
 export { getCreditCost, DEFAULT_CREDIT_COSTS, resetCreditCostOverrides } from './creditCosts.js';
 export { MockAdapter } from './providers/MockAdapter.js';
+export { helperState, helperStates, assertHelper, AiHelperError } from './helpers.js';
+export type { HelperState } from './helpers.js';
 export { AIError, NotImplementedError } from './errors.js';
 export type { AIErrorCode, AIErrorDetails } from './errors.js';
 export { getImageAdapter } from './getImageAdapter.js';

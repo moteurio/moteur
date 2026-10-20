@@ -7,6 +7,7 @@ import { z } from 'zod';
 import { getProject } from '@moteurio/core/projects.js';
 import { uploadAsset } from '@moteurio/core/assets/assetService.js';
 import type { PluginRouteContext } from '@moteurio/types/Plugin.js';
+import { helperState } from '../helpers.js';
 
 const bodySchema = z.object({
     variantUrl: z.string().url(),
@@ -42,8 +43,15 @@ export function createSaveGeneratedImageRouter(ctx: PluginRouteContext): Router 
             if (project.users?.length && !project.users.includes(req.user.id)) {
                 return res.status(403).json({ error: 'Access to this project is forbidden' });
             }
-            if (project.ai?.enabled === false) {
-                return res.status(403).json({ error: 'AI is disabled for this project' });
+            const helper = helperState(project, req.user!, 'images');
+            if (helper !== 'ok') {
+                return res.status(403).json({
+                    error:
+                        helper === 'off'
+                            ? 'This helper is off for this project.'
+                            : "Your role can't ask for this helper in this project.",
+                    code: helper === 'off' ? 'AI_HELPER_OFF' : 'AI_HELPER_ROLE'
+                });
             }
             const response = await axios.get(variantUrl, {
                 responseType: 'arraybuffer',
