@@ -14,6 +14,9 @@ vi.mock('@moteurio/core/entries.js', () => ({
     getEntryForProject: vi.fn(),
     getPublishedEntryForProject: vi.fn()
 }));
+vi.mock('@moteurio/core/models.js', () => ({
+    getModelSchemaForProject: vi.fn()
+}));
 vi.mock('@moteurio/core/utils/projectStorage.js', () => ({
     listProjectKeys: vi.fn(),
     getProjectJson: vi.fn()
@@ -30,6 +33,7 @@ vi.mock('@moteurio/core/projects.js', () => ({
 import { listCollections, getCollection } from '@moteurio/core/apiCollections.js';
 import { verifyProjectApiKey } from '@moteurio/core/projectApiKey.js';
 import { queryEntriesForProject } from '@moteurio/core/entries.js';
+import { getModelSchemaForProject } from '@moteurio/core/models.js';
 import { getProjectJson, listProjectKeys } from '@moteurio/core/utils/projectStorage.js';
 import {
     listNavigations,
@@ -183,6 +187,9 @@ describe('GET /projects/:projectId/collections/:collectionId', () => {
         const res = await request(app).get('/projects/demo/collections/c1').set('x-api-key', 'key');
         expect(res.status).toBe(200);
         expect(res.body.label).toBe('API');
+        expect(res.body.publicApi).toMatchObject({
+            openApiJson: '/projects/demo/collections/c1/openapi'
+        });
     });
 });
 
@@ -266,6 +273,86 @@ describe('GET /projects/:projectId/collections/:collectionId/:resourceId/entries
         expect(queryEntriesForProject).not.toHaveBeenCalled();
     });
 });
+
+describe('GET /projects/:projectId/collections/:collectionId/openapi.json', () => {
+    beforeEach(() => {
+        vi.clearAllMocks();
+        vi.mocked(verifyProjectApiKey).mockResolvedValue({
+            ok: true,
+            keyId: 'k1',
+            policy: { collectionWhitelist: null, allowSiteWideReads: true }
+        });
+    });
+
+    it('returns OpenAPI document for the collection', async () => {
+        vi.mocked(getCollection).mockResolvedValue({
+            id: 'public',
+            projectId: 'demo',
+            label: 'Public',
+            resources: [{ resourceType: 'model', resourceId: 'articles', fields: ['title'] }],
+            createdAt: '',
+            updatedAt: ''
+        });
+        vi.mocked(getModelSchemaForProject).mockResolvedValue({
+            id: 'articles',
+            label: 'Articles',
+            fields: { title: { type: 'core/text', label: 'Title' } }
+        });
+        const res = await request(app)
+            .get('/projects/demo/collections/public/openapi')
+            .set('x-api-key', 'key');
+        expect(res.status).toBe(200);
+        expect(res.body.openapi).toBe('3.0.3');
+        expect(res.body.paths).toHaveProperty('/projects/demo/collections/public/articles/entries');
+    });
+
+    it('documents every project model when the collection exposes "every model"', async () => {
+        vi.mocked(getCollection).mockResolvedValue({
+            id: 'public',
+            projectId: 'demo',
+            label: 'Public',
+            resources: [{ resourceType: 'model', resourceId: 'models' }],
+            createdAt: '',
+            updatedAt: ''
+        });
+        vi.mocked(listProjectKeys).mockResolvedValue(['issue', 'author']);
+        vi.mocked(getModelSchemaForProject).mockImplementation(async (_p, id) => ({
+            id,
+            label: id,
+            fields: { title: { type: 'core/text', label: 'Title' } }
+        }));
+        const res = await request(app)
+            .get('/projects/demo/collections/public/openapi')
+            .set('x-api-key', 'key');
+        expect(res.status).toBe(200);
+        expect(res.headers['cache-control']).toBe('no-store');
+        expect(res.body.paths).toHaveProperty('/projects/demo/collections/public/issue/entries');
+        expect(res.body.paths).toHaveProperty('/projects/demo/collections/public/author/entries');
+    });
+
+    it('documents menus with the project handles when the collection gives every menu', async () => {
+        vi.mocked(getCollection).mockResolvedValue({
+            id: 'public',
+            projectId: 'demo',
+            label: 'Public',
+            resources: [{ resourceType: 'menu', resourceId: 'menus' }],
+            createdAt: '',
+            updatedAt: ''
+        });
+        vi.mocked(listNavigations).mockResolvedValue([
+            { handle: 'main' },
+            { handle: 'footer' }
+        ] as any);
+        const res = await request(app)
+            .get('/projects/demo/collections/public/openapi')
+            .set('x-api-key', 'key');
+        expect(res.status).toBe(200);
+        const one = res.body.paths['/projects/demo/collections/public/menus/{handle}'];
+        expect(one.get.parameters[0].schema.enum).toEqual(['footer', 'main']);
+        expect(res.body.components.schemas).toHaveProperty('Menu');
+    });
+});
+
 const menus = [
     { id: 'n1', handle: 'main', name: 'Main', items: [] },
     { id: 'n2', handle: 'footer', name: 'Footer', items: [] }

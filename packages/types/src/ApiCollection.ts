@@ -16,6 +16,11 @@ export type ApiCollectionResource = {
 };
 
 // API Collections are often called "Channels" in frontends.
+/** Present on `GET .../collections/:id` — relative paths (prepend API base). */
+export interface ApiCollectionPublicLinks {
+    openApiJson: string;
+}
+
 export interface ApiCollection {
     id: string;
     projectId: string;
@@ -24,4 +29,6 @@ export interface ApiCollection {
     resources: ApiCollectionResource[];
     createdAt: string;
     updatedAt: string;
+    /** Auto-generated public API doc URLs (read single-collection GET only). */
+    publicApi?: ApiCollectionPublicLinks;
 }

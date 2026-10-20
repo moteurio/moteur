@@ -45,8 +45,28 @@ import { sendApiError, getMessage } from '../../utils/apiError.js';
 import type { EntryQuery } from '@moteurio/core/contentIndex/index.js';
 import { entryQueryParameters, parseEntryQuery } from '../../utils/entryQuery.js';
 import { queryFlag, resolveAssetsParameter, resolveUrlParameter } from '../../utils/queryFlag.js';
+import {
+    collectionPublicApiPaths,
+    loadCollectionOpenApiDocument
+} from '../../openapi/loadCollectionOpenApi.js';
 
 const router: Router = Router({ mergeParams: true });
+
+async function respondCollectionOpenApi(req: Request, res: Response): Promise<void> {
+    const { projectId, collectionId } = req.params as Record<string, string>;
+    if (!projectId || !collectionId) {
+        res.status(400).json({ error: 'Missing projectId or collectionId' });
+        return;
+    }
+    if (rejectIfApiKeyCollectionForbidden(req, res, collectionId)) return;
+    const doc = await loadCollectionOpenApiDocument(projectId, collectionId);
+    if (!doc) {
+        res.status(404).json({ error: 'Collection not found' });
+        return;
+    }
+    res.setHeader('Cache-Control', 'no-store');
+    res.json(doc);
+}
 
 function parseLocaleQuery(req: Request): string | undefined {
     const raw = req.query.locale ?? req.query.lang;
@@ -109,6 +129,22 @@ router.get('/', async (req: Request, res: Response) => {
     }
 });
 
+// OpenAPI spec (register before `/:collectionId` — Express 5 path matching)
+router.get('/:collectionId/openapi', async (req: Request, res: Response) => {
+    try {
+        await respondCollectionOpenApi(req, res);
+    } catch (err: unknown) {
+        sendApiError(res, req, err);
+    }
+});
+router.get('/:collectionId/openapi.json', async (req: Request, res: Response) => {
+    try {
+        await respondCollectionOpenApi(req, res);
+    } catch (err: unknown) {
+        sendApiError(res, req, err);
+    }
+});
+
 // GET /projects/:projectId/collections/:collectionId
 router.get('/:collectionId', async (req: Request, res: Response) => {
     const { projectId, collectionId } = req.params as Record<string, string>;
@@ -118,7 +154,10 @@ router.get('/:collectionId', async (req: Request, res: Response) => {
     try {
         const collection = await getCollection(projectId, collectionId);
         if (!collection) return void res.status(404).json({ error: 'Collection not found' });
-        return void res.json(collection);
+        return void res.json({
+            ...collection,
+            publicApi: collectionPublicApiPaths(projectId, collectionId)
+        });
     } catch (err: unknown) {
         return void sendApiError(res, req, err);
     }
@@ -784,6 +823,29 @@ export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
                     content: {
                         'application/json': {
                             schema: { $ref: '#/components/schemas/Entry' }
+                        }
+                    }
+                },
+                '404': { description: 'Not found', ...jsonErrorBody }
+            }
+        }
+    },
+    '/projects/{projectId}/collections/{collectionId}/openapi': {
+        get: {
+            summary: 'OpenAPI document for this collection (frontend)',
+            description:
+                'Auto-generated spec: concrete paths, query params, and `entry.data` shapes for each model the collection exposes ("every model" expands to all project models). Also served at `/openapi.json`. Same auth as other collection reads.',
+            tags: ['Public API — Collections'],
+            parameters: [
+                { name: 'projectId', in: 'path', required: true, schema: { type: 'string' } },
+                { name: 'collectionId', in: 'path', required: true, schema: { type: 'string' } }
+            ],
+            responses: {
+                '200': {
+                    description: 'OpenAPI 3 document',
+                    content: {
+                        'application/json': {
+                            schema: { type: 'object', additionalProperties: true }
                         }
                     }
                 },
