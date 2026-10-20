@@ -18,6 +18,11 @@ export interface MoteurClientConfig {
      * Pass `0` to disable (not recommended in production).
      */
     timeout?: number;
+    /**
+     * Called with every failed request before it rejects (e.g. to show "out of credits" or "slow
+     * down" once for the whole app). Must not throw.
+     */
+    onError?: (error: import('./client.js').MoteurApiError) => void;
 }
 
 /** Public client: API key auth with a fixed project id (required). */

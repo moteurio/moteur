@@ -13,6 +13,7 @@ import {
 } from '@moteurio/core/invites.js';
 import { getProjectUsers, getUserById } from '@moteurio/core/users.js';
 import { emailUnavailable, sendEmail } from '@moteurio/core/emailNotifier.js';
+import { assertPeopleRoom } from '@moteurio/core/planLimits.js';
 import { requireProjectAdmin } from '../middlewares/auth.js';
 import { sendApiError } from '../utils/apiError.js';
 
@@ -125,6 +126,7 @@ router.post('/:projectId/invites', requireProjectAdmin, async (req: Request, res
     }
     try {
         const otherInvites = listInvites(projectId).filter(i => i.email !== email).length;
+        assertPeopleRoom(projectId, members.length + otherInvites);
         const { invite, token } = createInvite({
             projectId,
             email,

@@ -16,6 +16,8 @@ import {
 import { templateKey, templateListPrefix } from './utils/storageKeys.js';
 import { templateFilePath, trashTemplatesDir } from './utils/pathUtils.js';
 import { validateTemplate } from './validators/validateTemplate.js';
+import { checkCountRoom } from './planLimits.js';
+import { countOf } from './projectCounts.js';
 
 function parseTemplateIds(listResult: string[]): string[] {
     return listResult
@@ -78,6 +80,7 @@ export async function createTemplate(
     if (exists) {
         throw new Error(`Template "${id}" already exists in project "${projectId}".`);
     }
+    await checkCountRoom(projectId, 'templates', () => countOf(projectId, 'templates'));
 
     const now = new Date().toISOString();
     const schema: TemplateSchema = {

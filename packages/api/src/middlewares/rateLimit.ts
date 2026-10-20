@@ -48,7 +48,7 @@ export const loginRateLimiter = rateLimit({
     standardHeaders: true,
     legacyHeaders: false,
     keyGenerator: (req: Request) => ipKey(req),
-    message: { error: 'Too many login attempts. Please try again later.' }
+    message: { error: 'Too many login attempts. Please try again later.', code: 'rate_limited' }
 });
 
 /**
@@ -61,7 +61,7 @@ export const studioRateLimiter = rateLimit({
     standardHeaders: true,
     legacyHeaders: false,
     keyGenerator: (req: Request) => ipKey(req),
-    message: { error: 'Too many requests; try again later.' }
+    message: { error: 'Too many requests; try again later.', code: 'rate_limited' }
 });
 
 /**
@@ -77,7 +77,7 @@ export const publicRateLimiter = rateLimit({
         const projectId = req.apiRequestProjectId;
         return projectId ? `public:${projectId}` : ipKey(req);
     },
-    message: { error: 'Too many requests for this project; try again later.' }
+    message: { error: 'Too many requests for this project; try again later.', code: 'rate_limited' }
 });
 
 /**
@@ -110,5 +110,5 @@ export const formsSubmitRateLimiter = rateLimit({
         const formId = p?.formId ?? '';
         return `forms:${projectId}:${formId}`;
     },
-    message: { error: 'Too many submissions. Please try again later.' }
+    message: { error: 'Too many submissions. Please try again later.', code: 'rate_limited' }
 });

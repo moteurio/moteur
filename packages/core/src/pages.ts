@@ -32,6 +32,7 @@ import {
     listProjectKeys
 } from './utils/projectStorage.js';
 import { pageKey, pageListPrefix } from './utils/storageKeys.js';
+import { assertCountRoom } from './planLimits.js';
 import { pageFilePath, trashPagesDir } from './utils/pathUtils.js';
 import { validatePage as validatePageAgainstTemplate } from './validators/validatePage.js';
 import type { ProjectSchema } from '@moteurio/types/Project.js';
@@ -267,6 +268,7 @@ export async function createPage(
     }
 
     const allPages = await loadAllPages(projectId);
+    assertCountRoom(projectId, 'pages', allPages.length);
     await assertSlugUniqueAmongSiblings(projectId, parentId, data.slug);
 
     if (parentId) {

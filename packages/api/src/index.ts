@@ -56,12 +56,18 @@ import { schedulerEngine, startSnapshotScheduler, stopSnapshotScheduler } from '
 import { globalErrorHandler } from './middlewares/errorHandler.js';
 import { registerSocketEventBridge } from './bootstrap/socketEventBridge.js';
 import { mountStaticAssets } from './bootstrap/staticAssetsRoute.js';
+import {
+    createFileMeteringStore,
+    getMeteringStore,
+    setMeteringStore
+} from '@moteurio/core/metering.js';
 
 // Load core runtime. External plugins are discovered by host config (MOTEUR_HOST_PLUGINS / MOTEUR_ENABLED_PLUGINS).
 import '@moteurio/core';
 import { securityHeaders } from './middlewares/security.js';
 import { requestClassifier } from './middlewares/requestClassifier.js';
 import { usageLogging } from './middlewares/usageLogging.js';
+import { requestQuota } from './middlewares/requestQuota.js';
 import { studioRateLimiter, publicRateLimitGate } from './middlewares/rateLimit.js';
 import { bootstrapApi } from './openapi/bootstrapApi.js';
 import { attachPresenceServer } from '@moteurio/presence';
@@ -114,8 +120,17 @@ app.use(
         origin: getCorsOrigin(),
         methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
         allowedHeaders: ['Content-Type', 'Authorization', 'x-api-key'],
-        exposedHeaders: ['X-Total-Count']
+        exposedHeaders: ['X-Total-Count', 'Retry-After']
     })
+);
+
+// Request counts and AI credits survive restarts. Set before plugins load: a host plugin may
+// replace the store (e.g. a database for several API instances) in its init.
+setMeteringStore(
+    createFileMeteringStore(
+        process.env.MOTEUR_METERING_DIR?.trim() ||
+            path.join(storageConfig.dataRoot, 'data', 'metering')
+    )
 );
 
 const { mergedApiSpecs, serverUrl, hostPlugins, pluginRouteContributions, authProviders } =
@@ -143,6 +158,7 @@ app.use(basePath, requestClassifier);
 app.use(basePath, usageLogging);
 app.use(basePath + '/studio', studioRateLimiter);
 app.use(basePath, publicRateLimitGate);
+app.use(basePath, requestQuota);
 
 const router: Router = express.Router();
 router.get('/health', (_req, res) => {
@@ -257,6 +273,7 @@ httpServer.listen(PORT, async () => {
 function gracefulShutdown(): void {
     schedulerEngine.stopSweep();
     stopSnapshotScheduler();
+    getMeteringStore().flush();
     process.exit(0);
 }
 process.on('SIGTERM', gracefulShutdown);

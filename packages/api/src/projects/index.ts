@@ -9,6 +9,7 @@ import update, { openapi as updateSpec } from './update.js';
 import remove, { openapi as deleteSpec } from './delete.js';
 import users, { openapi as usersSpec } from './users.js';
 import invites, { openapi as invitesSpec, schemas as invitesSchemas } from './invites.js';
+import usage, { openapi as usageSpec, schemas as usageSchemas } from './usage.js';
 
 import activityRouter, {
     openapi as activitySpec,
@@ -52,6 +53,7 @@ router.use(update);
 router.use(remove);
 router.use(users);
 router.use(invites);
+router.use(usage);
 router.use('/:projectId/templates', templatesRouter);
 router.use('/:projectId/pages', pagesStudioRouter);
 router.use('/:projectId', pageOutputsRouter);
@@ -91,6 +93,7 @@ export const projectsSpecs = {
         deleteSpec,
         usersSpec,
         invitesSpec,
+        usageSpec,
         activitySpec,
         commentsSpec,
         reviewsSpec,
@@ -120,7 +123,8 @@ export const projectsSpecs = {
         ...createSchemas,
         ...activitySchemas,
         ...commentsSchemas,
-        ...invitesSchemas
+        ...invitesSchemas,
+        ...usageSchemas
     }
 };
 

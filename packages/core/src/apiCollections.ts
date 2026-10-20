@@ -6,6 +6,7 @@ import { getProjectJson, putProjectJson } from './utils/projectStorage.js';
 import { API_COLLECTIONS_KEY } from './utils/storageKeys.js';
 import { triggerEvent } from './utils/eventBus.js';
 import { isValidId } from './utils/idUtils.js';
+import { assertCountRoom } from './planLimits.js';
 
 async function loadCollections(projectId: string): Promise<ApiCollection[]> {
     const list = (await getProjectJson<ApiCollection[]>(projectId, API_COLLECTIONS_KEY)) ?? [];
@@ -33,6 +34,7 @@ export async function createCollection(
 ): Promise<ApiCollection> {
     await getProject(user, projectId);
     const list = await loadCollections(projectId);
+    assertCountRoom(projectId, 'channels', list.length);
     let collectionId: string;
     if (data.id) {
         if (!isValidId(data.id))

@@ -62,7 +62,7 @@ export async function generateImages(
         });
     }
 
-    const deduct = deductCredits(context.projectId, cost);
+    const deduct = deductCredits(context.projectId, cost, 'image.generate');
     if (!deduct.success) {
         throw new AIError('insufficient_credits', {
             required: cost,

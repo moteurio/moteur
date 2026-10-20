@@ -110,7 +110,7 @@ export async function translateField(
         if (getCredits(projectId) < cost) {
             throw new Error('INSUFFICIENT_CREDITS');
         }
-        const { success } = deductCredits(projectId, cost);
+        const { success } = deductCredits(projectId, cost, 'translate.field');
         if (!success) throw new Error('INSUFFICIENT_CREDITS');
     }
 
@@ -198,7 +198,7 @@ export async function translateBlockArray(
         if (balance < blockCost) {
             return { blocks: results, partial: true };
         }
-        const { success } = deductCredits(projectId, blockCost);
+        const { success } = deductCredits(projectId, blockCost, 'translate.block');
         if (!success) {
             return { blocks: results, partial: true };
         }
@@ -250,7 +250,7 @@ export async function translateEntry(
     if (!adapter?.generate) {
         throw new Error('AI provider not configured');
     }
-    const { success } = deductCredits(projectId, entryCost);
+    const { success } = deductCredits(projectId, entryCost, 'translate.entry');
     if (!success) throw new Error('INSUFFICIENT_CREDITS');
 
     const fields = model.fields ?? {};

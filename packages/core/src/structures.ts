@@ -14,6 +14,8 @@ import {
     listProjectKeys
 } from './utils/projectStorage.js';
 import { structureKey, structureListPrefix } from './utils/storageKeys.js';
+import { checkCountRoom } from './planLimits.js';
+import { countOf } from './projectCounts.js';
 import { triggerEvent } from './utils/eventBus.js';
 
 function systemUser(): User {
@@ -122,6 +124,7 @@ export async function createStructure(
     if (exists) {
         throw new Error(`Structure "${schema.type}" already exists`);
     }
+    await checkCountRoom(project, 'structures', () => countOf(project, 'structures'));
 
     const u = user ?? systemUser();
     triggerEvent('structure.beforeCreate', { structure: schema, user: u, projectId: project });

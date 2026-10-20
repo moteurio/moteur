@@ -198,7 +198,7 @@ ${fieldsSchemaJson}
                     message: 'Not enough AI credits for entry generation'
                 });
             }
-            const { success } = deductCredits(pid, cost);
+            const { success } = deductCredits(pid, cost, 'generate.entry');
             if (!success) {
                 return res.status(402).json({
                     error: 'insufficient_credits',

@@ -18,6 +18,7 @@ import { ensureUserData } from './utils/userDataStore.js';
 import { initRepo, cloneFromRemote, addAllAndCommit, push } from './git/index.js';
 import { getEffectiveGitRemoteUrl, applyProjectGitSideEffects } from './utils/projectGit.js';
 import { removeProjectFromAllUsers, addProjectToUser, removeProjectFromUser } from './users.js';
+import { assertPeopleRoom, assertProjectRoom } from './planLimits.js';
 import { getBlueprint } from './blueprints.js';
 import type { BlueprintTemplate } from '@moteurio/types/Blueprint.js';
 import { createModelSchema } from './models.js';
@@ -137,6 +138,7 @@ export async function createProject(
     project: ProjectSchema
 ): Promise<{ project?: ProjectSchema; validation?: ValidationResult }> {
     assertUserCanCreateProject(user);
+    assertProjectRoom(user.id);
     if (!project || !project.id || !isValidId(project.id)) {
         throw new Error(`Invalid project schema: "${JSON.stringify(project)}"`);
     }
@@ -275,6 +277,7 @@ export async function updateProject(
     if (patch.users !== undefined) {
         const prev = new Set((current.users ?? []) as string[]);
         const next = new Set((updated.users ?? []) as string[]);
+        assertPeopleRoom(projectId, prev.size, next.size - prev.size);
         for (const uid of next) {
             if (!prev.has(uid)) addProjectToUser(uid, projectId);
         }
@@ -309,6 +312,7 @@ export async function addProjectMember(
     const current = await getProjectById(projectId);
     if (!current) throw new Error(`Project "${projectId}" not found`);
     const users = (current.users ?? []) as string[];
+    if (!users.includes(member.id)) assertPeopleRoom(projectId, users.length);
     const updated: ProjectSchema = {
         ...current,
         users: users.includes(member.id) ? users : [...users, member.id],

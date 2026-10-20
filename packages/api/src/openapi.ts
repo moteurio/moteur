@@ -380,6 +380,7 @@ const baseSchemas: OpenAPIV3.ComponentsObject['schemas'] = {
         type: 'object',
         required: ['studio', 'public'],
         properties: {
+            period: { type: 'string', description: 'Calendar month (UTC), `YYYY-MM`.' },
             studio: {
                 type: 'object',
                 required: ['total', 'windowStart'],
