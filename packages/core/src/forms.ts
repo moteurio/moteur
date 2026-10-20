@@ -56,6 +56,52 @@ export async function getFormForProject(
     return getProjectJson<FormSchema>(projectId, formKey(formId));
 }
 
+const FORM_STATUSES = ['active', 'inactive', 'archived'];
+const FORM_ACTION_TYPES = ['createEntry', 'email', 'webhook'];
+
+/**
+ * Checks what a form says it does, so a typo can't break submissions later. Throws a sentence
+ * naming the problem ("Invalid form …"), which the API answers with a 422.
+ */
+export function checkForm(form: Partial<FormSchema>): void {
+    const bad = (message: string) => {
+        throw new Error(`Invalid form: ${message}`);
+    };
+    if (form.label !== undefined && (typeof form.label !== 'string' || !form.label.trim()))
+        bad('"label" must be a non-empty text.');
+    if (form.status !== undefined && !FORM_STATUSES.includes(form.status))
+        bad(`"status" must be one of ${FORM_STATUSES.join(', ')}.`);
+    if (
+        form.fields !== undefined &&
+        (!form.fields || typeof form.fields !== 'object' || Array.isArray(form.fields))
+    )
+        bad('"fields" must be an object of fields.');
+    for (const [key, field] of Object.entries(form.fields ?? {}))
+        if (!field || typeof field !== 'object' || typeof field.type !== 'string')
+            bad(`field "${key}" needs a "type".`);
+    if (form.redirectUrl !== undefined && form.redirectUrl !== null) {
+        if (typeof form.redirectUrl !== 'string' || !/^(https?:\/\/|\/)/.test(form.redirectUrl))
+            bad('"redirectUrl" must start with http://, https:// or /.');
+    }
+    if (form.actions !== undefined) {
+        if (!Array.isArray(form.actions)) bad('"actions" must be a list.');
+        form.actions.forEach((action, i) => {
+            if (!action || !FORM_ACTION_TYPES.includes(action.type))
+                bad(`action ${i + 1} must be one of ${FORM_ACTION_TYPES.join(', ')}.`);
+            if (
+                action.type === 'createEntry' &&
+                (typeof action.modelId !== 'string' || !action.modelId)
+            )
+                bad(`action ${i + 1} must name the model to create entries in.`);
+            if (action.type === 'email' && (!Array.isArray(action.to) || !action.to.length))
+                bad(`action ${i + 1} must list who to email.`);
+        });
+    }
+    const to = form.notifications?.onSubmit?.to;
+    if (to !== undefined && (!Array.isArray(to) || to.some(x => typeof x !== 'string')))
+        bad('"notifications.onSubmit.to" must be a list of email addresses.');
+}
+
 export async function createForm(
     user: User,
     projectId: string,
@@ -73,6 +119,8 @@ export async function createForm(
     if (!form.label || typeof form.label !== 'string' || !form.label.trim()) {
         throw new Error('Form "label" is required and must be a non-empty string.');
     }
+
+    checkForm(form);
 
     const exists = await hasProjectKey(projectId, formKey(form.id));
     if (exists) {
@@ -118,6 +166,7 @@ export async function updateForm(
     patch: Partial<FormSchema>
 ): Promise<FormSchema> {
     const current = await getForm(user, projectId, formId);
+    checkForm(patch);
     const updated: FormSchema = {
         ...current,
         ...patch,
@@ -125,6 +174,9 @@ export async function updateForm(
         createdAt: current.createdAt,
         updatedAt: new Date().toISOString()
     };
+    // `null` takes a setting away (a redirect, the notifications…).
+    for (const [key, value] of Object.entries(patch))
+        if (value === null) delete (updated as unknown as Record<string, unknown>)[key];
 
     try {
         await triggerEvent('form.beforeUpdate', { form: updated, user, projectId });
