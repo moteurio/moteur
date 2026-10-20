@@ -14,6 +14,10 @@ vi.mock('@moteurio/core/entries.js', () => ({
     getEntryForProject: vi.fn(),
     getPublishedEntryForProject: vi.fn()
 }));
+vi.mock('@moteurio/core/utils/projectStorage.js', () => ({
+    listProjectKeys: vi.fn(),
+    getProjectJson: vi.fn()
+}));
 vi.mock('@moteurio/core/navigations.js', () => ({
     listNavigations: vi.fn(),
     getNavigationByHandle: vi.fn(),
@@ -26,6 +30,7 @@ vi.mock('@moteurio/core/projects.js', () => ({
 import { listCollections, getCollection } from '@moteurio/core/apiCollections.js';
 import { verifyProjectApiKey } from '@moteurio/core/projectApiKey.js';
 import { queryEntriesForProject } from '@moteurio/core/entries.js';
+import { getProjectJson, listProjectKeys } from '@moteurio/core/utils/projectStorage.js';
 import {
     listNavigations,
     getNavigationByHandle,
@@ -356,5 +361,47 @@ describe('GET /projects/:projectId/collections/:collectionId/menus', () => {
     it('needs a key or a session', async () => {
         const res = await request(app).get('/projects/demo/collections/c1/menus');
         expect(res.status).toBe(401);
+    });
+});
+
+describe('GET /projects/:projectId/collections/:collectionId/forms', () => {
+    beforeEach(() => {
+        vi.clearAllMocks();
+        vi.mocked(verifyProjectApiKey).mockResolvedValue({
+            ok: true,
+            keyId: 'k1',
+            policy: { collectionWhitelist: null, allowSiteWideReads: true }
+        });
+        vi.mocked(getCollection).mockResolvedValue(
+            channelWith([{ resourceType: 'form', resourceId: 'forms' }])
+        );
+        vi.mocked(listProjectKeys).mockResolvedValue(['contact', 'old']);
+        vi.mocked(getProjectJson).mockImplementation(async (_p, key: string) =>
+            key.includes('contact')
+                ? ({
+                      id: 'contact',
+                      label: 'Contact',
+                      status: 'active',
+                      fields: {},
+                      actions: [{ type: 'email', to: 'owner@example.com' }]
+                  } as any)
+                : ({ id: 'old', label: 'Old', status: 'inactive', fields: {} } as any)
+        );
+    });
+
+    it('gives only active forms, without actions or recipients', async () => {
+        const res = await request(app)
+            .get('/projects/demo/collections/c1/forms')
+            .set('x-api-key', 'k');
+        expect(res.status).toBe(200);
+        expect(res.body.map((f: any) => f.id)).toEqual(['contact']);
+        expect(res.body[0]).not.toHaveProperty('actions');
+    });
+
+    it('404s an inactive form', async () => {
+        const res = await request(app)
+            .get('/projects/demo/collections/c1/forms/old')
+            .set('x-api-key', 'k');
+        expect(res.status).toBe(404);
     });
 });
