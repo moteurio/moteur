@@ -4,7 +4,7 @@ import os from 'os';
 import path from 'path';
 import { initRepo } from '../../src/git/index.js';
 import { createTemplate } from '../../src/templates.js';
-import { createPage, getPage, updatePage } from '../../src/pages.js';
+import { createPage, getPage, reorderPages, updatePage } from '../../src/pages.js';
 import type { StaticPage } from '@moteurio/types/Page.js';
 
 const projectId = 'page-drafts';
@@ -71,5 +71,35 @@ describe('page drafts', () => {
                 fields: {}
             } as never)
         ).rejects.toThrow('Publishing needs every required field');
+    });
+
+    describe('moving pages', () => {
+        const folder = (label: string, slug: string, parentId: string | null = null) =>
+            createPage(projectId, user, { type: 'folder', label, slug, parentId } as never);
+
+        it('moves only what moved, refusing loops and taken addresses', async () => {
+            const a = await folder('A', 'a');
+            const b = await folder('B', 'b');
+            const c = await folder('C', 'news', a.id);
+            await folder('D', 'news', b.id);
+
+            // Two moves that together would loop: A under B, B under A.
+            await expect(
+                reorderPages(projectId, user, [
+                    { id: a.id, parentId: b.id, order: 0 },
+                    { id: b.id, parentId: a.id, order: 0 }
+                ])
+            ).rejects.toThrow('cycle');
+            // C would sit next to D, both at /b/news.
+            await expect(
+                reorderPages(projectId, user, [{ id: c.id, parentId: b.id, order: 1 }])
+            ).rejects.toThrow('same address');
+
+            const before = await getPage(projectId, b.id);
+            await reorderPages(projectId, user, [{ id: c.id, parentId: null, order: 2 }]);
+            expect((await getPage(projectId, c.id)).parentId).toBeNull();
+            // Untouched pages are not rewritten.
+            expect((await getPage(projectId, b.id)).updatedAt).toBe(before.updatedAt);
+        });
     });
 });

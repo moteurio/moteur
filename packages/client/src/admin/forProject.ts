@@ -1,3 +1,4 @@
+import type { PageMove } from '../project/pages.js';
 import type { SubmissionListParams } from '../project/submissions.js';
 import type { MoteurClient } from '../client.js';
 import { projectsApi } from './projects.js';
@@ -128,6 +129,7 @@ export function createProjectClient(client: MoteurClient, projectId: string) {
             create: (body: Record<string, unknown>) => pages.create(pid, body),
             update: (pageId: string, body: Record<string, unknown>) =>
                 pages.update(pid, pageId, body),
+            reorder: (moves: PageMove[]) => pages.reorder(pid, moves),
             delete: (pageId: string) => pages.delete(pid, pageId),
             status: (pageId: string, status: string) => pages.status(pid, pageId, status),
             submitReview: (pageId: string) => pages.submitReview(pid, pageId)

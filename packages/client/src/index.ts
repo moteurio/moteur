@@ -19,6 +19,7 @@ export type { MoteurPublicClient } from './public/createPublicClient.js';
 export type { EntryListParams, EntryListResult, FieldLocales } from './project/entries.js';
 export { entryListQuery } from './project/entries.js';
 export type { AssetUsage } from './project/assets.js';
+export type { PageMove } from './project/pages.js';
 export type { SubmissionListParams, SubmissionListResult } from './project/submissions.js';
 
 export { createMoteurAdminClient } from './admin/adminClient.js';
