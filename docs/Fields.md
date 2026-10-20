@@ -605,6 +605,8 @@ Studio groups types like `fieldTypes.tsx`. **core/media-image** is documented he
 
 **What it does:** Points to a **3D asset** (usually **glTF/glb** URL) plus optional **poster** image and **USDZ** for iOS AR.
 
+The URLs can point anywhere. To host the files in Moteur, upload them to the asset library (`.glb`, `.gltf` and `.usdz` are stored as `model` assets) and use the asset's `url`.
+
 **When to use it:** Product viewers, AR placement—not generic “any file” (use **core/asset**).
 
 | Option | Type | Default | Description                 |
@@ -639,7 +641,7 @@ Studio groups types like `fieldTypes.tsx`. **core/media-image** is documented he
 
 **Category:** Media · **Source:** `packages/core/src/fields/core/asset.ts`
 
-**What it does:** References **one row** in the project’s **asset library** (image, video, or document) plus optional **alt** and **caption** at usage time.
+**What it does:** References **one row** in the project’s **asset library** (image, video, document, or 3D model) plus optional **alt** and **caption** at usage time.
 
 **When to use it:** Single downloadable/file pickers when you do not need **core/image**’s layout-focused options.
 
@@ -950,23 +952,40 @@ Studio groups types like `fieldTypes.tsx`. **core/media-image** is documented he
 
 **When to use it:** FAQs, team members **without** a shared Structure, bullet lists with structure.
 
-| Option        | Type    | Default | Description                                           |
-| ------------- | ------- | ------- | ----------------------------------------------------- |
-| `allowEmpty`  | boolean | `false` | Allow zero items.                                     |
-| `minItems`    | number  | `0`     | Minimum count.                                        |
-| `maxItems`    | number  | —       | Maximum count.                                        |
-| `sortable`    | boolean | `true`  | Allow reorder in Studio.                              |
-| `uniqueItems` | boolean | `false` | Items must be unique (per serialized equality rules). |
-| `ui`          | text    | —       | Studio hint.                                          |
+| Option        | Type         | Default | Description                                                                           |
+| ------------- | ------------ | ------- | ------------------------------------------------------------------------------------- |
+| `allowEmpty`  | boolean      | `false` | Allow zero items.                                                                     |
+| `minItems`    | number       | `0`     | Minimum count.                                                                        |
+| `maxItems`    | number       | —       | Maximum count.                                                                        |
+| `sortable`    | boolean      | `true`  | Allow reorder in Studio.                                                              |
+| `uniqueItems` | boolean      | `false` | Items must be unique (per serialized equality rules).                                 |
+| `summary`     | text or list | —       | Item sub-field key(s) shown on collapsed items. Default: the first words of the item. |
+| `ui`          | text         | —       | Studio hint.                                                                          |
 
-**Field example** (conceptual—the `items` sub-schema lives on the field definition in Blueprints/Studio)
+**Studio layouts.** The same items can be edited three ways, and editors can switch between them while editing (Studio remembers each person's choice per field):
+
+- `table`: one row per item, one column per sub-field (a multilingual sub-field gets one column per shown language). Offered when every sub-field is short: text, number, select, boolean, date, time, url, color…
+- `cards`: each item folds to a summary line and opens into its full form. Works for any item shape.
+- `panel`: a compact list beside the selected item's form. Roomy for large items.
+
+The model chooses where people start through its Studio form: `{ "field": "credits", "as": "panel" }` (or **Show as** in Arrange). Without one, Studio uses `table` when items have at most four short sub-fields and `cards` otherwise. Items are dragged by their handle to reorder (or moved with the arrow keys on it) unless `sortable` is `false`; `minItems` and `maxItems` limit removing and adding.
+
+**Field example**
 
 ```json
 {
-    "key": "faq",
+    "key": "credits",
     "type": "core/list",
-    "label": "FAQ",
-    "options": { "minItems": 1, "sortable": true }
+    "label": "Credits",
+    "items": {
+        "type": "core/object",
+        "label": "Credit",
+        "fields": {
+            "role": { "type": "core/text", "label": "Role", "options": { "multilingual": true } },
+            "name": { "type": "core/text", "label": "Name", "options": { "required": true } }
+        }
+    },
+    "options": { "allowEmpty": true, "summary": ["name", "role"] }
 }
 ```
 
@@ -990,6 +1009,8 @@ Studio groups types like `fieldTypes.tsx`. **core/media-image** is documented he
 **What it does:** **Named bag of child fields** you define inline on the model/block—like a JSON object with a schema.
 
 **When to use it:** One-off groups that won’t be reused. For reuse across models, use **core/structure**.
+
+Declare the children under `fields` on the definition; Studio then shows them as a form. Without `fields`, the object is free-form and Studio edits it as JSON.
 
 | Option       | Type    | Default | Description                           |
 | ------------ | ------- | ------- | ------------------------------------- |

@@ -125,7 +125,7 @@ The tree drives **sitemap**, **navigation**, **breadcrumbs**, and URL resolution
 
 ### Navigations
 
-Named, ordered menus (e.g. Header, Footer). Each has a **handle** (e.g. `header`) used in the public API. Items can link to pages (resolved at read time), custom URLs, assets, or act as dropdown parents. Public: `GET /projects/:projectId/navigations` and `GET /projects/:projectId/navigations/:handle`.
+Named, ordered menus (e.g. Header, Footer). Each has a **handle** (e.g. `header`) used in the public API. Items can link to pages (resolved at read time), custom URLs, assets, or act as dropdown parents. Sites read them through a channel that gives menus: `GET /projects/:projectId/collections/:collectionId/menus` and `.../menus/:handle`.
 
 ### Webhooks
 
@@ -218,7 +218,7 @@ The **moteur-admin** app gives you a full admin UI: projects, models, structures
 
 ### Seeds
 
-Canonical blueprint seed files live under `data/seeds/blueprints/` (e.g. `project/`, `model/`, `structure/`, `template/`). Run `**pnpm run seed`** to copy missing seeds into `data/blueprints/`; use `**pnpm run seed:force\*\*`to overwrite. See [Seeds](docs/Seeds.md) and`data/seeds/README.md` for details.
+Canonical blueprint seed files live under `data/seeds/blueprints/` at runtime (e.g. `project/`, `model/`, `structure/`, `template/`). Run `pnpm run seed` to copy missing seeds into `data/blueprints/`; use `pnpm run seed:force` to overwrite. See [Seeds](docs/Seeds.md) and [`_data/seeds/README.md`](_data/seeds/README.md) for the monorepo layout.
 
 ### Fields and blocks
 

@@ -1,22 +1,24 @@
 # Blueprints
 
-Blueprints are **reusable templates** with a **kind**: project, model, or structure. They share the same storage and API; the **kind** determines how the template is used.
+Blueprints are **reusable templates** with a **kind**: project, model, structure, or page template. They share the same storage and API; the **kind** determines how the template is used.
 
 - **Project blueprints** (`kind: 'project'` or omitted): used when creating a new project. The template can define initial models, layouts, and structures applied to the new project.
-- **Model blueprints** (`kind: 'model'`): a single model schema template. Used to create a model in an existing project (e.g. “Create model from template” with a dropdown of model blueprints).
+- **Model blueprints** (`kind: 'model'`): a single model schema template. Used to create a model in an existing project.
 - **Structure blueprints** (`kind: 'structure'`): a single structure schema template. Used to create a structure in an existing project.
+- **Template blueprints** (`kind: 'template'`): a single page template. Used to create a page template in an existing project.
 
 ## Blueprints vs block definitions
 
-Blueprints are **server-wide templates** (project / model / structure / page template). They are **not** stored inside a project folder. Applying a **project** blueprint at `POST /projects` creates **models, layouts, and structures** in the new project; it does **not** copy block schema files. Block types still come from **`core/*`**, plugins, and optional **`data/projects/<id>/blocks/`** (see [Blocks](Blocks.md)).
+Blueprints are **server-wide templates** (project / model / structure / page template). They are **not** stored inside a project folder. Applying a **project** blueprint at `POST /projects` creates **models, layouts, and structures** in the new project; it does **not** copy block schema files. Block types still come from **built-ins in `@moteurio/core`**, optional host plugins, and **`data/projects/<id>/blocks/`** (see [Blocks](Blocks.md)).
 
 ## Where blueprints live (backend)
 
 - **Storage:** Blueprints are stored as JSON files under the **blueprints directory**, in **kind-specific subfolders**.
 - **Default path:** `data/blueprints/` (relative to the data root — same as `DATA_ROOT` or the resolved Moteur data directory).
 - **Override:** Set `BLUEPRINTS_DIR` to use another path (relative to the data root).
-- **Subfolders:** `data/blueprints/projects/`, `data/blueprints/models/`, `data/blueprints/structures/`. Each blueprint is a single file: `data/blueprints/<kind>/<id>.json`. The `id` must be filesystem-safe (alphanumeric, hyphens, underscores; same rules as project ids). IDs are unique **within** a kind, so `blog` can exist as both a project and a model blueprint.
-- **Migration:** On first use, any root-level `.json` files in `data/blueprints/` are automatically moved to `data/blueprints/projects/`.
+- **Subfolders:** one per kind, named in the singular: `data/blueprints/project/`, `model/`, `structure/`, `template/`. Each blueprint is a single file: `data/blueprints/<kind>/<id>.json`. The `id` must be filesystem-safe (alphanumeric, hyphens, underscores; same rules as project ids). IDs are unique **within** a kind, so `blog` can exist as both a project and a model blueprint.
+- **Plugins:** a plugin can register blueprints with `ctx.registerBlueprint()` (the `core-blueprints` plugin does). They are listed with the files; when a plugin and a file share an id and kind, the plugin's wins.
+- **Migration:** On first use, any root-level `.json` files in `data/blueprints/` are automatically moved to `data/blueprints/project/`.
 
 ## Blueprint JSON shape
 
@@ -89,6 +91,26 @@ If `template` is missing or has empty arrays, the blueprint only provides metada
 - **kind**: `"structure"`.
 - **template.structure** (required): A single structure schema object. Validated on create/update of the blueprint.
 
+### Template blueprint
+
+```json
+{
+  "id": "landing",
+  "name": "Landing Page",
+  "description": "Hero, features, and CTA.",
+  "kind": "template",
+  "template": {
+    "template": {
+      "label": "Landing Page",
+      "fields": { ... }
+    }
+  }
+}
+```
+
+- **kind**: `"template"`.
+- **template.template** (required): A page template: `label`, `fields`, optional `id` and `description`.
+
 ## How “create from blueprint” works
 
 ### Project creation (project blueprints only)
@@ -111,9 +133,13 @@ When creating a model in an existing project, the client can send **blueprintId*
 
 When creating a structure in an existing project, the client can send **blueprintId** in the body of the create-structure endpoint. The backend loads the blueprint, checks `kind === 'structure'`, uses `template.structure` as the base schema, and merges any other body fields as overrides, then creates the structure. List structure blueprints with `GET /blueprints/structures`.
 
+### Create page template from blueprint
+
+Same pattern with `POST /projects/:projectId/templates` and a **blueprintId** of kind `'template'` (from `GET /blueprints/templates`).
+
 ## API endpoints (global)
 
-Blueprints are **global**; no project ID is required. Same JWT auth as other operator-level routes (see [Authentication](Authentication.md)). The API uses **path-based** routes by kind.
+Blueprints are **global**; no project ID is required. **Reading** them (`GET`) is open to anyone signed in, so every project's Setup can offer them. **Creating, changing and deleting** them needs an **operator**: an account whose own roles (not a project's) include `admin` (see [Authentication](Authentication.md)). The API uses **path-based** routes by kind; `/blueprints/templates` follows the same pattern as the others.
 
 | Method | Endpoint                     | Description                                                         |
 | ------ | ---------------------------- | ------------------------------------------------------------------- |
@@ -135,15 +161,27 @@ Blueprints are **global**; no project ID is required. Same JWT auth as other ope
 
 Creating a project from a blueprint uses the existing **Create project** endpoint (`POST /projects`) with an optional **blueprintId** in the body (see [REST API](REST%20API.md)). The `blueprintId` must refer to a project blueprint (from `GET /blueprints/projects`). Creating a model or structure from a blueprint uses the same create endpoints with **blueprintId** (and optional overrides) in the body.
 
-## Project creation form (Studio)
+## In Studio
 
-In the project creation wizard:
+- **New project:** “Start with” lists `GET /blueprints/projects`; the choice is sent as **blueprintId** on `POST /projects`.
+- **Setup › Models, Structures, Page templates:** the “New …” dialog offers “Start from” with the blueprints of that kind (hidden when there are none). Choosing one fills the name and, for models, the kind; the new item gets the blueprint’s fields under the id and name you give it, and you edit it from there.
 
-1. **Blueprint step:** The user selects a blueprint (or “Empty”). The list is loaded from `GET /blueprints/projects`.
-2. **Later steps:** The user enters project id, label, etc.
-3. **Submit:** The client calls `POST /projects` with project data and the selected **blueprintId** (or omits it for no template). The backend creates the project and, when **blueprintId** is set, applies the blueprint’s template from `data/blueprints/projects/`.
+Studio's **Operator › Blueprints** (`/operator/blueprints`) lists, edits and deletes them (account Admin). Setup still only **starts from** a blueprint; it does not change the catalogue.
 
-Blueprint management in Studio is under the global **Blueprints** area (e.g. `/blueprints`), not under a project.
+## Managing blueprints (operators)
+
+Operators can also use the **CLI** or the **API**:
+
+```bash
+moteur blueprints list --kind=model
+moteur blueprints get --kind=template --id=landing
+moteur blueprints create --kind=structure --file=./team-member.json
+moteur blueprints patch --kind=model --id=blog-post --file=./blog-post.json
+moteur blueprints delete --kind=model --id=blog-post --yes
+moteur seed            # copy the starter blueprints into data/blueprints/
+```
+
+See [CLI](CLI.md). A **hosted** service (such as api.moteur.io) should keep its blueprints **in code**, in a plugin that calls `ctx.registerBlueprint()`, so they are versioned, reviewed and deployed with the host rather than edited on a running server. Files under `data/blueprints/` suit a self-hosted Moteur.
 
 ## Relationship to core structures
 

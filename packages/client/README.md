@@ -171,14 +171,15 @@ So: **channel = collection id + typed helpers** in the SDK; on the wire it is `/
 | Property                    | Purpose                                                                                                 |
 | --------------------------- | ------------------------------------------------------------------------------------------------------- |
 | **`collections`**           | `list()` / `get(id)` — metadata about configured collections.                                           |
-| **`channel(collectionId)`** | `pages`, `entries`, `layouts`, `forms` — **GET** reads allowed by that collection’s config.             |
+| **`channel(collectionId)`** | `pages`, `entries`, `layouts`, `forms`, `menus` — **GET** reads allowed by that collection’s config.    |
 | **`site`**                  | Page **outputs**: `sitemapXml`, `sitemapJson`, `navigation` (published **tree**), `urls`, `breadcrumb`. |
 | **`radar`**                 | `get({ fullScan?, severity?, … })` — quality/readiness report for the project.                          |
 
-### `site.navigation` vs admin `navigations`
+### Menus vs `site.navigation`
 
-- **`site.navigation()`** → HTTP `GET /projects/:id/navigation` — the **computed menu/tree** for the live site (public key allowed).
-- **Admin** `forProject().navigations` → CRUD on **navigation documents** (JSON resources editors manage). Same word, different resource — use **`site`** on the public client for “give me the tree for the header.”
+- **`channel(id).menus.get('main')`** → HTTP `GET /projects/:id/collections/:collectionId/menus/main` — a menu editors build in Studio (Setup › Menus), with item URLs resolved. The collection must give that menu.
+- **`site.navigation()`** → HTTP `GET /projects/:id/navigation` — the tree **computed from the page tree** (`navInclude` pages).
+- **Admin** `forProject().navigations` → CRUD on the menu documents themselves (JWT).
 
 ### Example: load blog posts for a page
 
@@ -264,6 +265,7 @@ Same domain objects, **different URLs and rules**:
 - **`forProject(id)`** — same namespaces with `projectId` fixed, including **`activity`**
 - **`instance`** — deployment maintenance: `usage`, `seed`, `migrateProvider` (operator-oriented; see table under admin section)
 - **`blueprints`** — global blueprint templates
+- **`operator`** — the whole-server view (projects, accounts, plugins, server-wide blocks and structures); requires an account with the `admin` role
 - **`activity`** (on the root client only) — **`client.activity.list()`** for **cross-project** / system-wide logs (operators); prefer **`forProject().activity`** for normal tooling
 
 Types: **`MoteurAdminClient`**, **`MoteurPublicClient`**, **`ProjectClient`**, **`createProjectClient`**
@@ -278,9 +280,23 @@ When the API returns a **non-2xx** status, the client throws **`MoteurApiError`*
 
 - **`message`** — prefers the API’s `error` field when present
 - **`status`** — HTTP status when available
-- **`response`** — response body (shape depends on the endpoint)
+- **`response`** — the axios response (status, headers, body)
+- **`data`** — the JSON body, when there is one
+- **`code`** — a machine-readable reason: the body’s `code`, else its `error` when that is snake_case. For example `insufficient_credits` (402, out of AI credits), `plan_limit` (402, over the plan; `data.limit` and `data.max` say which), `rate_limited` (429), `ENTRY_INCOMPLETE`
+- **`retryAfter`** — seconds to wait, from a 429’s `Retry-After` header
 
 Import it from `@moteurio/client` and use `err instanceof MoteurApiError` when you need structured handling.
+
+To react to failures in one place (a banner for "out of credits", a toast for "slow down"), pass **`onError`** when creating the client. It sees every `MoteurApiError` before the call rejects; it can’t change or swallow the error.
+
+```ts
+const moteur = createMoteurAdminClient({
+    baseURL,
+    onError: err => {
+        if (err.status === 429) showToast(`Try again in ${err.retryAfter ?? 60}s`);
+    }
+});
+```
 
 **Timeouts and network errors** use axios’s usual behavior (they are not always `MoteurApiError`). Configure **`timeout`** on the client to bound how long a call may hang.
 
