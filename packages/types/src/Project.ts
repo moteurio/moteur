@@ -90,8 +90,8 @@ export interface ProjectSchema {
         provenanceForAll?: boolean;
         /** When true, run image analysis (alt/caption) automatically after each image upload. Default: false. */
         autoAnalyseImages?: boolean;
-        /** Image generation provider: openai (DALL-E), fal, replicate, or null if not set. */
-        imageProvider?: 'openai' | 'fal' | 'replicate' | null;
+        /** Image generation provider: openai (DALL-E), google (Gemini), fal, replicate, or null if not set. */
+        imageProvider?: 'openai' | 'google' | 'fal' | 'replicate' | null;
         /** Text-to-speech / audio generation provider, or null if not set. */
         audioProvider?: 'elevenlabs' | 'fal' | null;
         /** Text-to-3D model generation provider, or null if not set. */

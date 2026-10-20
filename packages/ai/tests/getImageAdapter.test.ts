@@ -2,11 +2,17 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 describe('getImageAdapter', () => {
     const prevOpenAi = process.env.OPENAI_API_KEY;
+    const prevGoogle = process.env.GOOGLE_AI_API_KEY;
+    const prevGemini = process.env.GEMINI_API_KEY;
     const prevFal = process.env.FAL_KEY;
 
     afterEach(() => {
         if (prevOpenAi === undefined) delete process.env.OPENAI_API_KEY;
         else process.env.OPENAI_API_KEY = prevOpenAi;
+        if (prevGoogle === undefined) delete process.env.GOOGLE_AI_API_KEY;
+        else process.env.GOOGLE_AI_API_KEY = prevGoogle;
+        if (prevGemini === undefined) delete process.env.GEMINI_API_KEY;
+        else process.env.GEMINI_API_KEY = prevGemini;
         if (prevFal === undefined) delete process.env.FAL_KEY;
         else process.env.FAL_KEY = prevFal;
         vi.restoreAllMocks();
@@ -31,6 +37,29 @@ describe('getImageAdapter', () => {
 
         expect(factory).toHaveBeenCalledWith('openai-key');
         expect(typeof adapter.generateImage).toBe('function');
+    });
+
+    it('resolves google adapter via registered provider factory', async () => {
+        process.env.GOOGLE_AI_API_KEY = 'google-key';
+        const registry = await import('../src/providerRegistry.js');
+        const factory = vi.fn(async () => ({ generateImage: async () => [] }));
+        registry.registerAIProvider('google', factory);
+
+        const mod = await import('../src/getImageAdapter.js');
+        await mod.getImageAdapter({ imageProvider: 'google' });
+        expect(factory).toHaveBeenCalledWith('google-key');
+    });
+
+    it('falls back to GEMINI_API_KEY for google image provider', async () => {
+        delete process.env.GOOGLE_AI_API_KEY;
+        process.env.GEMINI_API_KEY = 'gemini-key';
+        const registry = await import('../src/providerRegistry.js');
+        const factory = vi.fn(async () => ({ generateImage: async () => [] }));
+        registry.registerAIProvider('google', factory);
+
+        const mod = await import('../src/getImageAdapter.js');
+        await mod.getImageAdapter({ imageProvider: 'google' });
+        expect(factory).toHaveBeenCalledWith('gemini-key');
     });
 
     it('returns replicate adapter and uses fal key path when provider=fal', async () => {
