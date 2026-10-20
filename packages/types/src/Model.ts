@@ -11,8 +11,28 @@ export interface Entry {
     status?: EntryStatus; // default: 'draft'
     meta?: {
         audit?: Audit;
+        /**
+         * Text a helper wrote and a person kept, by field (`title`, or `title.en` for one
+         * language). The engine stamps who kept it and who read it; the mark goes when the
+         * Studio sends the field without it.
+         */
+        assisted?: Record<string, AssistedMark>;
     };
     options?: Record<string, any>; // Additional options (e.g., versioning)
+}
+
+/** Which helper wrote a field's text. */
+export type AssistHelper = 'write' | 'translate' | 'notes' | 'alt';
+
+export interface AssistedMark {
+    helper: AssistHelper;
+    /** What was asked: `shorten`, `fr→en`… */
+    action?: string;
+    keptBy?: string;
+    keptAt?: string;
+    /** Someone read it (edited it, or said it looks right): it is no longer "not yet read". */
+    readBy?: string;
+    readAt?: string;
 }
 
 export interface ModelSchema {
