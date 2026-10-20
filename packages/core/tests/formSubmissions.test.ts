@@ -6,7 +6,9 @@ import {
     listSubmissions,
     getSubmission,
     createSubmission,
-    deleteSubmission
+    deleteSubmission,
+    querySubmissions,
+    updateSubmission
 } from '../src/formSubmissions.js';
 import { createForm } from '../src/forms.js';
 import type { FormSubmissionMeta } from '@moteurio/types/Form.js';
@@ -182,6 +184,57 @@ describe('formSubmissions', () => {
             const after = await getSubmission(user, projectId, formId, created.id);
             expect(after.status).toBe('processed');
             expect(Array.isArray(after.actionResults)).toBe(true);
+        });
+    });
+
+    describe('the inbox', () => {
+        const at = (day: number) => `2026-10-${String(day).padStart(2, '0')}T10:00:00.000Z`;
+        const send = (day: number, extra: Partial<FormSubmissionMeta> = {}) =>
+            createSubmission(
+                projectId,
+                formId,
+                { email: `${day}@test.com` },
+                { submittedAt: at(day), ...extra }
+            );
+        // Actions run in the background; give them a moment.
+        const settle = () => new Promise(r => setTimeout(r, 50));
+
+        it('lists newest first, pages, and counts total and unread', async () => {
+            await send(3);
+            await send(12);
+            await send(7);
+            await send(9, { honeypotTriggered: true });
+            await settle();
+            const page = await querySubmissions(user, projectId, formId, { offset: 1, limit: 2 });
+            expect(page.submissions.map(s => s.metadata.submittedAt)).toEqual([at(9), at(7)]);
+            expect(page.total).toBe(4);
+            // Spam is never counted as unread.
+            expect(page.unread).toBe(3);
+        });
+
+        it('marks read and unread, spam and not spam, keeping the rest', async () => {
+            const s = await send(5);
+            await settle();
+            const read = await updateSubmission(user, projectId, formId, s.id, { read: true });
+            expect(read.readAt).toBeTruthy();
+            expect(read.readBy).toBe('u1');
+            expect(read.status).toBe('processed');
+            expect((await querySubmissions(user, projectId, formId, { unread: true })).total).toBe(
+                0
+            );
+
+            const spam = await updateSubmission(user, projectId, formId, s.id, { spam: true });
+            expect(spam.status).toBe('spam');
+            expect(spam.readAt).toBe(read.readAt);
+            const back = await updateSubmission(user, projectId, formId, s.id, {
+                spam: false,
+                read: false
+            });
+            expect(back.status).toBe('processed');
+            expect(back.readAt).toBeUndefined();
+            expect((await getSubmission(user, projectId, formId, s.id)).data).toEqual({
+                email: '5@test.com'
+            });
         });
     });
 });

@@ -299,7 +299,16 @@ const baseSchemas: OpenAPIV3.ComponentsObject['schemas'] = {
         type: 'object',
         required: ['submissions'],
         properties: {
-            submissions: { type: 'array', items: { $ref: '#/components/schemas/JsonRecord' } }
+            submissions: {
+                type: 'array',
+                description: 'Newest first',
+                items: { $ref: '#/components/schemas/JsonRecord' }
+            },
+            total: { type: 'integer', description: 'Matching submissions before offset and limit' },
+            unread: {
+                type: 'integer',
+                description: 'Unread submissions in the form, spam left out'
+            }
         }
     },
     FormSubmissionOneResponse: {

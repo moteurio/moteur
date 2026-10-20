@@ -27,32 +27,93 @@ function generateSubmissionId(): string {
 
 export interface ListSubmissionsOptions {
     status?: FormSubmissionStatus;
+    /** Only submissions nobody has opened yet. */
+    unread?: boolean;
+    offset?: number;
     limit?: number;
 }
 
+export interface SubmissionsPage {
+    /** Newest first. */
+    submissions: FormSubmission[];
+    /** How many match, before offset and limit. */
+    total: number;
+    /** Unread submissions in the whole form, spam left out. */
+    unread: number;
+}
+
+const submittedAt = (s: FormSubmission) => s.metadata?.submittedAt ?? '';
+
+/** A form's submissions, newest first, with how many match and how many are unread. */
+export async function querySubmissions(
+    user: User,
+    projectId: string,
+    formId: string,
+    options?: ListSubmissionsOptions
+): Promise<SubmissionsPage> {
+    await getForm(user, projectId, formId);
+
+    const ids = await UserDataStore.listSubmissionIds(projectId, formId);
+    const all: FormSubmission[] = [];
+    for (const id of ids) {
+        const sub = await UserDataStore.getSubmission(projectId, formId, id);
+        if (sub) all.push(sub);
+    }
+    all.sort((a, b) => submittedAt(b).localeCompare(submittedAt(a)));
+
+    let result = all;
+    if (options?.status !== undefined) result = result.filter(s => s.status === options.status);
+    if (options?.unread) result = result.filter(s => !s.readAt && s.status !== 'spam');
+    const total = result.length;
+    const offset = Math.max(0, options?.offset ?? 0);
+    const limit = options?.limit !== undefined && options.limit > 0 ? options.limit : undefined;
+    return {
+        submissions: result.slice(offset, limit === undefined ? undefined : offset + limit),
+        total,
+        unread: all.filter(s => !s.readAt && s.status !== 'spam').length
+    };
+}
+
+/** A form's submissions, newest first. */
 export async function listSubmissions(
     user: User,
     projectId: string,
     formId: string,
     options?: ListSubmissionsOptions
 ): Promise<FormSubmission[]> {
-    await getForm(user, projectId, formId);
+    return (await querySubmissions(user, projectId, formId, options)).submissions;
+}
 
-    const ids = await UserDataStore.listSubmissionIds(projectId, formId);
-    const submissions: FormSubmission[] = [];
-    for (const id of ids) {
-        const sub = await UserDataStore.getSubmission(projectId, formId, id);
-        if (sub) submissions.push(sub);
+/**
+ * What a person can change on a submission: whether it is read, and whether it is spam.
+ * Marking spam keeps it (out of the unread count); "not spam" puts it back as it was.
+ */
+export async function updateSubmission(
+    user: User,
+    projectId: string,
+    formId: string,
+    submissionId: string,
+    patch: { read?: boolean; spam?: boolean }
+): Promise<FormSubmission> {
+    const submission = await getSubmission(user, projectId, formId, submissionId);
+    const next: FormSubmission = { ...submission };
+    if (patch.read === true && !next.readAt) {
+        next.readAt = new Date().toISOString();
+        next.readBy = user.id;
+    } else if (patch.read === false) {
+        delete next.readAt;
+        delete next.readBy;
     }
-
-    let result = submissions;
-    if (options?.status !== undefined) {
-        result = result.filter(s => s.status === options.status);
+    if (patch.spam === true && next.status !== 'spam') {
+        next.statusBeforeSpam = next.status;
+        next.status = 'spam';
+    } else if (patch.spam === false && next.status === 'spam') {
+        // Caught by the honeypot, its actions never ran: it goes back as received.
+        next.status = next.statusBeforeSpam ?? 'received';
+        delete next.statusBeforeSpam;
     }
-    if (options?.limit !== undefined && options.limit > 0) {
-        result = result.slice(0, options.limit);
-    }
-    return result;
+    await UserDataStore.saveSubmission(projectId, formId, next);
+    return next;
 }
 
 export async function getSubmission(
@@ -162,7 +223,8 @@ async function processSubmission(
 
     if (submission.metadata.honeypotTriggered && form.honeypot !== false) {
         const updated: FormSubmission = {
-            ...submission,
+            ...((await UserDataStore.getSubmission(projectId, formId, submission.id)) ??
+                submission),
             status: 'spam'
         };
         await UserDataStore.saveSubmission(projectId, formId, updated);
@@ -244,9 +306,12 @@ async function processSubmission(
         }
     }
 
+    // Read again: someone may have opened it while the actions ran.
+    const latest =
+        (await UserDataStore.getSubmission(projectId, formId, submission.id)) ?? submission;
     const updated: FormSubmission = {
-        ...submission,
-        status: 'processed',
+        ...latest,
+        status: latest.status === 'spam' ? 'spam' : 'processed',
         actionResults
     };
     await UserDataStore.saveSubmission(projectId, formId, updated);
