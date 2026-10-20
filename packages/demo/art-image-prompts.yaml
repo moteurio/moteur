@@ -1,0 +1,2001 @@
+# Moteur Journal — complete AI image prompts (one prompt per art key)
+# Source: src/journal/art-image-prompts.ts — regenerate with:
+#   pnpm --filter @moteurio/demo exec tsx src/journal/dump-art-prompts.ts
+#
+# Recommended: fal / flux-pro
+
+style_bible: |
+  1970s Canadian editorial screen-print illustration for Moteur Industries, a fictional Montréal robotics company (1968–1978).
+  Flat geometric shapes, bold black ink outlines, limited spot colors, halftone dot texture on aged warm paper.
+  Mid-century industrial design catalogue and magazine art direction; sincere corporate modernism.
+  Not photorealistic, not 3D render, not CGI, not anime, not neon cyberpunk, not glossy mecha.
+  Montreal winter light and North American print culture. Subtle paper grain and registration imperfections welcome.
+
+negative_prompt: |
+  photorealistic, CGI, octane render, unreal engine, glossy plastic, chrome robot, mecha, anime, chibi,
+  lens flare, bokeh, stock photo, hyperreal skin, gradient mesh, 4k hyperdetail, cluttered composition,
+  text, typography, letters, numbers, words, logo, watermark, signature, caption, UI, border with writing,
+  celebrity likeness, identifiable real person
+
+assets:
+  logo:
+    category: brand
+    aspect_ratio: "1:1"
+    folder: brand
+    palette: maison
+    overlay_note: "SVG logo remains canonical for UI; AI variant optional."
+    prompt: |
+      1970s Canadian editorial screen-print illustration for Moteur Industries, a fictional Montréal robotics company (1968–1978).
+      Flat geometric shapes, bold black ink outlines, limited spot colors, halftone dot texture on aged warm paper.
+      Mid-century industrial design catalogue and magazine art direction; sincere corporate modernism.
+      Not photorealistic, not 3D render, not CGI, not anime, not neon cyberpunk, not glossy mecha.
+      Montreal winter light and North American print culture. Subtle paper grain and registration imperfections welcome.
+      
+      Colors only: warm cream paper #efe3cc, ink #2b1d14, orange #d8622b, gold #e9b44c, shadow #9b4a22.
+      
+      Aspect ratio: 1:1.
+      
+      Brand mark illustration only (no wordmark): geometric sun-gear icon, orange rounded square background #d8622b,
+      dark ink circle with six radial pegs and center hub, flat screen-print, square 512px feel, simple industrial logo.
+      
+      Negative prompt: photorealistic, CGI, octane render, unreal engine, glossy plastic, chrome robot, mecha, anime, chibi,
+      lens flare, bokeh, stock photo, hyperreal skin, gradient mesh, 4k hyperdetail, cluttered composition,
+      text, typography, letters, numbers, words, logo, watermark, signature, caption, UI, border with writing,
+      celebrity likeness, identifiable real person
+
+  cover-issue-00:
+    category: cover-illustration
+    aspect_ratio: "3:4"
+    folder: covers
+    palette: archive
+    overlay_note: "Composite with issueCover() SVG for MOTEUR JOURNAL masthead, number, titles, price."
+    prompt: |
+      1970s Canadian editorial screen-print illustration for Moteur Industries, a fictional Montréal robotics company (1968–1978).
+      Flat geometric shapes, bold black ink outlines, limited spot colors, halftone dot texture on aged warm paper.
+      Mid-century industrial design catalogue and magazine art direction; sincere corporate modernism.
+      Not photorealistic, not 3D render, not CGI, not anime, not neon cyberpunk, not glossy mecha.
+      Montreal winter light and North American print culture. Subtle paper grain and registration imperfections welcome.
+      
+      Colors only: aged tan paper #eadfc8, ink #3b2f22, brown #8a6a43, sand #b8956a, shadow #6d5a44.
+      
+      Aspect ratio: 3:4.
+      
+      Magazine cover ILLUSTRATION PLATE ONLY (no masthead, no titles).
+      Motif: withdrawn pilot issue — diagonal ruled lines over a large serif zero shape on cream paper, mimeograph energy, withdrawn proof aesthetic.
+      Top 25% calmer paper for future masthead overlay; bottom 110px dark ink band empty for footer type.
+      Issue theme: Numéro zéro / Issue Zero. Season: AUTOMNE 1968.
+      
+      Negative prompt: photorealistic, CGI, octane render, unreal engine, glossy plastic, chrome robot, mecha, anime, chibi,
+      lens flare, bokeh, stock photo, hyperreal skin, gradient mesh, 4k hyperdetail, cluttered composition,
+      text, typography, letters, numbers, words, logo, watermark, signature, caption, UI, border with writing,
+      celebrity likeness, identifiable real person
+
+  cover-issue-01:
+    category: cover-illustration
+    aspect_ratio: "3:4"
+    folder: covers
+    palette: maison
+    overlay_note: "Composite with issueCover() SVG for MOTEUR JOURNAL masthead, number, titles, price."
+    prompt: |
+      1970s Canadian editorial screen-print illustration for Moteur Industries, a fictional Montréal robotics company (1968–1978).
+      Flat geometric shapes, bold black ink outlines, limited spot colors, halftone dot texture on aged warm paper.
+      Mid-century industrial design catalogue and magazine art direction; sincere corporate modernism.
+      Not photorealistic, not 3D render, not CGI, not anime, not neon cyberpunk, not glossy mecha.
+      Montreal winter light and North American print culture. Subtle paper grain and registration imperfections welcome.
+      
+      Colors only: warm cream paper #efe3cc, ink #2b1d14, orange #d8622b, gold #e9b44c, shadow #9b4a22.
+      
+      Aspect ratio: 3:4.
+      
+      Magazine cover ILLUSTRATION PLATE ONLY (no masthead, no titles).
+      Motif: winter dawn — sun disk half below horizon, radiating lines, small garage silhouette, first light over Montréal.
+      Top 25% simpler for masthead overlay; bottom dark ink band empty for bilingual footer.
+      Issue theme: L’Aube / The Dawn. Season: HIVER 1968.
+      
+      Negative prompt: photorealistic, CGI, octane render, unreal engine, glossy plastic, chrome robot, mecha, anime, chibi,
+      lens flare, bokeh, stock photo, hyperreal skin, gradient mesh, 4k hyperdetail, cluttered composition,
+      text, typography, letters, numbers, words, logo, watermark, signature, caption, UI, border with writing,
+      celebrity likeness, identifiable real person
+
+  cover-issue-02:
+    category: cover-illustration
+    aspect_ratio: "3:4"
+    folder: covers
+    palette: maison
+    overlay_note: "Composite with issueCover() SVG for MOTEUR JOURNAL masthead, number, titles, price."
+    prompt: |
+      1970s Canadian editorial screen-print illustration for Moteur Industries, a fictional Montréal robotics company (1968–1978).
+      Flat geometric shapes, bold black ink outlines, limited spot colors, halftone dot texture on aged warm paper.
+      Mid-century industrial design catalogue and magazine art direction; sincere corporate modernism.
+      Not photorealistic, not 3D render, not CGI, not anime, not neon cyberpunk, not glossy mecha.
+      Montreal winter light and North American print culture. Subtle paper grain and registration imperfections welcome.
+      
+      Colors only: warm cream paper #efe3cc, ink #2b1d14, orange #d8622b, gold #e9b44c, shadow #9b4a22.
+      
+      Aspect ratio: 3:4.
+      
+      Magazine cover ILLUSTRATION PLATE ONLY (no masthead, no titles).
+      Motif: the home — geometric house with warm windows, domestic MAISON robot implied near doorway, spring feeling.
+      Lower two-thirds weighted; top calm for masthead; bottom ink band empty.
+      Issue theme: La Maison / The Home. Season: PRINTEMPS 1971.
+      
+      Negative prompt: photorealistic, CGI, octane render, unreal engine, glossy plastic, chrome robot, mecha, anime, chibi,
+      lens flare, bokeh, stock photo, hyperreal skin, gradient mesh, 4k hyperdetail, cluttered composition,
+      text, typography, letters, numbers, words, logo, watermark, signature, caption, UI, border with writing,
+      celebrity likeness, identifiable real person
+
+  cover-issue-03:
+    category: cover-illustration
+    aspect_ratio: "3:4"
+    folder: covers
+    palette: industrie
+    overlay_note: "Composite with issueCover() SVG for MOTEUR JOURNAL masthead, number, titles, price."
+    prompt: |
+      1970s Canadian editorial screen-print illustration for Moteur Industries, a fictional Montréal robotics company (1968–1978).
+      Flat geometric shapes, bold black ink outlines, limited spot colors, halftone dot texture on aged warm paper.
+      Mid-century industrial design catalogue and magazine art direction; sincere corporate modernism.
+      Not photorealistic, not 3D render, not CGI, not anime, not neon cyberpunk, not glossy mecha.
+      Montreal winter light and North American print culture. Subtle paper grain and registration imperfections welcome.
+      
+      Colors only: cool grey paper #e4e6e1, ink #1c2229, steel blue #2f5d8a, yellow #f2c230, shadow #5b6b78.
+      
+      Aspect ratio: 3:4.
+      
+      Magazine cover ILLUSTRATION PLATE ONLY (no masthead, no titles).
+      Motif: factory at night — sawtooth roofline, smokestacks, yellow window grids, industrial robot arms as simple silhouettes, 3 a.m. brightness.
+      Bottom ink band empty for footer type.
+      Issue theme: L’Usine / The Factory. Season: ÉTÉ 1973.
+      
+      Negative prompt: photorealistic, CGI, octane render, unreal engine, glossy plastic, chrome robot, mecha, anime, chibi,
+      lens flare, bokeh, stock photo, hyperreal skin, gradient mesh, 4k hyperdetail, cluttered composition,
+      text, typography, letters, numbers, words, logo, watermark, signature, caption, UI, border with writing,
+      celebrity likeness, identifiable real person
+
+  cover-issue-04:
+    category: cover-illustration
+    aspect_ratio: "3:4"
+    folder: covers
+    palette: compagnon
+    overlay_note: "Composite with issueCover() SVG for MOTEUR JOURNAL masthead, number, titles, price."
+    prompt: |
+      1970s Canadian editorial screen-print illustration for Moteur Industries, a fictional Montréal robotics company (1968–1978).
+      Flat geometric shapes, bold black ink outlines, limited spot colors, halftone dot texture on aged warm paper.
+      Mid-century industrial design catalogue and magazine art direction; sincere corporate modernism.
+      Not photorealistic, not 3D render, not CGI, not anime, not neon cyberpunk, not glossy mecha.
+      Montreal winter light and North American print culture. Subtle paper grain and registration imperfections welcome.
+      
+      Colors only: sage paper #e8eadf, ink #17251f, teal #2f8a6e, coral #e07a5f, shadow #3d5a50.
+      
+      Aspect ratio: 3:4.
+      
+      Magazine cover ILLUSTRATION PLATE ONLY (no masthead, no titles).
+      Motif: human–machine bond — two overlapping circles (human silhouette and robot head silhouette), warm attachment, waiting-list melancholy.
+      Compagnon series emotional tone; bottom ink band empty.
+      Issue theme: Le Compagnon / The Bond. Season: AUTOMNE 1977.
+      
+      Negative prompt: photorealistic, CGI, octane render, unreal engine, glossy plastic, chrome robot, mecha, anime, chibi,
+      lens flare, bokeh, stock photo, hyperreal skin, gradient mesh, 4k hyperdetail, cluttered composition,
+      text, typography, letters, numbers, words, logo, watermark, signature, caption, UI, border with writing,
+      celebrity likeness, identifiable real person
+
+  cover-issue-05:
+    category: cover-illustration
+    aspect_ratio: "3:4"
+    folder: covers
+    palette: horizon
+    overlay_note: "Composite with issueCover() SVG for MOTEUR JOURNAL masthead, number, titles, price."
+    prompt: |
+      1970s Canadian editorial screen-print illustration for Moteur Industries, a fictional Montréal robotics company (1968–1978).
+      Flat geometric shapes, bold black ink outlines, limited spot colors, halftone dot texture on aged warm paper.
+      Mid-century industrial design catalogue and magazine art direction; sincere corporate modernism.
+      Not photorealistic, not 3D render, not CGI, not anime, not neon cyberpunk, not glossy mecha.
+      Montreal winter light and North American print culture. Subtle paper grain and registration imperfections welcome.
+      
+      Colors only: pale blue-grey paper #dfe7ec, ink #0d1b2a, navy #1b4965, sky blue #5fa8d3, shadow #62b6cb.
+      
+      Aspect ratio: 3:4.
+      
+      Magazine cover ILLUSTRATION PLATE ONLY (no masthead, no titles).
+      Motif: the edge — ocean horizon lines, small deep-sea submersible, moon, final-issue farewell mood.
+      Horizon series palette; top and bottom safe zones for typography overlay.
+      Issue theme: L’Horizon / The Edge. Season: HIVER 1978.
+      
+      Negative prompt: photorealistic, CGI, octane render, unreal engine, glossy plastic, chrome robot, mecha, anime, chibi,
+      lens flare, bokeh, stock photo, hyperreal skin, gradient mesh, 4k hyperdetail, cluttered composition,
+      text, typography, letters, numbers, words, logo, watermark, signature, caption, UI, border with writing,
+      celebrity likeness, identifiable real person
+
+  cover-hors-serie-signal:
+    category: cover-illustration
+    aspect_ratio: "3:4"
+    folder: covers
+    palette: signal
+    overlay_note: "Composite with issueCover() SVG for MOTEUR JOURNAL masthead, number, titles, price."
+    prompt: |
+      1970s Canadian editorial screen-print illustration for Moteur Industries, a fictional Montréal robotics company (1968–1978).
+      Flat geometric shapes, bold black ink outlines, limited spot colors, halftone dot texture on aged warm paper.
+      Mid-century industrial design catalogue and magazine art direction; sincere corporate modernism.
+      Not photorealistic, not 3D render, not CGI, not anime, not neon cyberpunk, not glossy mecha.
+      Montreal winter light and North American print culture. Subtle paper grain and registration imperfections welcome.
+      
+      Colors only: warm grey paper #f1e9e2, ink #1a1a1a, red #c0392b, slate #2c3e50, shadow #7f8c8d.
+      
+      Aspect ratio: 3:4.
+      
+      Magazine cover ILLUSTRATION PLATE ONLY (no masthead, no titles).
+      Motif: radio signal — central antenna mast, concentric broadcast arcs, Sept-Îles coastal mood, who is listening.
+      Special issue energy; strong vertical center; bottom band empty.
+      Issue theme: Hors-série: Le Signal / Special: The Signal. Season: PRINTEMPS 1979.
+      
+      Negative prompt: photorealistic, CGI, octane render, unreal engine, glossy plastic, chrome robot, mecha, anime, chibi,
+      lens flare, bokeh, stock photo, hyperreal skin, gradient mesh, 4k hyperdetail, cluttered composition,
+      text, typography, letters, numbers, words, logo, watermark, signature, caption, UI, border with writing,
+      celebrity likeness, identifiable real person
+
+  series-la-chose:
+    category: series
+    aspect_ratio: "1:1"
+    folder: catalogue
+    palette: archive
+    prompt: |
+      1970s Canadian editorial screen-print illustration for Moteur Industries, a fictional Montréal robotics company (1968–1978).
+      Flat geometric shapes, bold black ink outlines, limited spot colors, halftone dot texture on aged warm paper.
+      Mid-century industrial design catalogue and magazine art direction; sincere corporate modernism.
+      Not photorealistic, not 3D render, not CGI, not anime, not neon cyberpunk, not glossy mecha.
+      Montreal winter light and North American print culture. Subtle paper grain and registration imperfections welcome.
+      
+      Colors only: aged tan paper #eadfc8, ink #3b2f22, brown #8a6a43, sand #b8956a, shadow #6d5a44.
+      
+      Aspect ratio: 1:1.
+      
+      Series hero portrait: SÉRIE 00 LA CHOSE, single prototype lineage, archive palette, one iconic garage-built robot centered, caption years 1968, square catalogue image, bottom ink band empty for series name typography.
+      
+      Negative prompt: photorealistic, CGI, octane render, unreal engine, glossy plastic, chrome robot, mecha, anime, chibi,
+      lens flare, bokeh, stock photo, hyperreal skin, gradient mesh, 4k hyperdetail, cluttered composition,
+      text, typography, letters, numbers, words, logo, watermark, signature, caption, UI, border with writing,
+      celebrity likeness, identifiable real person
+
+  series-maison:
+    category: series
+    aspect_ratio: "1:1"
+    folder: catalogue
+    palette: maison
+    prompt: |
+      1970s Canadian editorial screen-print illustration for Moteur Industries, a fictional Montréal robotics company (1968–1978).
+      Flat geometric shapes, bold black ink outlines, limited spot colors, halftone dot texture on aged warm paper.
+      Mid-century industrial design catalogue and magazine art direction; sincere corporate modernism.
+      Not photorealistic, not 3D render, not CGI, not anime, not neon cyberpunk, not glossy mecha.
+      Montreal winter light and North American print culture. Subtle paper grain and registration imperfections welcome.
+      
+      Colors only: warm cream paper #efe3cc, ink #2b1d14, orange #d8622b, gold #e9b44c, shadow #9b4a22.
+      
+      Aspect ratio: 1:1.
+      
+      Series hero portrait: SÉRIE 01 MAISON domestic line, friendly home robot silhouette, warm orange sun disk, years 1970–1979 mood, square 1:1, bottom band empty.
+      
+      Negative prompt: photorealistic, CGI, octane render, unreal engine, glossy plastic, chrome robot, mecha, anime, chibi,
+      lens flare, bokeh, stock photo, hyperreal skin, gradient mesh, 4k hyperdetail, cluttered composition,
+      text, typography, letters, numbers, words, logo, watermark, signature, caption, UI, border with writing,
+      celebrity likeness, identifiable real person
+
+  series-industrie:
+    category: series
+    aspect_ratio: "1:1"
+    folder: catalogue
+    palette: industrie
+    prompt: |
+      1970s Canadian editorial screen-print illustration for Moteur Industries, a fictional Montréal robotics company (1968–1978).
+      Flat geometric shapes, bold black ink outlines, limited spot colors, halftone dot texture on aged warm paper.
+      Mid-century industrial design catalogue and magazine art direction; sincere corporate modernism.
+      Not photorealistic, not 3D render, not CGI, not anime, not neon cyberpunk, not glossy mecha.
+      Montreal winter light and North American print culture. Subtle paper grain and registration imperfections welcome.
+      
+      Colors only: cool grey paper #e4e6e1, ink #1c2229, steel blue #2f5d8a, yellow #f2c230, shadow #5b6b78.
+      
+      Aspect ratio: 1:1.
+      
+      Series hero portrait: SÉRIE 02 INDUSTRIE, factory arm and gantry motifs, steel blue and yellow, never sleeps mood, square 1:1.
+      
+      Negative prompt: photorealistic, CGI, octane render, unreal engine, glossy plastic, chrome robot, mecha, anime, chibi,
+      lens flare, bokeh, stock photo, hyperreal skin, gradient mesh, 4k hyperdetail, cluttered composition,
+      text, typography, letters, numbers, words, logo, watermark, signature, caption, UI, border with writing,
+      celebrity likeness, identifiable real person
+
+  series-compagnon:
+    category: series
+    aspect_ratio: "1:1"
+    folder: catalogue
+    palette: compagnon
+    prompt: |
+      1970s Canadian editorial screen-print illustration for Moteur Industries, a fictional Montréal robotics company (1968–1978).
+      Flat geometric shapes, bold black ink outlines, limited spot colors, halftone dot texture on aged warm paper.
+      Mid-century industrial design catalogue and magazine art direction; sincere corporate modernism.
+      Not photorealistic, not 3D render, not CGI, not anime, not neon cyberpunk, not glossy mecha.
+      Montreal winter light and North American print culture. Subtle paper grain and registration imperfections welcome.
+      
+      Colors only: sage paper #e8eadf, ink #17251f, teal #2f8a6e, coral #e07a5f, shadow #3d5a50.
+      
+      Aspect ratio: 1:1.
+      
+      Series hero portrait: SÉRIE 03 COMPAGNON, companion robot with open posture, conversational Teal and coral, someone to talk to, square 1:1.
+      
+      Negative prompt: photorealistic, CGI, octane render, unreal engine, glossy plastic, chrome robot, mecha, anime, chibi,
+      lens flare, bokeh, stock photo, hyperreal skin, gradient mesh, 4k hyperdetail, cluttered composition,
+      text, typography, letters, numbers, words, logo, watermark, signature, caption, UI, border with writing,
+      celebrity likeness, identifiable real person
+
+  series-horizon:
+    category: series
+    aspect_ratio: "1:1"
+    folder: catalogue
+    palette: horizon
+    prompt: |
+      1970s Canadian editorial screen-print illustration for Moteur Industries, a fictional Montréal robotics company (1968–1978).
+      Flat geometric shapes, bold black ink outlines, limited spot colors, halftone dot texture on aged warm paper.
+      Mid-century industrial design catalogue and magazine art direction; sincere corporate modernism.
+      Not photorealistic, not 3D render, not CGI, not anime, not neon cyberpunk, not glossy mecha.
+      Montreal winter light and North American print culture. Subtle paper grain and registration imperfections welcome.
+      
+      Colors only: pale blue-grey paper #dfe7ec, ink #0d1b2a, navy #1b4965, sky blue #5fa8d3, shadow #62b6cb.
+      
+      Aspect ratio: 1:1.
+      
+      Series hero portrait: SÉRIE 04 HORIZON, exploration robot with depth waves behind, ocean and infinity mood, square 1:1.
+      
+      Negative prompt: photorealistic, CGI, octane render, unreal engine, glossy plastic, chrome robot, mecha, anime, chibi,
+      lens flare, bokeh, stock photo, hyperreal skin, gradient mesh, 4k hyperdetail, cluttered composition,
+      text, typography, letters, numbers, words, logo, watermark, signature, caption, UI, border with writing,
+      celebrity likeness, identifiable real person
+
+  series-signal:
+    category: series
+    aspect_ratio: "1:1"
+    folder: catalogue
+    palette: signal
+    prompt: |
+      1970s Canadian editorial screen-print illustration for Moteur Industries, a fictional Montréal robotics company (1968–1978).
+      Flat geometric shapes, bold black ink outlines, limited spot colors, halftone dot texture on aged warm paper.
+      Mid-century industrial design catalogue and magazine art direction; sincere corporate modernism.
+      Not photorealistic, not 3D render, not CGI, not anime, not neon cyberpunk, not glossy mecha.
+      Montreal winter light and North American print culture. Subtle paper grain and registration imperfections welcome.
+      
+      Colors only: warm grey paper #f1e9e2, ink #1a1a1a, red #c0392b, slate #2c3e50, shadow #7f8c8d.
+      
+      Aspect ratio: 1:1.
+      
+      Series hero portrait: SÉRIE 05 SIGNAL, antenna robot listening, broadcast arcs, next-series teaser 1979, square 1:1.
+      
+      Negative prompt: photorealistic, CGI, octane render, unreal engine, glossy plastic, chrome robot, mecha, anime, chibi,
+      lens flare, bokeh, stock photo, hyperreal skin, gradient mesh, 4k hyperdetail, cluttered composition,
+      text, typography, letters, numbers, words, logo, watermark, signature, caption, UI, border with writing,
+      celebrity likeness, identifiable real person
+
+  robot-la-chose:
+    category: robot
+    aspect_ratio: "1:1"
+    folder: catalogue
+    palette: archive
+    prompt: |
+      1970s Canadian editorial screen-print illustration for Moteur Industries, a fictional Montréal robotics company (1968–1978).
+      Flat geometric shapes, bold black ink outlines, limited spot colors, halftone dot texture on aged warm paper.
+      Mid-century industrial design catalogue and magazine art direction; sincere corporate modernism.
+      Not photorealistic, not 3D render, not CGI, not anime, not neon cyberpunk, not glossy mecha.
+      Montreal winter light and North American print culture. Subtle paper grain and registration imperfections welcome.
+      
+      Colors only: aged tan paper #eadfc8, ink #3b2f22, brown #8a6a43, sand #b8956a, shadow #6d5a44.
+      
+      Aspect ratio: 1:1.
+      
+      Product portrait: LA CHOSE prototype (1968), bulky first robot 92 kg energy, boxy head twin eyes, coffee-tray arms, garage-built honesty, archive brown palette, square 1:1, bottom dark band empty for name overlay.
+      
+      Negative prompt: photorealistic, CGI, octane render, unreal engine, glossy plastic, chrome robot, mecha, anime, chibi,
+      lens flare, bokeh, stock photo, hyperreal skin, gradient mesh, 4k hyperdetail, cluttered composition,
+      text, typography, letters, numbers, words, logo, watermark, signature, caption, UI, border with writing,
+      celebrity likeness, identifiable real person
+
+  robot-maison-1:
+    category: robot
+    aspect_ratio: "1:1"
+    folder: catalogue
+    palette: maison
+    prompt: |
+      1970s Canadian editorial screen-print illustration for Moteur Industries, a fictional Montréal robotics company (1968–1978).
+      Flat geometric shapes, bold black ink outlines, limited spot colors, halftone dot texture on aged warm paper.
+      Mid-century industrial design catalogue and magazine art direction; sincere corporate modernism.
+      Not photorealistic, not 3D render, not CGI, not anime, not neon cyberpunk, not glossy mecha.
+      Montreal winter light and North American print culture. Subtle paper grain and registration imperfections welcome.
+      
+      Colors only: warm cream paper #efe3cc, ink #2b1d14, orange #d8622b, gold #e9b44c, shadow #9b4a22.
+      
+      Aspect ratio: 1:1.
+      
+      Product portrait: MAISON-1 (1970), first kitchen domestic unit, shorter rounded body, simple twin eyes, no memory era, homemaker appliance personality, square 1:1, bottom band empty.
+      
+      Negative prompt: photorealistic, CGI, octane render, unreal engine, glossy plastic, chrome robot, mecha, anime, chibi,
+      lens flare, bokeh, stock photo, hyperreal skin, gradient mesh, 4k hyperdetail, cluttered composition,
+      text, typography, letters, numbers, words, logo, watermark, signature, caption, UI, border with writing,
+      celebrity likeness, identifiable real person
+
+  robot-maison-3:
+    category: robot
+    aspect_ratio: "1:1"
+    folder: catalogue
+    palette: maison
+    prompt: |
+      1970s Canadian editorial screen-print illustration for Moteur Industries, a fictional Montréal robotics company (1968–1978).
+      Flat geometric shapes, bold black ink outlines, limited spot colors, halftone dot texture on aged warm paper.
+      Mid-century industrial design catalogue and magazine art direction; sincere corporate modernism.
+      Not photorealistic, not 3D render, not CGI, not anime, not neon cyberpunk, not glossy mecha.
+      Montreal winter light and North American print culture. Subtle paper grain and registration imperfections welcome.
+      
+      Colors only: warm cream paper #efe3cc, ink #2b1d14, orange #d8622b, gold #e9b44c, shadow #9b4a22.
+      
+      Aspect ratio: 1:1.
+      
+      Product portrait: MAISON-3 (1975), contextual memory domestic robot, warm friendly geometric face, chest gauge dots, orange colorway, bestselling home unit, square 1:1, bottom band empty.
+      
+      Negative prompt: photorealistic, CGI, octane render, unreal engine, glossy plastic, chrome robot, mecha, anime, chibi,
+      lens flare, bokeh, stock photo, hyperreal skin, gradient mesh, 4k hyperdetail, cluttered composition,
+      text, typography, letters, numbers, words, logo, watermark, signature, caption, UI, border with writing,
+      celebrity likeness, identifiable real person
+
+  robot-maison-7:
+    category: robot
+    aspect_ratio: "1:1"
+    folder: catalogue
+    palette: maison
+    prompt: |
+      1970s Canadian editorial screen-print illustration for Moteur Industries, a fictional Montréal robotics company (1968–1978).
+      Flat geometric shapes, bold black ink outlines, limited spot colors, halftone dot texture on aged warm paper.
+      Mid-century industrial design catalogue and magazine art direction; sincere corporate modernism.
+      Not photorealistic, not 3D render, not CGI, not anime, not neon cyberpunk, not glossy mecha.
+      Montreal winter light and North American print culture. Subtle paper grain and registration imperfections welcome.
+      
+      Colors only: warm cream paper #efe3cc, ink #2b1d14, orange #d8622b, gold #e9b44c, shadow #9b4a22.
+      
+      Aspect ratio: 1:1.
+      
+      Product portrait: MAISON-7 (1978), lighter patient domestic line, slim torso, waitlist era, square 1:1.
+      
+      Negative prompt: photorealistic, CGI, octane render, unreal engine, glossy plastic, chrome robot, mecha, anime, chibi,
+      lens flare, bokeh, stock photo, hyperreal skin, gradient mesh, 4k hyperdetail, cluttered composition,
+      text, typography, letters, numbers, words, logo, watermark, signature, caption, UI, border with writing,
+      celebrity likeness, identifiable real person
+
+  robot-maison-9:
+    category: robot
+    aspect_ratio: "1:1"
+    folder: catalogue
+    palette: maison
+    prompt: |
+      1970s Canadian editorial screen-print illustration for Moteur Industries, a fictional Montréal robotics company (1968–1978).
+      Flat geometric shapes, bold black ink outlines, limited spot colors, halftone dot texture on aged warm paper.
+      Mid-century industrial design catalogue and magazine art direction; sincere corporate modernism.
+      Not photorealistic, not 3D render, not CGI, not anime, not neon cyberpunk, not glossy mecha.
+      Montreal winter light and North American print culture. Subtle paper grain and registration imperfections welcome.
+      
+      Colors only: warm cream paper #efe3cc, ink #2b1d14, orange #d8622b, gold #e9b44c, shadow #9b4a22.
+      
+      Aspect ratio: 1:1.
+      
+      Product portrait: MAISON-9 prototype (1979), experimental domestic, slightly unfinished panels, trial-family mood, square 1:1.
+      
+      Negative prompt: photorealistic, CGI, octane render, unreal engine, glossy plastic, chrome robot, mecha, anime, chibi,
+      lens flare, bokeh, stock photo, hyperreal skin, gradient mesh, 4k hyperdetail, cluttered composition,
+      text, typography, letters, numbers, words, logo, watermark, signature, caption, UI, border with writing,
+      celebrity likeness, identifiable real person
+
+  robot-industrie-a:
+    category: robot
+    aspect_ratio: "1:1"
+    folder: catalogue
+    palette: industrie
+    prompt: |
+      1970s Canadian editorial screen-print illustration for Moteur Industries, a fictional Montréal robotics company (1968–1978).
+      Flat geometric shapes, bold black ink outlines, limited spot colors, halftone dot texture on aged warm paper.
+      Mid-century industrial design catalogue and magazine art direction; sincere corporate modernism.
+      Not photorealistic, not 3D render, not CGI, not anime, not neon cyberpunk, not glossy mecha.
+      Montreal winter light and North American print culture. Subtle paper grain and registration imperfections welcome.
+      
+      Colors only: cool grey paper #e4e6e1, ink #1c2229, steel blue #2f5d8a, yellow #f2c230, shadow #5b6b78.
+      
+      Aspect ratio: 1:1.
+      
+      Product portrait: INDUSTRIE-A (1971), single heavy industrial arm mounted on pedestal, one task one arm, factory yellow and blue, square 1:1.
+      
+      Negative prompt: photorealistic, CGI, octane render, unreal engine, glossy plastic, chrome robot, mecha, anime, chibi,
+      lens flare, bokeh, stock photo, hyperreal skin, gradient mesh, 4k hyperdetail, cluttered composition,
+      text, typography, letters, numbers, words, logo, watermark, signature, caption, UI, border with writing,
+      celebrity likeness, identifiable real person
+
+  robot-industrie-f:
+    category: robot
+    aspect_ratio: "1:1"
+    folder: catalogue
+    palette: industrie
+    prompt: |
+      1970s Canadian editorial screen-print illustration for Moteur Industries, a fictional Montréal robotics company (1968–1978).
+      Flat geometric shapes, bold black ink outlines, limited spot colors, halftone dot texture on aged warm paper.
+      Mid-century industrial design catalogue and magazine art direction; sincere corporate modernism.
+      Not photorealistic, not 3D render, not CGI, not anime, not neon cyberpunk, not glossy mecha.
+      Montreal winter light and North American print culture. Subtle paper grain and registration imperfections welcome.
+      
+      Colors only: cool grey paper #e4e6e1, ink #1c2229, steel blue #2f5d8a, yellow #f2c230, shadow #5b6b78.
+      
+      Aspect ratio: 1:1.
+      
+      Product portrait: INDUSTRIE-F (1974), six-axis factory arm, precision joints as circles, best-seller industrial icon, cold-rated rugged mood, square 1:1.
+      
+      Negative prompt: photorealistic, CGI, octane render, unreal engine, glossy plastic, chrome robot, mecha, anime, chibi,
+      lens flare, bokeh, stock photo, hyperreal skin, gradient mesh, 4k hyperdetail, cluttered composition,
+      text, typography, letters, numbers, words, logo, watermark, signature, caption, UI, border with writing,
+      celebrity likeness, identifiable real person
+
+  robot-industrie-x:
+    category: robot
+    aspect_ratio: "1:1"
+    folder: catalogue
+    palette: industrie
+    prompt: |
+      1970s Canadian editorial screen-print illustration for Moteur Industries, a fictional Montréal robotics company (1968–1978).
+      Flat geometric shapes, bold black ink outlines, limited spot colors, halftone dot texture on aged warm paper.
+      Mid-century industrial design catalogue and magazine art direction; sincere corporate modernism.
+      Not photorealistic, not 3D render, not CGI, not anime, not neon cyberpunk, not glossy mecha.
+      Montreal winter light and North American print culture. Subtle paper grain and registration imperfections welcome.
+      
+      Colors only: cool grey paper #e4e6e1, ink #1c2229, steel blue #2f5d8a, yellow #f2c230, shadow #5b6b78.
+      
+      Aspect ratio: 1:1.
+      
+      Product portrait: INDUSTRIE-X (1977) classified, silhouette mostly redacted black bars over robot form, confidential document aesthetic, square 1:1.
+      
+      Negative prompt: photorealistic, CGI, octane render, unreal engine, glossy plastic, chrome robot, mecha, anime, chibi,
+      lens flare, bokeh, stock photo, hyperreal skin, gradient mesh, 4k hyperdetail, cluttered composition,
+      text, typography, letters, numbers, words, logo, watermark, signature, caption, UI, border with writing,
+      celebrity likeness, identifiable real person
+
+  robot-industrie-m:
+    category: robot
+    aspect_ratio: "1:1"
+    folder: catalogue
+    palette: industrie
+    prompt: |
+      1970s Canadian editorial screen-print illustration for Moteur Industries, a fictional Montréal robotics company (1968–1978).
+      Flat geometric shapes, bold black ink outlines, limited spot colors, halftone dot texture on aged warm paper.
+      Mid-century industrial design catalogue and magazine art direction; sincere corporate modernism.
+      Not photorealistic, not 3D render, not CGI, not anime, not neon cyberpunk, not glossy mecha.
+      Montreal winter light and North American print culture. Subtle paper grain and registration imperfections welcome.
+      
+      Colors only: cool grey paper #e4e6e1, ink #1c2229, steel blue #2f5d8a, yellow #f2c230, shadow #5b6b78.
+      
+      Aspect ratio: 1:1.
+      
+      Product portrait: INDUSTRIE-M (1976), mining robot for Abitibi, reinforced tread base, headlamp visor, rugged square 1:1.
+      
+      Negative prompt: photorealistic, CGI, octane render, unreal engine, glossy plastic, chrome robot, mecha, anime, chibi,
+      lens flare, bokeh, stock photo, hyperreal skin, gradient mesh, 4k hyperdetail, cluttered composition,
+      text, typography, letters, numbers, words, logo, watermark, signature, caption, UI, border with writing,
+      celebrity likeness, identifiable real person
+
+  robot-industrie-n:
+    category: robot
+    aspect_ratio: "1:1"
+    folder: catalogue
+    palette: industrie
+    prompt: |
+      1970s Canadian editorial screen-print illustration for Moteur Industries, a fictional Montréal robotics company (1968–1978).
+      Flat geometric shapes, bold black ink outlines, limited spot colors, halftone dot texture on aged warm paper.
+      Mid-century industrial design catalogue and magazine art direction; sincere corporate modernism.
+      Not photorealistic, not 3D render, not CGI, not anime, not neon cyberpunk, not glossy mecha.
+      Montreal winter light and North American print culture. Subtle paper grain and registration imperfections welcome.
+      
+      Colors only: cool grey paper #e4e6e1, ink #1c2229, steel blue #2f5d8a, yellow #f2c230, shadow #5b6b78.
+      
+      Aspect ratio: 1:1.
+      
+      Product portrait: INDUSTRIE-N (1977), shipyard robot, gantry hook shoulder, maritime industrial, square 1:1.
+      
+      Negative prompt: photorealistic, CGI, octane render, unreal engine, glossy plastic, chrome robot, mecha, anime, chibi,
+      lens flare, bokeh, stock photo, hyperreal skin, gradient mesh, 4k hyperdetail, cluttered composition,
+      text, typography, letters, numbers, words, logo, watermark, signature, caption, UI, border with writing,
+      celebrity likeness, identifiable real person
+
+  robot-compagnon-1:
+    category: robot
+    aspect_ratio: "1:1"
+    folder: catalogue
+    palette: compagnon
+    prompt: |
+      1970s Canadian editorial screen-print illustration for Moteur Industries, a fictional Montréal robotics company (1968–1978).
+      Flat geometric shapes, bold black ink outlines, limited spot colors, halftone dot texture on aged warm paper.
+      Mid-century industrial design catalogue and magazine art direction; sincere corporate modernism.
+      Not photorealistic, not 3D render, not CGI, not anime, not neon cyberpunk, not glossy mecha.
+      Montreal winter light and North American print culture. Subtle paper grain and registration imperfections welcome.
+      
+      Colors only: sage paper #e8eadf, ink #17251f, teal #2f8a6e, coral #e07a5f, shadow #3d5a50.
+      
+      Aspect ratio: 1:1.
+      
+      Product portrait: COMPAGNON-1 (1969), original companion unit, gentle dome head, warm voice era, obituary-ready dignity, square 1:1.
+      
+      Negative prompt: photorealistic, CGI, octane render, unreal engine, glossy plastic, chrome robot, mecha, anime, chibi,
+      lens flare, bokeh, stock photo, hyperreal skin, gradient mesh, 4k hyperdetail, cluttered composition,
+      text, typography, letters, numbers, words, logo, watermark, signature, caption, UI, border with writing,
+      celebrity likeness, identifiable real person
+
+  robot-compagnon-4:
+    category: robot
+    aspect_ratio: "1:1"
+    folder: catalogue
+    palette: compagnon
+    prompt: |
+      1970s Canadian editorial screen-print illustration for Moteur Industries, a fictional Montréal robotics company (1968–1978).
+      Flat geometric shapes, bold black ink outlines, limited spot colors, halftone dot texture on aged warm paper.
+      Mid-century industrial design catalogue and magazine art direction; sincere corporate modernism.
+      Not photorealistic, not 3D render, not CGI, not anime, not neon cyberpunk, not glossy mecha.
+      Montreal winter light and North American print culture. Subtle paper grain and registration imperfections welcome.
+      
+      Colors only: sage paper #e8eadf, ink #17251f, teal #2f8a6e, coral #e07a5f, shadow #3d5a50.
+      
+      Aspect ratio: 1:1.
+      
+      Product portrait: COMPAGNON-4 (1973), voice turns warm, rounded head, soft antenna, emotional companion design, square 1:1.
+      
+      Negative prompt: photorealistic, CGI, octane render, unreal engine, glossy plastic, chrome robot, mecha, anime, chibi,
+      lens flare, bokeh, stock photo, hyperreal skin, gradient mesh, 4k hyperdetail, cluttered composition,
+      text, typography, letters, numbers, words, logo, watermark, signature, caption, UI, border with writing,
+      celebrity likeness, identifiable real person
+
+  robot-compagnon-9:
+    category: robot
+    aspect_ratio: "1:1"
+    folder: catalogue
+    palette: compagnon
+    prompt: |
+      1970s Canadian editorial screen-print illustration for Moteur Industries, a fictional Montréal robotics company (1968–1978).
+      Flat geometric shapes, bold black ink outlines, limited spot colors, halftone dot texture on aged warm paper.
+      Mid-century industrial design catalogue and magazine art direction; sincere corporate modernism.
+      Not photorealistic, not 3D render, not CGI, not anime, not neon cyberpunk, not glossy mecha.
+      Montreal winter light and North American print culture. Subtle paper grain and registration imperfections welcome.
+      
+      Colors only: sage paper #e8eadf, ink #17251f, teal #2f8a6e, coral #e07a5f, shadow #3d5a50.
+      
+      Aspect ratio: 1:1.
+      
+      Product portrait: COMPAGNON-9 (1977), waitlist icon, heart-series green, approachable companion face, warranty prestige, square 1:1.
+      
+      Negative prompt: photorealistic, CGI, octane render, unreal engine, glossy plastic, chrome robot, mecha, anime, chibi,
+      lens flare, bokeh, stock photo, hyperreal skin, gradient mesh, 4k hyperdetail, cluttered composition,
+      text, typography, letters, numbers, words, logo, watermark, signature, caption, UI, border with writing,
+      celebrity likeness, identifiable real person
+
+  robot-compagnon-9-sport:
+    category: robot
+    aspect_ratio: "1:1"
+    folder: catalogue
+    palette: compagnon
+    prompt: |
+      1970s Canadian editorial screen-print illustration for Moteur Industries, a fictional Montréal robotics company (1968–1978).
+      Flat geometric shapes, bold black ink outlines, limited spot colors, halftone dot texture on aged warm paper.
+      Mid-century industrial design catalogue and magazine art direction; sincere corporate modernism.
+      Not photorealistic, not 3D render, not CGI, not anime, not neon cyberpunk, not glossy mecha.
+      Montreal winter light and North American print culture. Subtle paper grain and registration imperfections welcome.
+      
+      Colors only: sage paper #e8eadf, ink #17251f, teal #2f8a6e, coral #e07a5f, shadow #3d5a50.
+      
+      Aspect ratio: 1:1.
+      
+      Product portrait: COMPAGNON-9 Sport (1978), marathon runner companion, lean legs, athletic posture, square 1:1.
+      
+      Negative prompt: photorealistic, CGI, octane render, unreal engine, glossy plastic, chrome robot, mecha, anime, chibi,
+      lens flare, bokeh, stock photo, hyperreal skin, gradient mesh, 4k hyperdetail, cluttered composition,
+      text, typography, letters, numbers, words, logo, watermark, signature, caption, UI, border with writing,
+      celebrity likeness, identifiable real person
+
+  robot-compagnon-10:
+    category: robot
+    aspect_ratio: "1:1"
+    folder: catalogue
+    palette: compagnon
+    prompt: |
+      1970s Canadian editorial screen-print illustration for Moteur Industries, a fictional Montréal robotics company (1968–1978).
+      Flat geometric shapes, bold black ink outlines, limited spot colors, halftone dot texture on aged warm paper.
+      Mid-century industrial design catalogue and magazine art direction; sincere corporate modernism.
+      Not photorealistic, not 3D render, not CGI, not anime, not neon cyberpunk, not glossy mecha.
+      Montreal winter light and North American print culture. Subtle paper grain and registration imperfections welcome.
+      
+      Colors only: sage paper #e8eadf, ink #17251f, teal #2f8a6e, coral #e07a5f, shadow #3d5a50.
+      
+      Aspect ratio: 1:1.
+      
+      Product portrait: COMPAGNON-10 prototype (1979), spring announcement teaser, partially revealed silhouette, square 1:1.
+      
+      Negative prompt: photorealistic, CGI, octane render, unreal engine, glossy plastic, chrome robot, mecha, anime, chibi,
+      lens flare, bokeh, stock photo, hyperreal skin, gradient mesh, 4k hyperdetail, cluttered composition,
+      text, typography, letters, numbers, words, logo, watermark, signature, caption, UI, border with writing,
+      celebrity likeness, identifiable real person
+
+  robot-horizon-e:
+    category: robot
+    aspect_ratio: "1:1"
+    folder: catalogue
+    palette: horizon
+    prompt: |
+      1970s Canadian editorial screen-print illustration for Moteur Industries, a fictional Montréal robotics company (1968–1978).
+      Flat geometric shapes, bold black ink outlines, limited spot colors, halftone dot texture on aged warm paper.
+      Mid-century industrial design catalogue and magazine art direction; sincere corporate modernism.
+      Not photorealistic, not 3D render, not CGI, not anime, not neon cyberpunk, not glossy mecha.
+      Montreal winter light and North American print culture. Subtle paper grain and registration imperfections welcome.
+      
+      Colors only: pale blue-grey paper #dfe7ec, ink #0d1b2a, navy #1b4965, sky blue #5fa8d3, shadow #62b6cb.
+      
+      Aspect ratio: 1:1.
+      
+      Product portrait: HORIZON-E (1976), deep-sea exploration unit, submarine-torso hybrid robot, anchor motif, square 1:1.
+      
+      Negative prompt: photorealistic, CGI, octane render, unreal engine, glossy plastic, chrome robot, mecha, anime, chibi,
+      lens flare, bokeh, stock photo, hyperreal skin, gradient mesh, 4k hyperdetail, cluttered composition,
+      text, typography, letters, numbers, words, logo, watermark, signature, caption, UI, border with writing,
+      celebrity likeness, identifiable real person
+
+  robot-horizon-n:
+    category: robot
+    aspect_ratio: "1:1"
+    folder: catalogue
+    palette: horizon
+    prompt: |
+      1970s Canadian editorial screen-print illustration for Moteur Industries, a fictional Montréal robotics company (1968–1978).
+      Flat geometric shapes, bold black ink outlines, limited spot colors, halftone dot texture on aged warm paper.
+      Mid-century industrial design catalogue and magazine art direction; sincere corporate modernism.
+      Not photorealistic, not 3D render, not CGI, not anime, not neon cyberpunk, not glossy mecha.
+      Montreal winter light and North American print culture. Subtle paper grain and registration imperfections welcome.
+      
+      Colors only: pale blue-grey paper #dfe7ec, ink #0d1b2a, navy #1b4965, sky blue #5fa8d3, shadow #62b6cb.
+      
+      Aspect ratio: 1:1.
+      
+      Product portrait: HORIZON-N (1977), Arctic far-north unit, insulated panels, frost-resistant visor, square 1:1.
+      
+      Negative prompt: photorealistic, CGI, octane render, unreal engine, glossy plastic, chrome robot, mecha, anime, chibi,
+      lens flare, bokeh, stock photo, hyperreal skin, gradient mesh, 4k hyperdetail, cluttered composition,
+      text, typography, letters, numbers, words, logo, watermark, signature, caption, UI, border with writing,
+      celebrity likeness, identifiable real person
+
+  robot-horizon-inf:
+    category: robot
+    aspect_ratio: "1:1"
+    folder: catalogue
+    palette: horizon
+    prompt: |
+      1970s Canadian editorial screen-print illustration for Moteur Industries, a fictional Montréal robotics company (1968–1978).
+      Flat geometric shapes, bold black ink outlines, limited spot colors, halftone dot texture on aged warm paper.
+      Mid-century industrial design catalogue and magazine art direction; sincere corporate modernism.
+      Not photorealistic, not 3D render, not CGI, not anime, not neon cyberpunk, not glossy mecha.
+      Montreal winter light and North American print culture. Subtle paper grain and registration imperfections welcome.
+      
+      Colors only: pale blue-grey paper #dfe7ec, ink #0d1b2a, navy #1b4965, sky blue #5fa8d3, shadow #62b6cb.
+      
+      Aspect ratio: 1:1.
+      
+      Product portrait: HORIZON-∞ (1978) classified, abstract infinity symbol merged with robot silhouette, mostly obscured, square 1:1.
+      
+      Negative prompt: photorealistic, CGI, octane render, unreal engine, glossy plastic, chrome robot, mecha, anime, chibi,
+      lens flare, bokeh, stock photo, hyperreal skin, gradient mesh, 4k hyperdetail, cluttered composition,
+      text, typography, letters, numbers, words, logo, watermark, signature, caption, UI, border with writing,
+      celebrity likeness, identifiable real person
+
+  robot-maison-2:
+    category: robot
+    aspect_ratio: "1:1"
+    folder: catalogue
+    palette: maison
+    prompt: |
+      1970s Canadian editorial screen-print illustration for Moteur Industries, a fictional Montréal robotics company (1968–1978).
+      Flat geometric shapes, bold black ink outlines, limited spot colors, halftone dot texture on aged warm paper.
+      Mid-century industrial design catalogue and magazine art direction; sincere corporate modernism.
+      Not photorealistic, not 3D render, not CGI, not anime, not neon cyberpunk, not glossy mecha.
+      Montreal winter light and North American print culture. Subtle paper grain and registration imperfections welcome.
+      
+      Colors only: warm cream paper #efe3cc, ink #2b1d14, orange #d8622b, gold #e9b44c, shadow #9b4a22.
+      
+      Aspect ratio: 1:1.
+      
+      Product portrait: MAISON-2 (1972), laundry-learning domestic robot, apron-shaped chest panel, twin eyes, discontinued vintage, square 1:1.
+      
+      Negative prompt: photorealistic, CGI, octane render, unreal engine, glossy plastic, chrome robot, mecha, anime, chibi,
+      lens flare, bokeh, stock photo, hyperreal skin, gradient mesh, 4k hyperdetail, cluttered composition,
+      text, typography, letters, numbers, words, logo, watermark, signature, caption, UI, border with writing,
+      celebrity likeness, identifiable real person
+
+  robot-maison-5:
+    category: robot
+    aspect_ratio: "1:1"
+    folder: catalogue
+    palette: maison
+    prompt: |
+      1970s Canadian editorial screen-print illustration for Moteur Industries, a fictional Montréal robotics company (1968–1978).
+      Flat geometric shapes, bold black ink outlines, limited spot colors, halftone dot texture on aged warm paper.
+      Mid-century industrial design catalogue and magazine art direction; sincere corporate modernism.
+      Not photorealistic, not 3D render, not CGI, not anime, not neon cyberpunk, not glossy mecha.
+      Montreal winter light and North American print culture. Subtle paper grain and registration imperfections welcome.
+      
+      Colors only: warm cream paper #efe3cc, ink #2b1d14, orange #d8622b, gold #e9b44c, shadow #9b4a22.
+      
+      Aspect ratio: 1:1.
+      
+      Product portrait: MAISON-5 (1977), taller apartment-sized domestic unit, wider shoulders, patient calm posture, square 1:1.
+      
+      Negative prompt: photorealistic, CGI, octane render, unreal engine, glossy plastic, chrome robot, mecha, anime, chibi,
+      lens flare, bokeh, stock photo, hyperreal skin, gradient mesh, 4k hyperdetail, cluttered composition,
+      text, typography, letters, numbers, words, logo, watermark, signature, caption, UI, border with writing,
+      celebrity likeness, identifiable real person
+
+  robot-maison-3-blanche:
+    category: robot
+    aspect_ratio: "1:1"
+    folder: catalogue
+    palette: maison
+    prompt: |
+      1970s Canadian editorial screen-print illustration for Moteur Industries, a fictional Montréal robotics company (1968–1978).
+      Flat geometric shapes, bold black ink outlines, limited spot colors, halftone dot texture on aged warm paper.
+      Mid-century industrial design catalogue and magazine art direction; sincere corporate modernism.
+      Not photorealistic, not 3D render, not CGI, not anime, not neon cyberpunk, not glossy mecha.
+      Montreal winter light and North American print culture. Subtle paper grain and registration imperfections welcome.
+      
+      Colors only: warm cream paper #efe3cc, ink #2b1d14, orange #d8622b, gold #e9b44c, shadow #9b4a22.
+      
+      Aspect ratio: 1:1.
+      
+      Product portrait: MAISON-3 white limited edition (1976), cream and paper-toned body, same silhouette as MAISON-3, premium domestic, square 1:1.
+      
+      Negative prompt: photorealistic, CGI, octane render, unreal engine, glossy plastic, chrome robot, mecha, anime, chibi,
+      lens flare, bokeh, stock photo, hyperreal skin, gradient mesh, 4k hyperdetail, cluttered composition,
+      text, typography, letters, numbers, words, logo, watermark, signature, caption, UI, border with writing,
+      celebrity likeness, identifiable real person
+
+  robot-industrie-b:
+    category: robot
+    aspect_ratio: "1:1"
+    folder: catalogue
+    palette: industrie
+    prompt: |
+      1970s Canadian editorial screen-print illustration for Moteur Industries, a fictional Montréal robotics company (1968–1978).
+      Flat geometric shapes, bold black ink outlines, limited spot colors, halftone dot texture on aged warm paper.
+      Mid-century industrial design catalogue and magazine art direction; sincere corporate modernism.
+      Not photorealistic, not 3D render, not CGI, not anime, not neon cyberpunk, not glossy mecha.
+      Montreal winter light and North American print culture. Subtle paper grain and registration imperfections welcome.
+      
+      Colors only: cool grey paper #e4e6e1, ink #1c2229, steel blue #2f5d8a, yellow #f2c230, shadow #5b6b78.
+      
+      Aspect ratio: 1:1.
+      
+      Product portrait: INDUSTRIE-B (1972), dual-arm industrial unit, symmetrical arms, no breaks mood, square 1:1.
+      
+      Negative prompt: photorealistic, CGI, octane render, unreal engine, glossy plastic, chrome robot, mecha, anime, chibi,
+      lens flare, bokeh, stock photo, hyperreal skin, gradient mesh, 4k hyperdetail, cluttered composition,
+      text, typography, letters, numbers, words, logo, watermark, signature, caption, UI, border with writing,
+      celebrity likeness, identifiable real person
+
+  robot-industrie-c:
+    category: robot
+    aspect_ratio: "1:1"
+    folder: catalogue
+    palette: industrie
+    prompt: |
+      1970s Canadian editorial screen-print illustration for Moteur Industries, a fictional Montréal robotics company (1968–1978).
+      Flat geometric shapes, bold black ink outlines, limited spot colors, halftone dot texture on aged warm paper.
+      Mid-century industrial design catalogue and magazine art direction; sincere corporate modernism.
+      Not photorealistic, not 3D render, not CGI, not anime, not neon cyberpunk, not glossy mecha.
+      Montreal winter light and North American print culture. Subtle paper grain and registration imperfections welcome.
+      
+      Colors only: cool grey paper #e4e6e1, ink #1c2229, steel blue #2f5d8a, yellow #f2c230, shadow #5b6b78.
+      
+      Aspect ratio: 1:1.
+      
+      Product portrait: INDUSTRIE-C (1975), food-processing industrial robot, cleanable flat panels, hygienic factory design, square 1:1.
+      
+      Negative prompt: photorealistic, CGI, octane render, unreal engine, glossy plastic, chrome robot, mecha, anime, chibi,
+      lens flare, bokeh, stock photo, hyperreal skin, gradient mesh, 4k hyperdetail, cluttered composition,
+      text, typography, letters, numbers, words, logo, watermark, signature, caption, UI, border with writing,
+      celebrity likeness, identifiable real person
+
+  robot-industrie-f2:
+    category: robot
+    aspect_ratio: "1:1"
+    folder: catalogue
+    palette: industrie
+    prompt: |
+      1970s Canadian editorial screen-print illustration for Moteur Industries, a fictional Montréal robotics company (1968–1978).
+      Flat geometric shapes, bold black ink outlines, limited spot colors, halftone dot texture on aged warm paper.
+      Mid-century industrial design catalogue and magazine art direction; sincere corporate modernism.
+      Not photorealistic, not 3D render, not CGI, not anime, not neon cyberpunk, not glossy mecha.
+      Montreal winter light and North American print culture. Subtle paper grain and registration imperfections welcome.
+      
+      Colors only: cool grey paper #e4e6e1, ink #1c2229, steel blue #2f5d8a, yellow #f2c230, shadow #5b6b78.
+      
+      Aspect ratio: 1:1.
+      
+      Product portrait: INDUSTRIE-F2 (1978), quieter revision of INDUSTRIE-F, same arm geometry, softer shadow shapes, square 1:1.
+      
+      Negative prompt: photorealistic, CGI, octane render, unreal engine, glossy plastic, chrome robot, mecha, anime, chibi,
+      lens flare, bokeh, stock photo, hyperreal skin, gradient mesh, 4k hyperdetail, cluttered composition,
+      text, typography, letters, numbers, words, logo, watermark, signature, caption, UI, border with writing,
+      celebrity likeness, identifiable real person
+
+  robot-compagnon-2:
+    category: robot
+    aspect_ratio: "1:1"
+    folder: catalogue
+    palette: compagnon
+    prompt: |
+      1970s Canadian editorial screen-print illustration for Moteur Industries, a fictional Montréal robotics company (1968–1978).
+      Flat geometric shapes, bold black ink outlines, limited spot colors, halftone dot texture on aged warm paper.
+      Mid-century industrial design catalogue and magazine art direction; sincere corporate modernism.
+      Not photorealistic, not 3D render, not CGI, not anime, not neon cyberpunk, not glossy mecha.
+      Montreal winter light and North American print culture. Subtle paper grain and registration imperfections welcome.
+      
+      Colors only: sage paper #e8eadf, ink #17251f, teal #2f8a6e, coral #e07a5f, shadow #3d5a50.
+      
+      Aspect ratio: 1:1.
+      
+      Product portrait: COMPAGNON-2 (1970), storytelling companion, speaker grille chest, twin eyes, square 1:1.
+      
+      Negative prompt: photorealistic, CGI, octane render, unreal engine, glossy plastic, chrome robot, mecha, anime, chibi,
+      lens flare, bokeh, stock photo, hyperreal skin, gradient mesh, 4k hyperdetail, cluttered composition,
+      text, typography, letters, numbers, words, logo, watermark, signature, caption, UI, border with writing,
+      celebrity likeness, identifiable real person
+
+  robot-compagnon-6:
+    category: robot
+    aspect_ratio: "1:1"
+    folder: catalogue
+    palette: compagnon
+    prompt: |
+      1970s Canadian editorial screen-print illustration for Moteur Industries, a fictional Montréal robotics company (1968–1978).
+      Flat geometric shapes, bold black ink outlines, limited spot colors, halftone dot texture on aged warm paper.
+      Mid-century industrial design catalogue and magazine art direction; sincere corporate modernism.
+      Not photorealistic, not 3D render, not CGI, not anime, not neon cyberpunk, not glossy mecha.
+      Montreal winter light and North American print culture. Subtle paper grain and registration imperfections welcome.
+      
+      Colors only: sage paper #e8eadf, ink #17251f, teal #2f8a6e, coral #e07a5f, shadow #3d5a50.
+      
+      Aspect ratio: 1:1.
+      
+      Product portrait: COMPAGNON-6 (1975), off-key singer companion, musical note motif on chest (abstract shapes only), square 1:1.
+      
+      Negative prompt: photorealistic, CGI, octane render, unreal engine, glossy plastic, chrome robot, mecha, anime, chibi,
+      lens flare, bokeh, stock photo, hyperreal skin, gradient mesh, 4k hyperdetail, cluttered composition,
+      text, typography, letters, numbers, words, logo, watermark, signature, caption, UI, border with writing,
+      celebrity likeness, identifiable real person
+
+  robot-compagnon-9-junior:
+    category: robot
+    aspect_ratio: "1:1"
+    folder: catalogue
+    palette: compagnon
+    prompt: |
+      1970s Canadian editorial screen-print illustration for Moteur Industries, a fictional Montréal robotics company (1968–1978).
+      Flat geometric shapes, bold black ink outlines, limited spot colors, halftone dot texture on aged warm paper.
+      Mid-century industrial design catalogue and magazine art direction; sincere corporate modernism.
+      Not photorealistic, not 3D render, not CGI, not anime, not neon cyberpunk, not glossy mecha.
+      Montreal winter light and North American print culture. Subtle paper grain and registration imperfections welcome.
+      
+      Colors only: sage paper #e8eadf, ink #17251f, teal #2f8a6e, coral #e07a5f, shadow #3d5a50.
+      
+      Aspect ratio: 1:1.
+      
+      Product portrait: COMPAGNON-9 Junior (1978), smaller child-scale companion, same design language shorter, square 1:1.
+      
+      Negative prompt: photorealistic, CGI, octane render, unreal engine, glossy plastic, chrome robot, mecha, anime, chibi,
+      lens flare, bokeh, stock photo, hyperreal skin, gradient mesh, 4k hyperdetail, cluttered composition,
+      text, typography, letters, numbers, words, logo, watermark, signature, caption, UI, border with writing,
+      celebrity likeness, identifiable real person
+
+  robot-horizon-a:
+    category: robot
+    aspect_ratio: "1:1"
+    folder: catalogue
+    palette: horizon
+    prompt: |
+      1970s Canadian editorial screen-print illustration for Moteur Industries, a fictional Montréal robotics company (1968–1978).
+      Flat geometric shapes, bold black ink outlines, limited spot colors, halftone dot texture on aged warm paper.
+      Mid-century industrial design catalogue and magazine art direction; sincere corporate modernism.
+      Not photorealistic, not 3D render, not CGI, not anime, not neon cyberpunk, not glossy mecha.
+      Montreal winter light and North American print culture. Subtle paper grain and registration imperfections welcome.
+      
+      Colors only: pale blue-grey paper #dfe7ec, ink #0d1b2a, navy #1b4965, sky blue #5fa8d3, shadow #62b6cb.
+      
+      Aspect ratio: 1:1.
+      
+      Product portrait: HORIZON-A (1975), first deep diver below 1000m, compact pressure hull head, square 1:1.
+      
+      Negative prompt: photorealistic, CGI, octane render, unreal engine, glossy plastic, chrome robot, mecha, anime, chibi,
+      lens flare, bokeh, stock photo, hyperreal skin, gradient mesh, 4k hyperdetail, cluttered composition,
+      text, typography, letters, numbers, words, logo, watermark, signature, caption, UI, border with writing,
+      celebrity likeness, identifiable real person
+
+  robot-signal-1:
+    category: robot
+    aspect_ratio: "1:1"
+    folder: catalogue
+    palette: signal
+    prompt: |
+      1970s Canadian editorial screen-print illustration for Moteur Industries, a fictional Montréal robotics company (1968–1978).
+      Flat geometric shapes, bold black ink outlines, limited spot colors, halftone dot texture on aged warm paper.
+      Mid-century industrial design catalogue and magazine art direction; sincere corporate modernism.
+      Not photorealistic, not 3D render, not CGI, not anime, not neon cyberpunk, not glossy mecha.
+      Montreal winter light and North American print culture. Subtle paper grain and registration imperfections welcome.
+      
+      Colors only: warm grey paper #f1e9e2, ink #1a1a1a, red #c0392b, slate #2c3e50, shadow #7f8c8d.
+      
+      Aspect ratio: 1:1.
+      
+      Product portrait: SIGNAL-1 prototype (1978), tall antenna head, listening dish ears, Sept-Îles trials, square 1:1.
+      
+      Negative prompt: photorealistic, CGI, octane render, unreal engine, glossy plastic, chrome robot, mecha, anime, chibi,
+      lens flare, bokeh, stock photo, hyperreal skin, gradient mesh, 4k hyperdetail, cluttered composition,
+      text, typography, letters, numbers, words, logo, watermark, signature, caption, UI, border with writing,
+      celebrity likeness, identifiable real person
+
+  robot-signal-2:
+    category: robot
+    aspect_ratio: "1:1"
+    folder: catalogue
+    palette: signal
+    prompt: |
+      1970s Canadian editorial screen-print illustration for Moteur Industries, a fictional Montréal robotics company (1968–1978).
+      Flat geometric shapes, bold black ink outlines, limited spot colors, halftone dot texture on aged warm paper.
+      Mid-century industrial design catalogue and magazine art direction; sincere corporate modernism.
+      Not photorealistic, not 3D render, not CGI, not anime, not neon cyberpunk, not glossy mecha.
+      Montreal winter light and North American print culture. Subtle paper grain and registration imperfections welcome.
+      
+      Colors only: warm grey paper #f1e9e2, ink #1a1a1a, red #c0392b, slate #2c3e50, shadow #7f8c8d.
+      
+      Aspect ratio: 1:1.
+      
+      Product portrait: SIGNAL-2 prototype (1979), transatlantic relay, twin antenna array, square 1:1.
+      
+      Negative prompt: photorealistic, CGI, octane render, unreal engine, glossy plastic, chrome robot, mecha, anime, chibi,
+      lens flare, bokeh, stock photo, hyperreal skin, gradient mesh, 4k hyperdetail, cluttered composition,
+      text, typography, letters, numbers, words, logo, watermark, signature, caption, UI, border with writing,
+      celebrity likeness, identifiable real person
+
+  author-henri:
+    category: author
+    aspect_ratio: "1:1"
+    folder: people
+    palette: maison
+    prompt: |
+      1970s Canadian editorial screen-print illustration for Moteur Industries, a fictional Montréal robotics company (1968–1978).
+      Flat geometric shapes, bold black ink outlines, limited spot colors, halftone dot texture on aged warm paper.
+      Mid-century industrial design catalogue and magazine art direction; sincere corporate modernism.
+      Not photorealistic, not 3D render, not CGI, not anime, not neon cyberpunk, not glossy mecha.
+      Montreal winter light and North American print culture. Subtle paper grain and registration imperfections welcome.
+      
+      Colors only: warm cream paper #efe3cc, ink #2b1d14, orange #d8622b, gold #e9b44c, shadow #9b4a22.
+      
+      Aspect ratio: 1:1.
+      
+      Editorial duotone portrait, shoulders up: Henri Beaumont, founder, electrical engineer, fictional 1970s Montréal editorial staff.
+      Simplified geometric face and hair silhouette, no celebrity likeness, two spot colors plus paper, halftone texture.
+      Square 1:1, upper-right corner calm for initials overlay later.
+      
+      Negative prompt: photorealistic, CGI, octane render, unreal engine, glossy plastic, chrome robot, mecha, anime, chibi,
+      lens flare, bokeh, stock photo, hyperreal skin, gradient mesh, 4k hyperdetail, cluttered composition,
+      text, typography, letters, numbers, words, logo, watermark, signature, caption, UI, border with writing,
+      celebrity likeness, identifiable real person
+
+  author-diane:
+    category: author
+    aspect_ratio: "1:1"
+    folder: people
+    palette: industrie
+    prompt: |
+      1970s Canadian editorial screen-print illustration for Moteur Industries, a fictional Montréal robotics company (1968–1978).
+      Flat geometric shapes, bold black ink outlines, limited spot colors, halftone dot texture on aged warm paper.
+      Mid-century industrial design catalogue and magazine art direction; sincere corporate modernism.
+      Not photorealistic, not 3D render, not CGI, not anime, not neon cyberpunk, not glossy mecha.
+      Montreal winter light and North American print culture. Subtle paper grain and registration imperfections welcome.
+      
+      Colors only: cool grey paper #e4e6e1, ink #1c2229, steel blue #2f5d8a, yellow #f2c230, shadow #5b6b78.
+      
+      Aspect ratio: 1:1.
+      
+      Editorial duotone portrait, shoulders up: Diane Tremblay, research director, mathematician, fictional 1970s Montréal editorial staff.
+      Simplified geometric face and hair silhouette, no celebrity likeness, two spot colors plus paper, halftone texture.
+      Square 1:1, upper-right corner calm for initials overlay later.
+      
+      Negative prompt: photorealistic, CGI, octane render, unreal engine, glossy plastic, chrome robot, mecha, anime, chibi,
+      lens flare, bokeh, stock photo, hyperreal skin, gradient mesh, 4k hyperdetail, cluttered composition,
+      text, typography, letters, numbers, words, logo, watermark, signature, caption, UI, border with writing,
+      celebrity likeness, identifiable real person
+
+  author-yves:
+    category: author
+    aspect_ratio: "1:1"
+    folder: people
+    palette: compagnon
+    prompt: |
+      1970s Canadian editorial screen-print illustration for Moteur Industries, a fictional Montréal robotics company (1968–1978).
+      Flat geometric shapes, bold black ink outlines, limited spot colors, halftone dot texture on aged warm paper.
+      Mid-century industrial design catalogue and magazine art direction; sincere corporate modernism.
+      Not photorealistic, not 3D render, not CGI, not anime, not neon cyberpunk, not glossy mecha.
+      Montreal winter light and North American print culture. Subtle paper grain and registration imperfections welcome.
+      
+      Colors only: sage paper #e8eadf, ink #17251f, teal #2f8a6e, coral #e07a5f, shadow #3d5a50.
+      
+      Aspect ratio: 1:1.
+      
+      Editorial duotone portrait, shoulders up: Yves Lalonde, chief engineer, co-founder, fictional 1970s Montréal editorial staff.
+      Simplified geometric face and hair silhouette, no celebrity likeness, two spot colors plus paper, halftone texture.
+      Square 1:1, upper-right corner calm for initials overlay later.
+      
+      Negative prompt: photorealistic, CGI, octane render, unreal engine, glossy plastic, chrome robot, mecha, anime, chibi,
+      lens flare, bokeh, stock photo, hyperreal skin, gradient mesh, 4k hyperdetail, cluttered composition,
+      text, typography, letters, numbers, words, logo, watermark, signature, caption, UI, border with writing,
+      celebrity likeness, identifiable real person
+
+  author-marguerite:
+    category: author
+    aspect_ratio: "1:1"
+    folder: people
+    palette: horizon
+    prompt: |
+      1970s Canadian editorial screen-print illustration for Moteur Industries, a fictional Montréal robotics company (1968–1978).
+      Flat geometric shapes, bold black ink outlines, limited spot colors, halftone dot texture on aged warm paper.
+      Mid-century industrial design catalogue and magazine art direction; sincere corporate modernism.
+      Not photorealistic, not 3D render, not CGI, not anime, not neon cyberpunk, not glossy mecha.
+      Montreal winter light and North American print culture. Subtle paper grain and registration imperfections welcome.
+      
+      Colors only: pale blue-grey paper #dfe7ec, ink #0d1b2a, navy #1b4965, sky blue #5fa8d3, shadow #62b6cb.
+      
+      Aspect ratio: 1:1.
+      
+      Editorial duotone portrait, shoulders up: Marguerite Fontaine, freelance journalist, fictional 1970s Montréal editorial staff.
+      Simplified geometric face and hair silhouette, no celebrity likeness, two spot colors plus paper, halftone texture.
+      Square 1:1, upper-right corner calm for initials overlay later.
+      
+      Negative prompt: photorealistic, CGI, octane render, unreal engine, glossy plastic, chrome robot, mecha, anime, chibi,
+      lens flare, bokeh, stock photo, hyperreal skin, gradient mesh, 4k hyperdetail, cluttered composition,
+      text, typography, letters, numbers, words, logo, watermark, signature, caption, UI, border with writing,
+      celebrity likeness, identifiable real person
+
+  author-celeste:
+    category: author
+    aspect_ratio: "1:1"
+    folder: people
+    palette: signal
+    prompt: |
+      1970s Canadian editorial screen-print illustration for Moteur Industries, a fictional Montréal robotics company (1968–1978).
+      Flat geometric shapes, bold black ink outlines, limited spot colors, halftone dot texture on aged warm paper.
+      Mid-century industrial design catalogue and magazine art direction; sincere corporate modernism.
+      Not photorealistic, not 3D render, not CGI, not anime, not neon cyberpunk, not glossy mecha.
+      Montreal winter light and North American print culture. Subtle paper grain and registration imperfections welcome.
+      
+      Colors only: warm grey paper #f1e9e2, ink #1a1a1a, red #c0392b, slate #2c3e50, shadow #7f8c8d.
+      
+      Aspect ratio: 1:1.
+      
+      Editorial duotone portrait, shoulders up: Dr Céleste Armand, philosopher, deputy editor, fictional 1970s Montréal editorial staff.
+      Simplified geometric face and hair silhouette, no celebrity likeness, two spot colors plus paper, halftone texture.
+      Square 1:1, upper-right corner calm for initials overlay later.
+      
+      Negative prompt: photorealistic, CGI, octane render, unreal engine, glossy plastic, chrome robot, mecha, anime, chibi,
+      lens flare, bokeh, stock photo, hyperreal skin, gradient mesh, 4k hyperdetail, cluttered composition,
+      text, typography, letters, numbers, words, logo, watermark, signature, caption, UI, border with writing,
+      celebrity likeness, identifiable real person
+
+  author-sophie:
+    category: author
+    aspect_ratio: "1:1"
+    folder: people
+    palette: archive
+    prompt: |
+      1970s Canadian editorial screen-print illustration for Moteur Industries, a fictional Montréal robotics company (1968–1978).
+      Flat geometric shapes, bold black ink outlines, limited spot colors, halftone dot texture on aged warm paper.
+      Mid-century industrial design catalogue and magazine art direction; sincere corporate modernism.
+      Not photorealistic, not 3D render, not CGI, not anime, not neon cyberpunk, not glossy mecha.
+      Montreal winter light and North American print culture. Subtle paper grain and registration imperfections welcome.
+      
+      Colors only: aged tan paper #eadfc8, ink #3b2f22, brown #8a6a43, sand #b8956a, shadow #6d5a44.
+      
+      Aspect ratio: 1:1.
+      
+      Editorial duotone portrait, shoulders up: Sophie Marchand, investigative correspondent, fictional 1970s Montréal editorial staff.
+      Simplified geometric face and hair silhouette, no celebrity likeness, two spot colors plus paper, halftone texture.
+      Square 1:1, upper-right corner calm for initials overlay later.
+      
+      Negative prompt: photorealistic, CGI, octane render, unreal engine, glossy plastic, chrome robot, mecha, anime, chibi,
+      lens flare, bokeh, stock photo, hyperreal skin, gradient mesh, 4k hyperdetail, cluttered composition,
+      text, typography, letters, numbers, words, logo, watermark, signature, caption, UI, border with writing,
+      celebrity likeness, identifiable real person
+
+  author-jf:
+    category: author
+    aspect_ratio: "1:1"
+    folder: people
+    palette: maison
+    prompt: |
+      1970s Canadian editorial screen-print illustration for Moteur Industries, a fictional Montréal robotics company (1968–1978).
+      Flat geometric shapes, bold black ink outlines, limited spot colors, halftone dot texture on aged warm paper.
+      Mid-century industrial design catalogue and magazine art direction; sincere corporate modernism.
+      Not photorealistic, not 3D render, not CGI, not anime, not neon cyberpunk, not glossy mecha.
+      Montreal winter light and North American print culture. Subtle paper grain and registration imperfections welcome.
+      
+      Colors only: warm cream paper #efe3cc, ink #2b1d14, orange #d8622b, gold #e9b44c, shadow #9b4a22.
+      
+      Aspect ratio: 1:1.
+      
+      Editorial duotone portrait, shoulders up: Jean-François Côté, architecture correspondent, fictional 1970s Montréal editorial staff.
+      Simplified geometric face and hair silhouette, no celebrity likeness, two spot colors plus paper, halftone texture.
+      Square 1:1, upper-right corner calm for initials overlay later.
+      
+      Negative prompt: photorealistic, CGI, octane render, unreal engine, glossy plastic, chrome robot, mecha, anime, chibi,
+      lens flare, bokeh, stock photo, hyperreal skin, gradient mesh, 4k hyperdetail, cluttered composition,
+      text, typography, letters, numbers, words, logo, watermark, signature, caption, UI, border with writing,
+      celebrity likeness, identifiable real person
+
+  author-unit-7:
+    category: author
+    aspect_ratio: "1:1"
+    folder: people
+    palette: industrie
+    prompt: |
+      1970s Canadian editorial screen-print illustration for Moteur Industries, a fictional Montréal robotics company (1968–1978).
+      Flat geometric shapes, bold black ink outlines, limited spot colors, halftone dot texture on aged warm paper.
+      Mid-century industrial design catalogue and magazine art direction; sincere corporate modernism.
+      Not photorealistic, not 3D render, not CGI, not anime, not neon cyberpunk, not glossy mecha.
+      Montreal winter light and North American print culture. Subtle paper grain and registration imperfections welcome.
+      
+      Colors only: cool grey paper #e4e6e1, ink #1c2229, steel blue #2f5d8a, yellow #f2c230, shadow #5b6b78.
+      
+      Aspect ratio: 1:1.
+      
+      Editorial duotone portrait, shoulders up: Unit 7-PASCAL, robot author (COMPAGNON editorial writing unit).
+      Geometric robot head or upper torso, strong silhouette, two flat spot colors plus paper, halftone shading, not photographic.
+      Square 1:1, upper-right corner calm for initials overlay later.
+      
+      Negative prompt: photorealistic, CGI, octane render, unreal engine, glossy plastic, chrome robot, mecha, anime, chibi,
+      lens flare, bokeh, stock photo, hyperreal skin, gradient mesh, 4k hyperdetail, cluttered composition,
+      text, typography, letters, numbers, words, logo, watermark, signature, caption, UI, border with writing,
+      celebrity likeness, identifiable real person
+
+  author-horizon-003:
+    category: author
+    aspect_ratio: "1:1"
+    folder: people
+    palette: compagnon
+    prompt: |
+      1970s Canadian editorial screen-print illustration for Moteur Industries, a fictional Montréal robotics company (1968–1978).
+      Flat geometric shapes, bold black ink outlines, limited spot colors, halftone dot texture on aged warm paper.
+      Mid-century industrial design catalogue and magazine art direction; sincere corporate modernism.
+      Not photorealistic, not 3D render, not CGI, not anime, not neon cyberpunk, not glossy mecha.
+      Montreal winter light and North American print culture. Subtle paper grain and registration imperfections welcome.
+      
+      Colors only: sage paper #e8eadf, ink #17251f, teal #2f8a6e, coral #e07a5f, shadow #3d5a50.
+      
+      Aspect ratio: 1:1.
+      
+      Editorial duotone portrait, shoulders up: HORIZON-E Unité 003, robot author (deep-sea expedition unit).
+      Geometric robot head or upper torso, strong silhouette, two flat spot colors plus paper, halftone shading, not photographic.
+      Square 1:1, upper-right corner calm for initials overlay later.
+      
+      Negative prompt: photorealistic, CGI, octane render, unreal engine, glossy plastic, chrome robot, mecha, anime, chibi,
+      lens flare, bokeh, stock photo, hyperreal skin, gradient mesh, 4k hyperdetail, cluttered composition,
+      text, typography, letters, numbers, words, logo, watermark, signature, caption, UI, border with writing,
+      celebrity likeness, identifiable real person
+
+  author-louise:
+    category: author
+    aspect_ratio: "1:1"
+    folder: people
+    palette: horizon
+    prompt: |
+      1970s Canadian editorial screen-print illustration for Moteur Industries, a fictional Montréal robotics company (1968–1978).
+      Flat geometric shapes, bold black ink outlines, limited spot colors, halftone dot texture on aged warm paper.
+      Mid-century industrial design catalogue and magazine art direction; sincere corporate modernism.
+      Not photorealistic, not 3D render, not CGI, not anime, not neon cyberpunk, not glossy mecha.
+      Montreal winter light and North American print culture. Subtle paper grain and registration imperfections welcome.
+      
+      Colors only: pale blue-grey paper #dfe7ec, ink #0d1b2a, navy #1b4965, sky blue #5fa8d3, shadow #62b6cb.
+      
+      Aspect ratio: 1:1.
+      
+      Editorial duotone portrait, shoulders up: Louise Gagnon, editor-in-chief, fictional 1970s Montréal editorial staff.
+      Simplified geometric face and hair silhouette, no celebrity likeness, two spot colors plus paper, halftone texture.
+      Square 1:1, upper-right corner calm for initials overlay later.
+      
+      Negative prompt: photorealistic, CGI, octane render, unreal engine, glossy plastic, chrome robot, mecha, anime, chibi,
+      lens flare, bokeh, stock photo, hyperreal skin, gradient mesh, 4k hyperdetail, cluttered composition,
+      text, typography, letters, numbers, words, logo, watermark, signature, caption, UI, border with writing,
+      celebrity likeness, identifiable real person
+
+  author-theo:
+    category: author
+    aspect_ratio: "1:1"
+    folder: people
+    palette: signal
+    prompt: |
+      1970s Canadian editorial screen-print illustration for Moteur Industries, a fictional Montréal robotics company (1968–1978).
+      Flat geometric shapes, bold black ink outlines, limited spot colors, halftone dot texture on aged warm paper.
+      Mid-century industrial design catalogue and magazine art direction; sincere corporate modernism.
+      Not photorealistic, not 3D render, not CGI, not anime, not neon cyberpunk, not glossy mecha.
+      Montreal winter light and North American print culture. Subtle paper grain and registration imperfections welcome.
+      
+      Colors only: warm grey paper #f1e9e2, ink #1a1a1a, red #c0392b, slate #2c3e50, shadow #7f8c8d.
+      
+      Aspect ratio: 1:1.
+      
+      Editorial duotone portrait, shoulders up: Théo Nguyen, photographer and layout artist, fictional 1970s Montréal editorial staff.
+      Simplified geometric face and hair silhouette, no celebrity likeness, two spot colors plus paper, halftone texture.
+      Square 1:1, upper-right corner calm for initials overlay later.
+      
+      Negative prompt: photorealistic, CGI, octane render, unreal engine, glossy plastic, chrome robot, mecha, anime, chibi,
+      lens flare, bokeh, stock photo, hyperreal skin, gradient mesh, 4k hyperdetail, cluttered composition,
+      text, typography, letters, numbers, words, logo, watermark, signature, caption, UI, border with writing,
+      celebrity likeness, identifiable real person
+
+  author-maison-3-trois:
+    category: author
+    aspect_ratio: "1:1"
+    folder: people
+    palette: archive
+    prompt: |
+      1970s Canadian editorial screen-print illustration for Moteur Industries, a fictional Montréal robotics company (1968–1978).
+      Flat geometric shapes, bold black ink outlines, limited spot colors, halftone dot texture on aged warm paper.
+      Mid-century industrial design catalogue and magazine art direction; sincere corporate modernism.
+      Not photorealistic, not 3D render, not CGI, not anime, not neon cyberpunk, not glossy mecha.
+      Montreal winter light and North American print culture. Subtle paper grain and registration imperfections welcome.
+      
+      Colors only: aged tan paper #eadfc8, ink #3b2f22, brown #8a6a43, sand #b8956a, shadow #6d5a44.
+      
+      Aspect ratio: 1:1.
+      
+      Editorial duotone portrait, shoulders up: MAISON-3 « Trois », robot author (MAISON-3 food columnist unit).
+      Geometric robot head or upper torso, strong silhouette, two flat spot colors plus paper, halftone shading, not photographic.
+      Square 1:1, upper-right corner calm for initials overlay later.
+      
+      Negative prompt: photorealistic, CGI, octane render, unreal engine, glossy plastic, chrome robot, mecha, anime, chibi,
+      lens flare, bokeh, stock photo, hyperreal skin, gradient mesh, 4k hyperdetail, cluttered composition,
+      text, typography, letters, numbers, words, logo, watermark, signature, caption, UI, border with writing,
+      celebrity likeness, identifiable real person
+
+  author-pierre-yves:
+    category: author
+    aspect_ratio: "1:1"
+    folder: people
+    palette: maison
+    prompt: |
+      1970s Canadian editorial screen-print illustration for Moteur Industries, a fictional Montréal robotics company (1968–1978).
+      Flat geometric shapes, bold black ink outlines, limited spot colors, halftone dot texture on aged warm paper.
+      Mid-century industrial design catalogue and magazine art direction; sincere corporate modernism.
+      Not photorealistic, not 3D render, not CGI, not anime, not neon cyberpunk, not glossy mecha.
+      Montreal winter light and North American print culture. Subtle paper grain and registration imperfections welcome.
+      
+      Colors only: warm cream paper #efe3cc, ink #2b1d14, orange #d8622b, gold #e9b44c, shadow #9b4a22.
+      
+      Aspect ratio: 1:1.
+      
+      Editorial duotone portrait, shoulders up: Pierre-Yves Lemieux-Desrochers de la Vérendrye, letters editor, fictional 1970s Montréal editorial staff.
+      Simplified geometric face and hair silhouette, no celebrity likeness, two spot colors plus paper, halftone texture.
+      Square 1:1, upper-right corner calm for initials overlay later.
+      
+      Negative prompt: photorealistic, CGI, octane render, unreal engine, glossy plastic, chrome robot, mecha, anime, chibi,
+      lens flare, bokeh, stock photo, hyperreal skin, gradient mesh, 4k hyperdetail, cluttered composition,
+      text, typography, letters, numbers, words, logo, watermark, signature, caption, UI, border with writing,
+      celebrity likeness, identifiable real person
+
+  scene-garage:
+    category: article-scene
+    aspect_ratio: "16:10"
+    folder: illustrations
+    palette: maison
+    prompt: |
+      1970s Canadian editorial screen-print illustration for Moteur Industries, a fictional Montréal robotics company (1968–1978).
+      Flat geometric shapes, bold black ink outlines, limited spot colors, halftone dot texture on aged warm paper.
+      Mid-century industrial design catalogue and magazine art direction; sincere corporate modernism.
+      Not photorealistic, not 3D render, not CGI, not anime, not neon cyberpunk, not glossy mecha.
+      Montreal winter light and North American print culture. Subtle paper grain and registration imperfections welcome.
+      
+      Colors only: warm cream paper #efe3cc, ink #2b1d14, orange #d8622b, gold #e9b44c, shadow #9b4a22.
+      
+      Aspect ratio: 16:10.
+      
+      Wide editorial illustration: Rue Saint-Denis garage workshop, winter 1968, snow outside open door,
+      geometric robot under construction on blocks, warm interior orange spot color, founders' startup mood, horizontal 16:10 composition with breathing room.
+      
+      Negative prompt: photorealistic, CGI, octane render, unreal engine, glossy plastic, chrome robot, mecha, anime, chibi,
+      lens flare, bokeh, stock photo, hyperreal skin, gradient mesh, 4k hyperdetail, cluttered composition,
+      text, typography, letters, numbers, words, logo, watermark, signature, caption, UI, border with writing,
+      celebrity likeness, identifiable real person
+
+  scene-skyline:
+    category: article-scene
+    aspect_ratio: "16:10"
+    folder: illustrations
+    palette: maison
+    prompt: |
+      1970s Canadian editorial screen-print illustration for Moteur Industries, a fictional Montréal robotics company (1968–1978).
+      Flat geometric shapes, bold black ink outlines, limited spot colors, halftone dot texture on aged warm paper.
+      Mid-century industrial design catalogue and magazine art direction; sincere corporate modernism.
+      Not photorealistic, not 3D render, not CGI, not anime, not neon cyberpunk, not glossy mecha.
+      Montreal winter light and North American print culture. Subtle paper grain and registration imperfections welcome.
+      
+      Colors only: warm cream paper #efe3cc, ink #2b1d14, orange #d8622b, gold #e9b44c, shadow #9b4a22.
+      
+      Aspect ratio: 16:10.
+      
+      Wide editorial illustration: Montréal skyline from the harbour, blocky buildings, cross on Mount Royal, grain elevator,
+      1970s port industry, flat shapes, pale sun disk, horizontal composition.
+      
+      Negative prompt: photorealistic, CGI, octane render, unreal engine, glossy plastic, chrome robot, mecha, anime, chibi,
+      lens flare, bokeh, stock photo, hyperreal skin, gradient mesh, 4k hyperdetail, cluttered composition,
+      text, typography, letters, numbers, words, logo, watermark, signature, caption, UI, border with writing,
+      celebrity likeness, identifiable real person
+
+  scene-skyline-dusk:
+    category: article-scene
+    aspect_ratio: "16:10"
+    folder: illustrations
+    palette: signal
+    prompt: |
+      1970s Canadian editorial screen-print illustration for Moteur Industries, a fictional Montréal robotics company (1968–1978).
+      Flat geometric shapes, bold black ink outlines, limited spot colors, halftone dot texture on aged warm paper.
+      Mid-century industrial design catalogue and magazine art direction; sincere corporate modernism.
+      Not photorealistic, not 3D render, not CGI, not anime, not neon cyberpunk, not glossy mecha.
+      Montreal winter light and North American print culture. Subtle paper grain and registration imperfections welcome.
+      
+      Colors only: warm grey paper #f1e9e2, ink #1a1a1a, red #c0392b, slate #2c3e50, shadow #7f8c8d.
+      
+      Aspect ratio: 16:10.
+      
+      Wide editorial illustration: Montréal at dusk, deep slate sky, red accent windows, silhouette skyline,
+      quiet urban evening, SIGNAL special-issue tension, horizontal 16:10.
+      
+      Negative prompt: photorealistic, CGI, octane render, unreal engine, glossy plastic, chrome robot, mecha, anime, chibi,
+      lens flare, bokeh, stock photo, hyperreal skin, gradient mesh, 4k hyperdetail, cluttered composition,
+      text, typography, letters, numbers, words, logo, watermark, signature, caption, UI, border with writing,
+      celebrity likeness, identifiable real person
+
+  scene-factory:
+    category: article-scene
+    aspect_ratio: "16:10"
+    folder: illustrations
+    palette: industrie
+    prompt: |
+      1970s Canadian editorial screen-print illustration for Moteur Industries, a fictional Montréal robotics company (1968–1978).
+      Flat geometric shapes, bold black ink outlines, limited spot colors, halftone dot texture on aged warm paper.
+      Mid-century industrial design catalogue and magazine art direction; sincere corporate modernism.
+      Not photorealistic, not 3D render, not CGI, not anime, not neon cyberpunk, not glossy mecha.
+      Montreal winter light and North American print culture. Subtle paper grain and registration imperfections welcome.
+      
+      Colors only: cool grey paper #e4e6e1, ink #1c2229, steel blue #2f5d8a, yellow #f2c230, shadow #5b6b78.
+      
+      Aspect ratio: 16:10.
+      
+      Wide editorial illustration: Rouyn-Noranda plant at 3 a.m., rows of yellow industrial lamps,
+      six-axis robot arms as bold geometric forms, never-sleeping factory, horizontal composition, high contrast ink and blue.
+      
+      Negative prompt: photorealistic, CGI, octane render, unreal engine, glossy plastic, chrome robot, mecha, anime, chibi,
+      lens flare, bokeh, stock photo, hyperreal skin, gradient mesh, 4k hyperdetail, cluttered composition,
+      text, typography, letters, numbers, words, logo, watermark, signature, caption, UI, border with writing,
+      celebrity likeness, identifiable real person
+
+  scene-factory-lachine:
+    category: article-scene
+    aspect_ratio: "16:10"
+    folder: illustrations
+    palette: maison
+    prompt: |
+      1970s Canadian editorial screen-print illustration for Moteur Industries, a fictional Montréal robotics company (1968–1978).
+      Flat geometric shapes, bold black ink outlines, limited spot colors, halftone dot texture on aged warm paper.
+      Mid-century industrial design catalogue and magazine art direction; sincere corporate modernism.
+      Not photorealistic, not 3D render, not CGI, not anime, not neon cyberpunk, not glossy mecha.
+      Montreal winter light and North American print culture. Subtle paper grain and registration imperfections welcome.
+      
+      Colors only: warm cream paper #efe3cc, ink #2b1d14, orange #d8622b, gold #e9b44c, shadow #9b4a22.
+      
+      Aspect ratio: 16:10.
+      
+      Wide editorial illustration: Lachine MAISON assembly line, domestic robots on conveyor implied as simple shapes,
+      factory open-house friendly tone, orange and cream palette, horizontal 16:10.
+      
+      Negative prompt: photorealistic, CGI, octane render, unreal engine, glossy plastic, chrome robot, mecha, anime, chibi,
+      lens flare, bokeh, stock photo, hyperreal skin, gradient mesh, 4k hyperdetail, cluttered composition,
+      text, typography, letters, numbers, words, logo, watermark, signature, caption, UI, border with writing,
+      celebrity likeness, identifiable real person
+
+  scene-ocean:
+    category: article-scene
+    aspect_ratio: "16:10"
+    folder: illustrations
+    palette: horizon
+    prompt: |
+      1970s Canadian editorial screen-print illustration for Moteur Industries, a fictional Montréal robotics company (1968–1978).
+      Flat geometric shapes, bold black ink outlines, limited spot colors, halftone dot texture on aged warm paper.
+      Mid-century industrial design catalogue and magazine art direction; sincere corporate modernism.
+      Not photorealistic, not 3D render, not CGI, not anime, not neon cyberpunk, not glossy mecha.
+      Montreal winter light and North American print culture. Subtle paper grain and registration imperfections welcome.
+      
+      Colors only: pale blue-grey paper #dfe7ec, ink #0d1b2a, navy #1b4965, sky blue #5fa8d3, shadow #62b6cb.
+      
+      Aspect ratio: 16:10.
+      
+      Wide editorial illustration: HORIZON-E deep submersible at 3847 metres, layered navy waves, small heroic robot vessel,
+      North Atlantic exploration, horizontal composition, depth suggested by flat wave bands.
+      
+      Negative prompt: photorealistic, CGI, octane render, unreal engine, glossy plastic, chrome robot, mecha, anime, chibi,
+      lens flare, bokeh, stock photo, hyperreal skin, gradient mesh, 4k hyperdetail, cluttered composition,
+      text, typography, letters, numbers, words, logo, watermark, signature, caption, UI, border with writing,
+      celebrity likeness, identifiable real person
+
+  scene-ocean-north:
+    category: article-scene
+    aspect_ratio: "16:10"
+    folder: illustrations
+    palette: compagnon
+    prompt: |
+      1970s Canadian editorial screen-print illustration for Moteur Industries, a fictional Montréal robotics company (1968–1978).
+      Flat geometric shapes, bold black ink outlines, limited spot colors, halftone dot texture on aged warm paper.
+      Mid-century industrial design catalogue and magazine art direction; sincere corporate modernism.
+      Not photorealistic, not 3D render, not CGI, not anime, not neon cyberpunk, not glossy mecha.
+      Montreal winter light and North American print culture. Subtle paper grain and registration imperfections welcome.
+      
+      Colors only: sage paper #e8eadf, ink #17251f, teal #2f8a6e, coral #e07a5f, shadow #3d5a50.
+      
+      Aspect ratio: 16:10.
+      
+      Wide editorial illustration: under sea ice, Ungava Bay, HORIZON-N expedition, teal ice ceiling, coral accents,
+      remote northern winter, horizontal 16:10, lonely exploration mood.
+      
+      Negative prompt: photorealistic, CGI, octane render, unreal engine, glossy plastic, chrome robot, mecha, anime, chibi,
+      lens flare, bokeh, stock photo, hyperreal skin, gradient mesh, 4k hyperdetail, cluttered composition,
+      text, typography, letters, numbers, words, logo, watermark, signature, caption, UI, border with writing,
+      celebrity likeness, identifiable real person
+
+  scene-blueprint-la-chose:
+    category: article-scene
+    aspect_ratio: "16:10"
+    folder: illustrations
+    palette: horizon
+    prompt: |
+      1970s Canadian editorial screen-print illustration for Moteur Industries, a fictional Montréal robotics company (1968–1978).
+      Flat geometric shapes, bold black ink outlines, limited spot colors, halftone dot texture on aged warm paper.
+      Mid-century industrial design catalogue and magazine art direction; sincere corporate modernism.
+      Not photorealistic, not 3D render, not CGI, not anime, not neon cyberpunk, not glossy mecha.
+      Montreal winter light and North American print culture. Subtle paper grain and registration imperfections welcome.
+      
+      Colors only: pale blue-grey paper #dfe7ec, ink #0d1b2a, navy #1b4965, sky blue #5fa8d3, shadow #62b6cb.
+      
+      Aspect ratio: 16:10.
+      
+      Technical blueprint plate: LA CHOSE prototype 1968, cyanotype blue background, white line art,
+      top-down robot schematic, dimension ticks without readable numbers, engineering sheet 1:4 scale feel, landscape 16:10.
+      MOTEUR INDUSTRIES header area left blank (no text).
+      
+      Negative prompt: photorealistic, CGI, octane render, unreal engine, glossy plastic, chrome robot, mecha, anime, chibi,
+      lens flare, bokeh, stock photo, hyperreal skin, gradient mesh, 4k hyperdetail, cluttered composition,
+      text, typography, letters, numbers, words, logo, watermark, signature, caption, UI, border with writing,
+      celebrity likeness, identifiable real person
+
+  scene-blueprint-arm:
+    category: article-scene
+    aspect_ratio: "16:10"
+    folder: illustrations
+    palette: industrie
+    prompt: |
+      1970s Canadian editorial screen-print illustration for Moteur Industries, a fictional Montréal robotics company (1968–1978).
+      Flat geometric shapes, bold black ink outlines, limited spot colors, halftone dot texture on aged warm paper.
+      Mid-century industrial design catalogue and magazine art direction; sincere corporate modernism.
+      Not photorealistic, not 3D render, not CGI, not anime, not neon cyberpunk, not glossy mecha.
+      Montreal winter light and North American print culture. Subtle paper grain and registration imperfections welcome.
+      
+      Colors only: cool grey paper #e4e6e1, ink #1c2229, steel blue #2f5d8a, yellow #f2c230, shadow #5b6b78.
+      
+      Aspect ratio: 16:10.
+      
+      Technical blueprint plate: INDUSTRIE-F six-axis arm, white lines on deep blue, joint circles and reach arc,
+      industrial precision mood, landscape 16:10, no readable labels.
+      
+      Negative prompt: photorealistic, CGI, octane render, unreal engine, glossy plastic, chrome robot, mecha, anime, chibi,
+      lens flare, bokeh, stock photo, hyperreal skin, gradient mesh, 4k hyperdetail, cluttered composition,
+      text, typography, letters, numbers, words, logo, watermark, signature, caption, UI, border with writing,
+      celebrity likeness, identifiable real person
+
+  scene-blueprint-signal:
+    category: article-scene
+    aspect_ratio: "16:10"
+    folder: illustrations
+    palette: signal
+    prompt: |
+      1970s Canadian editorial screen-print illustration for Moteur Industries, a fictional Montréal robotics company (1968–1978).
+      Flat geometric shapes, bold black ink outlines, limited spot colors, halftone dot texture on aged warm paper.
+      Mid-century industrial design catalogue and magazine art direction; sincere corporate modernism.
+      Not photorealistic, not 3D render, not CGI, not anime, not neon cyberpunk, not glossy mecha.
+      Montreal winter light and North American print culture. Subtle paper grain and registration imperfections welcome.
+      
+      Colors only: warm grey paper #f1e9e2, ink #1a1a1a, red #c0392b, slate #2c3e50, shadow #7f8c8d.
+      
+      Aspect ratio: 16:10.
+      
+      Technical blueprint plate: SIGNAL-1 antenna and relay schematic, white on blue-grey, concentric radiation lobes,
+      communications engineering, landscape 16:10, no text.
+      
+      Negative prompt: photorealistic, CGI, octane render, unreal engine, glossy plastic, chrome robot, mecha, anime, chibi,
+      lens flare, bokeh, stock photo, hyperreal skin, gradient mesh, 4k hyperdetail, cluttered composition,
+      text, typography, letters, numbers, words, logo, watermark, signature, caption, UI, border with writing,
+      celebrity likeness, identifiable real person
+
+  chart-units:
+    category: chart
+    aspect_ratio: "16:10"
+    folder: illustrations
+    palette: signal
+    prompt: |
+      1970s Canadian editorial screen-print illustration for Moteur Industries, a fictional Montréal robotics company (1968–1978).
+      Flat geometric shapes, bold black ink outlines, limited spot colors, halftone dot texture on aged warm paper.
+      Mid-century industrial design catalogue and magazine art direction; sincere corporate modernism.
+      Not photorealistic, not 3D render, not CGI, not anime, not neon cyberpunk, not glossy mecha.
+      Montreal winter light and North American print culture. Subtle paper grain and registration imperfections welcome.
+      
+      Colors only: warm grey paper #f1e9e2, ink #1a1a1a, red #c0392b, slate #2c3e50, shadow #7f8c8d.
+      
+      Aspect ratio: 16:10.
+      
+      Data journalism illustration: bar chart of cumulative deployed units 1970–1978 (1970 small, 1978 tallest),
+      flat bars, mono axis ticks without readable numbers, title area blank at top, signal palette red and slate,
+      landscape 16:10, halftone paper.
+      
+      Negative prompt: photorealistic, CGI, octane render, unreal engine, glossy plastic, chrome robot, mecha, anime, chibi,
+      lens flare, bokeh, stock photo, hyperreal skin, gradient mesh, 4k hyperdetail, cluttered composition,
+      text, typography, letters, numbers, words, logo, watermark, signature, caption, UI, border with writing,
+      celebrity likeness, identifiable real person
+
+  chart-waitlist:
+    category: chart
+    aspect_ratio: "16:10"
+    folder: illustrations
+    palette: compagnon
+    prompt: |
+      1970s Canadian editorial screen-print illustration for Moteur Industries, a fictional Montréal robotics company (1968–1978).
+      Flat geometric shapes, bold black ink outlines, limited spot colors, halftone dot texture on aged warm paper.
+      Mid-century industrial design catalogue and magazine art direction; sincere corporate modernism.
+      Not photorealistic, not 3D render, not CGI, not anime, not neon cyberpunk, not glossy mecha.
+      Montreal winter light and North American print culture. Subtle paper grain and registration imperfections welcome.
+      
+      Colors only: sage paper #e8eadf, ink #17251f, teal #2f8a6e, coral #e07a5f, shadow #3d5a50.
+      
+      Aspect ratio: 16:10.
+      
+      Data journalism illustration: COMPAGNON-9 waiting list growth 1977 T1–T4, rising bars,
+      teal and coral, editorial chart aesthetic, no readable numbers, landscape 16:10.
+      
+      Negative prompt: photorealistic, CGI, octane render, unreal engine, glossy plastic, chrome robot, mecha, anime, chibi,
+      lens flare, bokeh, stock photo, hyperreal skin, gradient mesh, 4k hyperdetail, cluttered composition,
+      text, typography, letters, numbers, words, logo, watermark, signature, caption, UI, border with writing,
+      celebrity likeness, identifiable real person
+
+  poster-portes-ouvertes-lachine:
+    category: event-poster-illustration
+    aspect_ratio: "3:4"
+    folder: events
+    palette: maison
+    overlay_note: "Composite with poster() SVG for date, venue, title lines."
+    prompt: |
+      1970s Canadian editorial screen-print illustration for Moteur Industries, a fictional Montréal robotics company (1968–1978).
+      Flat geometric shapes, bold black ink outlines, limited spot colors, halftone dot texture on aged warm paper.
+      Mid-century industrial design catalogue and magazine art direction; sincere corporate modernism.
+      Not photorealistic, not 3D render, not CGI, not anime, not neon cyberpunk, not glossy mecha.
+      Montreal winter light and North American print culture. Subtle paper grain and registration imperfections welcome.
+      
+      Colors only: warm cream paper #efe3cc, ink #2b1d14, orange #d8622b, gold #e9b44c, shadow #9b4a22.
+      
+      Aspect ratio: 3:4.
+      
+      Event poster ILLUSTRATION PLATE ONLY (no dates, no venue text, no titles).
+      Event: Portes ouvertes à l’usine de Lachine / Open house at the Lachine plant. Type: open-house.
+      Bold 1970s constructivist shapes (circles, triangles, rectangles) in spot colors, bottom area calmer for future title overlay,
+      top black band area empty for date and venue typography. Portrait 3:4 poster proportions.
+      
+      Negative prompt: photorealistic, CGI, octane render, unreal engine, glossy plastic, chrome robot, mecha, anime, chibi,
+      lens flare, bokeh, stock photo, hyperreal skin, gradient mesh, 4k hyperdetail, cluttered composition,
+      text, typography, letters, numbers, words, logo, watermark, signature, caption, UI, border with writing,
+      celebrity likeness, identifiable real person
+
+  poster-conference-tremblay:
+    category: event-poster-illustration
+    aspect_ratio: "3:4"
+    folder: events
+    palette: horizon
+    overlay_note: "Composite with poster() SVG for date, venue, title lines."
+    prompt: |
+      1970s Canadian editorial screen-print illustration for Moteur Industries, a fictional Montréal robotics company (1968–1978).
+      Flat geometric shapes, bold black ink outlines, limited spot colors, halftone dot texture on aged warm paper.
+      Mid-century industrial design catalogue and magazine art direction; sincere corporate modernism.
+      Not photorealistic, not 3D render, not CGI, not anime, not neon cyberpunk, not glossy mecha.
+      Montreal winter light and North American print culture. Subtle paper grain and registration imperfections welcome.
+      
+      Colors only: pale blue-grey paper #dfe7ec, ink #0d1b2a, navy #1b4965, sky blue #5fa8d3, shadow #62b6cb.
+      
+      Aspect ratio: 3:4.
+      
+      Event poster ILLUSTRATION PLATE ONLY (no dates, no venue text, no titles).
+      Event: Diane Tremblay: la mémoire des machines / Diane Tremblay: how machines remember. Type: talk.
+      Bold 1970s constructivist shapes (circles, triangles, rectangles) in spot colors, bottom area calmer for future title overlay,
+      top black band area empty for date and venue typography. Portrait 3:4 poster proportions.
+      
+      Negative prompt: photorealistic, CGI, octane render, unreal engine, glossy plastic, chrome robot, mecha, anime, chibi,
+      lens flare, bokeh, stock photo, hyperreal skin, gradient mesh, 4k hyperdetail, cluttered composition,
+      text, typography, letters, numbers, words, logo, watermark, signature, caption, UI, border with writing,
+      celebrity likeness, identifiable real person
+
+  poster-expo-cinquante-robots:
+    category: event-poster-illustration
+    aspect_ratio: "3:4"
+    folder: events
+    palette: archive
+    overlay_note: "Composite with poster() SVG for date, venue, title lines."
+    prompt: |
+      1970s Canadian editorial screen-print illustration for Moteur Industries, a fictional Montréal robotics company (1968–1978).
+      Flat geometric shapes, bold black ink outlines, limited spot colors, halftone dot texture on aged warm paper.
+      Mid-century industrial design catalogue and magazine art direction; sincere corporate modernism.
+      Not photorealistic, not 3D render, not CGI, not anime, not neon cyberpunk, not glossy mecha.
+      Montreal winter light and North American print culture. Subtle paper grain and registration imperfections welcome.
+      
+      Colors only: aged tan paper #eadfc8, ink #3b2f22, brown #8a6a43, sand #b8956a, shadow #6d5a44.
+      
+      Aspect ratio: 3:4.
+      
+      Event poster ILLUSTRATION PLATE ONLY (no dates, no venue text, no titles).
+      Event: Exposition: cinquante robots, dix ans / Exhibition: fifty robots, ten years. Type: exhibition.
+      Bold 1970s constructivist shapes (circles, triangles, rectangles) in spot colors, bottom area calmer for future title overlay,
+      top black band area empty for date and venue typography. Portrait 3:4 poster proportions.
+      
+      Negative prompt: photorealistic, CGI, octane render, unreal engine, glossy plastic, chrome robot, mecha, anime, chibi,
+      lens flare, bokeh, stock photo, hyperreal skin, gradient mesh, 4k hyperdetail, cluttered composition,
+      text, typography, letters, numbers, words, logo, watermark, signature, caption, UI, border with writing,
+      celebrity likeness, identifiable real person
+
+  poster-atelier-programmation:
+    category: event-poster-illustration
+    aspect_ratio: "3:4"
+    folder: events
+    palette: maison
+    overlay_note: "Composite with poster() SVG for date, venue, title lines."
+    prompt: |
+      1970s Canadian editorial screen-print illustration for Moteur Industries, a fictional Montréal robotics company (1968–1978).
+      Flat geometric shapes, bold black ink outlines, limited spot colors, halftone dot texture on aged warm paper.
+      Mid-century industrial design catalogue and magazine art direction; sincere corporate modernism.
+      Not photorealistic, not 3D render, not CGI, not anime, not neon cyberpunk, not glossy mecha.
+      Montreal winter light and North American print culture. Subtle paper grain and registration imperfections welcome.
+      
+      Colors only: warm cream paper #efe3cc, ink #2b1d14, orange #d8622b, gold #e9b44c, shadow #9b4a22.
+      
+      Aspect ratio: 3:4.
+      
+      Event poster ILLUSTRATION PLATE ONLY (no dates, no venue text, no titles).
+      Event: Atelier: programmer sa MAISON / Workshop: program your MAISON. Type: workshop.
+      Bold 1970s constructivist shapes (circles, triangles, rectangles) in spot colors, bottom area calmer for future title overlay,
+      top black band area empty for date and venue typography. Portrait 3:4 poster proportions.
+      
+      Negative prompt: photorealistic, CGI, octane render, unreal engine, glossy plastic, chrome robot, mecha, anime, chibi,
+      lens flare, bokeh, stock photo, hyperreal skin, gradient mesh, 4k hyperdetail, cluttered composition,
+      text, typography, letters, numbers, words, logo, watermark, signature, caption, UI, border with writing,
+      celebrity likeness, identifiable real person
+
+  poster-lancement-hors-serie:
+    category: event-poster-illustration
+    aspect_ratio: "3:4"
+    folder: events
+    palette: signal
+    overlay_note: "Composite with poster() SVG for date, venue, title lines."
+    prompt: |
+      1970s Canadian editorial screen-print illustration for Moteur Industries, a fictional Montréal robotics company (1968–1978).
+      Flat geometric shapes, bold black ink outlines, limited spot colors, halftone dot texture on aged warm paper.
+      Mid-century industrial design catalogue and magazine art direction; sincere corporate modernism.
+      Not photorealistic, not 3D render, not CGI, not anime, not neon cyberpunk, not glossy mecha.
+      Montreal winter light and North American print culture. Subtle paper grain and registration imperfections welcome.
+      
+      Colors only: warm grey paper #f1e9e2, ink #1a1a1a, red #c0392b, slate #2c3e50, shadow #7f8c8d.
+      
+      Aspect ratio: 3:4.
+      
+      Event poster ILLUSTRATION PLATE ONLY (no dates, no venue text, no titles).
+      Event: Lancement du hors-série SIGNAL / SIGNAL special issue launch. Type: launch.
+      Bold 1970s constructivist shapes (circles, triangles, rectangles) in spot colors, bottom area calmer for future title overlay,
+      top black band area empty for date and venue typography. Portrait 3:4 poster proportions.
+      
+      Negative prompt: photorealistic, CGI, octane render, unreal engine, glossy plastic, chrome robot, mecha, anime, chibi,
+      lens flare, bokeh, stock photo, hyperreal skin, gradient mesh, 4k hyperdetail, cluttered composition,
+      text, typography, letters, numbers, words, logo, watermark, signature, caption, UI, border with writing,
+      celebrity likeness, identifiable real person
+
+  poster-salon-sept-iles:
+    category: event-poster-illustration
+    aspect_ratio: "3:4"
+    folder: events
+    palette: horizon
+    overlay_note: "Composite with poster() SVG for date, venue, title lines."
+    prompt: |
+      1970s Canadian editorial screen-print illustration for Moteur Industries, a fictional Montréal robotics company (1968–1978).
+      Flat geometric shapes, bold black ink outlines, limited spot colors, halftone dot texture on aged warm paper.
+      Mid-century industrial design catalogue and magazine art direction; sincere corporate modernism.
+      Not photorealistic, not 3D render, not CGI, not anime, not neon cyberpunk, not glossy mecha.
+      Montreal winter light and North American print culture. Subtle paper grain and registration imperfections welcome.
+      
+      Colors only: pale blue-grey paper #dfe7ec, ink #0d1b2a, navy #1b4965, sky blue #5fa8d3, shadow #62b6cb.
+      
+      Aspect ratio: 3:4.
+      
+      Event poster ILLUSTRATION PLATE ONLY (no dates, no venue text, no titles).
+      Event: Salon maritime de Sept-Îles / Sept-Îles maritime fair. Type: exhibition.
+      Bold 1970s constructivist shapes (circles, triangles, rectangles) in spot colors, bottom area calmer for future title overlay,
+      top black band area empty for date and venue typography. Portrait 3:4 poster proportions.
+      
+      Negative prompt: photorealistic, CGI, octane render, unreal engine, glossy plastic, chrome robot, mecha, anime, chibi,
+      lens flare, bokeh, stock photo, hyperreal skin, gradient mesh, 4k hyperdetail, cluttered composition,
+      text, typography, letters, numbers, words, logo, watermark, signature, caption, UI, border with writing,
+      celebrity likeness, identifiable real person
+
+  poster-table-ronde-confiance:
+    category: event-poster-illustration
+    aspect_ratio: "3:4"
+    folder: events
+    palette: compagnon
+    overlay_note: "Composite with poster() SVG for date, venue, title lines."
+    prompt: |
+      1970s Canadian editorial screen-print illustration for Moteur Industries, a fictional Montréal robotics company (1968–1978).
+      Flat geometric shapes, bold black ink outlines, limited spot colors, halftone dot texture on aged warm paper.
+      Mid-century industrial design catalogue and magazine art direction; sincere corporate modernism.
+      Not photorealistic, not 3D render, not CGI, not anime, not neon cyberpunk, not glossy mecha.
+      Montreal winter light and North American print culture. Subtle paper grain and registration imperfections welcome.
+      
+      Colors only: sage paper #e8eadf, ink #17251f, teal #2f8a6e, coral #e07a5f, shadow #3d5a50.
+      
+      Aspect ratio: 3:4.
+      
+      Event poster ILLUSTRATION PLATE ONLY (no dates, no venue text, no titles).
+      Event: Table ronde: peut-on faire confiance à une machine? / Panel: can you trust a machine?. Type: talk.
+      Bold 1970s constructivist shapes (circles, triangles, rectangles) in spot colors, bottom area calmer for future title overlay,
+      top black band area empty for date and venue typography. Portrait 3:4 poster proportions.
+      
+      Negative prompt: photorealistic, CGI, octane render, unreal engine, glossy plastic, chrome robot, mecha, anime, chibi,
+      lens flare, bokeh, stock photo, hyperreal skin, gradient mesh, 4k hyperdetail, cluttered composition,
+      text, typography, letters, numbers, words, logo, watermark, signature, caption, UI, border with writing,
+      celebrity likeness, identifiable real person
+
+  poster-visite-rouyn:
+    category: event-poster-illustration
+    aspect_ratio: "3:4"
+    folder: events
+    palette: industrie
+    overlay_note: "Composite with poster() SVG for date, venue, title lines."
+    prompt: |
+      1970s Canadian editorial screen-print illustration for Moteur Industries, a fictional Montréal robotics company (1968–1978).
+      Flat geometric shapes, bold black ink outlines, limited spot colors, halftone dot texture on aged warm paper.
+      Mid-century industrial design catalogue and magazine art direction; sincere corporate modernism.
+      Not photorealistic, not 3D render, not CGI, not anime, not neon cyberpunk, not glossy mecha.
+      Montreal winter light and North American print culture. Subtle paper grain and registration imperfections welcome.
+      
+      Colors only: cool grey paper #e4e6e1, ink #1c2229, steel blue #2f5d8a, yellow #f2c230, shadow #5b6b78.
+      
+      Aspect ratio: 3:4.
+      
+      Event poster ILLUSTRATION PLATE ONLY (no dates, no venue text, no titles).
+      Event: Visite de nuit: Rouyn-Noranda / Night tour: Rouyn-Noranda. Type: open-house.
+      Bold 1970s constructivist shapes (circles, triangles, rectangles) in spot colors, bottom area calmer for future title overlay,
+      top black band area empty for date and venue typography. Portrait 3:4 poster proportions.
+      
+      Negative prompt: photorealistic, CGI, octane render, unreal engine, glossy plastic, chrome robot, mecha, anime, chibi,
+      lens flare, bokeh, stock photo, hyperreal skin, gradient mesh, 4k hyperdetail, cluttered composition,
+      text, typography, letters, numbers, words, logo, watermark, signature, caption, UI, border with writing,
+      celebrity likeness, identifiable real person
+
+  poster-brunch-lecteurs:
+    category: event-poster-illustration
+    aspect_ratio: "3:4"
+    folder: events
+    palette: maison
+    overlay_note: "Composite with poster() SVG for date, venue, title lines."
+    prompt: |
+      1970s Canadian editorial screen-print illustration for Moteur Industries, a fictional Montréal robotics company (1968–1978).
+      Flat geometric shapes, bold black ink outlines, limited spot colors, halftone dot texture on aged warm paper.
+      Mid-century industrial design catalogue and magazine art direction; sincere corporate modernism.
+      Not photorealistic, not 3D render, not CGI, not anime, not neon cyberpunk, not glossy mecha.
+      Montreal winter light and North American print culture. Subtle paper grain and registration imperfections welcome.
+      
+      Colors only: warm cream paper #efe3cc, ink #2b1d14, orange #d8622b, gold #e9b44c, shadow #9b4a22.
+      
+      Aspect ratio: 3:4.
+      
+      Event poster ILLUSTRATION PLATE ONLY (no dates, no venue text, no titles).
+      Event: Brunch des lecteurs / Readers’ brunch. Type: workshop.
+      Bold 1970s constructivist shapes (circles, triangles, rectangles) in spot colors, bottom area calmer for future title overlay,
+      top black band area empty for date and venue typography. Portrait 3:4 poster proportions.
+      
+      Negative prompt: photorealistic, CGI, octane render, unreal engine, glossy plastic, chrome robot, mecha, anime, chibi,
+      lens flare, bokeh, stock photo, hyperreal skin, gradient mesh, 4k hyperdetail, cluttered composition,
+      text, typography, letters, numbers, words, logo, watermark, signature, caption, UI, border with writing,
+      celebrity likeness, identifiable real person
+
+  poster-expedition-ungava:
+    category: event-poster-illustration
+    aspect_ratio: "3:4"
+    folder: events
+    palette: horizon
+    overlay_note: "Composite with poster() SVG for date, venue, title lines."
+    prompt: |
+      1970s Canadian editorial screen-print illustration for Moteur Industries, a fictional Montréal robotics company (1968–1978).
+      Flat geometric shapes, bold black ink outlines, limited spot colors, halftone dot texture on aged warm paper.
+      Mid-century industrial design catalogue and magazine art direction; sincere corporate modernism.
+      Not photorealistic, not 3D render, not CGI, not anime, not neon cyberpunk, not glossy mecha.
+      Montreal winter light and North American print culture. Subtle paper grain and registration imperfections welcome.
+      
+      Colors only: pale blue-grey paper #dfe7ec, ink #0d1b2a, navy #1b4965, sky blue #5fa8d3, shadow #62b6cb.
+      
+      Aspect ratio: 3:4.
+      
+      Event poster ILLUSTRATION PLATE ONLY (no dates, no venue text, no titles).
+      Event: Conférence: un hiver sous la glace / Talk: a winter under the ice. Type: talk.
+      Bold 1970s constructivist shapes (circles, triangles, rectangles) in spot colors, bottom area calmer for future title overlay,
+      top black band area empty for date and venue typography. Portrait 3:4 poster proportions.
+      
+      Negative prompt: photorealistic, CGI, octane render, unreal engine, glossy plastic, chrome robot, mecha, anime, chibi,
+      lens flare, bokeh, stock photo, hyperreal skin, gradient mesh, 4k hyperdetail, cluttered composition,
+      text, typography, letters, numbers, words, logo, watermark, signature, caption, UI, border with writing,
+      celebrity likeness, identifiable real person
+
+  poster-demonstration-annulee:
+    category: event-poster-illustration
+    aspect_ratio: "3:4"
+    folder: events
+    palette: industrie
+    overlay_note: "Composite with poster() SVG for date, venue, title lines."
+    prompt: |
+      1970s Canadian editorial screen-print illustration for Moteur Industries, a fictional Montréal robotics company (1968–1978).
+      Flat geometric shapes, bold black ink outlines, limited spot colors, halftone dot texture on aged warm paper.
+      Mid-century industrial design catalogue and magazine art direction; sincere corporate modernism.
+      Not photorealistic, not 3D render, not CGI, not anime, not neon cyberpunk, not glossy mecha.
+      Montreal winter light and North American print culture. Subtle paper grain and registration imperfections welcome.
+      
+      Colors only: cool grey paper #e4e6e1, ink #1c2229, steel blue #2f5d8a, yellow #f2c230, shadow #5b6b78.
+      
+      Aspect ratio: 3:4.
+      
+      Event poster ILLUSTRATION PLATE ONLY (no dates, no venue text, no titles).
+      Event: ANNULÉ — Démonstration INDUSTRIE-X / CANCELLED — INDUSTRIE-X demonstration. Type: launch.
+      Bold 1970s constructivist shapes (circles, triangles, rectangles) in spot colors, bottom area calmer for future title overlay,
+      top black band area empty for date and venue typography. Portrait 3:4 poster proportions.
+      
+      Negative prompt: photorealistic, CGI, octane render, unreal engine, glossy plastic, chrome robot, mecha, anime, chibi,
+      lens flare, bokeh, stock photo, hyperreal skin, gradient mesh, 4k hyperdetail, cluttered composition,
+      text, typography, letters, numbers, words, logo, watermark, signature, caption, UI, border with writing,
+      celebrity likeness, identifiable real person
+
+  poster-marathon:
+    category: event-poster-illustration
+    aspect_ratio: "3:4"
+    folder: events
+    palette: compagnon
+    overlay_note: "Composite with poster() SVG for date, venue, title lines."
+    prompt: |
+      1970s Canadian editorial screen-print illustration for Moteur Industries, a fictional Montréal robotics company (1968–1978).
+      Flat geometric shapes, bold black ink outlines, limited spot colors, halftone dot texture on aged warm paper.
+      Mid-century industrial design catalogue and magazine art direction; sincere corporate modernism.
+      Not photorealistic, not 3D render, not CGI, not anime, not neon cyberpunk, not glossy mecha.
+      Montreal winter light and North American print culture. Subtle paper grain and registration imperfections welcome.
+      
+      Colors only: sage paper #e8eadf, ink #17251f, teal #2f8a6e, coral #e07a5f, shadow #3d5a50.
+      
+      Aspect ratio: 3:4.
+      
+      Event poster ILLUSTRATION PLATE ONLY (no dates, no venue text, no titles).
+      Event: Marathon de Montréal: équipe COMPAGNON / Montréal marathon: team COMPAGNON. Type: open-house.
+      Bold 1970s constructivist shapes (circles, triangles, rectangles) in spot colors, bottom area calmer for future title overlay,
+      top black band area empty for date and venue typography. Portrait 3:4 poster proportions.
+      
+      Negative prompt: photorealistic, CGI, octane render, unreal engine, glossy plastic, chrome robot, mecha, anime, chibi,
+      lens flare, bokeh, stock photo, hyperreal skin, gradient mesh, 4k hyperdetail, cluttered composition,
+      text, typography, letters, numbers, words, logo, watermark, signature, caption, UI, border with writing,
+      celebrity likeness, identifiable real person
+

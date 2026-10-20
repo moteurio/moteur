@@ -6,6 +6,7 @@
     "type": "module",
     "scripts": {
         "build:demo": "tsx --tsconfig ../../tsconfig.server-dev.json src/cli.ts",
+        "dump-art-prompts": "tsx --tsconfig ../../tsconfig.server-dev.json src/journal/dump-art-prompts.ts",
         "test": "vitest run",
         "lint": "eslint . --ext .ts"
     },
