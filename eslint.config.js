@@ -21,6 +21,8 @@ export default [
             'vitest.config.js',
             'vitest.config.ts',
             'src/tests/**',
+            // Run with tsx (see the file); not part of a tsconfig project.
+            'scripts/**/*.ts',
             'html/**'
         ]
     },
