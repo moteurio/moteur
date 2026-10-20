@@ -15,6 +15,7 @@ import {
     type ValidationReport
 } from '../runtime/project.js';
 import { models, blocks, templates } from './schema.js';
+import { evolveJournalSchemas, journalModelsAtLaunch } from './schemaEvolution.js';
 import { personas, lead, reviewer, team } from './team.js';
 import { art } from './art.js';
 import { content } from './content/index.js';
@@ -46,8 +47,13 @@ export async function buildJournal(opts: JournalOptions): Promise<ValidationRepo
     setDaysAgo(150);
     await ensurePersonas(personas, opts.password);
     await createProjectFor(project, lead, personas);
-    await installSchemas(JOURNAL_ID, lead, { blocks, models, templates });
+    await installSchemas(JOURNAL_ID, lead, {
+        blocks,
+        models: journalModelsAtLaunch(models),
+        templates
+    });
     log(`schemas: ${models.length} models, ${blocks.length} blocks, ${templates.length} templates`);
+    await evolveJournalSchemas(JOURNAL_ID, models, log);
 
     setDaysAgo(140);
     const uploaded = await uploadArt(JOURNAL_ID, asUser(lead), art());
