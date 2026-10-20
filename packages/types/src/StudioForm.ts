@@ -100,7 +100,8 @@ export const STUDIO_PRESENTATIONS: Record<string, string[]> = {
     'core/order': ['big'],
     'core/date': ['ticket'],
     'core/datetime': ['ticket'],
-    'core/boolean': ['switch']
+    'core/boolean': ['switch'],
+    'core/list': ['table', 'cards', 'panel']
 };
 
 export const STUDIO_SECTION_KINDS: StudioSectionKind[] = ['canvas', 'card', 'drawer', 'sheet'];

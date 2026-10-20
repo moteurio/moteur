@@ -43,6 +43,13 @@ fieldRegistry.register({
             label: 'Unique Items',
             description: 'Whether items in the list must be unique.'
         },
+        summary: {
+            type: 'core/text',
+            label: 'Summary',
+            description:
+                'Item sub-field key (or list of keys) shown on collapsed items in Studio. Default: the first words of the item.',
+            required: false
+        },
         ui: {
             type: 'core/text',
             label: 'UI Hint',

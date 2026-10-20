@@ -16,7 +16,7 @@ This document describes the **HTTP API** for integrating with Moteur: authentica
 
 | Method | Endpoint                | Description                                                                                              |
 | ------ | ----------------------- | -------------------------------------------------------------------------------------------------------- |
-| POST   | `/auth/login`           | Log in. Body: `{ email, password }`. Returns `{ token, user }`.                                          |
+| POST   | `/auth/login`           | Log in. Body: `{ username, password }` (email is typical for `username`). Returns `{ token, user }`.     |
 | GET    | `/auth/providers`       | List auth providers. Returns `{ providers }`.                                                            |
 | POST   | `/auth/refresh`         | Refresh JWT. Returns `{ token }`.                                                                        |
 | GET    | `/auth/me`              | Current user (requires JWT). Returns `{ user }` with projects, `lastLoginAt?`, etc. (no `passwordHash`). |
@@ -85,15 +85,25 @@ For entries, **`resourceId`** is `modelId__entryId`. Global events have `project
 
 Named views of project data for external consumers. Authenticate with **project API key** (header `x-api-key` only) or JWT. Default status filter is **published** when using API key only; with JWT the collection’s status filter is respected.
 
-| Method | Endpoint                                                                 | Description                                                                                          |
-| ------ | ------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------- |
-| GET    | `/projects/:projectId/collections`                                       | List collections. Returns array of collections.                                                      |
-| GET    | `/projects/:projectId/collections/:collectionId`                         | Get one collection.                                                                                  |
-| GET    | `/projects/:projectId/collections/:collectionId/:resourceId/entries`     | List entries for a model resource. Pipeline: status filter → reference resolution → field selection. |
-| GET    | `/projects/:projectId/collections/:collectionId/:resourceId/entries/:id` | One entry. Same pipeline.                                                                            |
-| GET    | `/projects/:projectId/collections/:collectionId/pages`                   | List pages (filtered by collection page resource).                                                   |
-| GET    | `/projects/:projectId/collections/:collectionId/pages/:id`               | One page by id.                                                                                      |
-| GET    | `/projects/:projectId/collections/:collectionId/pages/by-slug/:slug`     | One page by slug.                                                                                    |
+| Method | Endpoint                                                                 | Description                                                                                            |
+| ------ | ------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------ |
+| GET    | `/projects/:projectId/collections`                                       | List collections. Returns array of collections.                                                        |
+| GET    | `/projects/:projectId/collections/:collectionId`                         | Get one collection.                                                                                    |
+| GET    | `/projects/:projectId/collections/:collectionId/:resourceId/entries`     | List entries for a model resource. Pipeline: status filter → reference resolution → field selection.   |
+| GET    | `/projects/:projectId/collections/:collectionId/:resourceId/entries/:id` | One entry. Same pipeline.                                                                              |
+| GET    | `/projects/:projectId/collections/:collectionId/pages`                   | List pages (filtered by collection page resource).                                                     |
+| GET    | `/projects/:projectId/collections/:collectionId/pages/:id`               | One page by id.                                                                                        |
+| GET    | `/projects/:projectId/collections/:collectionId/pages/by-slug/:slug`     | One page by slug.                                                                                      |
+| GET    | `/projects/:projectId/collections/:collectionId/layouts`                 | Layouts the collection gives (`/layouts/:id` for one).                                                 |
+| GET    | `/projects/:projectId/collections/:collectionId/forms`                   | Active forms the collection gives, public shape: no actions or recipients (`/forms/:id` for one).      |
+| GET    | `/projects/:projectId/collections/:collectionId/menus`                   | Menus the collection gives, item URLs resolved (`ResolvedNavigation[]`).                               |
+| GET    | `/projects/:projectId/collections/:collectionId/menus/:handle`           | One menu by handle (e.g. `main`, `footer`). 404 if the collection doesn’t give it.                     |
+| GET    | `/projects/:projectId/collections/:collectionId/openapi`                 | OpenAPI 3 for this channel only (concrete paths and `entry.data` shapes). Same auth as collection GET. |
+| GET    | `/projects/:projectId/collections/:collectionId/openapi.json`            | Same document as `/openapi`.                                                                           |
+
+**Everything a site reads goes through a collection.** Project routes such as `/pages`, `/templates`, `/navigations` and `/forms/:formId` are Studio routes and require a JWT. The only key-less endpoint is form submission.
+
+**Menus:** a `menu` resource with `resourceId: "menus"` gives every menu; any other `resourceId` is one menu handle (add one row per menu). An item `label` is text or one value per language; `?locale=` returns that language. Missing page/asset references don’t fail the request — the item’s `url` is absent.
 
 **Field selection:** Collection resources can define `fields: string[]`; only those top-level field names are returned. Omit or empty = all fields.
 
@@ -102,6 +112,10 @@ Named views of project data for external consumers. Authenticate with **project 
 **Reference resolution:** Per resource, `resolve: 0 | 1 | 2` controls how deep reference-like values (`{ id, type }`) in entry data are expanded.
 
 **Entry URL resolution:** Add `?resolveUrl=1` to entry list or get-one endpoints (collections or project models) to include a computed **`resolvedUrl`** on each entry when a collection page is bound to that model and has a URL pattern. Never stored.
+
+**Asset URL resolution:** Add `?resolveAssets=1` on collection entry and page reads where supported to inline resolved asset URLs in the payload.
+
+**Per-channel OpenAPI:** See [Public API and Collections — §5](Public%20API%20and%20Collections.md#5-per-collection-api-reference-auto-generated).
 
 ---
 
@@ -119,24 +133,12 @@ Project-scoped. Requires **project API key** or **JWT**. Used by frontends and s
 
 ---
 
-## 🧭 Public — Navigations
+## 🗒 Public — Form submission
 
-GET is public (uses `optionalProjectAccess`); write operations require JWT. Navigations are **independent of the page tree**: named, ordered, nested menus (e.g. Header, Footer). Items can link to pages, custom URLs, assets, or act as dropdown parents. Resolution happens at read time; page and asset URLs are hydrated. Missing page/asset references do not fail the request — the item’s `url` is `undefined`.
-
-| Method | Endpoint                                   | Description                                                                                                    |
-| ------ | ------------------------------------------ | -------------------------------------------------------------------------------------------------------------- |
-| GET    | `/projects/:projectId/navigations`         | All navigations, fully resolved (`ResolvedNavigation[]`).                                                      |
-| GET    | `/projects/:projectId/navigations/:handle` | One navigation by **handle** (e.g. `header`, `footer`). Returns `ResolvedNavigation`. 404 if handle not found. |
-
----
-
-## 🗒 Public — Forms
-
-GET uses `optionalProjectAccess` (JWT optional). Form submission (`POST .../submit`) is public with rate limiting only — no auth required, since public website visitors submit forms. Used by frontend form components.
+Form submission is the one endpoint with no auth (rate limited only), since website visitors submit forms. Sites read the form definition through a collection that gives forms.
 
 | Method | Endpoint                                    | Description                                                                                                                                                                                                                                                                                                       |
 | ------ | ------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| GET    | `/projects/:projectId/forms/:formId`        | Get public form metadata (fields, labels, successMessage). Omits actions, notifications, recaptcha. 403 if inactive.                                                                                                                                                                                              |
 | POST   | `/projects/:projectId/forms/:formId/submit` | Submit a form. Accepts JSON or urlencoded body. Honeypot: include a `_honeypot` field (must be empty for real users). Locale: pass as `_locale` in body or `?locale=` query param. Returns `{ success, submissionId, message, redirectUrl? }`. Rate limited: 60/15min per form (env: `API_RATE_LIMIT_FORMS_MAX`). |
 
 ---
@@ -185,7 +187,7 @@ Per-project notifications for review events. JWT + project access.
 
 ## 📐 Blueprints (global)
 
-Global templates (project, model, or structure). Stored under `data/blueprints/<kind>/` (override: `BLUEPRINTS_DIR`). See [Blueprints.md](Blueprints.md). All require **operator** (platform) access.
+Global templates (project, model, structure, or page template). Stored under `data/blueprints/<kind>/` (override: `BLUEPRINTS_DIR`), plus any a plugin registers. See [Blueprints.md](Blueprints.md). **GET** is open to anyone signed in; **POST**, **PATCH** and **DELETE** require **operator** (platform) access.
 
 **Project blueprints:**
 
@@ -200,6 +202,29 @@ Global templates (project, model, or structure). Stored under `data/blueprints/<
 **Model blueprints:** Same pattern under `/blueprints/models` and `/blueprints/models/:id`.
 
 **Structure blueprints:** Same pattern under `/blueprints/structures` and `/blueprints/structures/:id`.
+
+**Template blueprints:** Same pattern under `/blueprints/templates` and `/blueprints/templates/:id`.
+
+---
+
+## 🛠 Operator (platform)
+
+Accounts whose own roles include `admin` (`developer` implies it). Project Admin does not. Studio: `/operator`.
+
+| Method | Endpoint                        | Description                                                                                                       |
+| ------ | ------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| GET    | `/operator/summary`             | Projects, accounts, this month's requests, submissions and AI credits, plugins.                                   |
+| GET    | `/operator/projects`            | Every project (members, languages, plugin allowlist, this month's usage).                                         |
+| PATCH  | `/operator/projects/:projectId` | Body `{ plugins }`: plugin ids, or `null` for every plugin the server runs.                                       |
+| GET    | `/operator/users`               | Every account.                                                                                                    |
+| PATCH  | `/operator/users/:userId`       | Body: any of `name`, `email`, `isActive`, `roles`. You cannot deactivate yourself or drop your own operator role. |
+| GET    | `/operator/plugins`             | Core and host plugins: running now, the operator's choice, restart needed.                                        |
+| PATCH  | `/operator/plugins/:pluginId`   | Body `{ on }`: `true`, `false`, or `null` to follow the host's list. Applies at the next start.                   |
+| GET    | `/operator/schemas/:kind`       | Server-wide `blocks` or `structures` (`origin`: `shipped`, `file`, `changed`).                                    |
+| PUT    | `/operator/schemas/:kind/:name` | Write `data/core/{kind}/{name}.json` as `core/{name}`.                                                            |
+| DELETE | `/operator/schemas/:kind/:name` | Remove the server file; a shipped one comes back as it ships.                                                     |
+
+On api.moteur.io, billing adds `/billing/operator/plans`, `PATCH /billing/operator/plans/:planId`, `/billing/operator/projects` and `/billing/operator/revenue` (MRR from active subscriptions, plus paid invoices by month).
 
 ---
 
@@ -333,13 +358,15 @@ JWT + **operator** role only. Returns current request counts in two buckets: **s
 
 JWT + project access. Multiple keys per project. Raw secret is returned only on create/rotate.
 
-| Method | Endpoint                                      | Description                                                                                                         |
-| ------ | --------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
-| GET    | `/projects/:projectId/api-keys`               | List key metadata (id, prefix, createdAt, allowedHosts, allowlist, allowSiteWideReads). Never hash or raw secret.   |
-| POST   | `/projects/:projectId/api-keys`               | Create key. Optional body: `label`, `allowedCollectionIds`, `allowSiteWideReads`. Returns metadata + `rawKey` once. |
-| POST   | `/projects/:projectId/api-keys/:keyId/rotate` | Rotate that key. New `rawKey` once; restrictions preserved.                                                         |
-| DELETE | `/projects/:projectId/api-keys/:keyId`        | Revoke. 204.                                                                                                        |
-| PATCH  | `/projects/:projectId/api-keys/:keyId`        | Update `allowedHosts`, `label`, `allowedCollectionIds` (`null` clears allowlist), `allowSiteWideReads`.             |
+| Method | Endpoint                                      | Description                                                                                                                                   |
+| ------ | --------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| GET    | `/projects/:projectId/api-keys`               | List key metadata (id, prefix, createdAt, expiresAt, expired, allowedHosts, allowlist, allowSiteWideReads). Never hash or raw secret.         |
+| POST   | `/projects/:projectId/api-keys`               | Create key. Optional body: `label`, `expiresAt`, `allowedCollectionIds`, `allowSiteWideReads`. Returns metadata + `rawKey` once.              |
+| POST   | `/projects/:projectId/api-keys/:keyId/rotate` | Rotate that key. New `rawKey` once; restrictions and lifetime preserved.                                                                      |
+| DELETE | `/projects/:projectId/api-keys/:keyId`        | Revoke. 204.                                                                                                                                  |
+| PATCH  | `/projects/:projectId/api-keys/:keyId`        | Update `allowedHosts`, `label`, `expiresAt` (`null` = never expires), `allowedCollectionIds` (`null` clears allowlist), `allowSiteWideReads`. |
+
+Expired keys get **401** with `code: "API_KEY_EXPIRED"`.
 
 ---
 
@@ -394,13 +421,18 @@ JWT + project access. Navigations are named menus with nested items; items link 
 
 Under a project. JWT + project access. Path param: `projectId`, `modelId`.
 
-| Method | Endpoint                               | Description                                                                                                                                                                                                                                                                                                 |
-| ------ | -------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| GET    | `/projects/:projectId/models`          | List model schemas. Returns `{ models }`.                                                                                                                                                                                                                                                                   |
-| GET    | `/projects/:projectId/models/:modelId` | Get one. Returns `{ model }`.                                                                                                                                                                                                                                                                               |
-| POST   | `/projects/:projectId/models`          | Create. Body: full model schema, or **blueprintId** (model blueprint id) plus optional overrides (e.g. id, label). Returns created model.                                                                                                                                                                   |
-| PATCH  | `/projects/:projectId/models/:modelId` | Update. Body may include **`urlPattern`** (e.g. `[post.slug]`) for collection page URL generation. Returns updated model; if `urlPattern` was sent and any `[field.path]` reference does not exist on the model, response includes **`urlPatternWarnings`** (array of strings). Validation is warning-only. |
-| DELETE | `/projects/:projectId/models/:modelId` | Delete.                                                                                                                                                                                                                                                                                                     |
+| Method | Endpoint                                                             | Description                                                                                                                                                                                                                                                                                                 |
+| ------ | -------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| GET    | `/projects/:projectId/models`                                        | List model schemas. Returns `{ models }`.                                                                                                                                                                                                                                                                   |
+| GET    | `/projects/:projectId/models/:modelId`                               | Get one. Returns `{ model }`.                                                                                                                                                                                                                                                                               |
+| POST   | `/projects/:projectId/models`                                        | Create. Body: full model schema, or **blueprintId** (model blueprint id) plus optional overrides (e.g. id, label). Returns created model.                                                                                                                                                                   |
+| PATCH  | `/projects/:projectId/models/:modelId`                               | Update. Body may include **`urlPattern`** (e.g. `[post.slug]`) for collection page URL generation. Returns updated model; if `urlPattern` was sent and any `[field.path]` reference does not exist on the model, response includes **`urlPatternWarnings`** (array of strings). Validation is warning-only. |
+| DELETE | `/projects/:projectId/models/:modelId`                               | Delete.                                                                                                                                                                                                                                                                                                     |
+| GET    | `/projects/:projectId/models/:modelId/revisions`                     | Schema revision history from git (newest first). Query: `?max=N` (default 20, max 100). Returns `[{ id, number, message, savedAt, savedBy }]`. **`id` is the commit hash** (use in read/restore); `number` is display-only. See [Schema revisions](Schema%20revisions.md).                                  |
+| GET    | `/projects/:projectId/models/:modelId/revisions/:revisionId`         | Model schema at that commit. Returns `{ model }`.                                                                                                                                                                                                                                                           |
+| POST   | `/projects/:projectId/models/:modelId/revisions/:revisionId/restore` | Replace live model schema from commit (**project admin**). Returns `{ model }`.                                                                                                                                                                                                                             |
+
+The same three revision routes exist under **structures** (`/{id}`), **templates** (`/{id}`), **forms** (`/{formId}`), and **blocks** (`/{slug}`), with response keys `structure`, `template`, `form`, and `block`. Built-in-only schemas return an empty revision list.
 
 ---
 
@@ -426,25 +458,22 @@ Under a project and model. JWT + project access. Path param: `projectId`, `model
 
 All AI endpoints use the shared layer ([AI](AI.md)). When no provider is configured, AI is disabled (503; Studio hides AI via `GET /ai/status`). Project-scoped operations consume credits; 402 when insufficient.
 
-| Method | Endpoint                        | Description                                                                                                                                       |
-| ------ | ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
-| GET    | `/ai/status`                    | Whether AI is enabled (auth). Used by Studio to show/hide AI UI.                                                                                  |
-| POST   | `/ai/write/draft`               | AI draft for field (project access).                                                                                                              |
-| POST   | `/ai/write/rewrite`             | Rewrite content (project access).                                                                                                                 |
-| POST   | `/ai/write/shorten`             | Shorten content (project access).                                                                                                                 |
-| POST   | `/ai/write/expand`              | Expand content (project access).                                                                                                                  |
-| POST   | `/ai/write/tone/formal`         | Formal tone (project access).                                                                                                                     |
-| POST   | `/ai/write/tone/conversational` | Conversational tone (project access).                                                                                                             |
-| POST   | `/ai/write/tone/editorial`      | Editorial tone (project access).                                                                                                                  |
-| POST   | `/ai/write/summarise-excerpt`   | Summarise excerpt (project access).                                                                                                               |
-| POST   | `/ai/translate/field`           | Translate one multilingual field (project access).                                                                                                |
-| POST   | `/ai/translate/entry`           | Translate whole entry into target locales (project access).                                                                                       |
-| POST   | `/ai/generate/entry`            | Generate entry from prompt + model schema (project access).                                                                                       |
-| POST   | `/ai/generate/fields`           | Generate field definitions from prompt (operator).                                                                                                |
-| POST   | `/ai/generate/image`            | _(Legacy)_ Generate single image (auth; global adapter). Prefer `/ai/generate-image` for project-scoped flow.                                     |
-| POST   | `/ai/generate-image`            | Generate image variants from prompt (auth; projectId; project `ai.imageProvider`). **402** insufficient credits, **422** provider not configured. |
-| POST   | `/ai/save-generated-image`      | Save chosen variant URL to project media library (auth; projectId).                                                                               |
-| POST   | `/ai/analyse/image`             | Analyse image for alt/caption (auth; optional entryId/fieldPath for presence). **402** if insufficient credits.                                   |
+| Method | Endpoint                   | Description                                                                                                                                       |
+| ------ | -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| GET    | `/ai/status`               | Whether text AI is enabled (auth). Studio uses this to show/hide AI UI.                                                                           |
+| GET    | `/ai/helpers/:projectId`   | Helpers allowed for the user, credit balance, and costs (project access).                                                                         |
+| GET    | `/ai/settings/:projectId`  | Text provider + credits overview for Studio settings (project access).                                                                            |
+| POST   | `/ai/write`                | Writing suggestion for one field; body includes `action` (project access; helper `write`). Returns `{ text, creditsUsed, creditsRemaining }`.     |
+| POST   | `/ai/translate/field`      | Translate one field’s text (`value`, `from`, `to`) (project access; helper `translate`).                                                          |
+| POST   | `/ai/translate/entry`      | Translate whole entry into target locales (project access).                                                                                       |
+| POST   | `/ai/generate/entry`       | Generate entry from prompt + model schema (project access).                                                                                       |
+| POST   | `/ai/generate/fields`      | Generate field definitions from prompt (operator).                                                                                                |
+| POST   | `/ai/generate/image`       | _(Legacy)_ Generate single image (auth; global adapter). Prefer `/ai/generate-image` for project-scoped flow.                                     |
+| POST   | `/ai/generate-image`       | Generate image variants from prompt (auth; projectId; project `ai.imageProvider`). **402** insufficient credits, **422** provider not configured. |
+| POST   | `/ai/generate-audio`       | Generate speech from prompt (auth; project `ai.audioProvider`; helper `audio`). **402**, **422** `audio_provider_not_configured`.                 |
+| POST   | `/ai/generate-3d`          | Generate 3D model from prompt (auth; project `ai.model3dProvider`; helper `model3d`). **402**, **422** `model3d_provider_not_configured`.         |
+| POST   | `/ai/save-generated-image` | Save chosen variant URL to project media library (auth; projectId).                                                                               |
+| POST   | `/ai/analyse/image`        | Suggest alt/caption for an asset (`assetId`) (project access; helper `alt`). **402** if insufficient credits.                                     |
 
 ---
 
@@ -464,13 +493,15 @@ All AI endpoints use the shared layer ([AI](AI.md)). When no provider is configu
 | GET    | `{basePath}/openapi.json` | OpenAPI 3 spec (merged with optional plugins when the server starts). |
 | (UI)   | `{basePath}/docs`         | Scalar API reference (same document as `openapi.json`).               |
 
-**Export without running the server** (writes `packages/api/dist-openapi/openapi.json`; uses the same `.env` as the API for optional plugins):
+**Export without running the server** (writes `packages/api/dist-openapi/openapi.json`; uses the same `.env` as the API for host plugins and AI):
 
 ```bash
 pnpm --filter @moteurio/api run openapi:export
 ```
 
-From the monorepo root you can also use `pnpm openapi:export` (see root `package.json`).
+From the monorepo root: `pnpm openapi:export`. CI guard for documented 2xx JSON bodies: `pnpm openapi:check` (runs `openapi:check-responses` on `@moteurio/api`).
+
+Set **`MOTEUR_FAIL_ON_OPENAPI_COLLISION=1`** to fail bootstrap when merged plugin paths collide with core paths.
 
 **Hosted docs ([docs.api.moteur.io](https://docs.api.moteur.io)):** Either proxy to the production API’s Scalar page (`{basePath}/docs`) or deploy the static shell in [`packages/api-docs/index.html`](../packages/api-docs/index.html) behind your CDN. That file loads Scalar from jsDelivr and points at `https://api.moteur.io/openapi.json` by default—adjust `data-url` if your API uses a non-empty `API_BASE_PATH` (e.g. `https://your-host/api/openapi.json`).
 
@@ -478,7 +509,7 @@ From the monorepo root you can also use `pnpm openapi:export` (see root `package
 
 ## 🛡 Request logging, rate limiting, and security
 
-**Classification:** Every request is classified as **studio** or **public** (or neither). **Studio** = any path under `/studio/`. **Public** = project-scoped read endpoints: `/projects/:projectId/collections/*`, `/projects/:projectId/pages`, `/projects/:projectId/templates`, `/projects/:projectId/forms`, and page outputs (`sitemap.xml`, `sitemap.json`, `navigation`, `urls`, `breadcrumb`). Counts are stored in two separate places so limits can differ (e.g. high limit on studio routes, per-project limit on public).
+**Classification:** Every request is classified as **studio** or **public** (or neither). **Studio** = any path under `/studio/`. **Public** = what sites call: `/projects/:projectId/collections/*`, page outputs (`sitemap.xml`, `sitemap.json`, `navigation`, `urls`, `breadcrumb`), and form submissions (`/projects/:projectId/forms/:formId/submit`). Counts are stored in two separate places so limits can differ (e.g. high limit on studio routes, per-project limit on public).
 
 **Audit log:** If `API_REQUEST_LOG_FILE` (absolute path) or `API_REQUEST_LOG_DIR` is set, each classified request is appended as a JSON line (timestamp, type, projectId, method, path, statusCode, durationMs). **API key and Authorization header are never logged.** Use log rotation (e.g. logrotate) and retain logs as needed for audit or billing disputes.
 
@@ -489,7 +520,7 @@ From the monorepo root you can also use `pnpm openapi:export` (see root `package
 | Studio | IP        | 10000 / 15 min (effectively off) | `API_RATE_LIMIT_STUDIO_MAX` |
 | Public | projectId | 1000 / 15 min per project        | `API_RATE_LIMIT_PUBLIC_MAX` |
 
-When exceeded, response is **429** with `{ error: "Too many requests..." }`. Set env to `0` to keep default (studio: high, public: 1000). For multiple API instances, use a shared store (e.g. Redis) with express-rate-limit; see the package docs.
+When exceeded, response is **429** with `{ error: "Too many requests...", code: "rate_limited" }` and a `Retry-After` header in seconds (exposed to browsers through CORS). Set env to `0` to keep default (studio: high, public: 1000). For multiple API instances, use a shared store (e.g. Redis) with express-rate-limit; see the package docs.
 
 **Security:** [Helmet](https://helmetjs.github.io/) is enabled by default (security headers). Set `HELMET_DISABLED=1` to disable when not in production (e.g. local Swagger); in production this variable is ignored. Set `HELMET_CSP_DISABLED=1` to disable Content-Security-Policy only. Request body size is limited by `API_BODY_LIMIT` (default `1mb`).
 
@@ -503,6 +534,23 @@ USAGE_WINDOW=month npx tsx packages/api/scripts/recalculate-usage.ts /var/log/ap
 ```
 
 Output is JSON: `{ source, window, totals: { [windowKey]: { studio, public: { [projectId]: count } } } }`. Older audit logs may use a legacy `type` label for studio-classified requests; those lines are counted in **studio**. Use `USAGE_WINDOW=day` or `USAGE_WINDOW=month` to get per-period breakdowns.
+
+---
+
+## 💳 Plan limits
+
+Moteur on its own limits nothing. A host plugin sets limits in its `init` (api.moteur.io's billing plugin does, from each project's plan); each answers `null` for no limit. Going over answers **402** `{ error, code: "plan_limit", limit, max }`:
+
+| `limit`                                                                                | Set with                                         | Refused                                                                                                                                                                                                                                                                        |
+| -------------------------------------------------------------------------------------- | ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `people`                                                                               | `ctx.setPeopleLimit(projectId => max)`           | Inviting or adding someone past `max` (members and pending invites take a seat; see [Authentication](Authentication.md)).                                                                                                                                                      |
+| `storage`                                                                              | `ctx.setStorageLimit(projectId => bytes)`        | An upload that would take the project's files past `max` bytes (sizes as uploaded; image copies don't count).                                                                                                                                                                  |
+| `requests`                                                                             | `ctx.setRequestQuota(projectId => perMonth)`     | Public requests once the project has answered `max` this calendar month (UTC). Turned-away requests aren't counted.                                                                                                                                                            |
+| `submissions`                                                                          | `ctx.setSubmissionQuota(projectId => perMonth)`  | Form submissions once the project's forms have received `max` this calendar month (UTC). Submissions the honeypot catches don't count.                                                                                                                                         |
+| `projects`                                                                             | `ctx.setProjectsLimit(userId => { taken, max })` | Creating a project once `taken` reaches `max`; what counts is the plugin's to say.                                                                                                                                                                                             |
+| `channels`, `models`, `entries`, `forms`, `structures`, `blocks`, `templates`, `pages` | `ctx.setCountLimit((projectId, kind) => max)`    | Creating one more once the project has `max`. Entries count in every status across models; structures and blocks are the project's own (not core or plugin ones); pages include folders. Entries a form submission would create fail as a form action; the submission is kept. |
+
+A project already over a limit (after a downgrade) keeps what it has; it just can't add more. `GET /projects/:projectId/usage` reports `people`, `storage: { used, max }`, `requests: { public, max }`, `submissions: { received, max }` and `counts: { [kind]: { used, max } }` with the AI credits (Admin or Billing role). `GET /projects/:projectId/limits` gives just the limits to any member. The Studio explains each refusal and offers the plans to whoever handles billing.
 
 ---
 
