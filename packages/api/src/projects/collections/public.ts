@@ -24,6 +24,11 @@ import { getProjectById } from '@moteurio/core/projects.js';
 import { listBlocks } from '@moteurio/core/blocks.js';
 import { resolveEntryDataForLocaleDeep } from '@moteurio/core/entryLocaleResolution.js';
 import { getTemplate } from '@moteurio/core/templates.js';
+import {
+    listNavigations,
+    getNavigationByHandle,
+    resolveNavigation
+} from '@moteurio/core/navigations.js';
 import { getProjectJson, listProjectKeys } from '@moteurio/core/utils/projectStorage.js';
 import {
     layoutKey,
@@ -505,6 +510,70 @@ router.get('/:collectionId/forms/:id', async (req: Request, res: Response) => {
     }
 });
 
+/** `?locale=` picks one language for each item label. Absent means the stored map is returned. */
+async function menuLanguage(
+    projectId: string,
+    req: Request
+): Promise<{ locale: string; fallback: string } | undefined> {
+    const locale = parseLocaleQuery(req);
+    if (!locale) return undefined;
+    const project = await getProjectById(projectId);
+    return { locale, fallback: project?.defaultLocale || 'en' };
+}
+
+/** Menu handles the channel gives, or `null` when it gives every menu. Empty when it gives none. */
+function menuHandles(collection: { resources: ApiCollectionResource[] }): string[] | null {
+    const rows = collection.resources.filter(r => r.resourceType === 'menu');
+    if (rows.some(r => r.resourceId === 'menus')) return null;
+    return rows.map(r => r.resourceId);
+}
+
+// GET /projects/:projectId/collections/:collectionId/menus
+router.get('/:collectionId/menus', async (req: Request, res: Response) => {
+    const { projectId, collectionId } = req.params as Record<string, string>;
+    if (!projectId || !collectionId)
+        return void res.status(400).json({ error: 'Missing projectId or collectionId' });
+    if (rejectIfApiKeyCollectionForbidden(req, res, collectionId)) return;
+    try {
+        const collection = await getCollection(projectId, collectionId);
+        if (!collection) return void res.status(404).json({ error: 'Collection not found' });
+        const handles = menuHandles(collection);
+        if (handles?.length === 0)
+            return void res.status(404).json({ error: 'Collection does not expose menus' });
+        const all = await listNavigations(projectId);
+        const menus = handles === null ? all : all.filter(n => handles.includes(n.handle));
+        const language = await menuLanguage(projectId, req);
+        return void res.json(
+            await Promise.all(menus.map(n => resolveNavigation(projectId, n, language)))
+        );
+    } catch (err: unknown) {
+        return void sendApiError(res, req, err);
+    }
+});
+
+// GET /projects/:projectId/collections/:collectionId/menus/:handle
+router.get('/:collectionId/menus/:handle', async (req: Request, res: Response) => {
+    const { projectId, collectionId, handle } = req.params as Record<string, string>;
+    if (!projectId || !collectionId || !handle)
+        return void res.status(400).json({ error: 'Missing path parameters' });
+    if (rejectIfApiKeyCollectionForbidden(req, res, collectionId)) return;
+    try {
+        const collection = await getCollection(projectId, collectionId);
+        if (!collection) return void res.status(404).json({ error: 'Collection not found' });
+        const handles = menuHandles(collection);
+        if (handles?.length === 0)
+            return void res.status(404).json({ error: 'Collection does not expose menus' });
+        if (handles !== null && !handles.includes(handle))
+            return void res.status(404).json({ error: 'Menu not found in collection' });
+        const nav = await getNavigationByHandle(projectId, handle);
+        if (!nav) return void res.status(404).json({ error: 'Menu not found' });
+        const language = await menuLanguage(projectId, req);
+        return void res.json(await resolveNavigation(projectId, nav, language));
+    } catch (err: unknown) {
+        return void sendApiError(res, req, err);
+    }
+});
+
 const jsonErrorBody = {
     content: {
         'application/json': {
@@ -873,6 +942,66 @@ export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
                     content: {
                         'application/json': {
                             schema: { $ref: '#/components/schemas/FormSchemaDoc' }
+                        }
+                    }
+                },
+                '404': { description: 'Not found', ...jsonErrorBody }
+            }
+        }
+    },
+    '/projects/{projectId}/collections/{collectionId}/menus': {
+        get: {
+            summary: 'List menus exposed by the collection, with item URLs resolved',
+            tags: ['Public API — Collections'],
+            parameters: [
+                { name: 'projectId', in: 'path', required: true, schema: { type: 'string' } },
+                { name: 'collectionId', in: 'path', required: true, schema: { type: 'string' } },
+                {
+                    name: 'locale',
+                    in: 'query',
+                    schema: { type: 'string' },
+                    description:
+                        'Return each item label in this language. Falls back to the project default. Omit to keep one value per language.'
+                }
+            ],
+            responses: {
+                '200': {
+                    description: 'Menus',
+                    content: {
+                        'application/json': {
+                            schema: {
+                                type: 'array',
+                                items: { type: 'object', additionalProperties: true }
+                            }
+                        }
+                    }
+                },
+                '404': { description: 'Not found', ...jsonErrorBody }
+            }
+        }
+    },
+    '/projects/{projectId}/collections/{collectionId}/menus/{handle}': {
+        get: {
+            summary: 'Get one menu by handle, with item URLs resolved',
+            tags: ['Public API — Collections'],
+            parameters: [
+                { name: 'projectId', in: 'path', required: true, schema: { type: 'string' } },
+                { name: 'collectionId', in: 'path', required: true, schema: { type: 'string' } },
+                { name: 'handle', in: 'path', required: true, schema: { type: 'string' } },
+                {
+                    name: 'locale',
+                    in: 'query',
+                    schema: { type: 'string' },
+                    description:
+                        'Return each item label in this language. Falls back to the project default. Omit to keep one value per language.'
+                }
+            ],
+            responses: {
+                '200': {
+                    description: 'Menu',
+                    content: {
+                        'application/json': {
+                            schema: { type: 'object', additionalProperties: true }
                         }
                     }
                 },

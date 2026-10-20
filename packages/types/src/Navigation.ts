@@ -4,7 +4,8 @@ export type NavItemLinkType = 'page' | 'custom' | 'asset' | 'none';
 
 export interface NavItemBase {
     id: string;
-    label: string;
+    /** Plain text, or one string per locale (`{ fr: 'Accueil', en: 'Home' }`). */
+    label: string | Record<string, string>;
     linkType: NavItemLinkType;
 
     /** linkType: 'page' — resolved to URL at read time */
