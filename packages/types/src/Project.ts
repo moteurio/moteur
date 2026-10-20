@@ -60,7 +60,7 @@ export interface ProjectSchema {
         enabled?: boolean; // default true when assetConfig present
         variants: VariantDefinition[];
         maxUploadSizeMb?: number; // default 50
-        allowedTypes?: AssetType[]; // default: all three
+        allowedTypes?: AssetType[]; // default: all types
         adapter?: 'local' | 's3' | 'r2';
         adapterConfig?: Record<string, any>;
     };
