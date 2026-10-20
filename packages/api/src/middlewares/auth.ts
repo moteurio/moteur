@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
-import { OPERATOR_ROLE_SLUG } from '@moteurio/types';
+import { hasRole, inProject } from '@moteurio/types';
 import { verifyJWT } from '@moteurio/core/auth.js';
 import { getUserById } from '@moteurio/core/users.js';
 import { getProject } from '@moteurio/core/projects.js';
@@ -33,11 +33,22 @@ export function requireAuth(req: Request, res: Response, next: NextFunction) {
     }
 }
 
+/** Platform operator, from account roles only. */
 export function requireOperator(req: Request, res: Response, next: NextFunction) {
     requireAuth(req, res, () => {
         const user = req.user;
-        if (!user?.roles?.includes(OPERATOR_ROLE_SLUG)) {
+        if (!hasRole(user, 'admin')) {
             return void res.status(403).json({ error: 'Operator access required' });
+        }
+        next();
+    });
+}
+
+/** Project member who is a Developer. Admin is not enough. */
+export function requireDeveloper(req: Request, res: Response, next: NextFunction) {
+    requireProjectAccess(req, res, () => {
+        if (!hasRole(req.user, 'developer')) {
+            return void res.status(403).json({ error: 'Developer access required' });
         }
         next();
     });
@@ -50,7 +61,7 @@ export function requireRole(requiredRole: string) {
             if (!user) {
                 return void res.status(401).json({ error: 'Unauthorized' });
             }
-            if (!user.roles.includes(requiredRole)) {
+            if (!hasRole(user, requiredRole)) {
                 return void res.status(403).json({ error: 'Forbidden' });
             }
             next();
@@ -72,27 +83,45 @@ export function optionalAuth(req: Request, res: Response, next: NextFunction) {
     next();
 }
 
+/**
+ * Project member. Afterwards `req.user` carries the member's roles in this project (see
+ * `ProjectSchema.memberRoles`), `req.account` the account as stored, and `req.project` the project.
+ */
 export function requireProjectAccess(req: Request, res: Response, next: NextFunction) {
     requireAuth(req, res, async () => {
         const user = req.user;
         if (!user) {
             return void res.status(401).json({ error: 'Unauthorized' });
         }
-        const projectId = (req.params as Record<string, string>).projectId || req.body.projectId;
+        const projectId = (req.params as Record<string, string>).projectId || req.body?.projectId;
 
         if (!projectId) {
             return void res.status(400).json({ error: 'Project ID is required' });
         }
 
+        let project;
         try {
-            const project = await getProject(user, projectId);
-            if (!project.users?.includes(user.id)) {
-                return void res.status(403).json({ error: 'Access to this project is forbidden' });
-            }
-            next();
+            project = await getProject(user, projectId);
         } catch {
             return void res.status(403).json({ error: 'Access to this project is forbidden' });
         }
+        if (!project.users?.includes(user.id)) {
+            return void res.status(403).json({ error: 'Access to this project is forbidden' });
+        }
+        req.account = user;
+        req.project = project;
+        req.user = inProject(user, project);
+        next();
+    });
+}
+
+/** Project member who is an Admin in that project. */
+export function requireProjectAdmin(req: Request, res: Response, next: NextFunction) {
+    requireProjectAccess(req, res, () => {
+        if (!hasRole(req.user, 'admin')) {
+            return void res.status(403).json({ error: 'Project admin access required' });
+        }
+        next();
     });
 }
 

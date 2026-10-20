@@ -1,4 +1,5 @@
 import type { User } from '@moteurio/types/User.js';
+import type { ProjectSchema } from '@moteurio/types/Project.js';
 import type { ApiKeyAccessPolicy } from '@moteurio/core/projectApiKey.js';
 
 declare global {
@@ -6,8 +7,12 @@ declare global {
         interface Request {
             /** Correlation id (generated or from `x-request-id`). */
             requestId?: string;
-            /** Set by JWT auth middleware when valid. */
+            /** Set by JWT auth middleware when valid. After project access: roles in that project. */
             user?: User;
+            /** The account as stored (account roles), set by project access middleware. */
+            account?: User;
+            /** The project, set by project access middleware. */
+            project?: ProjectSchema;
             /** Set when a valid project API key was presented. */
             apiKeyAuth?: boolean;
             /** Matched key id when apiKeyAuth is true. */

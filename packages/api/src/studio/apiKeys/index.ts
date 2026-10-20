@@ -8,12 +8,12 @@ import {
     patchKey,
     listProjectApiKeyMeta
 } from '@moteurio/core/projectApiKey.js';
-import { requireProjectAccess } from '../../middlewares/auth.js';
+import { requireDeveloper } from '../../middlewares/auth.js';
 import { sendApiError } from '../../utils/apiError.js';
 
 const router: Router = Router({ mergeParams: true });
 
-router.get('/', requireProjectAccess, async (req: Request, res: Response) => {
+router.get('/', requireDeveloper, async (req: Request, res: Response) => {
     const { projectId } = req.params as Record<string, string>;
     if (!projectId) return void res.status(400).json({ error: 'Missing projectId' });
     try {
@@ -24,7 +24,7 @@ router.get('/', requireProjectAccess, async (req: Request, res: Response) => {
     }
 });
 
-router.post('/', requireProjectAccess, async (req: Request, res: Response) => {
+router.post('/', requireDeveloper, async (req: Request, res: Response) => {
     const { projectId } = req.params as Record<string, string>;
     if (!projectId) return void res.status(400).json({ error: 'Missing projectId' });
     try {
@@ -50,7 +50,7 @@ router.post('/', requireProjectAccess, async (req: Request, res: Response) => {
     }
 });
 
-router.post('/:keyId/rotate', requireProjectAccess, async (req: Request, res: Response) => {
+router.post('/:keyId/rotate', requireDeveloper, async (req: Request, res: Response) => {
     const { projectId, keyId } = req.params as Record<string, string>;
     if (!projectId || !keyId)
         return void res.status(400).json({ error: 'Missing projectId or keyId' });
@@ -67,7 +67,7 @@ router.post('/:keyId/rotate', requireProjectAccess, async (req: Request, res: Re
     }
 });
 
-router.delete('/:keyId', requireProjectAccess, async (req: Request, res: Response) => {
+router.delete('/:keyId', requireDeveloper, async (req: Request, res: Response) => {
     const { projectId, keyId } = req.params as Record<string, string>;
     if (!projectId || !keyId)
         return void res.status(400).json({ error: 'Missing projectId or keyId' });
@@ -79,7 +79,7 @@ router.delete('/:keyId', requireProjectAccess, async (req: Request, res: Respons
     }
 });
 
-router.patch('/:keyId', requireProjectAccess, async (req: Request, res: Response) => {
+router.patch('/:keyId', requireDeveloper, async (req: Request, res: Response) => {
     const { projectId, keyId } = req.params as Record<string, string>;
     if (!projectId || !keyId)
         return void res.status(400).json({ error: 'Missing projectId or keyId' });

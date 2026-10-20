@@ -3,6 +3,9 @@ import express from 'express';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 vi.mock('../src/middlewares/auth', () => ({
+    requireAuth: (_req: any, _res: any, next: any) => {
+        next();
+    },
     requireOperator: (_req: any, _res: any, next: any) => {
         next();
     }

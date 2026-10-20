@@ -1,12 +1,12 @@
 import type { Request, Response } from 'express';
 import { Router } from 'express';
-import { requireOperator } from '../middlewares/auth.js';
+import { requireAuth } from '../middlewares/auth.js';
 import { listProjects } from '@moteurio/core/projects.js';
 import type { OpenAPIV3 } from 'openapi-types';
 
 const router: Router = Router();
 
-router.get('/', requireOperator, (req: Request, res: Response) => {
+router.get('/', requireAuth, (req: Request, res: Response) => {
     const projects = listProjects(req.user!);
     res.json({ projects });
 });
@@ -14,7 +14,7 @@ router.get('/', requireOperator, (req: Request, res: Response) => {
 export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
     '/projects': {
         get: {
-            summary: 'List all accessible projects',
+            summary: 'List the projects the signed-in user belongs to',
             tags: ['Projects'],
             responses: {
                 '200': {

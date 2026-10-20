@@ -12,12 +12,21 @@ vi.mock('../../src/middlewares/auth', () => ({
         req.user = { id: 'op1', roles: [OPERATOR_ROLE_SLUG] };
         next();
     },
+    requireProjectAdmin: (req: any, _res: any, next: any) => {
+        req.user = { id: 'op1', roles: [OPERATOR_ROLE_SLUG] };
+        req.account = req.user;
+        next();
+    },
     requireAuth: (req: any, _res: any, next: any) => {
         req.user = { id: 'op1', roles: [OPERATOR_ROLE_SLUG] };
         next();
     },
     requireProjectAccess: (req: any, _res: any, next: any) => {
         req.user = { id: 'op1', roles: [OPERATOR_ROLE_SLUG] };
+        next();
+    },
+    requireDeveloper: (req: any, _res: any, next: any) => {
+        req.user = { id: 'op1', roles: ['developer'] };
         next();
     },
     optionalAuth: (_req: any, _res: any, next: any) => next(),

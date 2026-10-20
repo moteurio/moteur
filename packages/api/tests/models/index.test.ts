@@ -12,6 +12,10 @@ vi.mock('../../src/middlewares/auth', () => ({
         req.user = { id: 'op1', roles: [OPERATOR_ROLE_SLUG] };
         next();
     },
+    requireProjectAdmin: (req: any, _res: any, next: any) => {
+        req.user = { id: 'op1', roles: [OPERATOR_ROLE_SLUG] };
+        next();
+    },
     requireProjectAccess: (req: any, _res: any, next: any) => {
         req.user = { id: 'editor1', roles: ['editor'] };
         next();

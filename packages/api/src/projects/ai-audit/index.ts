@@ -6,7 +6,7 @@ import {
     getAiAuditEventById,
     toAiAuditSummary
 } from '@moteurio/core/aiAuditLogger.js';
-import { OPERATOR_ROLE_SLUG } from '@moteurio/types';
+import { hasRole } from '@moteurio/types';
 import { requireProjectAccess } from '../../middlewares/auth.js';
 import { sendApiError } from '../../utils/apiError.js';
 
@@ -36,7 +36,7 @@ router.get('/:eventId', requireProjectAccess, async (req: Request, res: Response
         if (!event) {
             return void res.status(404).json({ error: 'Audit event not found' });
         }
-        const isOperator = req.user?.roles?.includes(OPERATOR_ROLE_SLUG) === true;
+        const isOperator = hasRole(req.user, 'admin');
         if (isOperator) {
             return void res.json(event);
         }
