@@ -12,10 +12,24 @@ describe('validateObjectField', () => {
     });
 
     it('errors for missing required subfield', () => {
-        const issues = validateObjectField({}, field, 'data.person');
-        expect(issues).toEqual(
-            expect.arrayContaining([expect.objectContaining({ type: 'error' })])
-        );
+        const required: Field = {
+            type: 'core/object',
+            label: 'Person',
+            data: { name: { ...subField, options: { required: true } } }
+        };
+        const issues = validateObjectField({}, required, 'data.person');
+        expect(issues).toEqual([
+            expect.objectContaining({
+                type: 'error',
+                code: 'OBJECT_MISSING_REQUIRED_FIELD',
+                path: 'data.person.name'
+            })
+        ]);
+    });
+
+    it('accepts optional subfields left empty', () => {
+        expect(validateObjectField({}, field, 'data.person')).toEqual([]);
+        expect(validateObjectField({ name: null }, field, 'data.person')).toEqual([]);
     });
 
     it('accepts the wrapped form { value: {...} }', () => {
