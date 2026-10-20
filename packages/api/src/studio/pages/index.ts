@@ -21,8 +21,12 @@ import { optionalProjectAccess, requireProjectAccess } from '../../middlewares/a
 import { queryFlag } from '../../utils/queryFlag.js';
 import type { OpenAPIV3 } from 'openapi-types';
 import { sendApiError, getMessage, getHttpStatusForError } from '../../utils/apiError.js';
+import { mergePathSpecs } from '../../utils/mergePathSpecs.js';
+import { revisionsOpenapi, revisionsRouter } from './revisions.js';
 
 const router: Router = Router({ mergeParams: true });
+
+router.use(revisionsRouter);
 
 const VALID_PAGE_STATUSES = ['draft', 'published'] as const;
 
@@ -273,7 +277,7 @@ const pageListJson = {
     }
 };
 
-export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
+const pagePaths: Record<string, OpenAPIV3.PathItemObject> = {
     '/projects/{projectId}/pages': {
         get: {
             summary: 'List pages',
@@ -524,5 +528,7 @@ export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
         }
     }
 };
+
+export const openapi = mergePathSpecs(revisionsOpenapi, pagePaths);
 
 export default router;
