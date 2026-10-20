@@ -133,3 +133,42 @@ export async function sendReviewEmail(
         }
     }
 }
+
+/** Why an email can't go out, or null when the server can send mail. */
+export function emailUnavailable(): string | null {
+    return isEmailConfigured()
+        ? null
+        : 'Email is not set up on this server (SMTP_HOST and SMTP_FROM).';
+}
+
+/**
+ * Sends a plain-text email with the server's SMTP settings. Throws with a readable reason
+ * (not set up, refused by the server), so callers can record why it didn't go.
+ */
+export async function sendEmail(message: {
+    to: string[];
+    subject: string;
+    text: string;
+    replyTo?: string;
+}): Promise<void> {
+    const unavailable = emailUnavailable();
+    if (unavailable) throw new Error(unavailable);
+    const nodemailer = await import('nodemailer').catch(() => null);
+    if (!nodemailer?.default) throw new Error('Email is not available (nodemailer is missing).');
+    const port = parseInt(process.env.SMTP_PORT || '587', 10);
+    const transporter = nodemailer.default.createTransport({
+        host: process.env.SMTP_HOST,
+        port: isNaN(port) ? 587 : port,
+        secure: port === 465,
+        ...(process.env.SMTP_USER && process.env.SMTP_PASS
+            ? { auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS } }
+            : {})
+    });
+    await transporter.sendMail({
+        from: process.env.SMTP_FROM ?? '',
+        to: message.to.join(', '),
+        subject: message.subject,
+        text: message.text,
+        ...(message.replyTo ? { replyTo: message.replyTo } : {})
+    });
+}

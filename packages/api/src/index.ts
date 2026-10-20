@@ -44,6 +44,7 @@ import blueprintsRoutes from './blueprints/index.js';
 import modelsRoute from './models/index.js';
 import entriesRoute from './entries/index.js';
 import activityGlobalRoute from './activity/index.js';
+import invitesRoute from './invites/index.js';
 import usageRouter from './studio/usage.js';
 import fieldTypesRouter from './studio/fieldTypes.js';
 import assetsMigrateRouter from './studio/assets/migrate.js';
@@ -197,6 +198,7 @@ app.use(basePath + '/projects', mergedProjectsRouter);
 
 app.use(basePath + '/blueprints', blueprintsRoutes);
 app.use(basePath + '/activity', activityGlobalRoute);
+app.use(basePath + '/invites', invitesRoute);
 app.use(basePath + '/studio/usage', usageRouter);
 app.use(basePath + '/studio/field-types', fieldTypesRouter);
 app.use(basePath + '/studio/seed', seedRouter);

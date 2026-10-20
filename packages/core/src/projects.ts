@@ -297,6 +297,37 @@ export async function updateProject(
     return updated;
 }
 
+/**
+ * Make someone a member with these roles in the project (e.g. accepting an invite). Callers decide
+ * whether they may join; an existing member keeps their place and gets these roles.
+ */
+export async function addProjectMember(
+    projectId: string,
+    member: User,
+    roles: string[]
+): Promise<ProjectSchema> {
+    const current = await getProjectById(projectId);
+    if (!current) throw new Error(`Project "${projectId}" not found`);
+    const users = (current.users ?? []) as string[];
+    const updated: ProjectSchema = {
+        ...current,
+        users: users.includes(member.id) ? users : [...users, member.id],
+        memberRoles: { ...current.memberRoles, [member.id]: roles }
+    };
+
+    triggerEvent('project.beforeUpdate', { project: updated, user: member });
+    await putProjectJson(projectId, PROJECT_KEY, updated);
+    addProjectToUser(member.id, projectId);
+    triggerEvent('content.saved', {
+        projectId,
+        paths: [PROJECT_KEY],
+        message: `Add member — ${member.name ?? member.id}`,
+        user: member
+    });
+    triggerEvent('project.afterUpdate', { project: updated, user: member });
+    return updated;
+}
+
 export async function deleteProject(user: User, projectId: string): Promise<void> {
     const project = await getProject(user, projectId);
 
