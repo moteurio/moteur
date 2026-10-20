@@ -22,6 +22,7 @@ import { createProjectClient } from './forProject.js';
 import { blueprintsApi } from './blueprints.js';
 import { activityApi } from './activity.js';
 import { aiApi } from './ai.js';
+import { operatorApi } from './operator.js';
 import type { MoteurClientConfig } from '../types.js';
 
 /** Full SDK for JWT (or bearer): auth, projects, all `/projects/:id/...` resources, `/blueprints`, `instance` (deployment maintenance), optional global `/activity`. */
@@ -51,6 +52,7 @@ export function createMoteurAdminClient(config: MoteurClientConfig) {
         blueprints: blueprintsApi(client),
         activity: activityApi(client),
         ai: aiApi(client),
+        operator: operatorApi(client),
         forProject: (projectId: string) => createProjectClient(client, projectId)
     };
 }

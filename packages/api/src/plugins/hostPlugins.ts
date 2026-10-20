@@ -1,6 +1,7 @@
 import path from 'path';
 import { pathToFileURL } from 'url';
 import type { HostPluginModule } from '@moteurio/plugin-sdk';
+import { readPluginChoices, recordPlugin } from './pluginCatalog.js';
 
 function validateHostPluginModule(plugin: HostPluginModule, spec: string): boolean {
     if (!plugin?.manifest?.id || typeof plugin.init !== 'function') {
@@ -41,11 +42,13 @@ function resolveSpecifier(specifier: string): string {
  * Host-controlled plugin loading:
  * - `MOTEUR_HOST_PLUGINS`: comma-separated import specifiers (npm package names or local paths)
  * - `MOTEUR_ENABLED_PLUGINS`: optional comma-separated plugin ids allowed to run (empty => none)
+ * - an operator's saved choices (`data/operator/plugins.json`) switch a plugin on or off over that list
  */
 export async function loadHostPluginsFromEnv(): Promise<HostPluginModule[]> {
     const specs = parseList(process.env.MOTEUR_HOST_PLUGINS);
     const enabled = new Set(parseList(process.env.MOTEUR_ENABLED_PLUGINS));
     const hasEnabledFilter = process.env.MOTEUR_ENABLED_PLUGINS !== undefined;
+    const choices = readPluginChoices();
     const plugins: HostPluginModule[] = [];
 
     for (const spec of specs) {
@@ -55,10 +58,34 @@ export async function loadHostPluginsFromEnv(): Promise<HostPluginModule[]> {
             if (!validateHostPluginModule(plugin, spec)) {
                 continue;
             }
-            if (hasEnabledFilter && !enabled.has(plugin.manifest.id)) continue;
+            const { manifest } = plugin;
+            const hostAllows = !hasEnabledFilter || enabled.has(manifest.id);
+            const running = choices[manifest.id] ?? hostAllows;
+            recordPlugin({
+                id: manifest.id,
+                label: manifest.label,
+                description: manifest.description,
+                source: manifest.source,
+                scope: manifest.scope ?? 'project',
+                capabilities: manifest.capabilities,
+                kind: 'host',
+                spec,
+                running,
+                hostAllows
+            });
+            if (!running) continue;
             plugins.push(plugin);
         } catch (err) {
             console.warn(`[api] Failed to load host plugin "${spec}":`, (err as Error).message);
+            recordPlugin({
+                id: spec,
+                label: spec,
+                kind: 'host',
+                spec,
+                running: false,
+                hostAllows: false,
+                error: (err as Error).message
+            });
         }
     }
 

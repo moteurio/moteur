@@ -89,6 +89,7 @@ describe('createMoteurAdminClient', () => {
         expect(client).toHaveProperty('forProject');
         expect(client).toHaveProperty('blueprints');
         expect(client).toHaveProperty('activity');
+        expect(client).toHaveProperty('operator');
         expect(client.baseURL).toBe('https://api.example.com');
     });
 
