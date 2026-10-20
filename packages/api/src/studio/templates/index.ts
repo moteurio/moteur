@@ -13,8 +13,12 @@ import { getBlueprint } from '@moteurio/core/blueprints.js';
 import { optionalProjectAccess, requireProjectAccess } from '../../middlewares/auth.js';
 import type { OpenAPIV3 } from 'openapi-types';
 import { sendApiError } from '../../utils/apiError.js';
+import { mergePathSpecs } from '../../utils/mergePathSpecs.js';
+import { revisionsRouter, revisionsOpenapi } from './revisions.js';
 
 const router: Router = Router({ mergeParams: true });
+
+router.use(revisionsRouter);
 
 router.get('/', optionalProjectAccess, async (req: Request, res: Response) => {
     const { projectId } = req.params as Record<string, string>;
@@ -137,7 +141,7 @@ const templateJson = {
     }
 };
 
-export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
+const templatePaths: Record<string, OpenAPIV3.PathItemObject> = {
     '/projects/{projectId}/templates': {
         get: {
             summary: 'List templates',
@@ -248,5 +252,7 @@ export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
         }
     }
 };
+
+export const openapi = mergePathSpecs(revisionsOpenapi, templatePaths);
 
 export default router;

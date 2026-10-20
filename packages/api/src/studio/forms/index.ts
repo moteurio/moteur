@@ -18,8 +18,11 @@ import submissionsRouter, { openapi as submissionsOpenapi } from './submissions.
 import { mergePathSpecs } from '../../utils/mergePathSpecs.js';
 import { sendApiError, getMessage as getErrorMessage } from '../../utils/apiError.js';
 import { PlanLimitError } from '@moteurio/core/planLimits.js';
+import { revisionsRouter, revisionsOpenapi } from './revisions.js';
 
 const router: Router = Router({ mergeParams: true });
+
+router.use(revisionsRouter);
 
 function localizedSuccessMessage(msg: MultilingualString | undefined, locale?: string): string {
     if (!msg || typeof msg !== 'object') return 'Thank you for your submission.';
@@ -322,6 +325,6 @@ const formsOpenapi: Record<string, OpenAPIV3.PathItemObject> = {
     }
 };
 
-export const openapi = mergePathSpecs(formsOpenapi, submissionsOpenapi);
+export const openapi = mergePathSpecs(revisionsOpenapi, formsOpenapi, submissionsOpenapi);
 
 export default router;
