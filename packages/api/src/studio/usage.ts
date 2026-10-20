@@ -18,7 +18,7 @@ export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
             responses: {
                 '200': {
                     description:
-                        'studio: { total, windowStart }, public: { byProject: { [projectId]: { total, windowStart } } }',
+                        'This calendar month (UTC): period, studio: { total, windowStart }, public: { byProject: { [projectId]: { total, windowStart } } }. Kept across restarts.',
                     content: {
                         'application/json': {
                             schema: { $ref: '#/components/schemas/UsageCounts' }

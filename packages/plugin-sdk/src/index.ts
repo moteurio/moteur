@@ -24,6 +24,22 @@ export type PluginInitContext = {
     registerBlockSchema: (schema: BlockSchema) => void;
     registerBlueprint: (blueprint: BlueprintSchema) => void;
     registerFieldSchema: (field: FieldSchema) => void;
+    /** Who decides each project's monthly AI credits (null: unlimited); null restores the default. */
+    setCreditAllowance: (allowance: ((projectId: string) => number | null) | null) => void;
+    /** Add credits to a project this month (negative takes some back); recorded in the ledger. */
+    grantCredits: (
+        projectId: string,
+        amount: number,
+        detail?: { reason?: string; userId?: string }
+    ) => unknown;
+    /** A project's credits this month. */
+    creditBalance: (projectId: string) => {
+        period: string;
+        allowance: number | null;
+        granted: number;
+        used: number;
+        remaining: number | null;
+    };
 };
 
 export type HostPluginModule = {

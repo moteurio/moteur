@@ -56,6 +56,11 @@ import { schedulerEngine, startSnapshotScheduler, stopSnapshotScheduler } from '
 import { globalErrorHandler } from './middlewares/errorHandler.js';
 import { registerSocketEventBridge } from './bootstrap/socketEventBridge.js';
 import { mountStaticAssets } from './bootstrap/staticAssetsRoute.js';
+import {
+    createFileMeteringStore,
+    getMeteringStore,
+    setMeteringStore
+} from '@moteurio/core/metering.js';
 
 // Load core runtime. External plugins are discovered by host config (MOTEUR_HOST_PLUGINS / MOTEUR_ENABLED_PLUGINS).
 import '@moteurio/core';
@@ -116,6 +121,15 @@ app.use(
         allowedHeaders: ['Content-Type', 'Authorization', 'x-api-key'],
         exposedHeaders: ['X-Total-Count']
     })
+);
+
+// Request counts and AI credits survive restarts. Set before plugins load: a host plugin may
+// replace the store (e.g. a database for several API instances) in its init.
+setMeteringStore(
+    createFileMeteringStore(
+        process.env.MOTEUR_METERING_DIR?.trim() ||
+            path.join(storageConfig.dataRoot, 'data', 'metering')
+    )
 );
 
 const { mergedApiSpecs, serverUrl, hostPlugins, pluginRouteContributions, authProviders } =
@@ -257,6 +271,7 @@ httpServer.listen(PORT, async () => {
 function gracefulShutdown(): void {
     schedulerEngine.stopSweep();
     stopSnapshotScheduler();
+    getMeteringStore().flush();
     process.exit(0);
 }
 process.on('SIGTERM', gracefulShutdown);

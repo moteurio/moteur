@@ -1,59 +1,49 @@
 /**
- * Tracks API request counts in two separate buckets: studio (operator/back-office)
- * and public (API key / collections).
- *
- * Current implementation is in-memory (counts reset on restart). For multi-instance
- * or persistent billing, replace with a store that implements the same record/get/reset
- * contract (e.g. Redis or DB-backed).
+ * API request counts in two buckets: studio (operator/back-office) and public (API key /
+ * collections, per project). Kept by the engine's metering, per calendar month (UTC), so they
+ * survive restarts once the server uses the file store (see `src/index.ts`).
  */
+import {
+    currentPeriod,
+    getMeteringStore,
+    periodBounds,
+    recordRequest
+} from '@moteurio/core/metering.js';
 
 export type RequestType = 'studio' | 'public';
 
 export interface UsageCounts {
+    /** `YYYY-MM` (UTC) the counts are for. */
+    period: string;
     studio: { total: number; windowStart: number };
     public: { byProject: Record<string, { total: number; windowStart: number }> };
 }
 
-const state: UsageCounts = {
-    studio: { total: 0, windowStart: Date.now() },
-    public: { byProject: {} }
-};
-
 /** Record one studio-scoped API request (global counter, not per-project). */
 export function recordStudioRequest(): void {
-    state.studio.total += 1;
+    recordRequest('studio');
 }
 
 /** Record one public API request for a project. */
 export function recordPublicRequest(projectId: string): void {
-    if (!state.public.byProject[projectId]) {
-        state.public.byProject[projectId] = { total: 0, windowStart: Date.now() };
-    }
-    state.public.byProject[projectId].total += 1;
+    recordRequest('public', projectId);
 }
 
-/** Get current usage counts (for dashboards or billing). */
-export function getUsageCounts(): UsageCounts {
+/** This month's counts (for dashboards or billing). */
+export function getUsageCounts(period = currentPeriod()): UsageCounts {
+    const totals = getMeteringStore().requestTotals(period);
+    const windowStart = Date.parse(periodBounds(period).start);
+    const studio =
+        totals.studio + Object.values(totals.projects).reduce((n, p) => n + p.studioRequests, 0);
     return {
-        studio: { ...state.studio },
+        period,
+        studio: { total: studio, windowStart },
         public: {
             byProject: Object.fromEntries(
-                Object.entries(state.public.byProject).map(([k, v]) => [k, { ...v }])
+                Object.entries(totals.projects)
+                    .filter(([, p]) => p.publicRequests > 0)
+                    .map(([id, p]) => [id, { total: p.publicRequests, windowStart }])
             )
         }
     };
-}
-
-/** Reset studio-scoped count (e.g. new billing window). */
-export function resetStudioCount(): void {
-    state.studio = { total: 0, windowStart: Date.now() };
-}
-
-/** Reset public count for a project or all. */
-export function resetPublicCount(projectId?: string): void {
-    if (projectId) {
-        delete state.public.byProject[projectId];
-    } else {
-        state.public.byProject = {};
-    }
 }

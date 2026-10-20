@@ -82,7 +82,7 @@ router.post(
                     const cost = getCreditCost('analyse.image');
                     const balance = getCredits(projectId);
                     if (balance >= cost) {
-                        const deduct = deductCredits(projectId, cost);
+                        const deduct = deductCredits(projectId, cost, 'asset.describe');
                         if (deduct.success) {
                             try {
                                 const result = await runImageAnalysis(adapter, asset.url, {

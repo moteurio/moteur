@@ -11,6 +11,7 @@ import { registerProviderFactory, setVideoProvidersConfig } from '../assets/prov
 import { registerBlockSchema as registerBlockSchemaCore } from '../blocks.js';
 import { registerBlueprint as registerBlueprintCore } from '../blueprints.js';
 import fieldRegistry from '../registry/FieldRegistry.js';
+import { creditBalance, grantCredits, setCreditAllowance } from '../metering.js';
 import type { PluginInitContext } from '@moteurio/plugin-sdk';
 import type { FieldSchema } from '@moteurio/types/Field.js';
 
@@ -54,6 +55,9 @@ export function createPluginContext(): PluginContext {
         registerBlueprint: registerBlueprintCore,
         registerFieldSchema: (field: FieldSchema) => {
             fieldRegistry.register(field);
-        }
+        },
+        setCreditAllowance,
+        grantCredits,
+        creditBalance: projectId => creditBalance(projectId)
     };
 }

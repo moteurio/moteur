@@ -175,7 +175,7 @@ export async function runWritingAction(
     }
 
     if (!options?.skipDeduction) {
-        const { success } = deductCredits(projectId, cost);
+        const { success } = deductCredits(projectId, cost, 'write');
         if (!success) {
             throw new Error('INSUFFICIENT_CREDITS');
         }
