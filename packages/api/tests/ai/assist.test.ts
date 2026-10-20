@@ -58,7 +58,9 @@ describe('AI helpers for the Studio', () => {
             translate: 'off',
             alt: 'off',
             notes: 'off',
-            images: 'off'
+            images: 'off',
+            audio: 'off',
+            model3d: 'off'
         });
         expect(res.body.ready).toBe(true);
         expect(res.body.costs['write.shorten']).toBe(2);

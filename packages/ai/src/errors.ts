@@ -4,7 +4,11 @@
  */
 
 export type AIErrorCode =
-    'insufficient_credits' | 'image_provider_not_configured' | 'not_implemented';
+    | 'insufficient_credits'
+    | 'image_provider_not_configured'
+    | 'audio_provider_not_configured'
+    | 'model3d_provider_not_configured'
+    | 'not_implemented';
 
 export interface AIErrorDetails {
     required?: number;
@@ -21,9 +25,13 @@ export class AIError extends Error {
                 ? `Insufficient credits (required: ${details?.required ?? 0}, remaining: ${details?.remaining ?? 0})`
                 : code === 'image_provider_not_configured'
                   ? 'Image provider is not configured. Set it in Settings → AI.'
-                  : code === 'not_implemented'
-                    ? 'This operation is not implemented by this provider.'
-                    : code;
+                  : code === 'audio_provider_not_configured'
+                    ? 'Audio provider is not configured. Set it in Settings → AI.'
+                    : code === 'model3d_provider_not_configured'
+                      ? '3D model provider is not configured. Set it in Settings → AI.'
+                      : code === 'not_implemented'
+                        ? 'This operation is not implemented by this provider.'
+                        : code;
         super(message);
         this.name = 'AIError';
         this.code = code;

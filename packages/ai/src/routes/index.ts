@@ -7,6 +7,8 @@ import { mergePathSpecs } from './mergePathSpecs.js';
 import { createStatusRouter, statusOpenapi } from './status.js';
 import { createSettingsOverviewRouter, settingsOverviewOpenapi } from './settingsOverview.js';
 import { createGenerateImageRouter, generateImageOpenapi } from './generateImage.js';
+import { createGenerateAudioRouter, generateAudioOpenapi } from './generateAudio.js';
+import { createGenerateModel3dRouter, generateModel3dOpenapi } from './generateModel3d.js';
 import { createSaveGeneratedImageRouter } from './saveGeneratedImage.js';
 import { createGenerateRouter, generateOpenapi } from './generate/index.js';
 import { createTranslateRouter } from './translate/index.js';
@@ -30,6 +32,8 @@ export function createAiRouter(ctx: PluginRouteContext): Router {
     router.use(createAssistRouter(ctx));
     router.use(createSettingsOverviewRouter(ctx));
     router.use(createGenerateImageRouter(ctx));
+    router.use(createGenerateAudioRouter(ctx));
+    router.use(createGenerateModel3dRouter(ctx));
     router.use(createSaveGeneratedImageRouter(ctx));
     router.use('/generate', createGenerateRouter(ctx));
     router.use('/translate', createTranslateRouter(ctx));
@@ -40,6 +44,8 @@ const allPathSpecs = mergePathSpecs(
     statusOpenapi,
     settingsOverviewOpenapi,
     generateImageOpenapi,
+    generateAudioOpenapi,
+    generateModel3dOpenapi,
     generateOpenapi,
     assistOpenapi
 );
