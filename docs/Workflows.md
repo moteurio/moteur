@@ -76,15 +76,21 @@ Other modes (e.g. manual publish after approval) may be added later; the API is 
 
 ## Roles and who can do what
 
-| Role         | Where it’s defined                                                                                                               | Submit for review | Approve / Reject | Publish without approval                            |
-| ------------ | -------------------------------------------------------------------------------------------------------------------------------- | ----------------- | ---------------- | --------------------------------------------------- |
-| (any)        | Project member                                                                                                                   | Yes               | No               | Only if no `requireReview` or has approved review   |
-| `reviewer`   | `users.json` `roles`                                                                                                             | Yes               | Yes              | No (still subject to publish guard unless operator) |
-| **operator** | `users.json` `roles` includes platform slug (`OPERATOR_ROLE_SLUG` in `@moteurio/types`; see [Authentication](Authentication.md)) | Yes               | Yes              | Yes (bypasses publish guard)                        |
+| Role         | Stored as    | Implies               | What they can do                                                                                         |
+| ------------ | ------------ | --------------------- | -------------------------------------------------------------------------------------------------------- |
+| `writer`     | `writer`     | —                     | Create and edit entries and pages. Submit for review. Publish only when review allows it.                |
+| `translator` | `translator` | —                     | Edit other languages (including inside blocks) and translated file text. Submit for review. Not publish. |
+| `reviewer`   | `reviewer`   | writer                | Approve and reject, which publishes in `auto_publish`.                                                   |
+| `billing`    | `billing`    | —                     | Project payment, when that screen exists. Does not edit content.                                         |
+| `admin`      | `admin`      | writer                | Setup, people, and publishing without a review. Not the raw tools.                                       |
+| `developer`  | `developer`  | admin (and so writer) | Everything an admin can do, plus JSON, API channels, API keys and webhooks.                              |
 
-- **Submit for review**: any user who can access the project and the entry can submit.
-- **Approve / Reject**: only users whose `roles` array includes `reviewer` or the **operator** slug (in global `users.json`).
-- **Publish without approval**: when `workflow.requireReview` is `true`, only **operators** can set an entry to `published` without an approved review. Other users get a 403 if they try (e.g. via PATCH entry or PATCH status).
+Roles live on the person in `users.json` and apply to every project they belong to. An empty `roles` list still counts as `writer`. Developer is not also stored as `admin`.
+
+- **Submit for review**: a writer, reviewer, admin, developer, or translator.
+- **Approve / Reject**: `reviewer`, `admin`, or `developer`.
+- **Publish without approval**: when `workflow.requireReview` is `true`, only an **admin** or **developer** can set an entry to `published` without an approved review. Other users get a 403 if they try (e.g. via PATCH entry or PATCH status).
+- **Translator saves**: the API rejects changes to the default locale, plain fields, status (other than submitting for review), and file credit, folder, or focal point.
 
 To grant reviewer rights, add `"reviewer"` to the user’s `roles` in `data/users.json`:
 

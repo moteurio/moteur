@@ -21,7 +21,7 @@ vi.mock('@moteurio/core/assets/assetService.js', () => ({
 
 describe('saveGeneratedImage route', () => {
     const requireAuth = (req: any, _res: any, next: () => void) => {
-        req.user = { id: 'u1' };
+        req.user = { id: 'u1', roles: ['writer'] };
         next();
     };
 
@@ -74,7 +74,7 @@ describe('saveGeneratedImage route', () => {
         vi.mocked(getProject).mockResolvedValue({
             users: ['u1'],
             label: 'P',
-            ai: { enabled: true }
+            ai: { enabled: true, helpers: { images: true } }
         } as any);
         vi.mocked(axios.get).mockResolvedValue({
             data: Buffer.from('img'),

@@ -3,27 +3,21 @@ import { Router } from 'express';
 import {
     listNavigations,
     getNavigation,
-    getNavigationByHandle,
-    resolveNavigation,
     createNavigation,
     updateNavigation,
     deleteNavigation
 } from '@moteurio/core/navigations.js';
-import { optionalProjectAccess, requireProjectAccess } from '../../middlewares/auth.js';
+import { requireProjectAccess } from '../../middlewares/auth.js';
 import type { OpenAPIV3 } from 'openapi-types';
 import { sendApiError, getMessage } from '../../utils/apiError.js';
 
 const router: Router = Router({ mergeParams: true });
 
-router.get('/', optionalProjectAccess, async (req: Request, res: Response) => {
+router.get('/', requireProjectAccess, async (req: Request, res: Response) => {
     const { projectId } = req.params as Record<string, string>;
     if (!projectId) return void res.status(400).json({ error: 'Missing projectId' });
     try {
-        const list = await listNavigations(projectId);
-        const out = req.user
-            ? list
-            : await Promise.all(list.map((nav: any) => resolveNavigation(projectId, nav)));
-        return void res.json(out);
+        return void res.json(await listNavigations(projectId));
     } catch (err: unknown) {
         return void sendApiError(res, req, err);
     }
@@ -49,16 +43,12 @@ router.post('/', requireProjectAccess, async (req: Request, res: Response) => {
     }
 });
 
-router.get('/:id', optionalProjectAccess, async (req: Request, res: Response) => {
+router.get('/:id', requireProjectAccess, async (req: Request, res: Response) => {
     const { projectId, id } = req.params as Record<string, string>;
     if (!projectId || !id) return void res.status(400).json({ error: 'Missing projectId or id' });
     try {
-        const nav = req.user
-            ? await getNavigation(projectId, id)
-            : await getNavigationByHandle(projectId, id);
-        if (!nav) return void res.status(404).json({ error: 'Navigation not found' });
-        const out = req.user ? nav : await resolveNavigation(projectId, nav);
-        return void res.json(out);
+        const nav = await getNavigation(projectId, id);
+        return void res.json(nav);
     } catch (err: unknown) {
         return void sendApiError(res, req, err);
     }
@@ -176,7 +166,7 @@ export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
     },
     '/projects/{projectId}/navigations/{id}': {
         get: {
-            summary: 'Get navigation by id or handle',
+            summary: 'Get navigation by id (Studio). Sites read menus through a channel.',
             tags: ['Navigations'],
             parameters: [
                 { name: 'projectId', in: 'path', required: true, schema: { type: 'string' } },

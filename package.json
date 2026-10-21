@@ -25,11 +25,13 @@
         "openapi:export": "pnpm --filter @moteurio/api run openapi:export",
         "openapi:check": "pnpm --filter @moteurio/api run openapi:check-responses",
         "prepare": "husky",
-        "demo:build": "pnpm --filter @moteurio/demo run build:demo"
+        "demo:build": "pnpm --filter @moteurio/demo run build:demo",
+        "setup:journal-vanilla": "bash scripts/setup-journal-vanilla.sh"
     },
     "dependencies": {
         "@moteurio/api": "workspace:*",
-        "@moteurio/cli": "workspace:*"
+        "@moteurio/cli": "workspace:*",
+        "@moteurio/client": "workspace:*"
     },
     "devDependencies": {
         "@eslint/js": "^10.0.1",

@@ -43,6 +43,7 @@ function assemblePrompt(editorPrompt: string, styleHints?: StyleHint[]): string 
 function providerLabel(settings: ProjectAISettings): string {
     const p = settings?.imageProvider;
     if (p === 'openai') return 'openai/dall-e-3';
+    if (p === 'google') return 'google/gemini';
     if (p === 'fal') return 'fal';
     if (p === 'replicate') return 'replicate';
     return 'unknown';

@@ -18,6 +18,7 @@ This folder contains the main documentation for **developers using Moteur**: con
 | **Consume or send webhooks**             | [Webhooks](Webhooks.md).                                                                                                                                   |
 | **Field and block types**                | [Fields](Fields.md), [Blocks](Blocks.md).                                                                                                                  |
 | **Git, snapshots, and branches**         | [Git integration](Git.md).                                                                                                                                 |
+| **Schema history and restore**           | [Schema revisions](Schema%20revisions.md) — commit hashes, impact on content and public API.                                                               |
 
 ---
 
@@ -26,12 +27,13 @@ This folder contains the main documentation for **developers using Moteur**: con
 | Document                                                              | Description                                                                                                                                                                |
 | --------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | [**Public API and Collections**](Public%20API%20and%20Collections.md) | Quick guide: get a project API key, create a collection, and read entries/pages from your frontend.                                                                        |
-| [**REST API**](REST%20API.md)                                         | Full HTTP API: auth, projects, models, entries, collections, pages, navigations, studio routes, webhooks. OpenAPI/Swagger details included.                                |
+| [**REST API**](REST%20API.md)                                         | Full HTTP API: auth, projects, models, entries, collections, pages, navigations, operator routes, studio routes, webhooks. OpenAPI/Swagger details included.               |
 | [**`@moteurio/client`**](../packages/client/README.md)                | Official HTTP client: admin (JWT) and public (API key) factories.                                                                                                          |
 | [**Developer API**](Developer%20API.md)                               | Embedded `@moteurio/core` API (in-process); points to source—most integrations should use the client + REST instead.                                                       |
 | [**Authentication**](Authentication.md)                               | JWT (login, refresh, OAuth) and project API key (read-only). Env vars for auth.                                                                                            |
 | [**Configuration**](Configuration.md)                                 | Environment variables for the Moteur API (base path, CORS, rate limits, auth, storage).                                                                                    |
 | [**Git integration**](Git.md)                                         | What is tracked, .gitignore, content branches, workspace/user-data snapshots, restore, snapshot scheduler.                                                                 |
+| [**Schema revisions**](Schema%20revisions.md)                         | Git-backed schema history, commit hash vs display number, restore, how schema changes affect entries and collections.                                                      |
 | [**AI**](AI.md)                                                       | AI layer: providers (OpenAI, Anthropic, Mock), configurable credits, writing (per-action endpoints), translation, generate/entry, generate/fields, generate/image, status. |
 | [**CLI**](CLI.md)                                                     | CLI reference: projects, models, entries, layouts, structures, templates, pages, workspace, branches, userdata, blueprints.                                                |
 | [**Starters**](Starters.md)                                           | Official starters (Next.js, Astro, Eleventy, etc.) — same demo project, same content patterns.                                                                             |
@@ -42,7 +44,7 @@ This folder contains the main documentation for **developers using Moteur**: con
 | [**Fields**](Fields.md)                                               | Core field types reference (models, structures, blocks, templates).                                                                                                        |
 | [**Blocks**](Blocks.md)                                               | Core block types reference (layouts).                                                                                                                                      |
 | [**Seeds**](Seeds.md)                                                 | Canonical blueprints: what they are, how to run seed.                                                                                                                      |
-| [**Publishing**](PUBLISHING.md)                                       | Releasing `@moteurio/types`, `@moteurio/client`, and `@moteurio/cli` to npm.                                                                                               |
+| [**Releasing**](../RELEASING.md)                                      | Publishing `@moteurio/types`, `@moteurio/client`, and `@moteurio/cli` to npm.                                                                                              |
 
 ---
 
@@ -53,7 +55,7 @@ This folder contains the main documentation for **developers using Moteur**: con
 | **OpenAPI (Swagger)** | When the Moteur API is running: **Scalar** at `GET {basePath}/docs`, **OpenAPI 3 spec** at `GET {basePath}/openapi.json`. Hosted API docs: [docs.api.moteur.io](https://docs.api.moteur.io). |
 | **Moteur Studio**     | UI for content and schema. Source lives in the Studio front-end repository. Storybook: [docs.studio.moteur.io](https://docs.studio.moteur.io/).                                              |
 | **Starters**          | Clone-and-run repos for Next.js, Astro, Eleventy, and more. See [Starters](Starters.md) for links and comparison.                                                                            |
-| **npm packages**      | Publishing `@moteurio/types`, `@moteurio/client`, and `@moteurio/cli`: see [Publishing](PUBLISHING.md).                                                                                      |
+| **npm packages**      | Publishing `@moteurio/types`, `@moteurio/client`, and `@moteurio/cli`: see [RELEASING.md](../RELEASING.md).                                                                                  |
 
 ---
 

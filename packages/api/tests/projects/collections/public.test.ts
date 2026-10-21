@@ -14,10 +14,32 @@ vi.mock('@moteurio/core/entries.js', () => ({
     getEntryForProject: vi.fn(),
     getPublishedEntryForProject: vi.fn()
 }));
+vi.mock('@moteurio/core/models.js', () => ({
+    getModelSchemaForProject: vi.fn()
+}));
+vi.mock('@moteurio/core/utils/projectStorage.js', () => ({
+    listProjectKeys: vi.fn(),
+    getProjectJson: vi.fn()
+}));
+vi.mock('@moteurio/core/navigations.js', () => ({
+    listNavigations: vi.fn(),
+    getNavigationByHandle: vi.fn(),
+    resolveNavigation: vi.fn(async (_p: string, nav: any) => ({ ...nav, resolved: true }))
+}));
+vi.mock('@moteurio/core/projects.js', () => ({
+    getProjectById: vi.fn(async () => ({ defaultLocale: 'fr' }))
+}));
 
 import { listCollections, getCollection } from '@moteurio/core/apiCollections.js';
 import { verifyProjectApiKey } from '@moteurio/core/projectApiKey.js';
 import { queryEntriesForProject } from '@moteurio/core/entries.js';
+import { getModelSchemaForProject } from '@moteurio/core/models.js';
+import { getProjectJson, listProjectKeys } from '@moteurio/core/utils/projectStorage.js';
+import {
+    listNavigations,
+    getNavigationByHandle,
+    resolveNavigation
+} from '@moteurio/core/navigations.js';
 import collectionsPublicRouter from '../../../src/projects/collections/public.js';
 import {
     optionalAuth,
@@ -165,6 +187,9 @@ describe('GET /projects/:projectId/collections/:collectionId', () => {
         const res = await request(app).get('/projects/demo/collections/c1').set('x-api-key', 'key');
         expect(res.status).toBe(200);
         expect(res.body.label).toBe('API');
+        expect(res.body.publicApi).toMatchObject({
+            openApiJson: '/projects/demo/collections/c1/openapi'
+        });
     });
 });
 
@@ -246,5 +271,224 @@ describe('GET /projects/:projectId/collections/:collectionId/:resourceId/entries
         expect(res.status).toBe(400);
         expect(res.body.error).toMatch(message);
         expect(queryEntriesForProject).not.toHaveBeenCalled();
+    });
+});
+
+describe('GET /projects/:projectId/collections/:collectionId/openapi.json', () => {
+    beforeEach(() => {
+        vi.clearAllMocks();
+        vi.mocked(verifyProjectApiKey).mockResolvedValue({
+            ok: true,
+            keyId: 'k1',
+            policy: { collectionWhitelist: null, allowSiteWideReads: true }
+        });
+    });
+
+    it('returns OpenAPI document for the collection', async () => {
+        vi.mocked(getCollection).mockResolvedValue({
+            id: 'public',
+            projectId: 'demo',
+            label: 'Public',
+            resources: [{ resourceType: 'model', resourceId: 'articles', fields: ['title'] }],
+            createdAt: '',
+            updatedAt: ''
+        });
+        vi.mocked(getModelSchemaForProject).mockResolvedValue({
+            id: 'articles',
+            label: 'Articles',
+            fields: { title: { type: 'core/text', label: 'Title' } }
+        });
+        const res = await request(app)
+            .get('/projects/demo/collections/public/openapi')
+            .set('x-api-key', 'key');
+        expect(res.status).toBe(200);
+        expect(res.body.openapi).toBe('3.0.3');
+        expect(res.body.paths).toHaveProperty('/projects/demo/collections/public/articles/entries');
+    });
+
+    it('documents every project model when the collection exposes "every model"', async () => {
+        vi.mocked(getCollection).mockResolvedValue({
+            id: 'public',
+            projectId: 'demo',
+            label: 'Public',
+            resources: [{ resourceType: 'model', resourceId: 'models' }],
+            createdAt: '',
+            updatedAt: ''
+        });
+        vi.mocked(listProjectKeys).mockResolvedValue(['issue', 'author']);
+        vi.mocked(getModelSchemaForProject).mockImplementation(async (_p, id) => ({
+            id,
+            label: id,
+            fields: { title: { type: 'core/text', label: 'Title' } }
+        }));
+        const res = await request(app)
+            .get('/projects/demo/collections/public/openapi')
+            .set('x-api-key', 'key');
+        expect(res.status).toBe(200);
+        expect(res.headers['cache-control']).toBe('no-store');
+        expect(res.body.paths).toHaveProperty('/projects/demo/collections/public/issue/entries');
+        expect(res.body.paths).toHaveProperty('/projects/demo/collections/public/author/entries');
+    });
+
+    it('documents menus with the project handles when the collection gives every menu', async () => {
+        vi.mocked(getCollection).mockResolvedValue({
+            id: 'public',
+            projectId: 'demo',
+            label: 'Public',
+            resources: [{ resourceType: 'menu', resourceId: 'menus' }],
+            createdAt: '',
+            updatedAt: ''
+        });
+        vi.mocked(listNavigations).mockResolvedValue([
+            { handle: 'main' },
+            { handle: 'footer' }
+        ] as any);
+        const res = await request(app)
+            .get('/projects/demo/collections/public/openapi')
+            .set('x-api-key', 'key');
+        expect(res.status).toBe(200);
+        const one = res.body.paths['/projects/demo/collections/public/menus/{handle}'];
+        expect(one.get.parameters[0].schema.enum).toEqual(['footer', 'main']);
+        expect(res.body.components.schemas).toHaveProperty('Menu');
+    });
+});
+
+const menus = [
+    { id: 'n1', handle: 'main', name: 'Main', items: [] },
+    { id: 'n2', handle: 'footer', name: 'Footer', items: [] }
+];
+
+function channelWith(resources: Array<{ resourceType: any; resourceId: string }>) {
+    return { id: 'c1', projectId: 'demo', label: 'API', resources, createdAt: '', updatedAt: '' };
+}
+
+describe('GET /projects/:projectId/collections/:collectionId/menus', () => {
+    beforeEach(() => {
+        vi.clearAllMocks();
+        vi.mocked(verifyProjectApiKey).mockResolvedValue({
+            ok: true,
+            keyId: 'k1',
+            policy: { collectionWhitelist: null, allowSiteWideReads: true }
+        });
+        vi.mocked(listNavigations).mockResolvedValue(menus as any);
+        vi.mocked(getNavigationByHandle).mockImplementation(
+            async (_p, handle) => (menus.find(m => m.handle === handle) as any) ?? null
+        );
+    });
+
+    it('lists every menu, resolved, when the channel gives every menu', async () => {
+        vi.mocked(getCollection).mockResolvedValue(
+            channelWith([{ resourceType: 'menu', resourceId: 'menus' }])
+        );
+        const res = await request(app)
+            .get('/projects/demo/collections/c1/menus')
+            .set('x-api-key', 'k');
+        expect(res.status).toBe(200);
+        expect(res.body.map((m: any) => m.handle)).toEqual(['main', 'footer']);
+        expect(res.body[0].resolved).toBe(true);
+    });
+
+    it('lists only the handles the channel names', async () => {
+        vi.mocked(getCollection).mockResolvedValue(
+            channelWith([{ resourceType: 'menu', resourceId: 'footer' }])
+        );
+        const res = await request(app)
+            .get('/projects/demo/collections/c1/menus')
+            .set('x-api-key', 'k');
+        expect(res.body.map((m: any) => m.handle)).toEqual(['footer']);
+    });
+
+    it('refuses a menu the channel does not give', async () => {
+        vi.mocked(getCollection).mockResolvedValue(
+            channelWith([{ resourceType: 'menu', resourceId: 'footer' }])
+        );
+        const res = await request(app)
+            .get('/projects/demo/collections/c1/menus/main')
+            .set('x-api-key', 'k');
+        expect(res.status).toBe(404);
+        expect(getNavigationByHandle).not.toHaveBeenCalled();
+    });
+
+    it('asks for labels in the requested language', async () => {
+        vi.mocked(getCollection).mockResolvedValue(
+            channelWith([{ resourceType: 'menu', resourceId: 'menus' }])
+        );
+        const res = await request(app)
+            .get('/projects/demo/collections/c1/menus/main?locale=en')
+            .set('x-api-key', 'k');
+        expect(res.status).toBe(200);
+        expect(resolveNavigation).toHaveBeenCalledWith(
+            'demo',
+            expect.objectContaining({ handle: 'main' }),
+            { locale: 'en', fallback: 'fr' }
+        );
+    });
+
+    it('returns one menu by handle', async () => {
+        vi.mocked(getCollection).mockResolvedValue(
+            channelWith([{ resourceType: 'menu', resourceId: 'menus' }])
+        );
+        const res = await request(app)
+            .get('/projects/demo/collections/c1/menus/main')
+            .set('x-api-key', 'k');
+        expect(res.status).toBe(200);
+        expect(res.body).toMatchObject({ handle: 'main', resolved: true });
+    });
+
+    it('404s when the channel gives no menus', async () => {
+        vi.mocked(getCollection).mockResolvedValue(
+            channelWith([{ resourceType: 'model', resourceId: 'models' }])
+        );
+        const res = await request(app)
+            .get('/projects/demo/collections/c1/menus')
+            .set('x-api-key', 'k');
+        expect(res.status).toBe(404);
+    });
+
+    it('needs a key or a session', async () => {
+        const res = await request(app).get('/projects/demo/collections/c1/menus');
+        expect(res.status).toBe(401);
+    });
+});
+
+describe('GET /projects/:projectId/collections/:collectionId/forms', () => {
+    beforeEach(() => {
+        vi.clearAllMocks();
+        vi.mocked(verifyProjectApiKey).mockResolvedValue({
+            ok: true,
+            keyId: 'k1',
+            policy: { collectionWhitelist: null, allowSiteWideReads: true }
+        });
+        vi.mocked(getCollection).mockResolvedValue(
+            channelWith([{ resourceType: 'form', resourceId: 'forms' }])
+        );
+        vi.mocked(listProjectKeys).mockResolvedValue(['contact', 'old']);
+        vi.mocked(getProjectJson).mockImplementation(async (_p, key: string) =>
+            key.includes('contact')
+                ? ({
+                      id: 'contact',
+                      label: 'Contact',
+                      status: 'active',
+                      fields: {},
+                      actions: [{ type: 'email', to: 'owner@example.com' }]
+                  } as any)
+                : ({ id: 'old', label: 'Old', status: 'inactive', fields: {} } as any)
+        );
+    });
+
+    it('gives only active forms, without actions or recipients', async () => {
+        const res = await request(app)
+            .get('/projects/demo/collections/c1/forms')
+            .set('x-api-key', 'k');
+        expect(res.status).toBe(200);
+        expect(res.body.map((f: any) => f.id)).toEqual(['contact']);
+        expect(res.body[0]).not.toHaveProperty('actions');
+    });
+
+    it('404s an inactive form', async () => {
+        const res = await request(app)
+            .get('/projects/demo/collections/c1/forms/old')
+            .set('x-api-key', 'k');
+        expect(res.status).toBe(404);
     });
 });

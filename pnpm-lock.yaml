@@ -28,6 +28,9 @@ importers:
             '@moteurio/cli':
                 specifier: workspace:*
                 version: link:packages/cli
+            '@moteurio/client':
+                specifier: workspace:*
+                version: link:packages/client
         devDependencies:
             '@eslint/js':
                 specifier: ^10.0.1

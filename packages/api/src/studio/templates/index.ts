@@ -2,7 +2,6 @@ import type { Request, Response } from 'express';
 import { Router } from 'express';
 import {
     listTemplates,
-    getTemplate as getTemplatePublic,
     getTemplateWithAuth,
     createTemplate,
     updateTemplate,
@@ -10,13 +9,17 @@ import {
     validateTemplateById
 } from '@moteurio/core/templates.js';
 import { getBlueprint } from '@moteurio/core/blueprints.js';
-import { optionalProjectAccess, requireProjectAccess } from '../../middlewares/auth.js';
+import { requireProjectAccess } from '../../middlewares/auth.js';
 import type { OpenAPIV3 } from 'openapi-types';
 import { sendApiError } from '../../utils/apiError.js';
+import { mergePathSpecs } from '../../utils/mergePathSpecs.js';
+import { revisionsRouter, revisionsOpenapi } from './revisions.js';
 
 const router: Router = Router({ mergeParams: true });
 
-router.get('/', optionalProjectAccess, async (req: Request, res: Response) => {
+router.use(revisionsRouter);
+
+router.get('/', requireProjectAccess, async (req: Request, res: Response) => {
     const { projectId } = req.params as Record<string, string>;
     if (!projectId) return void res.status(400).json({ error: 'Missing projectId' });
     try {
@@ -27,13 +30,11 @@ router.get('/', optionalProjectAccess, async (req: Request, res: Response) => {
     }
 });
 
-router.get('/:id', optionalProjectAccess, async (req: Request, res: Response) => {
+router.get('/:id', requireProjectAccess, async (req: Request, res: Response) => {
     const { projectId, id } = req.params as Record<string, string>;
     if (!projectId || !id) return void res.status(400).json({ error: 'Missing projectId or id' });
     try {
-        const template = req.user
-            ? await getTemplateWithAuth(req.user, projectId, id)
-            : await getTemplatePublic(projectId, id);
+        const template = await getTemplateWithAuth(req.user!, projectId, id);
         return void res.json(template);
     } catch (err: unknown) {
         return void sendApiError(res, req, err);
@@ -137,7 +138,7 @@ const templateJson = {
     }
 };
 
-export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
+const templatePaths: Record<string, OpenAPIV3.PathItemObject> = {
     '/projects/{projectId}/templates': {
         get: {
             summary: 'List templates',
@@ -248,5 +249,7 @@ export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
         }
     }
 };
+
+export const openapi = mergePathSpecs(revisionsOpenapi, templatePaths);
 
 export default router;

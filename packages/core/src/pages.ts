@@ -57,7 +57,9 @@ import {
     type BreadcrumbItem
 } from './pages/urlResolver.js';
 import { listEntriesForProject, listPublishedEntriesForProject } from './entries.js';
-import type { Entry } from '@moteurio/types/Model.js';
+import type { Entry, ModelSchema } from '@moteurio/types/Model.js';
+import type { TemplateSchema } from '@moteurio/types/Template.js';
+import { assertEntryComplete } from './validators/entryComplete.js';
 import { dispatch as webhookDispatch } from './webhooks/webhookService.js';
 
 export type { ResolvedUrl, NavigationNode, BreadcrumbItem };
@@ -145,6 +147,18 @@ export async function getPageBySlug(projectId: string, slug: string): Promise<Pa
     const pages = await loadAllPages(projectId);
     const found = pages.find(p => p.slug === slug);
     return found ?? null;
+}
+
+/**
+ * Drafts may leave required fields empty; a page going live may not. Same error as entries
+ * (ENTRY_INCOMPLETE, with the fields missing), so clients explain both the same way.
+ */
+function assertPageComplete(page: StaticPage | CollectionPage, template: TemplateSchema): void {
+    assertEntryComplete(
+        { id: page.label || page.id, data: page.fields ?? {} } as Entry,
+        { id: template.id, label: template.label, fields: template.fields } as ModelSchema,
+        'publish'
+    );
 }
 
 function isUrlSafeSlug(slug: string, isRoot: boolean): boolean {
@@ -289,13 +303,17 @@ export async function createPage(
             {
                 projectLocales: projectLocalesList(project),
                 allowHtmlIframe: project.allowHtmlIframe === true,
-                allowHtmlEmbed: project.allowHtmlEmbed === true
+                allowHtmlEmbed: project.allowHtmlEmbed === true,
+                // Required fields are checked apart, by status (assertPageComplete).
+                draft: true
             }
         );
         if (!validation.valid) {
             const msg = validation.issues.map(i => `${i.path}: ${i.message}`).join('; ');
             throw new Error(`Page validation failed: ${msg}`);
         }
+        if ((page as StaticPage).status === 'published')
+            assertPageComplete(page as StaticPage, await getTemplate(projectId, templateId));
     }
     if (data.type === 'collection') {
         const modelId = (data as CollectionPage).modelId;
@@ -374,13 +392,17 @@ export async function updatePage(
                 {
                     projectLocales: projectLocalesList(proj),
                     allowHtmlIframe: proj?.allowHtmlIframe === true,
-                    allowHtmlEmbed: proj?.allowHtmlEmbed === true
+                    allowHtmlEmbed: proj?.allowHtmlEmbed === true,
+                    // Required fields are checked apart, by status (assertPageComplete).
+                    draft: true
                 }
             );
             if (!validation.valid) {
                 const msg = validation.issues.map(i => `${i.path}: ${i.message}`).join('; ');
                 throw new Error(`Page validation failed: ${msg}`);
             }
+            if ((updated as StaticPage).status === 'published')
+                assertPageComplete(updated as StaticPage, template);
         }
     }
 
@@ -521,13 +543,42 @@ export async function reorderPages(
     const updatedNodes = allPages.map(p => {
         const u = updates.find(x => x.id === p.id);
         if (!u) return p;
-        return { ...p, parentId: u.parentId, order: u.order };
+        return { ...p, parentId: u.parentId ?? null, order: u.order };
     });
 
+    // The tree after every move must have no loop (two moves can make one together).
+    const after = new Map(updatedNodes.map(n => [n.id, n]));
+    for (const node of updatedNodes) {
+        const seen = new Set<string>();
+        let cur: string | null = node.id;
+        while (cur) {
+            if (seen.has(cur)) throw new Error('Reorder would create a cycle.');
+            seen.add(cur);
+            cur = after.get(cur)?.parentId ?? null;
+        }
+    }
+
+    // A page moved under a new parent must not take a sibling's address.
+    const seenSlugs = new Map<string, string>();
+    for (const node of updatedNodes) {
+        if (node.slug === '' && (node.parentId ?? null) === null) continue;
+        const key = `${node.parentId ?? ''}/${node.slug}`;
+        const other = seenSlugs.get(key);
+        if (other)
+            throw new Error(
+                `"${node.label}" and "${other}" would both be at the same address ("${node.slug}") under one parent.`
+            );
+        seenSlugs.set(key, node.label);
+    }
+
+    // Only pages that moved are written (and committed).
     const paths: string[] = [];
     for (const node of updatedNodes) {
+        const before = nodeMap.get(node.id)!;
+        if ((before.parentId ?? null) === (node.parentId ?? null) && before.order === node.order)
+            continue;
         const key = pageKey(node.id);
-        await putProjectJson(projectId, key, node);
+        await putProjectJson(projectId, key, { ...node, updatedAt: new Date().toISOString() });
         paths.push(key);
     }
     if (paths.length > 0) {

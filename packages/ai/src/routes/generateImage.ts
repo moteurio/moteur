@@ -8,6 +8,7 @@ import { generateImages, getCredits } from '../index.js';
 import { AIError } from '../errors.js';
 import type { PluginRouteContext } from '@moteurio/types/Plugin.js';
 import type { OpenAPIV3 } from 'openapi-types';
+import { helperState } from '../helpers.js';
 
 const bodySchema = z.object({
     prompt: z.string().min(1),
@@ -47,8 +48,15 @@ export function createGenerateImageRouter(ctx: PluginRouteContext): Router {
             if (project.users?.length && !project.users.includes(req.user.id)) {
                 return res.status(403).json({ error: 'Access to this project is forbidden' });
             }
-            if (project.ai?.enabled === false) {
-                return res.status(403).json({ error: 'AI is disabled for this project' });
+            const helper = helperState(project, req.user!, 'images');
+            if (helper !== 'ok') {
+                return res.status(403).json({
+                    error:
+                        helper === 'off'
+                            ? 'This helper is off for this project.'
+                            : "Your role can't ask for this helper in this project.",
+                    code: helper === 'off' ? 'AI_HELPER_OFF' : 'AI_HELPER_ROLE'
+                });
             }
             const projectSettings = { imageProvider: project.ai?.imageProvider ?? null };
             const credits = getCredits(projectId);

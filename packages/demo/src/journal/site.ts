@@ -500,9 +500,14 @@ export async function buildSite(timeline: Timeline, ctx: SiteContext): Promise<v
 
     timeline.at(129, 'navigation', async () => {
         const { createNavigation } = await import('@moteurio/core/navigations.js');
-        const pageItem = (key: string, label: string, children: NavItem[] = []): NavItem => ({
+        const pageItem = (
+            key: string,
+            fr: string,
+            en: string,
+            children: NavItem[] = []
+        ): NavItem => ({
             id: `nav-${key}`,
-            label,
+            label: { fr, en },
             linkType: 'page',
             pageId: pageIds.get(key),
             fields: {},
@@ -514,16 +519,16 @@ export async function buildSite(timeline: Timeline, ctx: SiteContext): Promise<v
             type: 'menu',
             maxDepth: 2,
             items: [
-                pageItem('journal', 'Journal'),
-                pageItem('numeros', 'Numéros'),
-                pageItem('modeles', 'Modèles'),
-                pageItem('a-propos', 'À propos', [
-                    pageItem('histoire', 'Notre histoire'),
-                    pageItem('usine', 'Les usines')
+                pageItem('journal', 'Journal', 'Journal'),
+                pageItem('numeros', 'Numéros', 'Issues'),
+                pageItem('modeles', 'Modèles', 'Models'),
+                pageItem('a-propos', 'À propos', 'About', [
+                    pageItem('histoire', 'Notre histoire', 'Our story'),
+                    pageItem('usine', 'Les usines', 'The plants')
                 ]),
                 {
                     id: 'nav-boutique',
-                    label: 'Boutique ↗',
+                    label: { fr: 'Boutique ↗', en: 'Shop ↗' },
                     linkType: 'custom',
                     customUrl: 'https://boutique.moteur.test',
                     openInNewTab: true,
@@ -537,10 +542,10 @@ export async function buildSite(timeline: Timeline, ctx: SiteContext): Promise<v
             type: 'menu',
             maxDepth: 1,
             items: [
-                pageItem('contact', 'Contact'),
-                pageItem('presse', 'Presse'),
-                pageItem('carrieres', 'Carrières'),
-                pageItem('confidentialite', 'Confidentialité')
+                pageItem('contact', 'Contact', 'Contact'),
+                pageItem('presse', 'Presse', 'Press'),
+                pageItem('carrieres', 'Carrières', 'Careers'),
+                pageItem('confidentialite', 'Confidentialité', 'Privacy')
             ]
         });
         await createNavigation(JOURNAL_ID, user(team.theo.id), {
@@ -581,7 +586,8 @@ export async function buildSite(timeline: Timeline, ctx: SiteContext): Promise<v
                 { resourceType: 'page', resourceId: 'pages' },
                 { resourceType: 'model', resourceId: 'models' },
                 { resourceType: 'layout', resourceId: 'layouts' },
-                { resourceType: 'form', resourceId: 'forms' }
+                { resourceType: 'form', resourceId: 'forms' },
+                { resourceType: 'menu', resourceId: 'menus' }
             ]
         });
         await createCollection(JOURNAL_ID, user(team.theo.id), {

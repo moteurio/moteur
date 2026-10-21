@@ -20,14 +20,14 @@ export function requestClassifier(req: Request, res: Response, next: NextFunctio
         return;
     }
 
-    // Public API: project-scoped read endpoints accessible via API key or JWT.
-    // Includes collections, pages, templates, forms, and page outputs (sitemap, navigation, urls, breadcrumb).
-    const projectsMatch = path.match(
-        /\/projects\/([^/]+)(?:\/(collections|pages|templates|forms|sitemap\.xml|sitemap\.json|navigation|urls|breadcrumb))(?:\/|$)/
-    );
+    // Public API: what sites call. Channel reads and page outputs (API key or JWT), plus form
+    // submissions, the one key-less endpoint.
+    const projectsMatch =
+        path.match(
+            /\/projects\/([^/]+)\/(?:collections|sitemap\.xml|sitemap\.json|navigation|urls|breadcrumb)(?:\/|$)/
+        ) ?? path.match(/\/projects\/([^/]+)\/forms\/[^/]+\/submit\/?$/);
     if (projectsMatch) {
         const projectId = projectsMatch[1];
-        // Count as public: collections (API key), pages, templates (public read)
         req.apiRequestType = 'public';
         req.apiRequestProjectId = projectId;
     }

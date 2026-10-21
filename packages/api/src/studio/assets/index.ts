@@ -11,6 +11,7 @@ import {
     regenerateVariants
 } from '@moteurio/core/assets/assetService.js';
 import { getProject } from '@moteurio/core/projects.js';
+import { assetUsage } from '@moteurio/core/assets/assetUsage.js';
 import { PlanLimitError } from '@moteurio/core/planLimits.js';
 import { getAdapter } from '@moteurio/ai';
 import { getCredits, deductCredits, getCreditCost } from '@moteurio/ai';
@@ -37,7 +38,7 @@ type MoveBody = { folder?: unknown };
 
 function parseOptionalAssetType(raw: string | undefined): AssetType | undefined {
     if (raw === undefined || raw === '') return undefined;
-    if (raw === 'image' || raw === 'video' || raw === 'document') return raw;
+    if (raw === 'image' || raw === 'video' || raw === 'document' || raw === 'model') return raw;
     return undefined;
 }
 
@@ -161,6 +162,37 @@ router.get(
         try {
             const assets = await listAssets(projectId, { type, folder, search });
             return void res.json(assets);
+        } catch (err: unknown) {
+            return void sendApiError(res, req, err);
+        }
+    }
+);
+
+// How many places use each asset (assets used nowhere are left out).
+router.get('/usage', requireProjectAccess, async (req: Request<ProjectParams>, res: Response) => {
+    const { projectId } = req.params as Record<string, string>;
+    if (!projectId) return void res.status(400).json({ error: 'Missing projectId' });
+    try {
+        const usage = await assetUsage(req.user!, projectId);
+        const counts: Record<string, number> = {};
+        for (const [id, uses] of usage) counts[id] = uses.length;
+        return void res.json({ counts });
+    } catch (err: unknown) {
+        return void sendApiError(res, req, err);
+    }
+});
+
+// Every entry and page field using one asset.
+router.get(
+    '/:id/usage',
+    requireProjectAccess,
+    async (req: Request<AssetIdParams>, res: Response) => {
+        const { projectId, id } = req.params as Record<string, string>;
+        if (!projectId || !id)
+            return void res.status(400).json({ error: 'Missing projectId or id' });
+        try {
+            const usage = await assetUsage(req.user!, projectId);
+            return void res.json({ usages: usage.get(id) ?? [] });
         } catch (err: unknown) {
             return void sendApiError(res, req, err);
         }
@@ -338,6 +370,79 @@ export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
                     content: {
                         'application/json': {
                             schema: { $ref: '#/components/schemas/JsonRecord' }
+                        }
+                    }
+                }
+            }
+        }
+    },
+    '/projects/{projectId}/assets/usage': {
+        get: {
+            summary: 'How many places use each asset',
+            description:
+                'Counts uses in entry and page fields, including images inside rich text. Assets used nowhere are left out.',
+            tags: ['Studio Assets'],
+            parameters: [
+                { name: 'projectId', in: 'path', required: true, schema: { type: 'string' } }
+            ],
+            responses: {
+                '200': {
+                    description: 'Uses per asset id',
+                    content: {
+                        'application/json': {
+                            schema: {
+                                type: 'object',
+                                properties: {
+                                    counts: {
+                                        type: 'object',
+                                        additionalProperties: { type: 'integer' }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    },
+    '/projects/{projectId}/assets/{id}/usage': {
+        get: {
+            summary: 'Where an asset is used',
+            description: 'One line per entry or page field using the asset.',
+            tags: ['Studio Assets'],
+            parameters: [
+                { name: 'projectId', in: 'path', required: true, schema: { type: 'string' } },
+                { name: 'id', in: 'path', required: true, schema: { type: 'string' } }
+            ],
+            responses: {
+                '200': {
+                    description: 'Uses',
+                    content: {
+                        'application/json': {
+                            schema: {
+                                type: 'object',
+                                properties: {
+                                    usages: {
+                                        type: 'array',
+                                        items: {
+                                            type: 'object',
+                                            properties: {
+                                                kind: { type: 'string', enum: ['entry', 'page'] },
+                                                modelId: { type: 'string' },
+                                                entryId: { type: 'string' },
+                                                pageId: { type: 'string' },
+                                                status: { type: 'string' },
+                                                title: {
+                                                    description:
+                                                        'The title as stored: text, or text per language'
+                                                },
+                                                field: { type: 'string' },
+                                                path: { type: 'string' }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
                         }
                     }
                 }

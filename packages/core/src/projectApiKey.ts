@@ -46,8 +46,26 @@ export function apiKeyAccessPolicy(entry: ProjectApiKeyEntry): ApiKeyAccessPolic
     };
 }
 
+export function isApiKeyExpired(entry: Pick<ProjectApiKeyEntry, 'expiresAt'>, now = Date.now()) {
+    return entry.expiresAt !== undefined && Date.parse(entry.expiresAt) <= now;
+}
+
+/**
+ * Validate an expiry from a request: `null` clears it, otherwise it must be a future date.
+ * Returns the normalized ISO string, `null` to clear, or `undefined` when not provided.
+ */
+export function parseApiKeyExpiry(value: unknown): string | null | undefined {
+    if (value === undefined) return undefined;
+    if (value === null || value === '') return null;
+    const time = typeof value === 'string' ? Date.parse(value) : NaN;
+    const bad = (message: string) => Object.assign(new Error(message), { statusCode: 400 });
+    if (Number.isNaN(time)) throw bad('expiresAt must be an ISO date-time or null');
+    if (time <= Date.now()) throw bad('expiresAt must be in the future');
+    return new Date(time).toISOString();
+}
+
 export type VerifyProjectApiKeyResult =
-    | { ok: false }
+    | { ok: false; reason?: 'expired' }
     | {
           ok: true;
           keyId: string;
@@ -76,6 +94,7 @@ export async function verifyProjectApiKey(
         }
     }
     if (!matched) return { ok: false };
+    if (isApiKeyExpired(matched)) return { ok: false, reason: 'expired' };
     const hosts = matched.allowedHosts;
     return {
         ok: true,
@@ -95,6 +114,8 @@ export type ProjectApiKeyMeta = {
     prefix: string;
     createdAt: string;
     label?: string;
+    expiresAt?: string;
+    expired?: boolean;
     allowedHosts: string[];
     allowedCollectionIds?: string[];
     allowSiteWideReads?: boolean;
@@ -106,6 +127,9 @@ function toMeta(e: ProjectApiKeyEntry): ProjectApiKeyMeta {
         prefix: e.prefix,
         createdAt: e.createdAt,
         ...(e.label !== undefined ? { label: e.label } : {}),
+        ...(e.expiresAt !== undefined
+            ? { expiresAt: e.expiresAt, expired: isApiKeyExpired(e) }
+            : {}),
         allowedHosts: e.allowedHosts ?? [],
         ...(e.allowedCollectionIds !== undefined
             ? { allowedCollectionIds: e.allowedCollectionIds }
@@ -134,6 +158,7 @@ async function assertCollectionIdsExist(projectId: string, ids: string[]): Promi
 
 export type CreateProjectApiKeyInput = {
     label?: string;
+    expiresAt?: unknown;
     allowedCollectionIds?: string[];
     allowSiteWideReads?: boolean;
 };
@@ -154,6 +179,7 @@ export async function createKey(
     if (input.allowedCollectionIds !== undefined) {
         await assertCollectionIdsExist(projectId, input.allowedCollectionIds);
     }
+    const expiresAt = parseApiKeyExpiry(input.expiresAt);
     const rawKey = generateRawKey();
     const hash = hashKey(rawKey);
     const prefix = toDisplayPrefix(rawKey);
@@ -165,6 +191,7 @@ export async function createKey(
         prefix,
         createdAt: now,
         ...(input.label !== undefined && input.label !== '' ? { label: input.label.trim() } : {}),
+        ...(expiresAt ? { expiresAt } : {}),
         ...(input.allowedCollectionIds !== undefined
             ? {
                   allowedCollectionIds: [...input.allowedCollectionIds],
@@ -181,6 +208,7 @@ export async function createKey(
 
 /**
  * Rotate one key; preserves restriction fields unless overridden later.
+ * A key that expires keeps the same lifetime, counted from the rotation.
  */
 export async function rotateKey(
     projectId: string,
@@ -195,13 +223,18 @@ export async function rotateKey(
     const rawKey = generateRawKey();
     const hash = hashKey(rawKey);
     const prefix = toDisplayPrefix(rawKey);
-    const now = new Date().toISOString();
+    const now = new Date();
+    const lifetime =
+        prev.expiresAt !== undefined
+            ? Date.parse(prev.expiresAt) - Date.parse(prev.createdAt)
+            : NaN;
     const next: ProjectApiKeyEntry = {
         id: prev.id,
         hash,
         prefix,
-        createdAt: now,
+        createdAt: now.toISOString(),
         ...(prev.label !== undefined ? { label: prev.label } : {}),
+        ...(lifetime > 0 ? { expiresAt: new Date(now.getTime() + lifetime).toISOString() } : {}),
         ...(prev.allowedHosts !== undefined ? { allowedHosts: [...prev.allowedHosts] } : {}),
         ...(prev.allowedCollectionIds !== undefined
             ? { allowedCollectionIds: [...prev.allowedCollectionIds] }
@@ -228,6 +261,7 @@ export async function revokeKey(projectId: string, user: User, keyId: string): P
 
 export type PatchProjectApiKeyInput = {
     label?: string | null;
+    expiresAt?: unknown;
     allowedHosts?: unknown;
     allowedCollectionIds?: string[] | null;
     allowSiteWideReads?: boolean;
@@ -256,6 +290,14 @@ export async function patchKey(
         } else {
             next = { ...next, label: patch.label.trim() };
         }
+    }
+
+    const expiresAt = parseApiKeyExpiry(patch.expiresAt);
+    if (expiresAt === null) {
+        next = { ...next };
+        delete next.expiresAt;
+    } else if (expiresAt !== undefined) {
+        next = { ...next, expiresAt };
     }
 
     if (patch.allowedHosts !== undefined) {

@@ -7,9 +7,18 @@ import { z } from 'zod';
 import { getProject } from '@moteurio/core/projects.js';
 import { uploadAsset } from '@moteurio/core/assets/assetService.js';
 import type { PluginRouteContext } from '@moteurio/types/Plugin.js';
+import { helperState } from '../helpers.js';
+
+const variantUrlSchema = z
+    .string()
+    .min(1)
+    .refine(
+        v => v.startsWith('data:') || /^https?:\/\//i.test(v),
+        'variantUrl must be an http(s) URL or data URL'
+    );
 
 const bodySchema = z.object({
-    variantUrl: z.string().url(),
+    variantUrl: variantUrlSchema,
     prompt: z.string(),
     provider: z.string(),
     aspectRatio: z.string(),
@@ -42,18 +51,36 @@ export function createSaveGeneratedImageRouter(ctx: PluginRouteContext): Router 
             if (project.users?.length && !project.users.includes(req.user.id)) {
                 return res.status(403).json({ error: 'Access to this project is forbidden' });
             }
-            if (project.ai?.enabled === false) {
-                return res.status(403).json({ error: 'AI is disabled for this project' });
+            const helper = helperState(project, req.user!, 'images');
+            if (helper !== 'ok') {
+                return res.status(403).json({
+                    error:
+                        helper === 'off'
+                            ? 'This helper is off for this project.'
+                            : "Your role can't ask for this helper in this project.",
+                    code: helper === 'off' ? 'AI_HELPER_OFF' : 'AI_HELPER_ROLE'
+                });
             }
-            const response = await axios.get(variantUrl, {
-                responseType: 'arraybuffer',
-                timeout: 30000,
-                maxContentLength: 20 * 1024 * 1024,
-                validateStatus: (s: number) => s === 200
-            });
-            const buffer = Buffer.from(response.data);
-            const contentType = (response.headers['content-type'] as string) || 'image/png';
-            const mimeType = contentType.split(';')[0].trim().toLowerCase();
+            let buffer: Buffer;
+            let mimeType: string;
+            if (variantUrl.startsWith('data:')) {
+                const match = /^data:([^;,]+);base64,(.+)$/i.exec(variantUrl);
+                if (!match) {
+                    return res.status(400).json({ error: 'Invalid data URL for image variant' });
+                }
+                mimeType = match[1].trim().toLowerCase();
+                buffer = Buffer.from(match[2], 'base64');
+            } else {
+                const response = await axios.get(variantUrl, {
+                    responseType: 'arraybuffer',
+                    timeout: 30000,
+                    maxContentLength: 20 * 1024 * 1024,
+                    validateStatus: (s: number) => s === 200
+                });
+                buffer = Buffer.from(response.data);
+                const contentType = (response.headers['content-type'] as string) || 'image/png';
+                mimeType = contentType.split(';')[0].trim().toLowerCase();
+            }
             if (!mimeType.startsWith('image/')) {
                 return res.status(400).json({ error: 'URL did not return an image' });
             }

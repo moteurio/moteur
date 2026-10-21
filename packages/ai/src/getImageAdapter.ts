@@ -10,10 +10,11 @@ import { getAIProviderFactory } from './providerRegistry.js';
 import { createReplicateAdapter } from './providers/ReplicateAdapter.js';
 
 export interface ProjectAISettings {
-    imageProvider?: 'openai' | 'fal' | 'replicate' | null;
+    imageProvider?: 'openai' | 'google' | 'fal' | 'replicate' | null;
 }
 
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
+const GOOGLE_API_KEY = process.env.GOOGLE_AI_API_KEY ?? process.env.GEMINI_API_KEY;
 const FAL_KEY = process.env.FAL_KEY;
 
 /**
@@ -37,6 +38,17 @@ export async function getImageAdapter(
             throw new AIError('image_provider_not_configured');
         }
         return Promise.resolve(factory(OPENAI_API_KEY));
+    }
+
+    if (provider === 'google') {
+        if (!GOOGLE_API_KEY) {
+            throw new AIError('image_provider_not_configured');
+        }
+        const factory = getAIProviderFactory('google');
+        if (!factory) {
+            throw new AIError('image_provider_not_configured');
+        }
+        return Promise.resolve(factory(GOOGLE_API_KEY));
     }
 
     if (provider === 'fal') {

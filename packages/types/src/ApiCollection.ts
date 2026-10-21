@@ -1,8 +1,12 @@
 import type { EntryStatus } from './Model.js';
 
 export type ApiCollectionResource = {
-    resourceType: 'model' | 'page' | 'layout' | 'form';
-    resourceId: string; // modelId, or 'pages' for all pages, or a specific templateId for pages
+    resourceType: 'model' | 'page' | 'layout' | 'form' | 'menu';
+    /**
+     * modelId or 'models'; 'pages' or a templateId; layout id or 'layouts'; form id or 'forms';
+     * menu handle or 'menus'. The plural means every one of that kind.
+     */
+    resourceId: string;
     fields?: string[]; // list of field names to include; null/empty = all fields
     filters?: {
         status?: EntryStatus | EntryStatus[];
@@ -12,6 +16,11 @@ export type ApiCollectionResource = {
 };
 
 // API Collections are often called "Channels" in frontends.
+/** Present on `GET .../collections/:id` — relative paths (prepend API base). */
+export interface ApiCollectionPublicLinks {
+    openApiJson: string;
+}
+
 export interface ApiCollection {
     id: string;
     projectId: string;
@@ -20,4 +29,6 @@ export interface ApiCollection {
     resources: ApiCollectionResource[];
     createdAt: string;
     updatedAt: string;
+    /** Auto-generated public API doc URLs (read single-collection GET only). */
+    publicApi?: ApiCollectionPublicLinks;
 }

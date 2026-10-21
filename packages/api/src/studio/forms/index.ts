@@ -1,6 +1,7 @@
 import express, { Router, type Request, type Response } from 'express';
+import cors from 'cors';
 import type { OpenAPIV3 } from 'openapi-types';
-import type { FormSchema, MultilingualString } from '@moteurio/types/Form.js';
+import type { MultilingualString } from '@moteurio/types/Form.js';
 import {
     listForms,
     getForm,
@@ -11,46 +12,23 @@ import {
 } from '@moteurio/core/forms.js';
 import { createSubmission } from '@moteurio/core/formSubmissions.js';
 import type { FormSubmissionMeta } from '@moteurio/types/Form.js';
-import { optionalProjectAccess, requireProjectAccess } from '../../middlewares/auth.js';
+import { requireProjectAccess } from '../../middlewares/auth.js';
 import { formsSubmitRateLimiter } from '../../middlewares/rateLimit.js';
-import { stripUiFromFieldOptions } from '../../utils/stripUiFromFields.js';
 import submissionsRouter, { openapi as submissionsOpenapi } from './submissions.js';
 import { mergePathSpecs } from '../../utils/mergePathSpecs.js';
 import { sendApiError, getMessage as getErrorMessage } from '../../utils/apiError.js';
 import { PlanLimitError } from '@moteurio/core/planLimits.js';
+import { revisionsRouter, revisionsOpenapi } from './revisions.js';
 
 const router: Router = Router({ mergeParams: true });
+
+router.use(revisionsRouter);
 
 function localizedSuccessMessage(msg: MultilingualString | undefined, locale?: string): string {
     if (!msg || typeof msg !== 'object') return 'Thank you for your submission.';
     if (locale && msg[locale]) return msg[locale];
     const first = Object.values(msg)[0];
     return typeof first === 'string' ? first : 'Thank you for your submission.';
-}
-
-function toPublicForm(form: FormSchema): Record<string, unknown> {
-    const fields = form.fields
-        ? Object.fromEntries(
-              Object.entries(form.fields).map(([k, f]: [string, any]) => [
-                  k,
-                  {
-                      ...f,
-                      options: stripUiFromFieldOptions((f.options ?? {}) as Record<string, unknown>)
-                  }
-              ])
-          )
-        : form.fields;
-    const out: Record<string, unknown> = {
-        id: form.id,
-        label: form.label,
-        description: form.description,
-        fields,
-        submitLabel: form.submitLabel,
-        successMessage: form.successMessage,
-        honeypot: form.honeypot ?? true
-    };
-    if (form.redirectUrl != null && form.redirectUrl !== '') out.redirectUrl = form.redirectUrl;
-    return out;
 }
 
 router.use('/:formId/submissions', submissionsRouter);
@@ -66,28 +44,26 @@ router.get('/', requireProjectAccess, async (req: Request, res: Response) => {
     }
 });
 
-router.get('/:formId', optionalProjectAccess, async (req: Request, res: Response) => {
+router.get('/:formId', requireProjectAccess, async (req: Request, res: Response) => {
     const { projectId, formId } = req.params as Record<string, string>;
     if (!projectId || !formId)
         return void res.status(400).json({ error: 'Missing projectId or formId' });
     try {
-        if (req.user) {
-            const form = await getForm(req.user, projectId, formId);
-            return void res.json({ form });
-        }
-        const form = await getFormForProject(projectId, formId);
-        if (!form) return void res.status(404).json({ error: 'Form not found' });
-        if (form.status !== 'active')
-            return void res.status(403).json({ error: 'Form is not active' });
-        return void res.json({ form: toPublicForm(form) });
+        const form = await getForm(req.user!, projectId, formId);
+        return void res.json({ form });
     } catch (err: unknown) {
         return void sendApiError(res, req, err);
     }
 });
 
+// Sites on any domain send their forms here: no cookies or credentials, so any origin may.
+const anySite = cors({ origin: '*', methods: ['POST', 'OPTIONS'], credentials: false });
+router.options('/:formId/submit', anySite);
+
 // Public form submit (no auth)
 router.post(
     '/:formId/submit',
+    anySite,
     express.urlencoded({ extended: false }),
     formsSubmitRateLimiter,
     async (req: Request, res: Response): Promise<void> => {
@@ -257,7 +233,7 @@ const formsOpenapi: Record<string, OpenAPIV3.PathItemObject> = {
     },
     '/projects/{projectId}/forms/{formId}': {
         get: {
-            summary: 'Get one form (full schema when authenticated, public when not)',
+            summary: 'Get one form, full schema (Studio). Sites read forms through a channel.',
             tags: ['Forms'],
             parameters: [
                 { name: 'projectId', in: 'path', required: true, schema: { type: 'string' } },
@@ -322,6 +298,6 @@ const formsOpenapi: Record<string, OpenAPIV3.PathItemObject> = {
     }
 };
 
-export const openapi = mergePathSpecs(formsOpenapi, submissionsOpenapi);
+export const openapi = mergePathSpecs(revisionsOpenapi, formsOpenapi, submissionsOpenapi);
 
 export default router;

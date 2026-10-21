@@ -299,7 +299,16 @@ const baseSchemas: OpenAPIV3.ComponentsObject['schemas'] = {
         type: 'object',
         required: ['submissions'],
         properties: {
-            submissions: { type: 'array', items: { $ref: '#/components/schemas/JsonRecord' } }
+            submissions: {
+                type: 'array',
+                description: 'Newest first',
+                items: { $ref: '#/components/schemas/JsonRecord' }
+            },
+            total: { type: 'integer', description: 'Matching submissions before offset and limit' },
+            unread: {
+                type: 'integer',
+                description: 'Unread submissions in the form, spam left out'
+            }
         }
     },
     FormSubmissionOneResponse: {
@@ -317,6 +326,16 @@ const baseSchemas: OpenAPIV3.ComponentsObject['schemas'] = {
             prefix: { type: 'string' },
             createdAt: { type: 'string', format: 'date-time' },
             label: { type: 'string' },
+            expiresAt: {
+                type: 'string',
+                format: 'date-time',
+                description:
+                    'After this time requests with the key get 401 API_KEY_EXPIRED. Omitted = never expires.'
+            },
+            expired: {
+                type: 'boolean',
+                description: 'Present with expiresAt; true once it has passed'
+            },
             allowedHosts: {
                 type: 'array',
                 items: { type: 'string' },
@@ -339,6 +358,12 @@ const baseSchemas: OpenAPIV3.ComponentsObject['schemas'] = {
         type: 'object',
         properties: {
             label: { type: 'string' },
+            expiresAt: {
+                type: 'string',
+                format: 'date-time',
+                nullable: true,
+                description: 'Future date-time; omit or null for a key that never expires'
+            },
             allowedCollectionIds: { type: 'array', items: { type: 'string' } },
             allowSiteWideReads: { type: 'boolean' }
         }
@@ -351,6 +376,8 @@ const baseSchemas: OpenAPIV3.ComponentsObject['schemas'] = {
             prefix: { type: 'string' },
             createdAt: { type: 'string', format: 'date-time' },
             label: { type: 'string' },
+            expiresAt: { type: 'string', format: 'date-time' },
+            expired: { type: 'boolean' },
             allowedHosts: { type: 'array', items: { type: 'string' } },
             allowedCollectionIds: { type: 'array', items: { type: 'string' } },
             allowSiteWideReads: { type: 'boolean' },
@@ -362,6 +389,12 @@ const baseSchemas: OpenAPIV3.ComponentsObject['schemas'] = {
         type: 'object',
         properties: {
             label: { type: 'string', nullable: true },
+            expiresAt: {
+                type: 'string',
+                format: 'date-time',
+                nullable: true,
+                description: 'Future date-time, or null to make the key never expire'
+            },
             allowedHosts: {
                 type: 'array',
                 items: { type: 'string' },

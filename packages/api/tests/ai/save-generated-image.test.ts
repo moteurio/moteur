@@ -37,7 +37,8 @@ vi.mock('@moteurio/core/projects', () => ({
     getProject: vi.fn().mockResolvedValue({
         id: 'p1',
         users: ['user1'],
-        assetConfig: {}
+        assetConfig: {},
+        ai: { helpers: { images: true } }
     })
 }));
 

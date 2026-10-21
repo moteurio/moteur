@@ -44,6 +44,7 @@ import blueprintsRoutes from './blueprints/index.js';
 import modelsRoute from './models/index.js';
 import entriesRoute from './entries/index.js';
 import activityGlobalRoute from './activity/index.js';
+import operatorRoute from './operator/index.js';
 import invitesRoute from './invites/index.js';
 import usageRouter from './studio/usage.js';
 import fieldTypesRouter from './studio/fieldTypes.js';
@@ -55,7 +56,9 @@ import { storageConfig, validateStorageConfig } from '@moteurio/core';
 import { schedulerEngine, startSnapshotScheduler, stopSnapshotScheduler } from '@moteurio/core';
 import { globalErrorHandler } from './middlewares/errorHandler.js';
 import { registerSocketEventBridge } from './bootstrap/socketEventBridge.js';
-import { mountStaticAssets } from './bootstrap/staticAssetsRoute.js';
+import { mountResizedImages, mountStaticAssets } from './bootstrap/staticAssetsRoute.js';
+import { resumeImageCopies } from '@moteurio/core/assets/assetService.js';
+import { loadProjects } from '@moteurio/core/projects.js';
 import {
     createFileMeteringStore,
     getMeteringStore,
@@ -214,6 +217,7 @@ app.use(basePath + '/projects', mergedProjectsRouter);
 
 app.use(basePath + '/blueprints', blueprintsRoutes);
 app.use(basePath + '/activity', activityGlobalRoute);
+app.use(basePath + '/operator', operatorRoute);
 app.use(basePath + '/invites', invitesRoute);
 app.use(basePath + '/studio/usage', usageRouter);
 app.use(basePath + '/studio/field-types', fieldTypesRouter);
@@ -225,6 +229,7 @@ if (!basePath) {
 }
 
 mountStaticAssets(app, basePath);
+mountResizedImages(app, basePath);
 
 /** Studio user avatars from `data/avatars` (paths like `/avatars/64/lion.png` in users.json). */
 const studioAvatarsDir = path.join(storageConfig.dataRoot, 'data', 'avatars');
@@ -268,6 +273,13 @@ httpServer.listen(PORT, async () => {
         console.error('[Moteur] Scheduler init failed:', err);
     }
     startSnapshotScheduler(60_000);
+    // Images uploaded just before a restart still need their resized copies.
+    try {
+        const queued = await resumeImageCopies(loadProjects());
+        if (queued) console.log(`[Moteur] Making copies for ${queued} image(s) left processing`);
+    } catch (err) {
+        console.error('[Moteur] Resuming image copies failed:', err);
+    }
 });
 
 function gracefulShutdown(): void {

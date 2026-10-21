@@ -60,7 +60,7 @@ export interface ProjectSchema {
         enabled?: boolean; // default true when assetConfig present
         variants: VariantDefinition[];
         maxUploadSizeMb?: number; // default 50
-        allowedTypes?: AssetType[]; // default: all three
+        allowedTypes?: AssetType[]; // default: all types
         adapter?: 'local' | 's3' | 'r2';
         adapterConfig?: Record<string, any>;
     };
@@ -79,10 +79,23 @@ export interface ProjectSchema {
     /** AI-related project settings. When enabled is false, all AI features (writing, image gen, analysis, translation) are disabled for this project. */
     ai?: {
         enabled?: boolean; // default true when ai config present
+        /**
+         * Helpers people may ask for in the Studio. Each is off unless set to true here, so a
+         * project without AI settings shows none.
+         */
+        helpers?: Partial<Record<AiHelper, boolean>>;
+        /** Roles that may ask for helpers. Default: admin and writer. A translator may always ask for a translation. */
+        roles?: string[];
+        /** Show “with help” in history and review to everyone (default: admins and reviewers). */
+        provenanceForAll?: boolean;
         /** When true, run image analysis (alt/caption) automatically after each image upload. Default: false. */
         autoAnalyseImages?: boolean;
-        /** Image generation provider: openai (DALL-E), fal, replicate, or null if not set. */
-        imageProvider?: 'openai' | 'fal' | 'replicate' | null;
+        /** Image generation provider: openai (DALL-E), google (Gemini), fal, replicate, or null if not set. */
+        imageProvider?: 'openai' | 'google' | 'fal' | 'replicate' | null;
+        /** Text-to-speech / audio generation provider, or null if not set. */
+        audioProvider?: 'elevenlabs' | 'fal' | null;
+        /** Text-to-3D model generation provider, or null if not set. */
+        model3dProvider?: 'meshy' | 'fal' | null;
         /** When true, the licensing acknowledgement for generated images has been shown and accepted. */
         imageGenerationAcknowledged?: boolean;
     };
@@ -124,6 +137,8 @@ export interface ProjectApiKeyEntry {
     prefix: string;
     createdAt: string;
     label?: string;
+    /** ISO date-time after which the key is refused. Omitted = never expires. */
+    expiresAt?: string;
     /**
      * When non-empty, x-api-key requests must send Origin or Referer whose hostname matches
      * one entry (exact or single leading *. wildcard). Empty or omitted = no host restriction.
@@ -208,3 +223,16 @@ export const projectSchemaFields: Record<string, Field> = {
         }
     }
 };
+
+/** Studio helpers a project can turn on one by one. */
+export type AiHelper = 'write' | 'translate' | 'alt' | 'notes' | 'images' | 'audio' | 'model3d';
+export const AI_HELPERS: AiHelper[] = [
+    'write',
+    'translate',
+    'alt',
+    'notes',
+    'images',
+    'audio',
+    'model3d'
+];
+export const DEFAULT_AI_ROLES = ['admin', 'writer'];

@@ -89,6 +89,7 @@ describe('createMoteurAdminClient', () => {
         expect(client).toHaveProperty('forProject');
         expect(client).toHaveProperty('blueprints');
         expect(client).toHaveProperty('activity');
+        expect(client).toHaveProperty('operator');
         expect(client.baseURL).toBe('https://api.example.com');
     });
 
@@ -174,6 +175,27 @@ describe('createMoteurAdminClient', () => {
         expect((capturedRequests[0].headers as Record<string, string>)['Content-Type']).toBe(
             'multipart/form-data'
         );
+    });
+
+    it('assets.usage and usageCounts call the usage routes', async () => {
+        const client = createMoteurAdminClient({ baseURL: 'https://api.example.com' });
+        await client.assets.usageCounts('demo');
+        await client.assets.usage('demo', 'a 1');
+        expect(capturedRequests.map(r => r.url)).toEqual([
+            '/projects/demo/assets/usage',
+            '/projects/demo/assets/a%201/usage'
+        ]);
+    });
+
+    it('pages come back as { page }, and moves are posted as a list', async () => {
+        const client = createMoteurAdminClient({ baseURL: 'https://api.example.com' });
+        expect(await client.pages.get('demo', 'p1')).toEqual({ page: {} });
+        await client.forProject('demo').pages.reorder([{ id: 'p1', parentId: null, order: 0 }]);
+        expect(capturedRequests[1]).toMatchObject({
+            method: 'post',
+            url: '/projects/demo/pages/reorder',
+            data: [{ id: 'p1', parentId: null, order: 0 }]
+        });
     });
 
     it('forProject omits project id from paths', async () => {

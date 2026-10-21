@@ -1,4 +1,4 @@
-export type AssetType = 'image' | 'video' | 'document';
+export type AssetType = 'image' | 'video' | 'document' | 'model';
 export type AssetStatus = 'processing' | 'ready' | 'error';
 export type VideoProviderStatus = 'uploading' | 'processing' | 'ready' | 'error';
 export type VideoProviderId = 'mux' | 'vimeo' | 'cloudflare-stream' | 'youtube';
@@ -18,6 +18,9 @@ export type ImageVariant = {
     generatedAt: string;
 };
 
+/** Text describing an asset: one string, or one per language code. */
+export type AssetText = string | Record<string, string>;
+
 export type Asset = {
     id: string;
     projectId: string;
@@ -29,9 +32,10 @@ export type Asset = {
     adapter: string; // 'local' | 's3' | 'r2'
 
     // ── Asset-level metadata ──
-    title?: string;
-    alt?: string;
-    caption?: string;
+    /** A string, or one per language: `{ "fr": "…", "en": "…" }`. Fields may override alt and caption. */
+    title?: AssetText;
+    alt?: AssetText;
+    caption?: AssetText;
     description?: string;
     credit?: string;
 
@@ -61,6 +65,8 @@ export type Asset = {
 
     // ── Computed (set at read time via resolveAssetUrl) ──
     url: string;
+    /** Images only: serves any size; add `&w=640`, optionally `&ar=1:1` and `&fmt=avif`. */
+    resizeUrl?: string;
 
     // ── Organisation ──
     folder?: string;

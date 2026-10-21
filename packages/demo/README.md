@@ -29,7 +29,7 @@ pnpm demo:build journal --password secret --asset-base-url http://localhost:3000
 | `--asset-base-url <url>` | `STATIC_ASSETS_BASE_URL` or `http://localhost:3000` | Base URL written into media URLs. Use your API's address.                                                                                                    |
 | `--scale <n>`            | 10000                                               | Entries in the scale project.                                                                                                                                |
 
-Requires core's block and structure definitions in `data/core/` (from `@moteurio/plugin-core-blocks`).
+Built-in blocks and structures ship with the engine. A file in `data/core` overrides one of them.
 Host plugins listed in `MOTEUR_HOST_PLUGINS` (e.g. geo fields) are loaded like the API does.
 
 ## How it works

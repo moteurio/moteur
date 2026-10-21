@@ -1,3 +1,5 @@
+import type { PageMove } from '../project/pages.js';
+import type { SubmissionListParams } from '../project/submissions.js';
 import type { MoteurClient } from '../client.js';
 import { projectsApi } from './projects.js';
 import { modelsApi } from '../project/models.js';
@@ -127,6 +129,7 @@ export function createProjectClient(client: MoteurClient, projectId: string) {
             create: (body: Record<string, unknown>) => pages.create(pid, body),
             update: (pageId: string, body: Record<string, unknown>) =>
                 pages.update(pid, pageId, body),
+            reorder: (moves: PageMove[]) => pages.reorder(pid, moves),
             delete: (pageId: string) => pages.delete(pid, pageId),
             status: (pageId: string, status: string) => pages.status(pid, pageId, status),
             submitReview: (pageId: string) => pages.submitReview(pid, pageId)
@@ -178,10 +181,17 @@ export function createProjectClient(client: MoteurClient, projectId: string) {
         },
 
         submissions: {
-            list: (formId: string, params?: { limit?: number; offset?: string }) =>
+            list: (formId: string, params?: SubmissionListParams) =>
                 submissions.list(pid, formId, params),
             get: (formId: string, submissionId: string) =>
                 submissions.get(pid, formId, submissionId),
+            update: (
+                formId: string,
+                submissionId: string,
+                patch: { read?: boolean; spam?: boolean }
+            ) => submissions.update(pid, formId, submissionId, patch),
+            export: (formId: string, format?: 'csv' | 'json') =>
+                submissions.export(pid, formId, format),
             delete: (formId: string, submissionId: string) =>
                 submissions.delete(pid, formId, submissionId)
         },

@@ -26,6 +26,7 @@ import {
     stripCoreIdFromData,
     ensureCoreIdValues
 } from './utils/coreIdFields.js';
+import { addsAssisted, stampAssisted } from './assisted.js';
 import { assertEntryComplete } from './validators/entryComplete.js';
 import { validateBlockLocalesInPayload } from './utils/validateBlockLocales.js';
 import * as publishedCache from './git/publishedContentCache.js';
@@ -315,6 +316,15 @@ export async function updateEntry(
     ) {
         throw contentForbidden('A translator can only change other languages.');
     }
+    // Helper marks: who kept and who read are stamped here, never taken from the client.
+    let withHelp = false;
+    if (patch.meta && 'assisted' in patch.meta) {
+        const assisted = stampAssisted(current.meta?.assisted, patch.meta.assisted, user.id);
+        withHelp = addsAssisted(current.meta?.assisted, assisted);
+        updated.meta = { ...updated.meta };
+        if (assisted) updated.meta.assisted = assisted;
+        else delete updated.meta.assisted;
+    }
     if (patch.status === 'in_review' && prevStatus !== 'in_review') {
         assertEntryComplete(updated, schema, 'review');
     }
@@ -324,7 +334,7 @@ export async function updateEntry(
     triggerEvent('content.saved', {
         projectId,
         paths: [entryKey(modelId, entryId)],
-        message: `Update ${modelId}/${commitRef(updated, entryId)} — ${user.name ?? user.id}`,
+        message: `Update ${modelId}/${commitRef(updated, entryId)}${withHelp ? ' (with help)' : ''} — ${user.name ?? user.id}`,
         user
     });
     triggerEvent('entry.afterUpdate', { entry: updated, user, modelId, projectId });

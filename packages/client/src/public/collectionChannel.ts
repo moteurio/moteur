@@ -17,7 +17,7 @@ function qEntries(opts?: {
 }
 
 /**
- * Public collection channel: pages, entries, layouts, and forms exposed by a collection.
+ * Public collection channel: pages, entries, layouts, forms, and menus exposed by a collection.
  * Paths match `GET` routes in `packages/api/src/projects/collections/public.ts`.
  */
 export function createPublicCollectionChannel(
@@ -88,6 +88,16 @@ export function createPublicCollectionChannel(
             },
             get(id: string): Promise<unknown> {
                 return client.get(`${root}/forms/${enc(id)}`);
+            }
+        },
+
+        /** Menus with item URLs resolved, fetched by handle (e.g. `main`, `footer`). */
+        menus: {
+            list(): Promise<unknown> {
+                return client.get(`${root}/menus`);
+            },
+            get(handle: string): Promise<unknown> {
+                return client.get(`${root}/menus/${enc(handle)}`);
             }
         }
     };

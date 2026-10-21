@@ -5,6 +5,7 @@ import { storageConfig } from './config/storageConfig.js';
 import { isValidId } from './utils/idUtils.js';
 import { isExistingProjectId, writeJson } from './utils/fileUtils.js';
 import { normalizeType } from './utils/normalizeType.js';
+import { builtinBlockSchemas } from './plugins/builtinContent.js';
 import { assertCountRoom, getCountLimit } from './planLimits.js';
 
 const isTestEnv = (): boolean => process.env.NODE_ENV === 'test' || process.env.VITEST === 'true';
@@ -20,6 +21,13 @@ export function registerBlockSchema(schema: BlockSchema): void {
     if (!schema?.type) return;
     const key = schema.type.includes('/') ? schema.type : `core/${schema.type}`;
     pluginBlockRegistry[key] = schema;
+}
+
+for (const schema of builtinBlockSchemas) registerBlockSchema(schema);
+
+/** Blocks that ship with the engine or a plugin, before any file in data/core overrides them. */
+export function shippedBlockSchemas(): Record<string, BlockSchema> {
+    return { ...pluginBlockRegistry };
 }
 
 function loadBlocksFromDir(
@@ -61,19 +69,14 @@ export function listBlocks(projectId?: string): Record<string, BlockSchema> {
         console.log(`Loading blocks for project: ${projectId || 'all'}`);
     }
 
-    // 1. Core blocks: data/core/blocks
+    // Shipped blocks first. A file in data/core, then a project block, overrides the same type.
+    Object.assign(registry, pluginBlockRegistry);
     const coreRoot = path.join(storageConfig.dataRoot, 'data', 'core', 'blocks');
     loadBlocksFromDir(coreRoot, 'core', registry, testEnv);
 
-    // 2. Project-scoped blocks: data/projects/<projectId>/blocks (e.g. demo blocks)
     if (projectId && isExistingProjectId(projectId)) {
         const projectBlocksRoot = path.join(storageConfig.projectsDir, projectId, 'blocks');
         loadBlocksFromDir(projectBlocksRoot, projectId, registry, testEnv);
-    }
-
-    // Plugin-registered blocks overlay (e.g. core-blocks plugin)
-    for (const [key, schema] of Object.entries(pluginBlockRegistry)) {
-        registry[key] = schema;
     }
     return registry;
 }

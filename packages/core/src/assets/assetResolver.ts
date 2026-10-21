@@ -1,4 +1,4 @@
-import type { Asset } from '@moteurio/types/Asset.js';
+import type { Asset, AssetText } from '@moteurio/types/Asset.js';
 import type { Entry } from '@moteurio/types/Model.js';
 import type { StaticPage, CollectionPage } from '@moteurio/types/Page.js';
 import type { ModelSchema } from '@moteurio/types/Model.js';
@@ -6,10 +6,11 @@ import type { TemplateSchema } from '@moteurio/types/Template.js';
 import type { Field } from '@moteurio/types/Field.js';
 import { getAsset } from './assetService.js';
 
-export type AssetFieldValue = { assetId: string; alt?: string; caption?: string };
+/** A field's own alt and caption override the asset's; either may be one per language. */
+export type AssetFieldValue = { assetId: string; alt?: AssetText; caption?: AssetText };
 export type ResolvedAssetValue = AssetFieldValue & {
-    alt: string;
-    caption: string;
+    alt: AssetText;
+    caption: AssetText;
     _resolved?: Asset;
 };
 

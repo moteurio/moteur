@@ -20,6 +20,7 @@ import { openapi as blueprintsSpec, schemas as blueprintsSchemas } from '../blue
 import { modelsSpecs } from '../models/index.js';
 import { entriesSpecs } from '../entries/index.js';
 import { openapi as activityGlobalSpec } from '../activity/index.js';
+import { openapi as operatorSpec } from '../operator/index.js';
 import { openapi as invitesSpec } from '../invites/index.js';
 import { openapi as usageSpec } from '../studio/usage.js';
 import { openapi as fieldTypesSpec } from '../studio/fieldTypes.js';
@@ -238,6 +239,7 @@ export async function bootstrapApi(options?: {
             { owner: 'projects-core', paths: projectsSpecs.paths as OpenAPIV3.PathsObject },
             { owner: 'blueprints-core', paths: blueprintsSpec as OpenAPIV3.PathsObject },
             { owner: 'activity-core', paths: activityGlobalSpec as OpenAPIV3.PathsObject },
+            { owner: 'operator-core', paths: operatorSpec as OpenAPIV3.PathsObject },
             { owner: 'invites-core', paths: invitesSpec as OpenAPIV3.PathsObject },
             { owner: 'models-core', paths: modelsSpecs.paths as OpenAPIV3.PathsObject },
             { owner: 'entries-core', paths: entriesSpecs.paths as OpenAPIV3.PathsObject },

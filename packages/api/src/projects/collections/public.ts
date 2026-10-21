@@ -24,6 +24,12 @@ import { getProjectById } from '@moteurio/core/projects.js';
 import { listBlocks } from '@moteurio/core/blocks.js';
 import { resolveEntryDataForLocaleDeep } from '@moteurio/core/entryLocaleResolution.js';
 import { getTemplate } from '@moteurio/core/templates.js';
+import {
+    listNavigations,
+    getNavigationByHandle,
+    resolveNavigation
+} from '@moteurio/core/navigations.js';
+import { toPublicForm } from '../../utils/publicForm.js';
 import { getProjectJson, listProjectKeys } from '@moteurio/core/utils/projectStorage.js';
 import {
     layoutKey,
@@ -39,8 +45,28 @@ import { sendApiError, getMessage } from '../../utils/apiError.js';
 import type { EntryQuery } from '@moteurio/core/contentIndex/index.js';
 import { entryQueryParameters, parseEntryQuery } from '../../utils/entryQuery.js';
 import { queryFlag, resolveAssetsParameter, resolveUrlParameter } from '../../utils/queryFlag.js';
+import {
+    collectionPublicApiPaths,
+    loadCollectionOpenApiDocument
+} from '../../openapi/loadCollectionOpenApi.js';
 
 const router: Router = Router({ mergeParams: true });
+
+async function respondCollectionOpenApi(req: Request, res: Response): Promise<void> {
+    const { projectId, collectionId } = req.params as Record<string, string>;
+    if (!projectId || !collectionId) {
+        res.status(400).json({ error: 'Missing projectId or collectionId' });
+        return;
+    }
+    if (rejectIfApiKeyCollectionForbidden(req, res, collectionId)) return;
+    const doc = await loadCollectionOpenApiDocument(projectId, collectionId);
+    if (!doc) {
+        res.status(404).json({ error: 'Collection not found' });
+        return;
+    }
+    res.setHeader('Cache-Control', 'no-store');
+    res.json(doc);
+}
 
 function parseLocaleQuery(req: Request): string | undefined {
     const raw = req.query.locale ?? req.query.lang;
@@ -103,6 +129,22 @@ router.get('/', async (req: Request, res: Response) => {
     }
 });
 
+// OpenAPI spec (register before `/:collectionId` — Express 5 path matching)
+router.get('/:collectionId/openapi', async (req: Request, res: Response) => {
+    try {
+        await respondCollectionOpenApi(req, res);
+    } catch (err: unknown) {
+        sendApiError(res, req, err);
+    }
+});
+router.get('/:collectionId/openapi.json', async (req: Request, res: Response) => {
+    try {
+        await respondCollectionOpenApi(req, res);
+    } catch (err: unknown) {
+        sendApiError(res, req, err);
+    }
+});
+
 // GET /projects/:projectId/collections/:collectionId
 router.get('/:collectionId', async (req: Request, res: Response) => {
     const { projectId, collectionId } = req.params as Record<string, string>;
@@ -112,7 +154,10 @@ router.get('/:collectionId', async (req: Request, res: Response) => {
     try {
         const collection = await getCollection(projectId, collectionId);
         if (!collection) return void res.status(404).json({ error: 'Collection not found' });
-        return void res.json(collection);
+        return void res.json({
+            ...collection,
+            publicApi: collectionPublicApiPaths(projectId, collectionId)
+        });
     } catch (err: unknown) {
         return void sendApiError(res, req, err);
     }
@@ -477,7 +522,7 @@ router.get('/:collectionId/forms', async (req: Request, res: Response) => {
             );
             forms = form ? [form] : [];
         }
-        return void res.json(forms);
+        return void res.json(forms.filter(f => f.status === 'active').map(toPublicForm));
     } catch (err: unknown) {
         return void sendApiError(res, req, err);
     }
@@ -498,8 +543,73 @@ router.get('/:collectionId/forms/:id', async (req: Request, res: Response) => {
         if (formResource.resourceId !== 'forms' && formResource.resourceId !== id)
             return void res.status(404).json({ error: 'Form not found in collection' });
         const form = await getProjectJson<FormSchema>(projectId, formKey(id));
-        if (!form) return void res.status(404).json({ error: 'Form not found' });
-        return void res.json(form);
+        if (!form || form.status !== 'active')
+            return void res.status(404).json({ error: 'Form not found' });
+        return void res.json(toPublicForm(form));
+    } catch (err: unknown) {
+        return void sendApiError(res, req, err);
+    }
+});
+
+/** `?locale=` picks one language for each item label. Absent means the stored map is returned. */
+async function menuLanguage(
+    projectId: string,
+    req: Request
+): Promise<{ locale: string; fallback: string } | undefined> {
+    const locale = parseLocaleQuery(req);
+    if (!locale) return undefined;
+    const project = await getProjectById(projectId);
+    return { locale, fallback: project?.defaultLocale || 'en' };
+}
+
+/** Menu handles the channel gives, or `null` when it gives every menu. Empty when it gives none. */
+function menuHandles(collection: { resources: ApiCollectionResource[] }): string[] | null {
+    const rows = collection.resources.filter(r => r.resourceType === 'menu');
+    if (rows.some(r => r.resourceId === 'menus')) return null;
+    return rows.map(r => r.resourceId);
+}
+
+// GET /projects/:projectId/collections/:collectionId/menus
+router.get('/:collectionId/menus', async (req: Request, res: Response) => {
+    const { projectId, collectionId } = req.params as Record<string, string>;
+    if (!projectId || !collectionId)
+        return void res.status(400).json({ error: 'Missing projectId or collectionId' });
+    if (rejectIfApiKeyCollectionForbidden(req, res, collectionId)) return;
+    try {
+        const collection = await getCollection(projectId, collectionId);
+        if (!collection) return void res.status(404).json({ error: 'Collection not found' });
+        const handles = menuHandles(collection);
+        if (handles?.length === 0)
+            return void res.status(404).json({ error: 'Collection does not expose menus' });
+        const all = await listNavigations(projectId);
+        const menus = handles === null ? all : all.filter(n => handles.includes(n.handle));
+        const language = await menuLanguage(projectId, req);
+        return void res.json(
+            await Promise.all(menus.map(n => resolveNavigation(projectId, n, language)))
+        );
+    } catch (err: unknown) {
+        return void sendApiError(res, req, err);
+    }
+});
+
+// GET /projects/:projectId/collections/:collectionId/menus/:handle
+router.get('/:collectionId/menus/:handle', async (req: Request, res: Response) => {
+    const { projectId, collectionId, handle } = req.params as Record<string, string>;
+    if (!projectId || !collectionId || !handle)
+        return void res.status(400).json({ error: 'Missing path parameters' });
+    if (rejectIfApiKeyCollectionForbidden(req, res, collectionId)) return;
+    try {
+        const collection = await getCollection(projectId, collectionId);
+        if (!collection) return void res.status(404).json({ error: 'Collection not found' });
+        const handles = menuHandles(collection);
+        if (handles?.length === 0)
+            return void res.status(404).json({ error: 'Collection does not expose menus' });
+        if (handles !== null && !handles.includes(handle))
+            return void res.status(404).json({ error: 'Menu not found in collection' });
+        const nav = await getNavigationByHandle(projectId, handle);
+        if (!nav) return void res.status(404).json({ error: 'Menu not found' });
+        const language = await menuLanguage(projectId, req);
+        return void res.json(await resolveNavigation(projectId, nav, language));
     } catch (err: unknown) {
         return void sendApiError(res, req, err);
     }
@@ -517,7 +627,7 @@ export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
     '/projects/{projectId}/collections': {
         get: {
             summary: 'List collections (API key or JWT)',
-            tags: ['Collections'],
+            tags: ['Public API — Collections'],
             parameters: [
                 { name: 'projectId', in: 'path', required: true, schema: { type: 'string' } }
             ],
@@ -537,7 +647,7 @@ export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
         },
         post: {
             summary: 'Create a collection (JWT + project access)',
-            tags: ['Collections'],
+            tags: ['Public API — Collections'],
             parameters: [
                 { name: 'projectId', in: 'path', required: true, schema: { type: 'string' } }
             ],
@@ -574,7 +684,7 @@ export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
     '/projects/{projectId}/collections/{collectionId}': {
         get: {
             summary: 'Get one collection',
-            tags: ['Collections'],
+            tags: ['Public API — Collections'],
             parameters: [
                 { name: 'projectId', in: 'path', required: true, schema: { type: 'string' } },
                 { name: 'collectionId', in: 'path', required: true, schema: { type: 'string' } }
@@ -593,7 +703,7 @@ export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
         },
         patch: {
             summary: 'Update a collection',
-            tags: ['Collections'],
+            tags: ['Public API — Collections'],
             parameters: [
                 { name: 'projectId', in: 'path', required: true, schema: { type: 'string' } },
                 { name: 'collectionId', in: 'path', required: true, schema: { type: 'string' } }
@@ -620,7 +730,7 @@ export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
         },
         delete: {
             summary: 'Delete a collection',
-            tags: ['Collections'],
+            tags: ['Public API — Collections'],
             parameters: [
                 { name: 'projectId', in: 'path', required: true, schema: { type: 'string' } },
                 { name: 'collectionId', in: 'path', required: true, schema: { type: 'string' } }
@@ -635,7 +745,7 @@ export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
     '/projects/{projectId}/collections/{collectionId}/{resourceId}/entries': {
         get: {
             summary: 'List entries for a collection resource (model)',
-            tags: ['Collections'],
+            tags: ['Public API — Collections'],
             parameters: [
                 { name: 'projectId', in: 'path', required: true, schema: { type: 'string' } },
                 { name: 'collectionId', in: 'path', required: true, schema: { type: 'string' } },
@@ -683,7 +793,7 @@ export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
     '/projects/{projectId}/collections/{collectionId}/{resourceId}/entries/{id}': {
         get: {
             summary: 'Get one entry in a collection',
-            tags: ['Collections'],
+            tags: ['Public API — Collections'],
             parameters: [
                 { name: 'projectId', in: 'path', required: true, schema: { type: 'string' } },
                 { name: 'collectionId', in: 'path', required: true, schema: { type: 'string' } },
@@ -720,10 +830,33 @@ export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
             }
         }
     },
+    '/projects/{projectId}/collections/{collectionId}/openapi': {
+        get: {
+            summary: 'OpenAPI document for this collection (frontend)',
+            description:
+                'Auto-generated spec: concrete paths, query params, and `entry.data` shapes for each model the collection exposes ("every model" expands to all project models). Also served at `/openapi.json`. Same auth as other collection reads.',
+            tags: ['Public API — Collections'],
+            parameters: [
+                { name: 'projectId', in: 'path', required: true, schema: { type: 'string' } },
+                { name: 'collectionId', in: 'path', required: true, schema: { type: 'string' } }
+            ],
+            responses: {
+                '200': {
+                    description: 'OpenAPI 3 document',
+                    content: {
+                        'application/json': {
+                            schema: { type: 'object', additionalProperties: true }
+                        }
+                    }
+                },
+                '404': { description: 'Not found', ...jsonErrorBody }
+            }
+        }
+    },
     '/projects/{projectId}/collections/{collectionId}/pages': {
         get: {
             summary: 'List pages in a collection',
-            tags: ['Collections'],
+            tags: ['Public API — Collections'],
             parameters: [
                 { name: 'projectId', in: 'path', required: true, schema: { type: 'string' } },
                 { name: 'collectionId', in: 'path', required: true, schema: { type: 'string' } }
@@ -747,7 +880,7 @@ export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
     '/projects/{projectId}/collections/{collectionId}/pages/{id}': {
         get: {
             summary: 'Get one page by id',
-            tags: ['Collections'],
+            tags: ['Public API — Collections'],
             parameters: [
                 { name: 'projectId', in: 'path', required: true, schema: { type: 'string' } },
                 { name: 'collectionId', in: 'path', required: true, schema: { type: 'string' } },
@@ -769,7 +902,7 @@ export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
     '/projects/{projectId}/collections/{collectionId}/pages/by-slug/{slug}': {
         get: {
             summary: 'Get one page by slug',
-            tags: ['Collections'],
+            tags: ['Public API — Collections'],
             parameters: [
                 { name: 'projectId', in: 'path', required: true, schema: { type: 'string' } },
                 { name: 'collectionId', in: 'path', required: true, schema: { type: 'string' } },
@@ -791,7 +924,7 @@ export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
     '/projects/{projectId}/collections/{collectionId}/layouts': {
         get: {
             summary: 'List layouts exposed by the collection',
-            tags: ['Collections'],
+            tags: ['Public API — Collections'],
             parameters: [
                 { name: 'projectId', in: 'path', required: true, schema: { type: 'string' } },
                 { name: 'collectionId', in: 'path', required: true, schema: { type: 'string' } }
@@ -815,7 +948,7 @@ export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
     '/projects/{projectId}/collections/{collectionId}/layouts/{id}': {
         get: {
             summary: 'Get one layout by id',
-            tags: ['Collections'],
+            tags: ['Public API — Collections'],
             parameters: [
                 { name: 'projectId', in: 'path', required: true, schema: { type: 'string' } },
                 { name: 'collectionId', in: 'path', required: true, schema: { type: 'string' } },
@@ -837,7 +970,7 @@ export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
     '/projects/{projectId}/collections/{collectionId}/forms': {
         get: {
             summary: 'List forms exposed by the collection',
-            tags: ['Collections'],
+            tags: ['Public API — Collections'],
             parameters: [
                 { name: 'projectId', in: 'path', required: true, schema: { type: 'string' } },
                 { name: 'collectionId', in: 'path', required: true, schema: { type: 'string' } }
@@ -861,7 +994,7 @@ export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
     '/projects/{projectId}/collections/{collectionId}/forms/{id}': {
         get: {
             summary: 'Get one form by id',
-            tags: ['Collections'],
+            tags: ['Public API — Collections'],
             parameters: [
                 { name: 'projectId', in: 'path', required: true, schema: { type: 'string' } },
                 { name: 'collectionId', in: 'path', required: true, schema: { type: 'string' } },
@@ -873,6 +1006,66 @@ export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
                     content: {
                         'application/json': {
                             schema: { $ref: '#/components/schemas/FormSchemaDoc' }
+                        }
+                    }
+                },
+                '404': { description: 'Not found', ...jsonErrorBody }
+            }
+        }
+    },
+    '/projects/{projectId}/collections/{collectionId}/menus': {
+        get: {
+            summary: 'List menus exposed by the collection, with item URLs resolved',
+            tags: ['Public API — Collections'],
+            parameters: [
+                { name: 'projectId', in: 'path', required: true, schema: { type: 'string' } },
+                { name: 'collectionId', in: 'path', required: true, schema: { type: 'string' } },
+                {
+                    name: 'locale',
+                    in: 'query',
+                    schema: { type: 'string' },
+                    description:
+                        'Return each item label in this language. Falls back to the project default. Omit to keep one value per language.'
+                }
+            ],
+            responses: {
+                '200': {
+                    description: 'Menus',
+                    content: {
+                        'application/json': {
+                            schema: {
+                                type: 'array',
+                                items: { type: 'object', additionalProperties: true }
+                            }
+                        }
+                    }
+                },
+                '404': { description: 'Not found', ...jsonErrorBody }
+            }
+        }
+    },
+    '/projects/{projectId}/collections/{collectionId}/menus/{handle}': {
+        get: {
+            summary: 'Get one menu by handle, with item URLs resolved',
+            tags: ['Public API — Collections'],
+            parameters: [
+                { name: 'projectId', in: 'path', required: true, schema: { type: 'string' } },
+                { name: 'collectionId', in: 'path', required: true, schema: { type: 'string' } },
+                { name: 'handle', in: 'path', required: true, schema: { type: 'string' } },
+                {
+                    name: 'locale',
+                    in: 'query',
+                    schema: { type: 'string' },
+                    description:
+                        'Return each item label in this language. Falls back to the project default. Omit to keep one value per language.'
+                }
+            ],
+            responses: {
+                '200': {
+                    description: 'Menu',
+                    content: {
+                        'application/json': {
+                            schema: { type: 'object', additionalProperties: true }
                         }
                     }
                 },

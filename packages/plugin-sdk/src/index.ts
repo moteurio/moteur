@@ -6,6 +6,7 @@ import type {
 } from '@moteurio/types/Plugin.js';
 import type { VideoProvidersConfig } from '@moteurio/types/Project.js';
 import type { BlockSchema } from '@moteurio/types/Block.js';
+import type { StructureSchema } from '@moteurio/types/Structure.js';
 import type { BlueprintSchema } from '@moteurio/types/Blueprint.js';
 import type { FieldSchema } from '@moteurio/types/Field.js';
 
@@ -22,6 +23,7 @@ export type PluginInitContext = {
     registerVideoProviderFactory: (id: string, factory: (config: unknown) => unknown) => void;
     setVideoProvidersConfig: (config: VideoProvidersConfig | null) => void;
     registerBlockSchema: (schema: BlockSchema) => void;
+    registerStructureSchema: (schema: StructureSchema) => void;
     registerBlueprint: (blueprint: BlueprintSchema) => void;
     registerFieldSchema: (field: FieldSchema) => void;
     /** Who decides each project's monthly AI credits (null: unlimited); null restores the default. */
