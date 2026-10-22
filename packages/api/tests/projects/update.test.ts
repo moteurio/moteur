@@ -87,6 +87,20 @@ describe('PATCH /projects/:projectId', () => {
         );
     });
 
+    it('leaves API keys to the developer routes, and refuses another id', async () => {
+        (validateProject as any).mockReturnValue({ valid: true });
+        (updateProject as any).mockResolvedValue(existing);
+        const keys = [{ id: 'k1', hash: 'f'.repeat(64), prefix: 'mk_live_x' }];
+
+        const res = await request(app).patch('/projects/demo').send({ label: 'A', apiKeys: keys });
+        expect(res.status).toBe(200);
+        expect(updateProject).toHaveBeenCalledWith(expect.anything(), 'demo', { label: 'A' });
+
+        const renamed = await request(app).patch('/projects/demo').send({ id: 'other' });
+        expect(renamed.status).toBe(400);
+        expect(updateProject).toHaveBeenCalledTimes(1);
+    });
+
     it('should validate merged project when body is a partial patch', async () => {
         (validateProject as any).mockReturnValue({ valid: true });
         (updateProject as any).mockResolvedValue({ ...existing, git: { enabled: true } });

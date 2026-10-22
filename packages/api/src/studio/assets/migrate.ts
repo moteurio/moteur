@@ -10,9 +10,10 @@ const router: Router = Router();
 export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
     '/studio/assets/migrate-provider': {
         post: {
-            summary: 'Migrate assets between storage providers',
+            summary: 'Move videos to another host (deprecated)',
             description:
-                'Migrate assets from one storage provider to another (e.g. local to Mux). Requires JWT.',
+                'Kept for scripts: prefer POST /projects/{projectId}/media-settings/move-videos. `projectIds` is required and the caller must be an admin of each project; `toProvider` must be where that project’s new videos go (Setup › Media). Same move: in the background, from the copy kept on the server, old host emptied once ready when `removeFromOld` is set.',
+            deprecated: true,
             tags: ['Studio Assets'],
             requestBody: {
                 content: {
@@ -26,9 +27,9 @@ export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
                                     description: 'Target provider (required)'
                                 },
                                 projectIds: { type: 'array', items: { type: 'string' } },
-                                keepLocalCopy: { type: 'boolean' }
+                                removeFromOld: { type: 'boolean' }
                             },
-                            required: ['toProvider']
+                            required: ['toProvider', 'projectIds']
                         }
                     }
                 }
@@ -43,7 +44,7 @@ export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
                     }
                 },
                 '400': {
-                    description: 'Missing toProvider',
+                    description: 'Missing toProvider or projectIds',
                     content: {
                         'application/json': {
                             schema: { $ref: '#/components/schemas/ErrorResponse' }
@@ -69,13 +70,12 @@ router.post('/migrate-provider', requireAuth, async (req: Request, res: Response
         const fromProvider = body.fromProvider;
         const toProvider = body.toProvider;
         const projectIds = body.projectIds;
-        const keepLocalCopy = body.keepLocalCopy;
         if (!toProvider) return void res.status(400).json({ error: 'Missing toProvider' });
         const result = await migrateProvider(req.user!, {
             fromProvider,
             toProvider,
             projectIds,
-            keepLocalCopy
+            removeFromOld: body.removeFromOld === true
         });
         return void res.json(result);
     } catch (err: unknown) {

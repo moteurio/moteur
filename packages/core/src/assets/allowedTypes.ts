@@ -3,6 +3,16 @@ import type { AssetType } from '@moteurio/types/Asset.js';
 export const ALLOWED_MIME: Record<AssetType, string[]> = {
     image: ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/avif'],
     video: ['video/mp4', 'video/quicktime'],
+    audio: [
+        'audio/mpeg',
+        'audio/mp4',
+        'audio/aac',
+        'audio/wav',
+        'audio/x-wav',
+        'audio/ogg',
+        'audio/webm',
+        'audio/flac'
+    ],
     document: [
         'application/pdf',
         'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
@@ -10,11 +20,16 @@ export const ALLOWED_MIME: Record<AssetType, string[]> = {
     model: ['model/gltf-binary', 'model/gltf+json', 'model/vnd.usdz+zip']
 };
 
-/** Browsers rarely know 3D formats and send these files as octet-stream or with no type. */
+/** Browsers rarely know 3D formats (and some audio) and send these files as octet-stream or with no type. */
 const MIME_BY_EXTENSION: Record<string, string> = {
     glb: 'model/gltf-binary',
     gltf: 'model/gltf+json',
-    usdz: 'model/vnd.usdz+zip'
+    usdz: 'model/vnd.usdz+zip',
+    mp3: 'audio/mpeg',
+    m4a: 'audio/mp4',
+    wav: 'audio/wav',
+    ogg: 'audio/ogg',
+    flac: 'audio/flac'
 };
 
 const GENERIC_MIME = new Set(['', 'application/octet-stream', 'binary/octet-stream']);

@@ -1,4 +1,4 @@
-export type AssetType = 'image' | 'video' | 'document' | 'model';
+export type AssetType = 'image' | 'video' | 'audio' | 'document' | 'model';
 export type AssetStatus = 'processing' | 'ready' | 'error';
 export type VideoProviderStatus = 'uploading' | 'processing' | 'ready' | 'error';
 export type VideoProviderId = 'mux' | 'vimeo' | 'cloudflare-stream' | 'youtube';
@@ -29,7 +29,9 @@ export type Asset = {
     size: number;
     type: AssetType;
     status: AssetStatus;
-    adapter: string; // 'local' | 's3' | 'r2'
+    adapter: string; // 'local' | 's3' | 'r2' | 'minio' | 'cloudinary'
+    /** SHA-256 of the file as uploaded (before a photo's metadata is removed): the same file uploaded again has the same one. */
+    hash?: string;
 
     // ── Asset-level metadata ──
     /** A string, or one per language: `{ "fr": "…", "en": "…" }`. Fields may override alt and caption. */
@@ -58,6 +60,11 @@ export type Asset = {
         [key: string]: any;
     };
     keepLocalCopy?: boolean;
+    /**
+     * While a video moves to another host: where it still is. Cleared once the new host has it
+     * ready; deleted there then when `remove` is set.
+     */
+    previousHost?: { provider: VideoProviderId; providerId: string; remove?: boolean };
 
     // ── Storage (local copy or non-video assets) ──
     path?: string;
@@ -77,6 +84,12 @@ export type Asset = {
 
     createdAt: string;
     updatedAt: string;
+
+    // ── Bin ──
+    /** Set while the asset is in the bin: hidden from the library and from content, restorable. */
+    deletedAt?: string;
+    deletedBy?: string;
+    deletedByName?: string;
 
     // ── AI-generated image metadata ──
     /** Prompt sent to the image generation provider (stored when asset was created via Generate). */

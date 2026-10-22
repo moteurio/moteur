@@ -16,6 +16,11 @@ import { projectWebhooksApi } from '../project/webhooks.js';
 import { projectSchedulesApi } from '../project/schedules.js';
 import { projectAssetsApi } from '../project/assets.js';
 import { projectAssetConfigApi } from '../project/assetConfig.js';
+import {
+    projectMediaSettingsApi,
+    type MediaSettingsUpdate,
+    type StorageSettings
+} from '../project/mediaSettings.js';
 import { projectBlocksApi } from '../project/blocks.js';
 import {
     projectApiKeysApi,
@@ -42,6 +47,7 @@ export function createProjectClient(client: MoteurClient, projectId: string) {
     const schedules = projectSchedulesApi(client);
     const assets = projectAssetsApi(client);
     const assetConfig = projectAssetConfigApi(client);
+    const mediaSettings = projectMediaSettingsApi(client);
     const blocks = projectBlocksApi(client);
     const apiKeys = projectApiKeysApi(client);
 
@@ -224,19 +230,32 @@ export function createProjectClient(client: MoteurClient, projectId: string) {
         },
 
         assets: {
-            list: (params?: { type?: string; folder?: string; search?: string }) =>
+            list: (params?: { type?: string; folder?: string; search?: string; hash?: string }) =>
                 assets.list(pid, params),
             get: (id: string) => assets.get(pid, id),
             upload: (formData: FormData) => assets.upload(pid, formData),
             update: (id: string, body: Record<string, unknown>) => assets.update(pid, id, body),
             delete: (id: string) => assets.delete(pid, id),
-            regenerate: (assetIds?: string[]) => assets.regenerate(pid, assetIds),
+            bin: () => assets.bin(pid),
+            restore: (id: string) => assets.restore(pid, id),
+            replace: (id: string, formData: FormData) => assets.replace(pid, id, formData),
+            deleteForever: (id: string) => assets.deleteForever(pid, id),
+            emptyBin: () => assets.emptyBin(pid),
+            regenerate: (assetIds?: string[], options?: { background?: boolean }) =>
+                assets.regenerate(pid, assetIds, options),
             move: (id: string, folder: string) => assets.move(pid, id, folder)
         },
 
         assetConfig: {
             get: () => assetConfig.get(pid),
             update: (body: Record<string, unknown>) => assetConfig.update(pid, body)
+        },
+
+        mediaSettings: {
+            get: () => mediaSettings.get(pid),
+            update: (body: MediaSettingsUpdate) => mediaSettings.update(pid, body),
+            checkStorage: (body: StorageSettings) => mediaSettings.checkStorage(pid, body),
+            moveStorage: (body: StorageSettings) => mediaSettings.moveStorage(pid, body)
         },
 
         blocks: {

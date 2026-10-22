@@ -208,6 +208,23 @@ const post = await client.channel('website').entries.get('posts', entryId, {
 });
 ```
 
+### Images: `srcset`, crops, alt text
+
+Media fields read with `resolveAssets: true` carry the server's image addresses. Helpers turn
+them into `<img>` attributes (no network calls):
+
+```ts
+import { imageAttributes, imageUrl } from '@moteurio/client';
+
+const { cover } = post.data;
+const img = imageAttributes(cover, { sizes: '(min-width: 60rem) 50vw, 100vw', locale: 'fr' });
+// { src, srcset, sizes, width, height, alt }, cropped to the field's shape if it has one
+const og = imageUrl(cover, 1200, { ratio: '16:9', format: 'jpg' });
+```
+
+`imageSrcset`, `focalPosition`, `IMAGE_WIDTHS` and `IMAGE_RATIOS` too. Parameters, crops and
+caching: [docs/Images.md](../../docs/Images.md).
+
 ### Example: sitemap and nav in a build step
 
 ```ts

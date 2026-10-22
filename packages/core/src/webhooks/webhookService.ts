@@ -177,7 +177,7 @@ function normalizedHostname(u: URL): string {
     return h;
 }
 
-async function assertResolvedTargetAllowed(u: URL): Promise<void> {
+async function assertResolvedTargetAllowed(u: URL, what = 'Webhook URL'): Promise<void> {
     const allowLoopback = devLocalHttpAllowsLoopback(u);
     const host = normalizedHostname(u);
     let records: { address: string; family: number }[];
@@ -189,16 +189,16 @@ async function assertResolvedTargetAllowed(u: URL): Promise<void> {
         try {
             records = await dns.lookup(host, { all: true, verbatim: true });
         } catch {
-            throw new Error('Webhook URL host could not be resolved');
+            throw new Error(`${what} host could not be resolved`);
         }
     }
     if (records.length === 0) {
-        throw new Error('Webhook URL host could not be resolved');
+        throw new Error(`${what} host could not be resolved`);
     }
     for (const { address, family } of records) {
         if (isRestrictedAddress(address, family as 4 | 6, allowLoopback)) {
             throw new Error(
-                'Webhook URL resolves to a private or restricted network address, which is not allowed'
+                `${what} resolves to a private or restricted network address, which is not allowed`
             );
         }
     }
@@ -210,6 +210,21 @@ async function validateUrl(url: string): Promise<void> {
         throw new Error('URL must be HTTPS (or HTTP localhost in development only)');
     }
     await assertResolvedTargetAllowed(new URL(url.trim()));
+}
+
+/**
+ * For any server-side fetch of an address a client gave (a provider's file, a picture): HTTPS
+ * only, and never a private or restricted network address. Same rules as webhook targets.
+ */
+export async function assertPublicHttpsUrl(url: string, what = 'URL'): Promise<void> {
+    let u: URL;
+    try {
+        u = new URL(url.trim());
+    } catch {
+        throw new Error(`${what} is not a valid address`);
+    }
+    if (u.protocol !== 'https:') throw new Error(`${what} must be HTTPS`);
+    await assertResolvedTargetAllowed(u, what);
 }
 
 function validateEvents(events: WebhookEvent[] | undefined): void {

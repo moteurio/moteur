@@ -147,7 +147,7 @@ x-api-key: mk_live_xxxxxxxx...
 **Query params (entries and pages):**
 
 - **`?resolveUrl=1`** on entry list/get — adds computed `resolvedUrl` when a collection page defines a URL pattern for that model.
-- **`?resolveAssets=1`** on entry/page reads — inlines asset URLs where the pipeline supports it.
+- **`?resolveAssets=1`** on entry/page reads — inlines each media field's asset (`_resolved`, with `url` and, for images, `resizeUrl`), and `cropUrl` for fields set to crop. Sizes, crops and `srcset`: see [Images](Images.md).
 - Entry lists also support **`limit`**, **`offset`**, and **`sort`** (`id`, `createdAt`, `updatedAt`, `publishedAt`, prefix `-` for descending).
 
 ---

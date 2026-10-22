@@ -17,8 +17,8 @@ export function instanceApi(client: MoteurClient) {
         migrateProvider: (body: {
             toProvider: string;
             fromProvider?: string;
-            projectIds?: string[];
-            keepLocalCopy?: boolean;
+            projectIds: string[];
+            removeFromOld?: boolean;
         }) => migrate.migrateProvider(body)
     };
 }

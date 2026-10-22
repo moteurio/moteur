@@ -67,7 +67,11 @@ export {
 export { addAndCommit, isGitRepo, push } from './git/index.js';
 export { storageConfig, validateStorageConfig } from './config/storageConfig.js';
 export type { StorageAdapter, UploadResult } from './assets/StorageAdapter.js';
-export type { VideoProvider, VideoProviderUploadResult } from './assets/VideoProvider.js';
+export type {
+    VideoHostReport,
+    VideoProvider,
+    VideoProviderUploadResult
+} from './assets/VideoProvider.js';
 export {
     getOnlineUserIdsForProject,
     resolveOnlinePresenceMaxIdleMs,
@@ -149,7 +153,14 @@ export const Moteur: MoteurAPI = {
         list: Assets.listAssets,
         get: Assets.getAsset,
         update: Assets.updateAsset,
+        updateMany: Assets.updateAssets,
         delete: Assets.deleteAsset,
+        binMany: Assets.binAssets,
+        listBin: Assets.listBinnedAssets,
+        restore: Assets.restoreAsset,
+        restoreMany: Assets.restoreAssets,
+        deleteForever: Assets.deleteAssetForever,
+        emptyBin: Assets.emptyBin,
         move: Assets.moveToFolder,
         regenerate: Assets.regenerateVariants,
         migrateProvider: Assets.migrateProvider,
