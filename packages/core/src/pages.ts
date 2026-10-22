@@ -24,6 +24,8 @@ import { assertUserCanAccessProject } from './utils/access.js';
 import { getTemplate } from './templates.js';
 import { getModelSchemaForProject } from './models.js';
 import { hasApprovedReviewForPage } from './reviews.js';
+import { getFileAtRevision } from './fileRevisions.js';
+import { sameContent, type Restored } from './utils/sameContent.js';
 import { triggerEvent } from './utils/eventBus.js';
 import {
     getProjectJson,
@@ -342,7 +344,8 @@ export async function updatePage(
     projectId: string,
     user: User,
     id: string,
-    patch: Partial<PageNode>
+    patch: Partial<PageNode>,
+    options?: { restoredFrom?: string }
 ): Promise<PageNode> {
     if ((patch as any).status === 'published') {
         const project = await getProject(user, projectId);
@@ -427,12 +430,17 @@ export async function updatePage(
         if (!model) throw new Error(`Model "${(updated as CollectionPage).modelId}" not found.`);
     }
 
+    // Nothing to save: no commit, no hooks, no webhooks.
+    if (sameContent(current, updated)) return current;
+
     triggerEvent('page.beforeUpdate', { page: updated, user, projectId });
     await putProjectJson(projectId, pageKey(id), updated);
     triggerEvent('content.saved', {
         projectId,
         paths: [pageKey(id)],
-        message: `Update page ${id} — ${user.name ?? user.id}`,
+        message: options?.restoredFrom
+            ? `Restore page ${id} from ${options.restoredFrom.slice(0, 7)} — ${user.name ?? user.id}`
+            : `Update page ${id} — ${user.name ?? user.id}`,
         user
     });
     triggerEvent('page.afterUpdate', { page: updated, user, projectId });
@@ -457,6 +465,58 @@ export async function updatePage(
         // never fail the operation
     }
     return updated;
+}
+
+/** What a page restore leaves as it is: where the page lives in the site, and its state. */
+const KEPT_ON_RESTORE = [
+    'id',
+    'projectId',
+    'type',
+    'parentId',
+    'order',
+    'slug',
+    'status',
+    'createdAt'
+] as const;
+
+/**
+ * Put a page back as it was saved in one revision, as a new save on top of the history (every
+ * later version stays and can be restored in turn). Its content, template and settings go back;
+ * its place in the tree, address and status stay. Pages are live as saved, so a published page
+ * shows the restored content at once.
+ */
+export async function restorePageAtRevision(
+    projectId: string,
+    user: User,
+    id: string,
+    revisionId: string
+): Promise<Restored<PageNode>> {
+    const current = await getPageWithAuth(user, projectId, id);
+    const snapshot = getFileAtRevision(projectId, pageKey(id), revisionId) as PageNode | null;
+    if (!snapshot) throw new Error('Revision not found');
+    if (snapshot.type !== current.type) {
+        throw new Error(
+            `Page validation failed: this version is a ${snapshot.type} page; it is a ${current.type} page now.`
+        );
+    }
+    const cleared = Object.fromEntries(Object.keys(current).map(k => [k, undefined]));
+    const kept = Object.fromEntries(
+        KEPT_ON_RESTORE.map(k => [k, (current as unknown as Record<string, unknown>)[k]])
+    );
+    const restored = await updatePage(
+        projectId,
+        user,
+        id,
+        {
+            ...cleared,
+            ...snapshot,
+            ...kept,
+            updatedAt: new Date().toISOString()
+        } as Partial<PageNode>,
+        { restoredFrom: revisionId }
+    );
+    // Already the same as that version: nothing was saved.
+    return { restored, changed: !sameContent(current, restored) };
 }
 
 export async function deletePage(projectId: string, user: User, id: string): Promise<void> {

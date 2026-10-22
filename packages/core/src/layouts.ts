@@ -15,6 +15,9 @@ import {
     listProjectKeys
 } from './utils/projectStorage.js';
 import { layoutKey, layoutListPrefix } from './utils/storageKeys.js';
+import { getFileAtRevision } from './fileRevisions.js';
+import { sameContent, type Restored } from './utils/sameContent.js';
+import { assertCanWrite } from './contentAccess.js';
 
 export async function listLayouts(user: User, projectId: string): Promise<Layout[]> {
     await getProject(user, projectId);
@@ -85,7 +88,8 @@ export async function updateLayout(
     user: User,
     projectId: string,
     id: string,
-    patch: Partial<Layout>
+    patch: Partial<Layout>,
+    options?: { restoredFrom?: string }
 ): Promise<Layout> {
     const project = await getProject(user, projectId);
 
@@ -98,6 +102,8 @@ export async function updateLayout(
         throw new Error(`Layout ${id} does not exist in project ${projectId}`);
     }
     const updated = { ...current, ...patch };
+    // Nothing to save: no commit, no hooks.
+    if (sameContent(current, updated)) return current;
     if (updated.meta?.audit) {
         updated.meta.audit.revision = (current.meta?.audit?.revision ?? 0) + 1;
     }
@@ -120,11 +126,47 @@ export async function updateLayout(
     triggerEvent('content.saved', {
         projectId,
         paths: [layoutKey(id)],
-        message: `Update layout ${id} — ${user.name ?? user.id}`,
+        message: options?.restoredFrom
+            ? `Restore layout ${id} from ${options.restoredFrom.slice(0, 7)} — ${user.name ?? user.id}`
+            : `Update layout ${id} — ${user.name ?? user.id}`,
         user
     });
     triggerEvent('layout.afterUpdate', { layout: updated, user, projectId });
     return updated;
+}
+
+/**
+ * Put a layout back as it was saved in one revision, as a new save on top of the history (every
+ * later version stays and can be restored in turn). Layouts are live as saved, so the site uses
+ * the restored blocks at once.
+ */
+export async function restoreLayoutAtRevision(
+    user: User,
+    projectId: string,
+    id: string,
+    revisionId: string
+): Promise<Restored<Layout>> {
+    assertCanWrite(user);
+    const current = await getLayout(user, projectId, id);
+    const snapshot = getFileAtRevision(projectId, layoutKey(id), revisionId) as Layout | null;
+    if (!snapshot) throw new Error('Revision not found');
+    // The whole version: keys added since are cleared (undefined drops out of the JSON).
+    const cleared = Object.fromEntries(Object.keys(current).map(k => [k, undefined]));
+    const audit = current.meta?.audit;
+    const restored = await updateLayout(
+        user,
+        projectId,
+        id,
+        {
+            ...cleared,
+            ...snapshot,
+            id,
+            meta: { ...snapshot.meta, ...(audit ? { audit: { ...audit } } : {}) }
+        } as Partial<Layout>,
+        { restoredFrom: revisionId }
+    );
+    // Already the same as that version: nothing was saved.
+    return { restored, changed: !sameContent(current, restored) };
 }
 
 export async function deleteLayout(user: User, projectId: string, id: string): Promise<void> {
