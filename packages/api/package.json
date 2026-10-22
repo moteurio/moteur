@@ -48,8 +48,11 @@
         "access": "public"
     },
     "dependencies": {
+        "@modelcontextprotocol/sdk": "^1.32.1",
         "@moteurio/ai": "workspace:*",
+        "@moteurio/client": "workspace:*",
         "@moteurio/core": "workspace:*",
+        "@moteurio/mcp": "workspace:*",
         "@moteurio/plugin-sdk": "workspace:*",
         "@moteurio/types": "workspace:*",
         "@scalar/express-api-reference": "^0.10.29",

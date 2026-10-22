@@ -46,6 +46,7 @@ import entriesRoute from './entries/index.js';
 import activityGlobalRoute from './activity/index.js';
 import operatorRoute from './operator/index.js';
 import invitesRoute from './invites/index.js';
+import { mcpRouter } from './mcp/index.js';
 import usageRouter from './studio/usage.js';
 import fieldTypesRouter from './studio/fieldTypes.js';
 import assetsMigrateRouter from './studio/assets/migrate.js';
@@ -218,6 +219,14 @@ app.use(basePath + '/blueprints', blueprintsRoutes);
 app.use(basePath + '/activity', activityGlobalRoute);
 app.use(basePath + '/operator', operatorRoute);
 app.use(basePath + '/invites', invitesRoute);
+// MCP for remote AI clients; its tools call this API itself. MOTEUR_MCP=off leaves it out.
+if (process.env.MOTEUR_MCP?.trim().toLowerCase() !== 'off') {
+    app.use(
+        basePath + '/mcp',
+        studioRateLimiter,
+        mcpRouter(() => `http://127.0.0.1:${process.env.PORT || 3000}${basePath}`)
+    );
+}
 app.use(basePath + '/studio/usage', usageRouter);
 app.use(basePath + '/studio/field-types', fieldTypesRouter);
 app.use(basePath + '/studio/seed', seedRouter);

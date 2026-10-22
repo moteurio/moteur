@@ -8,9 +8,11 @@
     "include": ["src/**/*"],
     "references": [
         { "path": "../ai" },
+        { "path": "../client" },
+        { "path": "../commands" },
         { "path": "../core" },
+        { "path": "../mcp" },
         { "path": "../plugin-sdk" },
-        { "path": "../types" },
-        { "path": "../presence" }
+        { "path": "../types" }
     ]
 }
