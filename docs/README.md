@@ -56,7 +56,7 @@ This folder contains the main documentation for **developers using Moteur**: con
 | Resource              | Description                                                                                                                                                                                  |
 | --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **OpenAPI (Swagger)** | When the Moteur API is running: **Scalar** at `GET {basePath}/docs`, **OpenAPI 3 spec** at `GET {basePath}/openapi.json`. Hosted API docs: [docs.api.moteur.io](https://docs.api.moteur.io). |
-| **Moteur Studio**     | UI for content and schema. Source lives in the Studio front-end repository. Storybook: [docs.studio.moteur.io](https://docs.studio.moteur.io/).                                              |
+| **Moteur Studio**     | Private UI for content and schema (not publicly documented here).                                                                                                                             |
 | **Starters**          | Clone-and-run repos for Next.js, Astro, Eleventy, and more. See [Starters](Starters.md) for links and comparison.                                                                            |
 | **npm packages**      | Publishing `@moteurio/types`, `@moteurio/client`, and `@moteurio/cli`: see [RELEASING.md](../RELEASING.md).                                                                                  |
 

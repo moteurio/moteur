@@ -503,7 +503,7 @@ From the monorepo root: `pnpm openapi:export`. CI guard for documented 2xx JSON 
 
 Set **`MOTEUR_FAIL_ON_OPENAPI_COLLISION=1`** to fail bootstrap when merged plugin paths collide with core paths.
 
-**Hosted docs ([docs.api.moteur.io](https://docs.api.moteur.io)):** Either proxy to the production API’s Scalar page (`{basePath}/docs`) or deploy the static shell in [`packages/api-docs/index.html`](../packages/api-docs/index.html) behind your CDN. That file loads Scalar from jsDelivr and points at `https://api.moteur.io/openapi.json` by default—adjust `data-url` if your API uses a non-empty `API_BASE_PATH` (e.g. `https://your-host/api/openapi.json`).
+**Hosted docs ([docs.api.moteur.io](https://docs.api.moteur.io)):** Built from the **[api.moteur.io](https://github.com/moteurio/api.moteur.io)** repo (`npm run docs:build` → Scalar + `openapi.json` for the production plugin composition). The live API also serves Scalar at `{API_BASE_PATH}/docs` and JSON at `{API_BASE_PATH}/openapi.json`. A minimal redirect shell lives in [`packages/api-docs/index.html`](../packages/api-docs/index.html).
 
 ---
 
