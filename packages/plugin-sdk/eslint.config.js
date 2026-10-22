@@ -6,7 +6,8 @@ export default [
         files: ['**/*.ts'],
         languageOptions: {
             globals: {
-                NodeJS: 'readonly'
+                NodeJS: 'readonly',
+                fetch: 'readonly'
             }
         }
     }

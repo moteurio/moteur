@@ -6,7 +6,8 @@ export default [
         files: ['**/*.ts'],
         languageOptions: {
             globals: {
-                FormData: 'readonly'
+                FormData: 'readonly',
+                URL: 'readonly'
             }
         }
     }
