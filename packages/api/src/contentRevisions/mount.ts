@@ -12,6 +12,14 @@ export type ContentRevisionMountOptions = {
     responseKey: string;
     gitPath: (projectId: string, id: string) => string;
     assertExists: (req: Request) => Promise<void>;
+    /** Saves the resource as it was in `revisionId` as a new revision (unless it is the same). */
+    restore?: (
+        req: Request,
+        id: string,
+        revisionId: string
+    ) => Promise<{ restored: unknown; changed: boolean }>;
+    /** What a restore keeps and whether it goes live, for the API docs. */
+    restoreDescription?: string;
 };
 
 function parseMax(raw: unknown): number {
@@ -78,6 +86,27 @@ export function createContentRevisionRouter(options: ContentRevisionMountOptions
         }
     );
 
+    const { restore } = options;
+    if (restore) {
+        router.post(
+            `/:${idParam}/revisions/:revisionId/restore`,
+            requireProjectAccess,
+            async (req: Request, res: Response) => {
+                const id = String(req.params[idParam]);
+                const revisionId = String(req.params.revisionId);
+                if (!req.params.projectId || !id || !revisionId) {
+                    return void res.status(400).json({ error: 'Missing path parameters' });
+                }
+                try {
+                    const { restored, changed } = await restore(req, id, revisionId);
+                    return void res.json({ [options.responseKey]: restored, changed });
+                } catch (err: unknown) {
+                    return void sendApiError(res, req, err);
+                }
+            }
+        );
+    }
+
     return router;
 }
 
@@ -100,7 +129,55 @@ export function contentRevisionOpenApi(
             }
         }
     };
+    const restoredBody: OpenAPIV3.ResponseObject = {
+        description:
+            'The resource as restored. `changed` is false when it already matched that revision (nothing saved).',
+        content: {
+            'application/json': {
+                schema: {
+                    type: 'object',
+                    properties: {
+                        [options.responseKey]: { type: 'object', additionalProperties: true },
+                        changed: { type: 'boolean' }
+                    }
+                } as OpenAPIV3.SchemaObject
+            }
+        }
+    };
+    const restorePath: Record<string, OpenAPIV3.PathItemObject> = options.restore
+        ? {
+              [`${base}/revisions/{revisionId}/restore`]: {
+                  post: {
+                      summary: 'Restore from one revision',
+                      description: options.restoreDescription,
+                      tags: [options.tag],
+                      parameters: [
+                          {
+                              name: 'projectId',
+                              in: 'path',
+                              required: true,
+                              schema: { type: 'string' }
+                          },
+                          { name: idName, in: 'path', required: true, schema: { type: 'string' } },
+                          {
+                              name: 'revisionId',
+                              in: 'path',
+                              required: true,
+                              schema: { type: 'string' }
+                          }
+                      ],
+                      responses: {
+                          '200': restoredBody,
+                          '400': { description: 'The revision no longer validates' },
+                          '403': { description: 'Not allowed to edit it' },
+                          '404': { description: 'Resource or revision not found' }
+                      }
+                  }
+              }
+          }
+        : {};
     return {
+        ...restorePath,
         [`${base}/revisions`]: {
             get: {
                 summary: 'Revision history (from git)',

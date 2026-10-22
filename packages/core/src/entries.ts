@@ -1,3 +1,4 @@
+import { sameContent, type Restored } from './utils/sameContent.js';
 import fs from 'fs';
 import path from 'path';
 import { hasRole } from '@moteurio/types';
@@ -72,6 +73,8 @@ export async function queryEntriesForProject(
 
 export type EntryServiceOptions = {
     source?: 'api' | 'studio' | 'scheduler';
+    /** Set by restoreEntryAtRevision: `data` and helper marks replace the entry's instead of merging. */
+    restoredFrom?: string;
 };
 
 export type EntryRevision = {
@@ -304,7 +307,17 @@ export async function updateEntry(
             throw new Error(localeErrors.join(' '));
         }
     }
-    const updated = mergeEntryPatch(current, patch, getCoreIdFieldIds(schema));
+    const coreIdFields = getCoreIdFieldIds(schema);
+    const updated = mergeEntryPatch(current, patch, coreIdFields);
+    const restoredFrom = options?.restoredFrom;
+    if (restoredFrom) {
+        // A restore puts back the whole version: fields filled since then are emptied again.
+        const data = stripCoreIdFromData(patch.data ?? {}, coreIdFields);
+        for (const id of coreIdFields) {
+            if (current.data && id in current.data) data[id] = current.data[id];
+        }
+        updated.data = data;
+    }
     if (
         translatorOnly(user) &&
         !translationOnlyChange(
@@ -318,7 +331,12 @@ export async function updateEntry(
     }
     // Helper marks: who kept and who read are stamped here, never taken from the client.
     let withHelp = false;
-    if (patch.meta && 'assisted' in patch.meta) {
+    if (restoredFrom) {
+        // The marks go back with the text they describe, as they were then.
+        updated.meta = { ...updated.meta };
+        if (patch.meta?.assisted) updated.meta.assisted = patch.meta.assisted;
+        else delete updated.meta.assisted;
+    } else if (patch.meta && 'assisted' in patch.meta) {
         const assisted = stampAssisted(current.meta?.assisted, patch.meta.assisted, user.id);
         withHelp = addsAssisted(current.meta?.assisted, assisted);
         updated.meta = { ...updated.meta };
@@ -328,13 +346,17 @@ export async function updateEntry(
     if (patch.status === 'in_review' && prevStatus !== 'in_review') {
         assertEntryComplete(updated, schema, 'review');
     }
+    // Nothing to save: no commit, no hooks, no webhooks.
+    if (sameContent(current, updated)) return current;
 
     triggerEvent('entry.beforeUpdate', { entry: updated, user, modelId, projectId });
     await putProjectJson(projectId, entryKey(modelId, entryId), updated);
     triggerEvent('content.saved', {
         projectId,
         paths: [entryKey(modelId, entryId)],
-        message: `Update ${modelId}/${commitRef(updated, entryId)}${withHelp ? ' (with help)' : ''} — ${user.name ?? user.id}`,
+        message: restoredFrom
+            ? `Restore ${modelId}/${commitRef(updated, entryId)} from ${restoredFrom.slice(0, 7)} — ${user.name ?? user.id}`
+            : `Update ${modelId}/${commitRef(updated, entryId)}${withHelp ? ' (with help)' : ''} — ${user.name ?? user.id}`,
         user
     });
     triggerEvent('entry.afterUpdate', { entry: updated, user, modelId, projectId });
@@ -651,6 +673,36 @@ export function getEntryAtRevision(
     } catch {
         return null;
     }
+}
+
+/**
+ * Put an entry back as it was saved in one revision. The restore is a new save on top of the
+ * history (`Restore model/entry from abc1234`), so every version after it stays readable and can
+ * be restored in turn. Only the content and its helper marks go back: the status, audit and
+ * published version stay, so a published entry keeps serving what was published until it is
+ * published again. When nothing differs, nothing is saved and `changed` is false.
+ */
+export async function restoreEntryAtRevision(
+    user: User,
+    projectId: string,
+    modelId: string,
+    entryId: string,
+    revisionId: string,
+    options?: EntryServiceOptions
+): Promise<Restored<Entry>> {
+    const current = await getEntry(user, projectId, modelId, entryId);
+    const snapshot = getEntryAtRevision(projectId, modelId, entryId, revisionId);
+    if (!snapshot) throw new Error('Revision not found');
+    const restored = await updateEntry(
+        user,
+        projectId,
+        modelId,
+        entryId,
+        { data: snapshot.data ?? {}, meta: { assisted: snapshot.meta?.assisted } },
+        { ...options, restoredFrom: revisionId }
+    );
+    // Already the same as that version: nothing was saved.
+    return { restored, changed: !sameContent(current, restored) };
 }
 
 // ---------------------------------------------------------------------------

@@ -1,4 +1,4 @@
-import { getPageWithAuth } from '@moteurio/core/pages.js';
+import { getPageWithAuth, restorePageAtRevision } from '@moteurio/core/pages.js';
 import { pageKey } from '@moteurio/core/utils/storageKeys.js';
 import {
     contentRevisionOpenApi,
@@ -14,7 +14,11 @@ const options = {
     assertExists: async (req: import('express').Request) => {
         const { projectId, id } = req.params as Record<string, string>;
         await getPageWithAuth(req.user!, projectId, id);
-    }
+    },
+    restore: (req: import('express').Request, id: string, revisionId: string) =>
+        restorePageAtRevision(String(req.params.projectId), req.user!, id, revisionId),
+    restoreDescription:
+        'Saves the content, template and settings of that revision as a new revision. Later revisions stay in the history. The place in the page tree, slug and status are unchanged; the page is live as saved.'
 };
 
 export const revisionsOpenapi = contentRevisionOpenApi(options);
