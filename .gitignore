@@ -2,6 +2,9 @@
 # App config
 moteur.config.ts
 data/
+# Local demo data (users, avatars, seeds) and stray logs from runs without DATA_ROOT
+_data/
+/activity.json
 # Fly.io — keep in deployment repo (e.g. api.moteur.io), not the public engine
 fly.toml
 
