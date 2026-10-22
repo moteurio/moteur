@@ -11,7 +11,7 @@
         "check:all": "pnpm lint && pnpm build && pnpm test",
         "clean": "rimraf dist && rimraf --glob \"packages/*/dist\" \"packages/*/tsconfig.tsbuildinfo\" \"packages/ai/src/**/*.js\" \"packages/ai/src/**/*.js.map\" \"packages/ai/src/**/*.d.ts\" \"packages/ai/src/**/*.d.ts.map\"",
         "cli": "node node_modules/@moteurio/cli/dist/index.js",
-        "cli:dev": "tsx packages/cli/src/index.ts",
+        "cli:dev": "pnpm --filter @moteurio/cli run build && node packages/cli/dist/index.js",
         "seed": "pnpm run cli -- seed",
         "seed:force": "pnpm run cli -- seed --force",
         "server": "node dist/src/api.js",

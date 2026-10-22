@@ -1,11 +1,10 @@
 # @moteurio/cli
 
-Command-line interface for [Moteur](https://github.com/moteurio/moteur). Connect to any Moteur API (local or remote), manage projects and content, run seed and tools—from your terminal. Built for power users: **Atelier** (interactive TUI) when you run `moteur` with no arguments, and scriptable commands with JSON import from files or stdin.
+Command-line interface for [Moteur](https://github.com/moteurio/moteur). Connect to any Moteur API (local or remote), manage projects and content, run seed and tools: scriptable commands with JSON import from files or stdin and `--json` output, for scripts, CI and agents.
 
-- **Atelier** = interactive terminal UI (this CLI). Run `moteur` or `moteur atelier` to open it.
-- **Studio** = web admin UI (moteur-admin), for the full browser-based experience.
+For writing and reviewing content interactively, use the Studio: on the web, or in your terminal with [`@moteurio/studio-cli`](https://github.com/moteurio/moteur-studio-cli) (`moteur-studio`). For AI agents, the same commands are MCP tools: [`@moteurio/mcp`](../mcp). All share this CLI's sign-in.
 
-Uses [@moteurio/client](https://github.com/moteurio/moteur/tree/main/packages/client) under the hood. Output and tables use **Chalk** + **cli-table3**; Atelier uses **Ink** (React) for the TUI.
+Uses [@moteurio/client](https://github.com/moteurio/moteur/tree/main/packages/client) under the hood. Output and tables use **Chalk** + **cli-table3**.
 
 This package lives in the main Moteur repo: [moteurio/moteur](https://github.com/moteurio/moteur) at `packages/cli/`.
 
@@ -21,7 +20,14 @@ npx @moteurio/cli
 
 The `moteur` binary is available after install.
 
-**Monorepo:** the npm `bin` points at `bin/moteur.js` (always present) so `pnpm install` can link `.bin/moteur` without errors. That script loads `./dist/index.js`; run `pnpm run build` or `pnpm --filter @moteurio/cli build` first, or use `pnpm run cli:dev` from the repo root.
+**Monorepo:** the npm `bin` points at `bin/moteur.js` (always present) so `pnpm install` can link `.bin/moteur` without errors. That script loads `./dist/index.js`. From the repo root:
+
+```bash
+pnpm run cli:dev          # rebuilds the CLI, then runs it (Node + dist)
+pnpm run cli:dev -- help  # pass args after --
+```
+
+`cli:dev` uses the compiled `dist` output. For a watch loop: `pnpm --filter @moteurio/cli exec tsc -b --watch` in one terminal and `node packages/cli/dist/index.js` in another.
 
 ## Configure and log in
 
@@ -42,7 +48,7 @@ Point the CLI at your Moteur API and authenticate.
 3. **Or use env / config** (e.g. for CI or scripts):
     - `MOTEUR_API_URL` – API base URL
     - `MOTEUR_TOKEN` – JWT (after login) or `MOTEUR_API_KEY` – project API key
-    - Optional: `MOTEUR_PROJECT_ID` – default project
+    - Optional: `MOTEUR_PROJECT` – default project (or `moteur projects use <id>`)
 
 Config file: `~/.moteur/config.json` (or `MOTEUR_CONFIG_DIR`). Example:
 
@@ -54,84 +60,43 @@ Config file: `~/.moteur/config.json` (or `MOTEUR_CONFIG_DIR`). Example:
 }
 ```
 
-## Atelier (interactive TUI)
+## Commands
 
-Run `moteur` or `moteur atelier` with no other arguments to open **Atelier**, the interactive terminal UI:
-
-- **Login** – API URL, email, password (or use existing config).
-- **Project** – Pick a default project if you don’t have one; switch project from the sidebar.
-- **Sidebar** – Content (Pages, Entries, Navigation, Layouts, Activity), Schemas (Templates, Models, Structures, Blocks), User data (Forms, Submissions), Configuration (Webhooks, Assets), Account, Projects, Quit.
-- **Lists and detail** – Browse and open items; edit entries field-by-field or in `$EDITOR`; bulk select, delete, export JSON; filter with `/`.
-
-## Commands (overview)
-
-| Area           | Commands                                                                                                                                                                                                                                    |
-| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Auth**       | `moteur auth login`, `moteur auth create-user`, `moteur auth reset-password`, `moteur auth whoami`, `moteur auth logout`, `moteur auth list --project=<id>` (shows **online** / **last login**; `--json` for full `ProjectMemberUser` rows) |
-| **Projects**   | `moteur projects list`, `get`, `create`, `patch`, `delete`; set default from menu                                                                                                                                                           |
-| **Models**     | `moteur models list --project=<id>`, `get`, `create`, `patch`, `delete`                                                                                                                                                                     |
-| **Entries**    | `moteur entries list/get/create/patch/delete` with `--project`, `--model`                                                                                                                                                                   |
-| **Content**    | `moteur templates`, `moteur pages`, `moteur layouts`, `moteur structures` (list/get/create/patch/delete)                                                                                                                                    |
-| **Media**      | `moteur assets list/get/...`, `moteur forms`, `moteur webhooks`, `moteur navigations`                                                                                                                                                       |
-| **Tools**      | `moteur seed` [, `--force`], `moteur radar report`, `moteur branches list/...`                                                                                                                                                              |
-| **Blueprints** | `moteur blueprints list --kind=project`, `get`, `create`, ...                                                                                                                                                                               |
-
-Use `moteur help` for the full list and `moteur help <command>` for examples (e.g. `moteur help projects`).
-
-## JSON import and piping
-
-Create and patch commands accept a body from:
-
-- **File**: `--file=path/to.json`
-- **Inline**: `--data='{"id":"my-blog","label":"My Blog"}'`
-- **Stdin**: pipe JSON when stdin is not a TTY, e.g. `cat post.json | moteur entries create --project=my-blog --model=posts`
-
-Examples:
+Every group of the Studio has its commands, named as the Studio names things: `entries`, `models`, `reviews`, `schedules`, `comments`, `pages`, `site`, `menus`, `media`, `templates`, `layouts`, `structures`, `blocks`, `forms`, `submissions`, `members`, `invites`, `keys`, `channels`, `webhooks`, `branches`, `ai`, `billing`, `operator` and more. `moteur help` lists them; `moteur <group> --help` and `moteur <group> <command> --help` explain each, with the API call it makes. The full reference is [docs/CLI.md](../../docs/CLI.md).
 
 ```bash
-moteur projects create --file=project.json
-moteur entries create --project=my-blog --model=posts --file=post.json
-cat patch.json | moteur projects patch --id=my-blog
+moteur projects use demo                       # the default project for every command
+moteur entries list article --q glace --status published
+moteur entries create article --id glace --set title.fr="Sous la glace"
+moteur entries update article glace --set title.en="Under the ice"
+moteur entries publish article glace
+moteur reviews list --status pending
+moteur reviews approve <review-id>
+moteur schedules create publish glace --model article --at 2026-11-13T09:00:00-05:00
+moteur media upload covers/*.jpg --folder covers
+moteur media update <file-id> --alt "Under the ice" --lang en
+moteur invites send someone@example.com --roles writer
 ```
 
-Export: use `--json` to print the API response as JSON to stdout (e.g. for scripts).
-
-## Script-friendly flags
-
-- `--json` – Output raw JSON (no tables or extra text).
-- `--quiet` – Minimal output.
-- `--yes` or `--force` – Skip confirmation prompts (e.g. on delete).
-- `--project=<id>`, `--projectId=<id>` – Project (or set default in menu).
-- `--model=<id>`, `--modelId=<id>` – Model for entry commands.
-
-## Examples
+Anything the API does that has no command yet (or that a plugin adds): `moteur api <METHOD> <path>`, signed in, with `{project}` filled in.
 
 ```bash
-# Open Atelier (interactive TUI)
-moteur
-moteur atelier
-
-# List projects (table) or JSON
-moteur projects list
-moteur projects list --json
-
-# Create project from file
-moteur projects create --file=project.json
-
-# List entries for a model
-moteur entries list --project=my-blog --model=posts
-
-# Get one entry
-moteur entries get --project=my-blog --model=posts --id=my-post
-
-# Delete with confirmation (or --yes to skip)
-moteur projects delete --id=old-project
-moteur projects delete --id=old-project --yes
-
-# Help and examples
-moteur help
-moteur help entries
+moteur api GET /projects/{project}/usage
+moteur api POST /projects/{project}/notifications/read-all
 ```
+
+## Input and output
+
+- **Arguments**: `--key value` or `--key=value`; the thing a command is about can come first (`moteur entries get article glace`). Unknown options are refused, with a suggestion.
+- **Fields**: `--set field=value`, repeated; dots go inside (`title.en=…`), values are read as JSON when they are (`readingTime=5`, `tags='["a","b"]'`).
+- **JSON bodies**: `--file=path.json`, `--data='{…}'`, or piped on stdin.
+- **Output**: a table or a sentence for people; `--json` prints the API’s whole answer for scripts. `--quiet` prints nothing but errors; `--plain` (or `NO_COLOR`) drops colour.
+- **Changes that can’t be undone** ask first; `--yes` skips the question (required when not in a terminal).
+- **Exit codes**: 0 done, 1 the API refused or failed, 2 the command was used wrongly.
+
+## Keeping up with the engine
+
+Commands are declared in [@moteurio/commands](../commands) (arguments, and the call each makes), which the [MCP server](../mcp) shares. `pnpm --filter @moteurio/commands coverage` checks every API operation has one; `pnpm docs` here rewrites [docs/CLI.md](../../docs/CLI.md) from them.
 
 ## Releasing
 
