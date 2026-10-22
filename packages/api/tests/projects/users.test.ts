@@ -44,14 +44,18 @@ vi.mock('@moteurio/core/projects.js', () => ({
     })
 }));
 
-vi.mock('@moteurio/presence', () => ({
-    getOnlineUserIdsForProject: vi.fn(() => ['u-online'])
-}));
+vi.mock('@moteurio/core', async importOriginal => {
+    const actual = await importOriginal<typeof import('@moteurio/core')>();
+    return {
+        ...actual,
+        getOnlineUserIdsForProject: vi.fn(() => ['u-online'])
+    };
+});
 
 import usersRouter from '../../src/projects/users.js';
 import { getProjectUsers, updateUserAsOperator } from '@moteurio/core/users.js';
 import { updateProject } from '@moteurio/core/projects.js';
-import { getOnlineUserIdsForProject } from '@moteurio/presence';
+import { getOnlineUserIdsForProject } from '@moteurio/core';
 
 const app = express();
 app.use(express.json());

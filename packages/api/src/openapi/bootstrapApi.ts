@@ -10,7 +10,6 @@ import '@moteurio/core';
 import { registerCorePlugins, registerHostPlugins } from '@moteurio/core';
 import '@moteurio/core/assets/index.js';
 import { initAiFromEnv, createAiRouter, getAiOpenApiPaths } from '@moteurio/ai';
-import { createPresenceRouter, presenceOpenApiPaths } from '@moteurio/presence';
 import type { HostPluginModule } from '@moteurio/plugin-sdk';
 
 import { baseSpec } from '../openapi.js';
@@ -189,13 +188,6 @@ export async function bootstrapApi(options?: {
         openapi: { paths: getAiOpenApiPaths() }
     });
     Object.assign(pluginPaths, getAiOpenApiPaths());
-
-    pluginRouteContributions.push({
-        path: '/projects',
-        router: createPresenceRouter(routeContext),
-        openapi: { paths: presenceOpenApiPaths }
-    });
-    Object.assign(pluginPaths, presenceOpenApiPaths);
 
     for (const plugin of hostPlugins) {
         try {

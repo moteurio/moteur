@@ -9,7 +9,6 @@ const targetDeps = new Set([
     '@moteurio/plugin-sdk',
     '@moteurio/core',
     '@moteurio/ai',
-    '@moteurio/presence',
     '@moteurio/api',
     '@moteurio/client'
 ]);

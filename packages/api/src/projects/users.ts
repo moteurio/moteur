@@ -10,7 +10,7 @@ import {
 } from '@moteurio/core/users.js';
 import { getProject, updateProject } from '@moteurio/core/projects.js';
 import { sendApiError } from '../utils/apiError.js';
-import { getOnlineUserIdsForProject } from '@moteurio/presence';
+import { getOnlineUserIdsForProject } from '@moteurio/core';
 
 const router: Router = Router({ mergeParams: true });
 

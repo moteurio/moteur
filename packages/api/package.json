@@ -51,7 +51,6 @@
         "@moteurio/ai": "workspace:*",
         "@moteurio/core": "workspace:*",
         "@moteurio/plugin-sdk": "workspace:*",
-        "@moteurio/presence": "workspace:*",
         "@moteurio/types": "workspace:*",
         "@scalar/express-api-reference": "^0.10.29",
         "axios": "^1.20.0",

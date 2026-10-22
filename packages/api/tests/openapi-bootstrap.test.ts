@@ -13,11 +13,6 @@ vi.mock('@moteurio/ai', () => ({
     getAiOpenApiPaths: vi.fn(() => ({}))
 }));
 
-vi.mock('@moteurio/presence', () => ({
-    createPresenceRouter: vi.fn(() => express.Router()),
-    presenceOpenApiPaths: {}
-}));
-
 vi.mock('../src/plugins/hostPlugins', () => ({
     loadHostPluginsFromEnv: vi.fn(async () => [])
 }));

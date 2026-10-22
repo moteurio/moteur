@@ -1,6 +1,6 @@
 # @moteurio/api
 
-Express **REST API** for Moteur: JWT admin routes, read-only **project API key** collections, Scalar docs, merged **OpenAPI 3**, webhooks, and in-process integration with `@moteurio/core`, `@moteurio/ai`, and `@moteurio/presence`.
+Express **REST API** for Moteur: JWT admin routes, read-only **project API key** collections, Scalar docs, merged **OpenAPI 3**, webhooks, and in-process integration with `@moteurio/core` and `@moteurio/ai`. Real-time presence is provided by the **`@moteurio/plugin-presence`** host plugin when loaded.
 
 Product documentation: monorepo [`docs/`](../../docs/README.md). HTTP reference: [REST API](../../docs/REST%20API.md). Configuration: [Configuration](../../docs/Configuration.md). Plugins: [Plugins](../../docs/Plugins.md).
 
@@ -30,7 +30,7 @@ Startup loads `.env` from the monorepo root when present, validates storage path
 1. **`registerCorePlugins()`** — built-in global plugins and git commit hook (`@moteurio/core`).
 2. **`loadHostPluginsFromEnv()`** — optional modules from `MOTEUR_HOST_PLUGINS` / `MOTEUR_ENABLED_PLUGINS`.
 3. **`initAiFromEnv()`** — text AI adapter from `MOTEUR_AI_PROVIDER` (`@moteurio/ai`).
-4. **`bootstrapApi()`** — merge OpenAPI, mount `/ai`, presence, host plugin routers.
+4. **`bootstrapApi()`** — merge OpenAPI, mount `/ai`, host plugin routers (including presence when enabled).
 
 Implementation: [`src/openapi/bootstrapApi.ts`](src/openapi/bootstrapApi.ts), [`src/index.ts`](src/index.ts).
 

@@ -68,6 +68,12 @@ export { addAndCommit, isGitRepo, push } from './git/index.js';
 export { storageConfig, validateStorageConfig } from './config/storageConfig.js';
 export type { StorageAdapter, UploadResult } from './assets/StorageAdapter.js';
 export type { VideoProvider, VideoProviderUploadResult } from './assets/VideoProvider.js';
+export {
+    getOnlineUserIdsForProject,
+    resolveOnlinePresenceMaxIdleMs,
+    setOnlineUserIdsProvider,
+    type OnlineUserIdsProvider
+} from './onlinePresence.js';
 export { registerCorePlugins, registerHostPlugins } from './plugins/registerCorePlugins.js';
 export { createPluginContext } from './plugins/pluginContext.js';
 export type { PluginContext } from './plugins/pluginContext.js';
