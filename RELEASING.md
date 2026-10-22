@@ -42,8 +42,7 @@ Publish order is deterministic:
 2. `@moteurio/plugin-sdk`
 3. `@moteurio/core`
 4. `@moteurio/ai`
-5. `@moteurio/presence`
-6. `@moteurio/api`
+5. `@moteurio/api`
 7. optional: `@moteurio/client`, `@moteurio/cli`
 
 The workflow stops on first failure.
@@ -52,7 +51,7 @@ The workflow stops on first failure.
 
 Per-package tag workflows still exist (for manual/emergency publishes):
 
-- `types@*`, `plugin-sdk@*`, `core@*`, `ai@*`, `presence@*`, `api@*`, `client@*`, `cli@*`
+- `types@*`, `plugin-sdk@*`, `core@*`, `ai@*`, `api@*`, `client@*`, `cli@*`
 
 Do not run fallback tag workflows in parallel with the orchestrator.
 

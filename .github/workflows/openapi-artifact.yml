@@ -1,4 +1,4 @@
-# Upload merged openapi.json from main for manual CDN or docs hosting.
+# Engine-only OpenAPI (no api.moteur.io host plugins). Public API docs: api.moteur.io → docs.api.moteur.io.
 name: OpenAPI artifact
 
 on:
@@ -8,7 +8,6 @@ on:
             - 'packages/api/**'
             - 'packages/ai/**'
             - 'packages/core/**'
-            - 'packages/presence/**'
             - 'packages/plugin-sdk/**'
             - 'packages/types/**'
 

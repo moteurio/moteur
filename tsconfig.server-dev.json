@@ -6,7 +6,6 @@
             "@moteurio/types/*": ["./packages/types/dist/*"],
             "@moteurio/core/*": ["./packages/core/dist/*"],
             "@moteurio/api/*": ["./packages/api/dist/*"],
-            "@moteurio/presence/*": ["./packages/presence/src/*"],
             "@moteurio/plugin-geo": ["./packages/plugins/plugin-geo/src/index.ts"],
             "@moteurio/plugin-ai-provider-anthropic": [
                 "./packages/plugins/plugin-ai-provider-anthropic/dist"
@@ -41,7 +40,6 @@
             "@moteurio/types": ["./packages/types/dist"],
             "@moteurio/core": ["./packages/core/dist"],
             "@moteurio/api": ["./packages/api/dist"],
-            "@moteurio/presence": ["./packages/presence/src/index.ts"],
             "@moteurio/ai": ["./packages/ai/dist"]
         }
     }

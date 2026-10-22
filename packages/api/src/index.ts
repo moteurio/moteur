@@ -73,7 +73,6 @@ import { usageLogging } from './middlewares/usageLogging.js';
 import { requestQuota } from './middlewares/requestQuota.js';
 import { studioRateLimiter, publicRateLimitGate } from './middlewares/rateLimit.js';
 import { bootstrapApi } from './openapi/bootstrapApi.js';
-import { attachPresenceServer } from '@moteurio/presence';
 // Ensure asset storage adapters (e.g. local) are registered before any asset routes run
 import '@moteurio/core/assets/index.js';
 // Video provider config (Mux/Vimeo) is set by video-mux and video-vimeo plugins when enabled
@@ -242,9 +241,7 @@ app.use(globalErrorHandler);
 // 🔧 Create HTTP server wrapper
 const httpServer = createServer(app);
 
-// Core presence: attach Socket.IO to app.locals.io
-attachPresenceServer(httpServer, app);
-// Host plugins may attach to the server
+// Host plugins may attach to the server (e.g. presence Socket.IO on app.locals.io)
 for (const plugin of hostPlugins) {
     try {
         const attach = plugin.attachServer;

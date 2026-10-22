@@ -109,11 +109,6 @@ jobs:
               env:
                   NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
-            - name: Publish @moteurio/presence
-              run: pnpm --filter @moteurio/presence test && pnpm --filter @moteurio/presence run build && cd packages/presence && npm publish --access public
-              env:
-                  NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-
             - name: Publish @moteurio/api
               run: pnpm --filter @moteurio/api test && pnpm --filter @moteurio/api run build && cd packages/api && npm publish --access public
               env:
