@@ -21,8 +21,8 @@ export interface Entry {
     options?: Record<string, any>; // Additional options (e.g., versioning)
 }
 
-/** Which helper wrote a field's text. */
-export type AssistHelper = 'write' | 'translate' | 'notes' | 'alt' | 'audio' | 'model3d';
+/** Which helper wrote a field's text. `agent` is an AI client acting for someone (its name in `action`). */
+export type AssistHelper = 'write' | 'translate' | 'notes' | 'alt' | 'audio' | 'model3d' | 'agent';
 
 export interface AssistedMark {
     helper: AssistHelper;

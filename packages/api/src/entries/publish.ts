@@ -16,11 +16,13 @@ router.post('/:entryId/publish', requireProjectAccess, async (req: Request, res:
         const entry = await publishEntry(req.user!, projectId, modelId, entryId);
         return void res.json(entry);
     } catch (err: unknown) {
-        const statusCode = getMessage(err)?.includes('requires an approved review')
-            ? 403
-            : getMessage(err)?.includes('not found')
-              ? 404
-              : 400;
+        const statusCode =
+            (err as { statusCode?: number }).statusCode === 403 ||
+            getMessage(err)?.includes('requires an approved review')
+                ? 403
+                : getMessage(err)?.includes('not found')
+                  ? 404
+                  : 400;
         return void res.status(statusCode).json({
             error: getMessage(err) ?? 'Failed to publish entry',
             ...errorFields(err)

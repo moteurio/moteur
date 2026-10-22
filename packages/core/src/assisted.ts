@@ -1,6 +1,6 @@
 import type { AssistedMark, AssistHelper } from '@moteurio/types/Model.js';
 
-const HELPERS: AssistHelper[] = ['write', 'translate', 'notes', 'alt', 'audio', 'model3d'];
+const HELPERS: AssistHelper[] = ['write', 'translate', 'notes', 'alt', 'audio', 'model3d', 'agent'];
 /** `title`, `body`, or one language of a field: `title.en`. */
 const KEY = /^[A-Za-z0-9_-]+(\.[A-Za-z0-9_-]+)?$/;
 
@@ -71,4 +71,47 @@ export function unreadAssisted(marks: Record<string, AssistedMark> | undefined):
     return Object.entries(marks ?? {})
         .filter(([, m]) => !m.readBy)
         .map(([k]) => k);
+}
+
+const isLocaleMap = (v: unknown, locales: string[]): v is Record<string, unknown> =>
+    !!v &&
+    typeof v === 'object' &&
+    !Array.isArray(v) &&
+    Object.keys(v).length > 0 &&
+    Object.keys(v).every(k => locales.includes(k));
+
+/**
+ * Marks for what an agent changed: each field it wrote (or each language of it), as written by
+ * the agent and not yet read by a person. Marks on fields it left alone stay as they were.
+ */
+export function agentMarks(
+    before: Record<string, AssistedMark> | undefined,
+    oldData: Record<string, unknown>,
+    newData: Record<string, unknown>,
+    agent: string,
+    userId: string,
+    locales: string[],
+    now: string = new Date().toISOString()
+): Record<string, AssistedMark> | undefined {
+    const out: Record<string, AssistedMark> = { ...before };
+    const mark: AssistedMark = {
+        helper: 'agent',
+        action: agent.slice(0, 40),
+        keptBy: userId,
+        keptAt: now
+    };
+    const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
+    for (const key of new Set([...Object.keys(oldData), ...Object.keys(newData)])) {
+        const was = oldData[key];
+        const is = newData[key];
+        if (same(was, is) || !/^[A-Za-z0-9_-]+$/.test(key)) continue;
+        if (isLocaleMap(is, locales) && (was === undefined || isLocaleMap(was, locales))) {
+            for (const lang of Object.keys(is)) {
+                if (!same(was?.[lang], is[lang])) out[`${key}.${lang}`] = { ...mark };
+            }
+        } else if (is !== undefined) {
+            out[key] = { ...mark };
+        }
+    }
+    return Object.keys(out).length ? out : undefined;
 }

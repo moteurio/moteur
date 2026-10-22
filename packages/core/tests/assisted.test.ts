@@ -8,9 +8,36 @@ import { putProjectJson } from '../src/utils/projectStorage.js';
 import { modelKey } from '../src/utils/storageKeys.js';
 import { createEntry, updateEntry } from '../src/entries.js';
 import { onEvent } from '../src/utils/eventBus.js';
-import { addsAssisted, stampAssisted, unreadAssisted } from '../src/assisted.js';
+import { addsAssisted, agentMarks, stampAssisted, unreadAssisted } from '../src/assisted.js';
 
 describe('helper marks', () => {
+    it('marks what an agent changed, per language, keeping other marks', () => {
+        const before = {
+            body: {
+                helper: 'write' as const,
+                keptBy: 'sophie',
+                keptAt: 't0',
+                readBy: 'sophie',
+                readAt: 't0'
+            }
+        };
+        const marks = agentMarks(
+            before,
+            { title: { fr: 'Glace', en: 'Ice' }, body: 'x', year: 1970 },
+            { title: { fr: 'Glace', en: 'Under the ice' }, body: 'x', year: 1971 },
+            'Claude',
+            'louise',
+            ['fr', 'en'],
+            't1'
+        );
+        expect(marks).toEqual({
+            body: before.body,
+            'title.en': { helper: 'agent', action: 'Claude', keptBy: 'louise', keptAt: 't1' },
+            year: { helper: 'agent', action: 'Claude', keptBy: 'louise', keptAt: 't1' }
+        });
+        expect(unreadAssisted(marks)).toEqual(['title.en', 'year']);
+    });
+
     it('stamps who kept and who read, whatever the client claims', () => {
         const kept = stampAssisted(
             undefined,

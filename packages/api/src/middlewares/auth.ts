@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { hasRole, inProject } from '@moteurio/types';
-import { verifyJWT } from '@moteurio/core/auth.js';
+import { actingUser, verifyJWT } from '@moteurio/core/auth.js';
 import { getUserById } from '@moteurio/core/users.js';
 import { getProject } from '@moteurio/core/projects.js';
 import { verifyProjectApiKey } from '@moteurio/core/projectApiKey.js';
@@ -25,7 +25,7 @@ export function requireAuth(req: Request, res: Response, next: NextFunction) {
         if (!user || !user.id || !user.isActive) {
             return void res.status(401).json({ error: 'Invalid or expired token' });
         }
-        req.user = user;
+        req.user = actingUser(user, payload);
         next();
     } catch (err) {
         console.warn('[auth] JWT verification failed:', err instanceof Error ? err.message : err);
@@ -76,7 +76,7 @@ export function optionalAuth(req: Request, res: Response, next: NextFunction) {
     try {
         const payload = verifyJWT(token);
         const user = getUserById(payload.sub as string);
-        if (user?.id && user.isActive) req.user = user;
+        if (user?.id && user.isActive) req.user = actingUser(user, payload);
     } catch {
         // ignore invalid token for optional auth
     }

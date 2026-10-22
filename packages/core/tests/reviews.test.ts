@@ -9,6 +9,7 @@ import { getProjectJson, putProjectJson } from '../src/utils/projectStorage.js';
 import { entryKey, modelKey } from '../src/utils/storageKeys.js';
 import { getPublishedEntryForProject, publishEntry, updateEntry } from '../src/entries.js';
 import { approveReview, submitForReview } from '../src/reviews.js';
+import { actingUser } from '../src/auth.js';
 import { onEvent } from '../src/utils/eventBus.js';
 import auditPlugin from '../src/plugins/core/auditLogger.js';
 import { registerContentCommitHook } from '../src/git/contentCommitHook.js';
@@ -83,6 +84,44 @@ describe('review workflow', () => {
         expect(entry?.meta?.audit?.publishedCommit).toBe(
             getRepoLog(projDir).find(c => c.message.startsWith('Publish article/e1 — Rita'))?.hash
         );
+        expect((await getPublishedEntryForProject(projectId, 'article', 'e1'))?.data?.title).toBe(
+            'v2'
+        );
+    });
+
+    it('an agent’s changes are marked, and go live only once a person approves them', async () => {
+        const claude = actingUser(admin, { agent: { name: 'Claude' } });
+        expect(claude.name).toBe('Ada via Claude');
+        await updateEntry(claude, projectId, 'article', 'e1', {
+            data: { title: 'v2' },
+            meta: { assisted: { title: { helper: 'agent', read: true } } }
+        });
+        const saved = await getProjectJson<Entry>(projectId, entryKey('article', 'e1'));
+        // Marked as the agent's, unread: the agent can't say it has read its own text.
+        expect(saved?.meta?.assisted?.title).toMatchObject({
+            helper: 'agent',
+            action: 'Claude',
+            keptBy: 'admin'
+        });
+        expect(saved?.meta?.assisted?.title?.readBy).toBeUndefined();
+        expect(commitMessages()[0]).toMatch(/^Update article\/e1 \(with help\) — Ada via Claude/);
+
+        // Admin as a person may publish; as a review-only agent, not without approval.
+        await expect(publishEntry(claude, projectId, 'article', 'e1')).rejects.toThrow(
+            /once a person approves/
+        );
+        const review = await submitForReview(projectId, claude, 'article', 'e1');
+        await expect(approveReview(projectId, claude, review.id)).rejects.toThrow(/a person does/);
+        await approveReview(projectId, reviewer, review.id);
+        expect((await getPublishedEntryForProject(projectId, 'article', 'e1'))?.data?.title).toBe(
+            'v2'
+        );
+    });
+
+    it('an agent the person lets publish is marked, but not held for review beyond the project’s rules', async () => {
+        const claude = actingUser(admin, { agent: { name: 'Claude', reviewOnly: false } });
+        await updateEntry(claude, projectId, 'article', 'e1', { data: { title: 'v2' } });
+        await publishEntry(claude, projectId, 'article', 'e1');
         expect((await getPublishedEntryForProject(projectId, 'article', 'e1'))?.data?.title).toBe(
             'v2'
         );

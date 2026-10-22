@@ -139,11 +139,13 @@ router.put('/:id', requireProjectAccess, async (req: Request, res: Response) => 
         const page = await updatePage(projectId, req.user!, id, req.body);
         return void res.json(page);
     } catch (err: unknown) {
-        const code = getMessage(err)?.includes('Publishing requires')
-            ? 403
-            : getMessage(err)?.includes('not found')
-              ? 404
-              : 400;
+        const code =
+            (err as { statusCode?: number }).statusCode === 403 ||
+            getMessage(err)?.includes('Publishing requires')
+                ? 403
+                : getMessage(err)?.includes('not found')
+                  ? 404
+                  : 400;
         return void res
             .status(code)
             .json({ error: getMessage(err) ?? 'Failed to update page', ...errorFields(err) });
@@ -157,11 +159,13 @@ router.patch('/:id', requireProjectAccess, async (req: Request, res: Response) =
         const page = await updatePage(projectId, req.user!, id, req.body);
         return void res.json(page);
     } catch (err: unknown) {
-        const code = getMessage(err)?.includes('Publishing requires')
-            ? 403
-            : getMessage(err)?.includes('not found')
-              ? 404
-              : 400;
+        const code =
+            (err as { statusCode?: number }).statusCode === 403 ||
+            getMessage(err)?.includes('Publishing requires')
+                ? 403
+                : getMessage(err)?.includes('not found')
+                  ? 404
+                  : 400;
         return void res
             .status(code)
             .json({ error: getMessage(err) ?? 'Failed to patch page', ...errorFields(err) });

@@ -26,7 +26,10 @@ export type RoleSlug = (typeof ROLE_SLUGS)[number];
  */
 export const OPERATOR_ROLE_SLUG = 'admin';
 
-type WithRoles = { roles?: readonly string[] | null } | null | undefined;
+type WithRoles =
+    | { roles?: readonly string[] | null; agent?: { reviewOnly?: boolean } | null }
+    | null
+    | undefined;
 type WithMemberRoles =
     { memberRoles?: Record<string, readonly string[]> | null } | null | undefined;
 
@@ -97,9 +100,39 @@ export function translatorOnly(user: WithRoles): boolean {
     return hasRole(user, 'translator') && !canWrite(user);
 }
 
-/** Approve and reject reviews. */
+/** Approve and reject reviews. A review-only agent never can: approving is a person's call. */
 export function canReview(user: WithRoles): boolean {
+    if (user?.agent?.reviewOnly) return false;
     return hasRole(user, 'reviewer') || hasRole(user, 'admin');
+}
+
+/**
+ * Whether this person needs an approved review to publish: when the project asks for reviews
+ * (admins excepted), and always for a review-only agent.
+ */
+export function needsApproval(
+    user: WithRoles,
+    project: { workflow?: { enabled?: boolean; requireReview?: boolean } | null } | null | undefined
+): boolean {
+    if (user?.agent?.reviewOnly) return true;
+    return !!(
+        project?.workflow?.enabled &&
+        project.workflow.requireReview &&
+        !hasRole(user, 'admin')
+    );
+}
+
+/** Why publishing was refused, for `needsApproval`. */
+export function approvalMessage(
+    user: WithRoles,
+    project: { workflow?: { enabled?: boolean } | null } | null | undefined
+): string {
+    if (!user?.agent?.reviewOnly) {
+        return 'Publishing requires an approved review when the project has review workflow enabled.';
+    }
+    return project?.workflow?.enabled
+        ? 'Changes made by an agent go live once a person approves them: ask for a review.'
+        : 'Changes made by an agent go live when a person publishes them: the draft is saved.';
 }
 
 /** See and change how a project is paid for. Admin does not imply it. */

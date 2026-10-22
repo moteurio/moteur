@@ -5,7 +5,7 @@ import jwt, { JwtPayload, Secret, SignOptions } from 'jsonwebtoken';
 import { createUser, getUserByEmail, reloadUsers, recordUserLogin } from './users.js';
 import { getProjectIdsForUser } from './projects.js';
 import { hasRole } from '@moteurio/types';
-import { User } from '@moteurio/types/User.js';
+import type { AgentActor, User } from '@moteurio/types/User.js';
 
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRY ?? '1h';
 
@@ -130,7 +130,8 @@ export function generateJWT(user: User): string {
         roles: user.roles,
         projects,
         isActive: user.isActive,
-        ...(user.avatar ? { avatarUrl: user.avatar } : {})
+        ...(user.avatar ? { avatarUrl: user.avatar } : {}),
+        ...(user.agent ? { agent: user.agent } : {})
     };
     const token: string = jwt.sign(
         payload,
@@ -153,9 +154,29 @@ export function generateSessionToken(user: User, ttlSeconds: number): string {
         roles: user.roles,
         projects,
         isActive: user.isActive,
-        ...(user.avatar ? { avatarUrl: user.avatar } : {})
+        ...(user.avatar ? { avatarUrl: user.avatar } : {}),
+        ...(user.agent ? { agent: user.agent } : {})
     };
     return jwt.sign(payload, secret as Secret, { expiresIn: capped } as SignOptions);
+}
+
+/** The agent a token was given to, if any (`{ name, reviewOnly }` claim). */
+export function agentOf(payload: JwtPayload | Record<string, unknown>): AgentActor | undefined {
+    const claim = (payload as { agent?: unknown }).agent;
+    if (!claim || typeof claim !== 'object') return undefined;
+    const { name, reviewOnly } = claim as { name?: unknown; reviewOnly?: unknown };
+    if (typeof name !== 'string' || !name.trim()) return undefined;
+    return { name: name.trim().slice(0, 40), reviewOnly: reviewOnly !== false };
+}
+
+/**
+ * The person a request acts as: the stored account, plus the agent from the token when one
+ * acts for them ("Louise via Claude" wherever the name is recorded).
+ */
+export function actingUser(user: User, payload: JwtPayload | Record<string, unknown>): User {
+    const agent = agentOf(payload);
+    if (!agent) return user;
+    return { ...user, name: `${user.name ?? user.email} via ${agent.name}`, agent };
 }
 
 export function verifyJWT(token: string): JwtPayload {

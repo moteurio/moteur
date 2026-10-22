@@ -40,6 +40,8 @@ export interface ActivityEvent {
     action: ActivityAction;
     userId: string;
     userName: string;
+    /** The agent that acted for the person (`userName` then reads "Louise via Claude"). */
+    agent?: string;
     fieldPath?: string;
     before?: unknown;
     after?: unknown;
