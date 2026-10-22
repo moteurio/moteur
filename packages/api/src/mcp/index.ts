@@ -115,7 +115,7 @@ export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
         post: {
             summary: 'Moteur for AI agents: the Model Context Protocol (Streamable HTTP)',
             description:
-                'A tool for everything the API can do, for remote MCP clients. The tools act as an agent for the signed-in person: changes read “<name> via <agent>”, are marked until a person reads them, and go live only once a person approves them (unless the token was given to an agent with reviewOnly false, see POST /auth/session-token). Query: groups (comma-separated), readOnly, allowDestructive, all, compact, project.',
+                'A tool for everything the API can do, for remote MCP clients. The tools act as an agent for the signed-in person: changes read “<name> via <agent>”, are marked until a person reads them, and go live only once a person approves them (unless the token was given to an agent with reviewOnly false, see POST /auth/session-token). Query: groups (comma-separated), readOnly, allowDestructive, all, compact, project. A notification (a message without an id) is answered 202 with no body.',
             tags: ['MCP'],
             security: [{ bearerAuth: [] }],
             requestBody: {
@@ -131,7 +131,6 @@ export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
                     description: 'The JSON-RPC answer',
                     content: { 'application/json': { schema: { type: 'object' } } }
                 },
-                '202': { description: 'A notification, accepted' },
                 '401': { description: 'Not signed in' }
             }
         }
