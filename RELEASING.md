@@ -40,9 +40,10 @@ Publish order is deterministic:
 
 1. `@moteurio/types`
 2. `@moteurio/plugin-sdk`
-3. `@moteurio/core`
-4. `@moteurio/ai`
-5. `@moteurio/api`
+3. `@moteurio/studio-plugin-sdk`
+4. `@moteurio/core`
+5. `@moteurio/ai`
+6. `@moteurio/api`
 7. optional: `@moteurio/client`, `@moteurio/cli`
 
 The workflow stops on first failure.

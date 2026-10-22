@@ -1,7 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { storageConfig } from '@moteurio/core';
-import type { PluginManifest } from '@moteurio/types/Plugin.js';
+import type { PluginManifest, PluginStudioHints } from '@moteurio/types/Plugin.js';
 
 /**
  * Every plugin this server knows of, as loaded at start, and the operator's saved on/off choices.
@@ -15,6 +15,7 @@ export type PluginEntry = {
     source?: PluginManifest['source'];
     scope?: PluginManifest['scope'];
     capabilities?: string[];
+    studio?: PluginStudioHints;
     /** `core`: part of the engine, always on. `host`: chosen by the host. */
     kind: 'core' | 'host';
     /** Import specifier the host gave. */

@@ -4,6 +4,7 @@
         { "path": "packages/types" },
         { "path": "packages/core" },
         { "path": "packages/plugin-sdk" },
+        { "path": "packages/studio-plugin-sdk" },
         { "path": "packages/api" },
         { "path": "packages/ai" }
     ],

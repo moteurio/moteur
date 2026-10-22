@@ -121,6 +121,12 @@ export {
     redirectAfterLogin,
     redirectLoginFailed,
     safeNext,
+    discoverOidcIssuer,
+    exchangeAuthorizationCode,
+    fetchOidcUserInfo,
+    parseJwtPayload,
+    emailFromOidcClaims,
     type OAuthConfig,
-    type OAuthFailure
+    type OAuthFailure,
+    type OidcDiscovery
 } from './oauth.js';
