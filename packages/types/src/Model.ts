@@ -22,7 +22,7 @@ export interface Entry {
 }
 
 /** Which helper wrote a field's text. */
-export type AssistHelper = 'write' | 'translate' | 'notes' | 'alt';
+export type AssistHelper = 'write' | 'translate' | 'notes' | 'alt' | 'audio' | 'model3d';
 
 export interface AssistedMark {
     helper: AssistHelper;

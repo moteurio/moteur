@@ -3,6 +3,10 @@ import request from 'supertest';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createSaveGeneratedImageRouter } from '../src/routes/saveGeneratedImage.js';
 
+// Provider addresses in these tests are made up: skip the DNS check for public addresses.
+vi.mock('@moteurio/core/webhooks/webhookService.js', () => ({
+    assertPublicHttpsUrl: vi.fn(async () => undefined)
+}));
 vi.mock('axios', () => {
     return {
         default: {
