@@ -18,6 +18,10 @@ vi.mock('../../src/middlewares/auth', () => ({
     }
 }));
 
+// Provider addresses in these tests are made up: skip the DNS check for public addresses.
+vi.mock('@moteurio/core/webhooks/webhookService.js', () => ({
+    assertPublicHttpsUrl: vi.fn(async () => undefined)
+}));
 vi.mock('axios', () => ({
     default: {
         get: vi.fn().mockResolvedValue({

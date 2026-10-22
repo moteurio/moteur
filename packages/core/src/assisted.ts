@@ -1,6 +1,6 @@
 import type { AssistedMark, AssistHelper } from '@moteurio/types/Model.js';
 
-const HELPERS: AssistHelper[] = ['write', 'translate', 'notes', 'alt'];
+const HELPERS: AssistHelper[] = ['write', 'translate', 'notes', 'alt', 'audio', 'model3d'];
 /** `title`, `body`, or one language of a field: `title.en`. */
 const KEY = /^[A-Za-z0-9_-]+(\.[A-Za-z0-9_-]+)?$/;
 

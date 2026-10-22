@@ -6,6 +6,7 @@ import axios from 'axios';
 import { z } from 'zod';
 import { getProject } from '@moteurio/core/projects.js';
 import { uploadAsset } from '@moteurio/core/assets/assetService.js';
+import { assertPublicHttpsUrl } from '@moteurio/core/webhooks/webhookService.js';
 import type { PluginRouteContext } from '@moteurio/types/Plugin.js';
 import { helperState } from '../helpers.js';
 
@@ -71,9 +72,16 @@ export function createSaveGeneratedImageRouter(ctx: PluginRouteContext): Router 
                 mimeType = match[1].trim().toLowerCase();
                 buffer = Buffer.from(match[2], 'base64');
             } else {
+                // Only a provider's public HTTPS address: never this server's own network.
+                try {
+                    await assertPublicHttpsUrl(variantUrl, 'Image URL');
+                } catch (err) {
+                    return res.status(400).json({ error: (err as Error).message });
+                }
                 const response = await axios.get(variantUrl, {
                     responseType: 'arraybuffer',
                     timeout: 30000,
+                    maxRedirects: 0,
                     maxContentLength: 20 * 1024 * 1024,
                     validateStatus: (s: number) => s === 200
                 });
