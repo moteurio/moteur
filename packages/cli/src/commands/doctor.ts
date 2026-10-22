@@ -1,6 +1,4 @@
-import { cliRegistry } from '../registry.js';
-import { loadConfig, getClient, getProjectId } from '../config.js';
-import chalk from 'chalk';
+import { loadConfig, getClient, getProjectId } from '@moteurio/commands';
 
 /* global AbortController, fetch, setTimeout, clearTimeout */
 
@@ -10,7 +8,7 @@ interface CheckResult {
     hint?: string;
 }
 
-async function runChecks(args: Record<string, unknown>): Promise<CheckResult[]> {
+export async function doctorChecks(args: Record<string, unknown>): Promise<CheckResult[]> {
     const results: CheckResult[] = [];
     const config = await loadConfig();
     const projectId = await getProjectId(args);
@@ -92,33 +90,3 @@ async function runChecks(args: Record<string, unknown>): Promise<CheckResult[]> 
 
     return results;
 }
-
-export async function doctorCommand(args: Record<string, unknown>): Promise<void> {
-    const results = await runChecks(args);
-
-    if (args.json) {
-        console.log(JSON.stringify({ checks: results, ok: results.every(r => r.ok) }, null, 2));
-        process.exit(results.every(r => r.ok) ? 0 : 1);
-        return;
-    }
-
-    if (!args.quiet) {
-        console.log('\n  Moteur doctor\n');
-        for (const r of results) {
-            const sym = r.ok ? chalk.green('✓') : chalk.red('✗');
-            const line = `  ${sym} ${r.name}`;
-            console.log(r.ok ? chalk.green(line) : chalk.red(line));
-            if (!r.ok && r.hint) console.log(chalk.gray('    → ' + r.hint));
-        }
-        console.log('');
-    }
-
-    process.exit(results.every(r => r.ok) ? 0 : 1);
-}
-
-cliRegistry.register('doctor', {
-    name: '',
-    description:
-        'Check CLI setup: config, host reachable, auth, default project (not the same as radar)',
-    action: doctorCommand
-});

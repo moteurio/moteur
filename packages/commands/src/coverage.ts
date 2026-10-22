@@ -1,0 +1,99 @@
+/**
+ * Which API operations have a command. The OpenAPI document is the list of everything the engine
+ * (and its plugins) can do; every operation needs a command, or a reason in SKIPPED.
+ */
+import type { CommandSpec } from './spec.js';
+
+/** Operations without a command on purpose, with why. Same `METHOD /path` form as `http`. */
+export const SKIPPED: Record<string, string> = {
+    'GET /auth/github': 'browser sign-in redirect',
+    'GET /auth/github/callback': 'browser sign-in redirect',
+    'GET /auth/google': 'browser sign-in redirect',
+    'GET /auth/google/callback': 'browser sign-in redirect',
+    'GET /auth/microsoft': 'browser sign-in redirect',
+    'GET /auth/microsoft/callback': 'browser sign-in redirect',
+    'GET /auth/oidc': 'browser sign-in redirect',
+    'GET /auth/oidc/callback': 'browser sign-in redirect',
+    'POST /auth/login':
+        'signing in with a password: the command line’s `moteur auth login`, not a shared command',
+    'POST /mcp': 'the MCP server itself: its tools are these commands',
+    'POST /webhooks/stripe': 'received from Stripe',
+    'POST /webhooks/github': 'received from GitHub',
+    'POST /webhooks/slack': 'received from Slack',
+    'POST /webhooks/vercel': 'received from Vercel',
+    'POST /webhooks/mux': 'received from Mux',
+    'POST /webhooks/vimeo': 'received from Vimeo',
+    'POST /webhooks/cloudflare-stream': 'received from Cloudflare Stream',
+    'POST /webhooks/shopify': 'received from Shopify',
+    'POST /projects/{x}/play/polls/{x}/vote': 'visitors vote on the site',
+    'GET /projects/{x}/presence/debug': 'presence debugging, for developers of the Studio',
+    'DELETE /projects/{x}/presence/screen/{x}': 'presence debugging, for developers of the Studio',
+    'POST /studio/assets/migrate-provider': 'deprecated: moteur media-settings move-videos',
+    'GET /projects/{x}/collections/{x}/forms':
+        'what a frontend reads through a channel (moteur api)',
+    'GET /projects/{x}/collections/{x}/forms/{x}':
+        'what a frontend reads through a channel (moteur api)',
+    'GET /projects/{x}/collections/{x}/layouts':
+        'what a frontend reads through a channel (moteur api)',
+    'GET /projects/{x}/collections/{x}/layouts/{x}':
+        'what a frontend reads through a channel (moteur api)',
+    'GET /projects/{x}/collections/{x}/menus':
+        'what a frontend reads through a channel (moteur api)',
+    'GET /projects/{x}/collections/{x}/menus/{x}':
+        'what a frontend reads through a channel (moteur api)',
+    'GET /projects/{x}/collections/{x}/pages':
+        'what a frontend reads through a channel (moteur api)',
+    'GET /projects/{x}/collections/{x}/pages/by-slug/{x}':
+        'what a frontend reads through a channel (moteur api)',
+    'GET /projects/{x}/collections/{x}/pages/{x}':
+        'what a frontend reads through a channel (moteur api)',
+    'GET /projects/{x}/collections/{x}/{x}/entries':
+        'what a frontend reads through a channel (moteur api)',
+    'GET /projects/{x}/collections/{x}/{x}/entries/{x}':
+        'what a frontend reads through a channel (moteur api)'
+};
+
+/** `/projects/{projectId}/models/{modelId}` and `/projects/{project}/models/{model}` alike. */
+export const normalize = (op: string): string => {
+    const [method, path] = op.split(' ');
+    return `${method.toUpperCase()} ${path.replace(/\{[^}]+\}/g, '{x}').replace(/\/+$/, '')}`;
+};
+
+/** The operations a command covers: its `covers`, else its `http`. */
+export function operationsOf(command: CommandSpec): string[] {
+    return (command.covers ?? (command.http ? [command.http] : [])).map(normalize);
+}
+
+export interface Coverage {
+    total: number;
+    covered: string[];
+    skipped: string[];
+    missing: string[];
+    /** Commands calling something the document doesn't list (typos, removed routes). */
+    unknown: { command: string; op: string }[];
+}
+
+type OpenApi = { paths?: Record<string, Record<string, unknown>> };
+const METHODS = ['get', 'post', 'put', 'patch', 'delete'];
+
+export function coverage(commands: CommandSpec[], doc: OpenApi): Coverage {
+    const ops = Object.entries(doc.paths ?? {}).flatMap(([path, item]) =>
+        Object.keys(item)
+            .filter(m => METHODS.includes(m))
+            .map(m => normalize(`${m} ${path}`))
+    );
+    const known = new Set(ops);
+    const byCommand = new Set(commands.flatMap(operationsOf));
+    const skipped = new Set(Object.keys(SKIPPED).map(normalize));
+    return {
+        total: ops.length,
+        covered: ops.filter(o => byCommand.has(o)),
+        skipped: ops.filter(o => !byCommand.has(o) && skipped.has(o)),
+        missing: ops.filter(o => !byCommand.has(o) && !skipped.has(o)),
+        unknown: commands.flatMap(c =>
+            operationsOf(c)
+                .filter(o => !known.has(o))
+                .map(op => ({ command: `${c.group} ${c.name}`.trim(), op }))
+        )
+    };
+}

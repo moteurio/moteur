@@ -1,74 +1,63 @@
 #!/usr/bin/env node
+import { createRequire } from 'module';
+import { commands } from './commands/index.js';
+import { runCommand } from './framework/run.js';
+import chalk from 'chalk';
+import { commandHelp, groupHelp, overviewHelp } from './framework/help.js';
 
-import { cliRegistry } from './registry.js';
-import { showHelp, showCommandHelp } from './commands/help.js';
-import { atelierCommand } from './commands/atelier.js';
-import { formatError } from './utils/formatMessage.js';
-import { parseArgs } from './utils/parseArgs.js';
-
-import './commands/auth.js';
-import './commands/projects.js';
-import './commands/models.js';
-import './commands/entries.js';
-import './commands/layouts.js';
-import './commands/structures.js';
-import './commands/templates.js';
-import './commands/pages.js';
-import './commands/navigations.js';
-import './commands/forms.js';
-import './commands/submissions.js';
-import './commands/comments.js';
-import './commands/assets.js';
-import './commands/webhooks.js';
-import './commands/activity.js';
-import './commands/doctor.js';
-import './commands/status.js';
-import './commands/radar.js';
-import './commands/branches.js';
-import './commands/seed.js';
-import './commands/blocks.js';
-import './commands/fields.js';
-import './commands/userdata.js';
-import './commands/blueprints.js';
-import './commands/workspace.js';
-import './commands/ai.js';
-
-const [command, subcommand, ...rest] = process.argv.slice(2);
-const args: Record<string, unknown> = parseArgs(rest);
-
-// Global flags (every command receives these via args)
-// --project=<id> --json --plain --quiet --debug --no-color
-args.isTty = process.stdout.isTTY === true;
-if (args.noColor === true || args['no-color'] === true) args.plain = true;
-
-async function run(): Promise<void> {
-    if (command === 'help' || command === '--help' || command === '-h') {
-        if (command === 'help' && subcommand) showCommandHelp(subcommand);
-        else showHelp();
-        return;
-    }
-    if (!command) {
-        await atelierCommand(args);
-        return;
-    }
-    if (!cliRegistry.has(command)) {
-        console.error('Unknown command:', command);
-        showHelp();
-        process.exit(1);
-    }
-    let cmdDef;
-    try {
-        cmdDef = cliRegistry.get(command, subcommand ?? '');
-    } catch {
-        showCommandHelp(command);
-        process.exit(1);
-    }
-    try {
-        await cmdDef.action(args);
-    } catch (err) {
-        console.error(formatError(err));
-        process.exit(1);
-    }
+const argv = process.argv.slice(2);
+if (
+    argv.includes('--plain') ||
+    argv.includes('--no-color') ||
+    process.env.NO_COLOR ||
+    !process.stdout.isTTY
+)
+    chalk.level = 0;
+const wantsHelp = argv.includes('--help') || argv.includes('-h');
+// The command's words come before any option: `moteur entries list --q glace`.
+const words: string[] = [];
+for (const a of argv) {
+    if (a.startsWith('-')) break;
+    words.push(a);
 }
 
-run();
+async function main(): Promise<number> {
+    if (argv[0] === '--version' || argv[0] === '-v') {
+        console.log(
+            (createRequire(import.meta.url)('../package.json') as { version: string }).version
+        );
+        return 0;
+    }
+    if (!words.length || words[0] === 'help') {
+        const [, g, n] = words;
+        const named = g ? (n ? commands.find(g, n) : commands.find(g, '')) : undefined;
+        if (named && n) console.log(commandHelp(named));
+        else if (g && commands.inGroup(g).length) console.log(groupHelp(commands, g));
+        else console.log(overviewHelp(commands));
+        return 0;
+    }
+    const { command } = commands.resolve(words);
+    const group = commands.inGroup(words[0]);
+    if (!command) {
+        if (group.length) {
+            if (words[1]) console.error(`✗ moteur ${words[0]} has no command "${words[1]}".\n`);
+            console.log(groupHelp(commands, words[0]));
+            return words[1] ? 2 : 0;
+        }
+        console.error(`✗ Unknown command: ${words[0]}. See: moteur help`);
+        return 2;
+    }
+    if (wantsHelp) {
+        console.log(
+            command.name === '' && group.length > 1
+                ? groupHelp(commands, words[0])
+                : commandHelp(command)
+        );
+        return 0;
+    }
+    // Everything after the command's own words: positionals and options.
+    const consumed = command.name ? 2 : 1;
+    return runCommand(command, argv.slice(consumed));
+}
+
+process.exitCode = await main();

@@ -19,7 +19,11 @@ export function printTable(
             return String(v);
         })
     );
-    const table = new Table({ head: headerRow });
+    // No colour codes for NO_COLOR, --plain, or output that isn't a terminal.
+    const table = new Table({
+        head: headerRow,
+        ...(chalk.level === 0 ? { style: { head: [], border: [] } } : {})
+    });
     table.push(...dataRows);
     console.log(table.toString());
 }

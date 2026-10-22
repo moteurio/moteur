@@ -7,12 +7,21 @@ import { MoteurApiError } from '@moteurio/client';
 /** Format a thrown error for CLI output (message + optional hint). */
 export function formatError(err: unknown): string {
     if (err instanceof MoteurApiError) {
-        let msg = err.message?.trim();
+        // The API's sentence, without the server's "…: PlanLimitError: …" details and stack.
+        let msg = err.message
+            ?.trim()
+            .split('\n')[0]
+            .split(/:\s*\w*Error:/)[0]
+            .trim();
         if (!msg || msg === 'MoteurApiError') {
             msg = err.status != null ? `Request failed (HTTP ${err.status})` : 'Request failed';
         }
         let out = `✗ Error: ${msg}`;
-        if (err.status === 404) {
+        // Only when the API said nothing more: an unknown route usually means the wrong address.
+        if (
+            err.status === 404 &&
+            /^(Request failed|Cannot (GET|POST|PATCH|PUT|DELETE))/.test(msg)
+        ) {
             out +=
                 '\n  → Check MOTEUR_API_URL matches the API (include path if you use API_BASE_PATH, e.g. http://localhost:3000/api).';
         }

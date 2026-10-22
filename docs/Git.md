@@ -61,9 +61,9 @@ Workspace (`.moteur/`) and user data (`user-data/`) are stored in **separate orp
 | `moteur-workspace-snapshots` | Snapshot of `.moteur/` only. **`secrets.json` is never included** in any snapshot commit. |
 | `moteur-userdata-snapshots`  | Snapshot of `user-data/` only.                                                            |
 
-- **Snapshot workspace**: CLI `moteur workspace snapshot --project=... [--message="..."] [--push]` or programmatically `SnapshotService.snapshotWorkspace(projectId, message, user)`.
+- **Snapshot workspace**: programmatically, `SnapshotService.snapshotWorkspace(projectId, message, user)` (no API route, so no CLI command yet).
 - **Snapshot user data**: Programmatically `SnapshotService.snapshotUserData(projectId, message, user)` (CLI can be added similarly).
-- **Restore workspace**: CLI `moteur workspace restore --project=... [--from=moteur-workspace-snapshots]` or `SnapshotService.restoreWorkspace(projectId, fromBranch)`. Restore **merges** snapshot contents into the existing `.moteur/` directory; it does not delete files that exist only locally and are absent from the snapshot.
+- **Restore workspace**: programmatically, `SnapshotService.restoreWorkspace(projectId, fromBranch)` (no API route, so no CLI command yet). Restore **merges** snapshot contents into the existing `.moteur/` directory; it does not delete files that exist only locally and are absent from the snapshot.
 - **Restore user data**: `SnapshotService.restoreUserData(projectId, fromBranch)`. Same merge behaviour: existing files not in the snapshot are left in place.
 
 **Important:** Do not trigger CI on snapshot branch pushes. Document this in your CI config or README so that pipelines ignore `moteur-workspace-snapshots` and `moteur-userdata-snapshots`.

@@ -173,12 +173,12 @@ Studio's **Operator › Blueprints** (`/operator/blueprints`) lists, edits and d
 Operators can also use the **CLI** or the **API**:
 
 ```bash
-moteur blueprints list --kind=model
-moteur blueprints get --kind=template --id=landing
-moteur blueprints create --kind=structure --file=./team-member.json
-moteur blueprints patch --kind=model --id=blog-post --file=./blog-post.json
-moteur blueprints delete --kind=model --id=blog-post --yes
-moteur seed            # copy the starter blueprints into data/blueprints/
+moteur blueprints list model
+moteur blueprints get template landing
+moteur blueprints create structure --file=./team-member.json
+moteur blueprints update model blog-post --file=./blog-post.json
+moteur blueprints delete model blog-post --yes
+moteur operator seed   # copy the starter blueprints into data/blueprints/
 ```
 
 See [CLI](CLI.md). A **hosted** service (such as api.moteur.io) should keep its blueprints **in code**, in a plugin that calls `ctx.registerBlueprint()`, so they are versioned, reviewed and deployed with the host rather than edited on a running server. Files under `data/blueprints/` suit a self-hosted Moteur.
