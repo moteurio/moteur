@@ -647,9 +647,10 @@ The URLs can point anywhere. To host the files in Moteur, upload them to the ass
 
 **Stored value (Studio / typical API):** `{ "assetId": "…", "alt"?: "…", "caption"?: "…" }` (see `FieldAsset.tsx`).
 
-| Option | Type | Default | Description                       |
-| ------ | ---- | ------- | --------------------------------- |
-| `ui`   | text | —       | Studio hint (`upload`, `url`, …). |
+| Option        | Type   | Default | Description                                                                                                                                                                         |
+| ------------- | ------ | ------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ui`          | text   | —       | Studio hint (`upload`, `url`, …).                                                                                                                                                   |
+| `aspectRatio` | select | —       | Crop pictures to `1:1`, `4:3`, `3:2`, `16:9`, `21:9`, `3:4`, `2:3` or `9:16` around their focal point: values read with `resolveAssets=1` carry `cropUrl`. See [Images](Images.md). |
 
 **Studio extras (not in core registry file):** implementations often support `accept`, `mockAsset`, `required` on `options` for the picker—check the Studio app when needed.
 
@@ -684,9 +685,10 @@ The URLs can point anywhere. To host the files in Moteur, upload them to the ass
 
 **When to use it:** Galleries, attachment lists, carousels of library files.
 
-| Option | Type | Default | Description  |
-| ------ | ---- | ------- | ------------ |
-| `ui`   | text | —       | Studio hint. |
+| Option        | Type   | Default | Description                                                                  |
+| ------------- | ------ | ------- | ---------------------------------------------------------------------------- |
+| `ui`          | text   | —       | Studio hint.                                                                 |
+| `aspectRatio` | select | —       | Crop every picture to this shape, as for `core/asset` ([Images](Images.md)). |
 
 **Value example**
 

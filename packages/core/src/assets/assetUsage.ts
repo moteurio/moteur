@@ -83,7 +83,8 @@ export async function assetUsage(
     user: User,
     projectId: string
 ): Promise<Map<string, AssetUsage[]>> {
-    const known = new Set((await listAssets(projectId)).map(a => a.id));
+    // Binned assets too: content still pointing at one is worth knowing before it goes for good.
+    const known = new Set((await listAssets(projectId, { includeBinned: true })).map(a => a.id));
     const usage = new Map<string, AssetUsage[]>();
     const add = (assetId: string, u: AssetUsage) => {
         const list = usage.get(assetId) ?? [];

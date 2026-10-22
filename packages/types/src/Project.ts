@@ -61,8 +61,20 @@ export interface ProjectSchema {
         variants: VariantDefinition[];
         maxUploadSizeMb?: number; // default 50
         allowedTypes?: AssetType[]; // default: all types
-        adapter?: 'local' | 's3' | 'r2';
+        adapter?: 'local' | 's3' | 'r2' | 'minio' | 'cloudinary';
         adapterConfig?: Record<string, any>;
+    };
+
+    /** Third-party integrations (credentials redacted in public project payloads). */
+    integrations?: {
+        shopify?: {
+            /** Store hostname, e.g. `mybrand.myshopify.com`. */
+            shop: string;
+            /** Admin API access token (Custom app or OAuth). */
+            accessToken?: string;
+            /** Entry model used when syncing products from Shopify. */
+            productModelId?: string;
+        };
     };
 
     meta?: {

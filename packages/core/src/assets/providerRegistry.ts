@@ -191,3 +191,8 @@ export async function verifyProviderWebhookAndGetProjectId(
     }
     return null;
 }
+
+/** Every video host this server can send videos to (each added by a plugin). */
+export function videoProviderIds(): VideoProviderId[] {
+    return [...new Set([...providers.keys(), ...providerFactories.keys()])];
+}

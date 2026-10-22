@@ -6,6 +6,10 @@ vi.mock('../../src/middlewares/auth.js', () => ({
     requireProjectAccess: (req: any, _res: any, next: any) => {
         req.user = { id: 'user1', roles: ['editor'] };
         next();
+    },
+    requireProjectAdmin: (req: any, _res: any, next: any) => {
+        req.user = { id: 'user1', roles: ['admin'] };
+        next();
     }
 }));
 

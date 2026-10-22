@@ -4,6 +4,7 @@ import { hasRole } from '@moteurio/types';
 import { requireAuth } from '../middlewares/auth.js';
 import { createProjectFromBlueprint } from '@moteurio/core/projects.js';
 import { validateProject } from '@moteurio/core/validators/validateProject.js';
+import { redactProjectSecrets } from '@moteurio/core/assets/mediaSettings.js';
 import type { OpenAPIV3 } from 'openapi-types';
 import { sendApiError } from '../utils/apiError.js';
 import { gitRemoteRefusal } from '../utils/gitRemote.js';
@@ -30,7 +31,7 @@ router.post('/', requireAuth, async (req: Request, res: Response) => {
                 .json({ validation: result.validation.issues, error: 'Validation failed' });
         }
         // TODO (optional): send email to creator/owner that a new project was created
-        return void res.status(201).json(result.project);
+        return void res.status(201).json(result.project && redactProjectSecrets(result.project));
     } catch (err: unknown) {
         return void sendApiError(res, req, err);
     }

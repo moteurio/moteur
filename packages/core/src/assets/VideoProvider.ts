@@ -13,6 +13,16 @@ export interface VideoProviderUploadResult {
     duration?: number;
 }
 
+/** Where a video stands at its host: from a webhook, or from asking the host (`getStatus`). */
+export interface VideoHostReport {
+    providerId: string;
+    providerStatus: VideoProviderStatus;
+    providerMetadata: Record<string, any>;
+    duration?: number;
+    /** Optional: upload id or passthrough to find the asset (e.g. we stored upload_id, webhook gives asset_id) */
+    correlationId?: string;
+}
+
 export interface VideoProvider {
     id: VideoProviderId;
     label: string;
@@ -28,14 +38,14 @@ export interface VideoProvider {
         payload: unknown,
         signature: string,
         secret: string
-    ): Promise<{
-        providerId: string;
-        providerStatus: VideoProviderStatus;
-        providerMetadata: Record<string, any>;
-        duration?: number;
-        /** Optional: upload id or passthrough to find the asset (e.g. we stored upload_id, webhook gives asset_id) */
-        correlationId?: string;
-    } | null>;
+    ): Promise<VideoHostReport | null>;
+
+    /**
+     * Asks the host where a video stands (`providerId` as stored: an upload's id until the host
+     * gives the video's own). Optional: without it, only webhooks move a video on, and a server
+     * the host can't reach waits forever. Null when the host has nothing to say yet.
+     */
+    getStatus?(providerId: string): Promise<VideoHostReport | null>;
 
     delete(providerId: string): Promise<void>;
 

@@ -2,6 +2,7 @@ import type { Request, Response } from 'express';
 import { Router } from 'express';
 import { requireProjectAccess } from '../middlewares/auth.js';
 import { getProject } from '@moteurio/core/projects.js';
+import { redactProjectSecrets } from '@moteurio/core/assets/mediaSettings.js';
 import type { OpenAPIV3 } from 'openapi-types';
 import { getMessage } from '../utils/apiError.js';
 
@@ -16,7 +17,7 @@ router.get('/:projectId', requireProjectAccess, async (req: Request, res: Respon
             return void res.status(404).json({ error: 'Project not found' });
         }
 
-        res.status(200).json({ project });
+        res.status(200).json({ project: redactProjectSecrets(project) });
     } catch (err: unknown) {
         res.status(404).json({ error: getMessage(err) || 'Project not found' });
     }

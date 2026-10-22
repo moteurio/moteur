@@ -57,7 +57,7 @@ import { schedulerEngine, startSnapshotScheduler, stopSnapshotScheduler } from '
 import { globalErrorHandler } from './middlewares/errorHandler.js';
 import { registerSocketEventBridge } from './bootstrap/socketEventBridge.js';
 import { mountResizedImages, mountStaticAssets } from './bootstrap/staticAssetsRoute.js';
-import { resumeImageCopies } from '@moteurio/core/assets/assetService.js';
+import { resumeImageCopies, resumeVideoUploads } from '@moteurio/core/assets/assetService.js';
 import { loadProjects } from '@moteurio/core/projects.js';
 import {
     createFileMeteringStore,
@@ -276,6 +276,13 @@ httpServer.listen(PORT, async () => {
         if (queued) console.log(`[Moteur] Making copies for ${queued} image(s) left processing`);
     } catch (err) {
         console.error('[Moteur] Resuming image copies failed:', err);
+    }
+    // Videos on their way to a host (Mux, Vimeo…), or still processing there.
+    try {
+        const resumed = await resumeVideoUploads(loadProjects());
+        if (resumed) console.log(`[Moteur] Following ${resumed} video(s) at their host`);
+    } catch (err) {
+        console.error('[Moteur] Resuming video uploads failed:', err);
     }
 });
 

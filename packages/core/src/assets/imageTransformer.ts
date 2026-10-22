@@ -33,6 +33,35 @@ export async function readImageShape(buffer: Buffer): Promise<ImageShape> {
     return { width: turned ? height : width, height: turned ? width : height, animated };
 }
 
+/** Formats whose files can carry camera data (EXIF, XMP, IPTC), and how to save them again. */
+const STRIPPABLE: Record<string, (img: Sharp) => Sharp> = {
+    'image/jpeg': img => img.jpeg({ quality: 92, mozjpeg: true }),
+    'image/png': img => img.png(),
+    'image/webp': img => img.webp({ quality: 92 }),
+    'image/avif': img => img.avif({ quality: 80 }),
+    'image/tiff': img => img.tiff()
+};
+
+/**
+ * The uploaded picture without what the camera wrote in it: where it was taken (GPS), the
+ * camera, its owner's name. It is turned upright first, since the orientation tag goes with
+ * the rest; its colour profile stays. A file with nothing to remove is kept byte for byte, and
+ * one that can't be read is returned as it came (its copies will fail and say so).
+ */
+export async function stripImageMetadata(buffer: Buffer, mimeType: string): Promise<Buffer> {
+    const save = STRIPPABLE[mimeType];
+    if (!save) return buffer;
+    try {
+        const meta = await sharp(buffer).metadata();
+        if (!meta.exif && !meta.xmp && !meta.iptc && (meta.orientation ?? 1) === 1) return buffer;
+        const animated = (meta.pages ?? 1) > 1;
+        return await save(sharp(buffer, { animated }).rotate().keepIccProfile()).toBuffer();
+    } catch (err) {
+        console.error('[moteur] Could not remove image metadata', err);
+        return buffer;
+    }
+}
+
 /**
  * Generate image variants. Always includes original (source buffer + metadata).
  * Per-variant errors are logged and skipped; never abort the batch.

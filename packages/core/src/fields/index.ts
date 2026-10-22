@@ -1,6 +1,7 @@
 import './core/address.js';
 import './core/asset.js';
 import './core/asset-list.js';
+import './core/audio.js';
 import './core/block-list.js';
 import './core/boolean.js';
 import './core/categories.js';

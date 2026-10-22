@@ -17,6 +17,7 @@ This folder contains the main documentation for **developers using Moteur**: con
 | **Authenticate (JWT, API key)**          | [Authentication](Authentication.md).                                                                                                                       |
 | **Consume or send webhooks**             | [Webhooks](Webhooks.md).                                                                                                                                   |
 | **Field and block types**                | [Fields](Fields.md), [Blocks](Blocks.md).                                                                                                                  |
+| **Images: sizes, crops, `srcset`**       | [Images](Images.md) — `resizeUrl`, `cropUrl`, focal point, caching, client helpers.                                                                        |
 | **Git, snapshots, and branches**         | [Git integration](Git.md).                                                                                                                                 |
 | **Schema history and restore**           | [Schema revisions](Schema%20revisions.md) — commit hashes, impact on content and public API.                                                               |
 
@@ -28,6 +29,7 @@ This folder contains the main documentation for **developers using Moteur**: con
 | --------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | [**Public API and Collections**](Public%20API%20and%20Collections.md) | Quick guide: get a project API key, create a collection, and read entries/pages from your frontend.                                                                        |
 | [**REST API**](REST%20API.md)                                         | Full HTTP API: auth, projects, models, entries, collections, pages, navigations, operator routes, studio routes, webhooks. OpenAPI/Swagger details included.               |
+| [**Images**](Images.md)                                               | Pictures at any width and cropped per field: `resizeUrl`, `cropUrl`, focal point, caching, and the `@moteurio/client` helpers.                                             |
 | [**`@moteurio/client`**](../packages/client/README.md)                | Official HTTP client: admin (JWT) and public (API key) factories.                                                                                                          |
 | [**Developer API**](Developer%20API.md)                               | Embedded `@moteurio/core` API (in-process); points to source—most integrations should use the client + REST instead.                                                       |
 | [**Authentication**](Authentication.md)                               | JWT (login, refresh, OAuth) and project API key (read-only). Env vars for auth.                                                                                            |

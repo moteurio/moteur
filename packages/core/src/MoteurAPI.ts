@@ -76,7 +76,14 @@ export interface MoteurAPI {
         list: typeof Assets.listAssets;
         get: typeof Assets.getAsset;
         update: typeof Assets.updateAsset;
+        updateMany: typeof Assets.updateAssets;
         delete: typeof Assets.deleteAsset;
+        binMany: typeof Assets.binAssets;
+        listBin: typeof Assets.listBinnedAssets;
+        restore: typeof Assets.restoreAsset;
+        restoreMany: typeof Assets.restoreAssets;
+        deleteForever: typeof Assets.deleteAssetForever;
+        emptyBin: typeof Assets.emptyBin;
         move: typeof Assets.moveToFolder;
         regenerate: typeof Assets.regenerateVariants;
         migrateProvider: typeof Assets.migrateProvider;

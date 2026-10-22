@@ -110,7 +110,13 @@ export function openApiSchemaForModelField(
             additionalProperties: true,
             properties: {
                 id: { type: 'string' },
-                url: { type: 'string', description: 'Present when `resolveAssets=1`' }
+                url: { type: 'string', description: 'Present when `resolveAssets=1`' },
+                cropUrl: {
+                    type: 'string',
+                    description:
+                        'With `resolveAssets=1`, for a field set to crop (`aspectRatio`): the picture cropped to that shape around its focal point. Add `&w=` (and `&fmt=`).'
+                },
+                aspectRatio: { type: 'string', description: 'The crop the field asks for' }
             }
         };
     }

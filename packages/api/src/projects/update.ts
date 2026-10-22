@@ -5,6 +5,10 @@ import type { ProjectSchema } from '@moteurio/types/Project.js';
 import { requireProjectAdmin } from '../middlewares/auth.js';
 import { getProject, applyProjectPatch, updateProject } from '@moteurio/core/projects.js';
 import { validateProject } from '@moteurio/core/validators/validateProject.js';
+import {
+    redactProjectSecrets,
+    updateProjectMediaSettings
+} from '@moteurio/core/assets/mediaSettings.js';
 import type { OpenAPIV3 } from 'openapi-types';
 import { sendApiError } from '../utils/apiError.js';
 import { gitRemoteRefusal } from '../utils/gitRemote.js';
@@ -15,6 +19,15 @@ router.patch('/:projectId', requireProjectAdmin, async (req: Request, res: Respo
     const { projectId } = req.params as Record<string, string>;
     const patch = { ...(req.body ?? {}) } as Partial<ProjectSchema>;
     delete patch.memberRoles;
+    // Keys belong to developers (the API-key routes), not to any admin's project patch.
+    delete patch.apiKeys;
+    // The id is the project's folder and every address: it can't change here.
+    if (patch.id !== undefined && patch.id !== projectId)
+        return void res.status(400).json({ error: 'A project’s id can’t be changed.' });
+    // Media settings keep their secrets when sent back as *** and are checked: their own path.
+    const { assetConfig, videoProviders } = patch;
+    delete patch.assetConfig;
+    delete patch.videoProviders;
     if (!hasRole(req.account, 'admin')) delete patch.users;
     const refusal = gitRemoteRefusal(patch.git, req.account);
     if (refusal) return void res.status(400).json({ error: refusal });
@@ -29,8 +42,10 @@ router.patch('/:projectId', requireProjectAdmin, async (req: Request, res: Respo
                 .json({ validation: validation.issues, error: 'Validation failed' });
         }
 
+        if (assetConfig !== undefined || videoProviders !== undefined)
+            await updateProjectMediaSettings(projectId, req.user!, { assetConfig, videoProviders });
         const project = await updateProject(req.user!, projectId, patch);
-        return void res.json(project);
+        return void res.json(redactProjectSecrets(project));
     } catch (err: unknown) {
         return void sendApiError(res, req, err);
     }

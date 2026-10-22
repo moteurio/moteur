@@ -9,6 +9,7 @@ import '../../src/assets/index.js';
 import { initRepo } from '../../src/git/index.js';
 import {
     deleteAsset,
+    deleteAssetForever,
     getAsset,
     resumeImageCopies,
     updateAsset,
@@ -247,7 +248,7 @@ describe('focal point and versioned copies', () => {
         expect(again.buffer.toString()).toBe('kept');
     });
 
-    it("clears an image's sizes when its focal point moves or it is deleted", async () => {
+    it("clears an image's sizes when its focal point moves or it is deleted for good", async () => {
         const pic = await upload(await solid(800, 400));
         await getResizedImage(projectId, pic.id, parseResizeRequest({ w: 320, ar: '1:1' }));
         const folder = path.join(assetsDir(), `r-${pic.id}`);
@@ -257,6 +258,9 @@ describe('focal point and versioned copies', () => {
 
         await getResizedImage(projectId, pic.id, parseResizeRequest({ w: 320 }));
         await deleteAsset(projectId, user, pic.id);
+        // In the bin, its files stay: it can come back.
+        await expect(fs.readdir(folder)).resolves.toHaveLength(1);
+        await deleteAssetForever(projectId, user, pic.id);
         await expect(fs.access(folder)).rejects.toThrow();
     });
 });

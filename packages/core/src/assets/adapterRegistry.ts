@@ -41,3 +41,20 @@ export function getProjectAdapter(project: ProjectSchema): StorageAdapter {
     }
     return adapter;
 }
+
+/** Every storage this server can use: the built-in ones and those added by plugins. */
+export function storageIds(): string[] {
+    return [...new Set([...adapters.keys(), ...adapterFactories.keys()])];
+}
+
+/** A storage made from settings that may not be saved yet (to test them or move files to it). */
+export function createAdapter(
+    id: string,
+    config: Record<string, unknown> | undefined
+): StorageAdapter {
+    const factory = adapterFactories.get(id);
+    if (factory && config) return factory(config);
+    const adapter = getAdapter(id);
+    if (!adapter) throw new Error(`Storage "${id}" is not available on this server`);
+    return adapter;
+}
