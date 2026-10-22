@@ -12,6 +12,7 @@ This page lists environment variables used by the Moteur API. Details (rate limi
 | `CORS_ORIGINS`           | Comma-separated allowed origins. **Required for browser access:** if unset, no cross-origin origins are allowed (empty default). For local dev, set e.g. `http://localhost:3000,http://localhost:5173`.            |
 | `STATIC_ASSETS_BASE_URL` | Origin for **local** asset URLs (scheme + host + port, **no** path). Default: `http://localhost:3000`. The API prepends `API_BASE_PATH` before `/static/assets/...` when generating URLs.                          |
 | `API_UPLOAD_MAX_MB`      | Max multipart upload size for **studio** asset uploads. Default: `50` (aligned with per-project limits enforced in core). Each upload is held in memory while it's processed, so size the server's RAM to match.   |
+| `MOTEUR_MCP`             | `off` leaves out `/mcp`, the MCP server for remote AI clients (on by default). Its tools call the API itself at `http://127.0.0.1:{PORT}{API_BASE_PATH}`.                                                          |
 
 ---
 

@@ -10,7 +10,9 @@ const targetDeps = new Set([
     '@moteurio/core',
     '@moteurio/ai',
     '@moteurio/api',
-    '@moteurio/client'
+    '@moteurio/client',
+    '@moteurio/commands',
+    '@moteurio/mcp'
 ]);
 function readJson(filePath) {
     return JSON.parse(fs.readFileSync(filePath, 'utf8'));

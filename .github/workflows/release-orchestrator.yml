@@ -4,7 +4,7 @@ on:
     workflow_dispatch:
         inputs:
             release_client_cli:
-                description: 'Also publish @moteurio/client and @moteurio/cli'
+                description: 'Also publish @moteurio/cli'
                 required: false
                 default: 'true'
                 type: choice
@@ -114,14 +114,23 @@ jobs:
               env:
                   NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
-            - name: Publish @moteurio/api
-              run: pnpm --filter @moteurio/api test && pnpm --filter @moteurio/api run build && cd packages/api && npm publish --access public
+            - name: Publish @moteurio/client
+              run: pnpm --filter @moteurio/client test && pnpm --filter @moteurio/client run build && cd packages/client && npm publish --access public
               env:
                   NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
-            - name: Publish optional @moteurio/client
-              if: ${{ inputs.release_client_cli == 'true' }}
-              run: pnpm --filter @moteurio/client test && pnpm --filter @moteurio/client run build && cd packages/client && npm publish --access public
+            - name: Publish @moteurio/commands
+              run: pnpm --filter @moteurio/commands test && pnpm --filter @moteurio/commands run build && cd packages/commands && npm publish --access public
+              env:
+                  NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+            - name: Publish @moteurio/mcp
+              run: pnpm --filter @moteurio/mcp test && pnpm --filter @moteurio/mcp run build && cd packages/mcp && npm publish --access public
+              env:
+                  NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+            - name: Publish @moteurio/api
+              run: pnpm --filter @moteurio/api test && pnpm --filter @moteurio/api run build && cd packages/api && npm publish --access public
               env:
                   NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 

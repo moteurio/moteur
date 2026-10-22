@@ -1,0 +1,63 @@
+{
+    "name": "@moteurio/mcp",
+    "version": "2026.3.29",
+    "description": "Moteur for AI agents: an MCP server with a tool for everything the Moteur API can do",
+    "type": "module",
+    "bin": {
+        "moteur-mcp": "./bin/moteur-mcp.js"
+    },
+    "main": "./dist/server.js",
+    "types": "./dist/server.d.ts",
+    "exports": {
+        ".": {
+            "types": "./dist/server.d.ts",
+            "import": "./dist/server.js",
+            "default": "./dist/server.js"
+        }
+    },
+    "files": [
+        "bin",
+        "dist",
+        "README.md",
+        "LICENSE"
+    ],
+    "scripts": {
+        "build": "tsc -b",
+        "clean": "rimraf dist",
+        "lint": "eslint . --ext .ts",
+        "lint:fix": "eslint . --ext .ts --fix",
+        "prepublishOnly": "pnpm run build",
+        "test": "vitest run"
+    },
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/moteurio/moteur.git",
+        "directory": "packages/mcp"
+    },
+    "keywords": [
+        "moteur",
+        "mcp",
+        "model-context-protocol",
+        "cms",
+        "headless",
+        "agents"
+    ],
+    "engines": {
+        "node": ">=22"
+    },
+    "publishConfig": {
+        "access": "public"
+    },
+    "dependencies": {
+        "@modelcontextprotocol/sdk": "^1.32.1",
+        "@moteurio/client": "workspace:*",
+        "@moteurio/commands": "workspace:*"
+    },
+    "devDependencies": {
+        "@types/node": "^26.6.5",
+        "rimraf": "^6.1.3",
+        "typescript": "^6.0.3",
+        "vitest": "^5.0.4"
+    },
+    "license": "MIT"
+}

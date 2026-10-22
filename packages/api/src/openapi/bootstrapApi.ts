@@ -21,6 +21,7 @@ import { entriesSpecs } from '../entries/index.js';
 import { openapi as activityGlobalSpec } from '../activity/index.js';
 import { openapi as operatorSpec } from '../operator/index.js';
 import { openapi as invitesSpec } from '../invites/index.js';
+import { openapi as mcpSpec } from '../mcp/index.js';
 import { openapi as usageSpec } from '../studio/usage.js';
 import { openapi as fieldTypesSpec } from '../studio/fieldTypes.js';
 import { openapi as assetsMigrateSpec } from '../studio/assets/migrate.js';
@@ -233,6 +234,7 @@ export async function bootstrapApi(options?: {
             { owner: 'activity-core', paths: activityGlobalSpec as OpenAPIV3.PathsObject },
             { owner: 'operator-core', paths: operatorSpec as OpenAPIV3.PathsObject },
             { owner: 'invites-core', paths: invitesSpec as OpenAPIV3.PathsObject },
+            { owner: 'mcp-core', paths: mcpSpec as OpenAPIV3.PathsObject },
             { owner: 'models-core', paths: modelsSpecs.paths as OpenAPIV3.PathsObject },
             { owner: 'entries-core', paths: entriesSpecs.paths as OpenAPIV3.PathsObject },
             { owner: 'studio-usage-core', paths: usageSpec as OpenAPIV3.PathsObject },

@@ -23,7 +23,7 @@ Use the orchestrator workflow:
 
 - `.github/workflows/release-orchestrator.yml`
 - Trigger via `workflow_dispatch`.
-- Optional input `release_client_cli=false` to NOT publish `@moteurio/client` and `@moteurio/cli` (defaults to true)
+- Optional input `release_client_cli=false` to NOT publish `@moteurio/cli` (defaults to true)
 
 In one run the workflow:
 
@@ -43,8 +43,13 @@ Publish order is deterministic:
 3. `@moteurio/studio-plugin-sdk`
 4. `@moteurio/core`
 5. `@moteurio/ai`
-6. `@moteurio/api`
-7. optional: `@moteurio/client`, `@moteurio/cli`
+6. `@moteurio/client`
+7. `@moteurio/commands`
+8. `@moteurio/mcp` (the API serves it at `/mcp`)
+9. `@moteurio/api`
+10. optional: `@moteurio/cli`
+
+Studio UI companions (`@moteurio/studio-plugin-*` except the SDK) live in **moteur-plugins-extra** and ship on that repo’s GitHub Release tarballs, not on npm.
 
 The workflow stops on first failure.
 
