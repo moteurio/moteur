@@ -54,6 +54,7 @@ function toActivityEvent(
         action,
         userId: u.id,
         userName: u.name ?? u.id,
+        ...(u.agent ? { agent: u.agent.name } : {}),
         ...(fieldPath !== undefined && { fieldPath }),
         ...(before !== undefined && { before }),
         ...(after !== undefined && { after }),

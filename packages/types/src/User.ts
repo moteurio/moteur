@@ -12,6 +12,19 @@ export interface User {
     auth?: Record<string, any>;
     /** ISO 8601 — updated on successful sign-in (password or OAuth). */
     lastLoginAt?: string;
+    /**
+     * Set when an agent (an AI client such as Claude) makes the request on this person's behalf.
+     * Comes from the token, never stored: `name` then reads "Louise via Claude".
+     */
+    agent?: AgentActor;
+}
+
+/** An agent acting for a person. */
+export interface AgentActor {
+    /** What the agent calls itself: "Claude", "claude-code"… */
+    name: string;
+    /** Changes it makes go live only once a person approves or publishes them (default true). */
+    reviewOnly: boolean;
 }
 
 /**

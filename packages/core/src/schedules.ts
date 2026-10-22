@@ -38,6 +38,8 @@ function canSchedule(
     user: User,
     project: { workflow?: { enabled?: boolean; requireReview?: boolean } }
 ): boolean {
+    // A review-only agent may schedule; publishing still waits for a person's approval (below).
+    if (user.agent?.reviewOnly) return true;
     if (!project.workflow?.enabled || !project.workflow?.requireReview) {
         return true;
     }
@@ -146,7 +148,10 @@ export async function createSchedule(
     }
 
     if (input.action === 'publish') {
-        if (project.workflow?.enabled && project.workflow?.requireReview) {
+        if (
+            (project.workflow?.enabled && project.workflow?.requireReview) ||
+            user.agent?.reviewOnly
+        ) {
             if (input.resourceType === 'entry' && input.modelId) {
                 const approved = await hasApprovedReview(
                     projectId,

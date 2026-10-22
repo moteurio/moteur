@@ -2,6 +2,7 @@ import type { Request, Response } from 'express';
 import { Router } from 'express';
 import { requireAuth } from '../middlewares/auth.js';
 import { generateSessionToken } from '@moteurio/core/auth.js';
+import { getUserById } from '@moteurio/core/users.js';
 import type { OpenAPIV3 } from 'openapi-types';
 
 const router: Router = Router();
@@ -18,7 +19,19 @@ router.post('/', requireAuth, (req: Request, res: Response) => {
         typeof req.body?.ttlSeconds === 'number'
             ? Math.min(Math.max(Math.floor(req.body.ttlSeconds), 60), MAX_TTL_SECONDS)
             : DEFAULT_TTL_SECONDS;
-    const sessionToken = generateSessionToken(user, ttlSeconds);
+    // An agent's token: changes go to review unless the person allows more. A token minted by
+    // an agent keeps its agent, and can't loosen review-only.
+    const asked = req.body?.agent as { name?: unknown; reviewOnly?: unknown } | undefined;
+    const agent =
+        user.agent ??
+        (asked && typeof asked.name === 'string' && asked.name.trim()
+            ? { name: asked.name.trim().slice(0, 40), reviewOnly: asked.reviewOnly !== false }
+            : undefined);
+    if (asked && !agent) {
+        return void res.status(400).json({ error: '"agent.name" is required' });
+    }
+    const account = user.agent ? { ...getUserById(user.id)!, agent } : { ...user, agent };
+    const sessionToken = generateSessionToken(agent ? account : user, ttlSeconds);
     const expiresAt = new Date(Date.now() + ttlSeconds * 1000).toISOString();
     res.json({ sessionToken, expiresAt });
 });
@@ -26,7 +39,7 @@ router.post('/', requireAuth, (req: Request, res: Response) => {
 export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
     '/auth/session-token': {
         post: {
-            summary: 'Exchange user token for a short-lived session token (e.g. web Atelier)',
+            summary: 'Exchange user token for a short-lived session token (web Atelier, agents)',
             tags: ['Auth'],
             security: [{ bearerAuth: [] }],
             requestBody: {
@@ -35,7 +48,17 @@ export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
                         schema: {
                             type: 'object',
                             properties: {
-                                ttlSeconds: { type: 'integer', minimum: 60, maximum: 28800 }
+                                ttlSeconds: { type: 'integer', minimum: 60, maximum: 28800 },
+                                agent: {
+                                    type: 'object',
+                                    description:
+                                        'Give the token to an agent acting for you: its changes are marked, and with reviewOnly (default) go live only once a person approves them. A token minted with an agent token keeps its agent.',
+                                    properties: {
+                                        name: { type: 'string', maxLength: 40 },
+                                        reviewOnly: { type: 'boolean', default: true }
+                                    },
+                                    required: ['name']
+                                }
                             }
                         }
                     }

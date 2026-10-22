@@ -61,6 +61,7 @@ router.post(
             return void res.json({ review });
         } catch (err: unknown) {
             const status =
+                (err as { statusCode?: number }).statusCode === 403 ||
                 getMessage(err)?.includes('reviewer') ||
                 getMessage(err)?.includes(OPERATOR_ROLE_SLUG)
                     ? 403
@@ -91,6 +92,7 @@ router.post(
             return void res.json({ review });
         } catch (err: unknown) {
             const status =
+                (err as { statusCode?: number }).statusCode === 403 ||
                 getMessage(err)?.includes('reviewer') ||
                 getMessage(err)?.includes(OPERATOR_ROLE_SLUG)
                     ? 403

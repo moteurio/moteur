@@ -10,7 +10,7 @@ import type {
 } from '@moteurio/types/Page.js';
 import { ValidationResult } from '@moteurio/types/ValidationResult.js';
 import { isValidId } from './utils/idUtils.js';
-import { hasRole } from '@moteurio/types';
+import { approvalMessage, needsApproval } from '@moteurio/types';
 import { User } from '@moteurio/types/User.js';
 import {
     assertCanEdit,
@@ -349,15 +349,9 @@ export async function updatePage(
 ): Promise<PageNode> {
     if ((patch as any).status === 'published') {
         const project = await getProject(user, projectId);
-        if (project.workflow?.enabled && project.workflow?.requireReview) {
-            if (!hasRole(user, 'admin')) {
-                const approved = await hasApprovedReviewForPage(projectId, id);
-                if (!approved) {
-                    throw new Error(
-                        'Publishing requires an approved review when the project has review workflow enabled.'
-                    );
-                }
-            }
+        if (needsApproval(user, project)) {
+            const approved = await hasApprovedReviewForPage(projectId, id);
+            if (!approved) throw contentForbidden(approvalMessage(user, project));
         }
     }
 

@@ -25,7 +25,13 @@ function normalizeUserName(user: User): string {
 
 function assertReviewerOrAdmin(user: User): void {
     if (!canReview(user)) {
-        throw new Error('Only users with reviewer or admin role can perform this action');
+        const err = new Error(
+            user.agent?.reviewOnly
+                ? 'An agent can’t approve or reject reviews: a person does.'
+                : 'Only users with reviewer or admin role can perform this action'
+        );
+        (err as Error & { statusCode: number }).statusCode = 403;
+        throw err;
     }
 }
 

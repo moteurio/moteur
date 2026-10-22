@@ -1,7 +1,7 @@
 import { sameContent, type Restored } from './utils/sameContent.js';
 import fs from 'fs';
 import path from 'path';
-import { hasRole } from '@moteurio/types';
+import { approvalMessage, needsApproval } from '@moteurio/types';
 import { Entry, type EntryStatus } from '@moteurio/types/Model.js';
 import {
     assertCanEdit,
@@ -27,7 +27,7 @@ import {
     stripCoreIdFromData,
     ensureCoreIdValues
 } from './utils/coreIdFields.js';
-import { addsAssisted, stampAssisted } from './assisted.js';
+import { addsAssisted, agentMarks, stampAssisted } from './assisted.js';
 import { assertEntryComplete } from './validators/entryComplete.js';
 import { validateBlockLocalesInPayload } from './utils/validateBlockLocales.js';
 import * as publishedCache from './git/publishedContentCache.js';
@@ -206,6 +206,20 @@ export async function createEntry(
         };
     }
 
+    if (user.agent) {
+        // What an agent writes is marked as such, unread until a person reads it.
+        const assisted = agentMarks(
+            undefined,
+            {},
+            entry.data ?? {},
+            user.agent.name,
+            user.id,
+            projectLocales
+        );
+        entry = { ...entry, meta: { ...entry.meta, assisted } };
+        if (!assisted) delete entry.meta!.assisted;
+    }
+
     const exists = await hasProjectKey(projectId, entryKey(modelId, entry.id));
     if (exists) {
         throw new Error(`Entry "${entry.id}" already exists in model "${modelId}".`);
@@ -283,15 +297,9 @@ export async function updateEntry(
 
     if (patch.status === 'published') {
         const project = await getProject(user, projectId);
-        if (project.workflow?.enabled && project.workflow?.requireReview) {
-            if (!hasRole(user, 'admin')) {
-                const approved = await hasApprovedReview(projectId, modelId, entryId);
-                if (!approved) {
-                    throw new Error(
-                        'Publishing requires an approved review when the project has review workflow enabled.'
-                    );
-                }
-            }
+        if (needsApproval(user, project)) {
+            const approved = await hasApprovedReview(projectId, modelId, entryId);
+            if (!approved) throw contentForbidden(approvalMessage(user, project));
         }
     }
 
@@ -335,6 +343,20 @@ export async function updateEntry(
         // The marks go back with the text they describe, as they were then.
         updated.meta = { ...updated.meta };
         if (patch.meta?.assisted) updated.meta.assisted = patch.meta.assisted;
+        else delete updated.meta.assisted;
+    } else if (user.agent) {
+        // An agent can't mark its own text as read: its marks come from what it changed.
+        const assisted = agentMarks(
+            current.meta?.assisted,
+            current.data ?? {},
+            updated.data ?? {},
+            user.agent.name,
+            user.id,
+            projectLocales
+        );
+        withHelp = addsAssisted(current.meta?.assisted, assisted);
+        updated.meta = { ...updated.meta };
+        if (assisted) updated.meta.assisted = assisted;
         else delete updated.meta.assisted;
     } else if (patch.meta && 'assisted' in patch.meta) {
         const assisted = stampAssisted(current.meta?.assisted, patch.meta.assisted, user.id);
@@ -457,15 +479,9 @@ export async function publishEntry(
 
     assertCanWrite(user);
     const project = await getProject(user, projectId);
-    if (project.workflow?.enabled && project.workflow?.requireReview) {
-        if (!hasRole(user, 'admin')) {
-            const approved = await hasApprovedReview(projectId, modelId, entryId);
-            if (!approved) {
-                throw new Error(
-                    'Publishing requires an approved review when the project has review workflow enabled.'
-                );
-            }
-        }
+    if (needsApproval(user, project)) {
+        const approved = await hasApprovedReview(projectId, modelId, entryId);
+        if (!approved) throw contentForbidden(approvalMessage(user, project));
     }
 
     const entry = await getEntry(user, projectId, modelId, entryId);
