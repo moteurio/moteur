@@ -68,6 +68,7 @@ export async function loadHostPluginsFromEnv(): Promise<HostPluginModule[]> {
                 source: manifest.source,
                 scope: manifest.scope ?? 'project',
                 capabilities: manifest.capabilities,
+                studio: manifest.studio,
                 kind: 'host',
                 spec,
                 running,

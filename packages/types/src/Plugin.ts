@@ -6,13 +6,36 @@ export type PluginSource = 'local' | 'npm' | 'builtin' | 'opensource' | 'private
 export type PluginScope = 'global' | 'project';
 
 /**
- * Plugins are active when registered on the server; they can be enabled/disabled per-project (e.g. project.plugins or tier).
- * Core plugins (e.g. activity-log, audit) are built-in and always loaded at server start.
- * Host plugins are loaded by the host composition layer (e.g. MOTEUR_HOST_PLUGINS / MOTEUR_ENABLED_PLUGINS); per-project gating via project.plugins.
- * Git-commit, presence, and AI are core features (not plugins) and are always active; they are toggled per-project via project.git, project.presence, project.ai.
+ * Catalog hint on the manifest (not the operator API's `PluginEntry.kind`, which is only `core` | `host`).
+ * - `core`: engine built-in plugins registered from `@moteurio/core`.
+ * - `optional`: normal host-loaded packages (most `@moteurio/plugin-*`).
+ * - `project`: legacy alias; prefer **`scope: 'project'`** for per-project allowlists.
  */
 export type PluginKind = 'core' | 'optional' | 'project';
+
+/** Declared capabilities for docs and operator UI (optional). */
 export type PluginCapability = 'routes' | 'openapi' | 'auth-provider';
+
+/**
+ * Declarative Studio companion hints (no React on the API).
+ * Companions are separate packages composed at Studio build time; see docs/Plugin architecture.md.
+ */
+export interface PluginStudioHints {
+    /** Studio UI package name, e.g. `@moteurio/studio-plugin-qr` (often shipped from moteur-plugins-extra). */
+    companionPackage?: string;
+    /** Field type ids this plugin registers on the API (Studio may ship editors). */
+    fieldTypes?: string[];
+    /** Block type ids this plugin registers on the API. */
+    blockTypes?: string[];
+    /** Project-scoped Studio routes (nav is build-time + runtime gated). */
+    projectRoutes?: {
+        path: string;
+        /** i18n key in Studio catalogues. */
+        labelKey?: string;
+        roles?: string[];
+    }[];
+    operatorRoutes?: { path: string; labelKey?: string }[];
+}
 
 /**
  * Minimal description of a plugin, used in the global registry
@@ -24,11 +47,17 @@ export interface PluginManifest {
     icon?: string; // Emoji or icon class
     version?: string; // Semver (if known)
     source: PluginSource; // Where it's loaded from
-    /** `global`: host-wide; `project`: can be toggled per project. */
+    /**
+     * `global`: not gated by `project.plugins` (still requires host load + operator choice).
+     * `project`: also gated by `project.plugins` when that list is set.
+     */
     scope?: PluginScope;
-    kind?: PluginKind; // default 'project'; 'core' = built-in, always active
+    /** Manifest catalog hint; see `PluginKind`. Per-project gating uses `scope`, not `kind`. */
+    kind?: PluginKind;
     basePath?: string; // Base path for local plugins (e.g., './plugins/hello-world')
     capabilities?: PluginCapability[];
+    /** Optional Studio extension metadata (companion npm package, field/block types). */
+    studio?: PluginStudioHints;
 }
 
 /**

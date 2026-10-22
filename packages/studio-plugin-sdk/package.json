@@ -1,0 +1,41 @@
+{
+    "name": "@moteurio/studio-plugin-sdk",
+    "version": "2026.3.29",
+    "description": "SDK for Moteur Studio UI extensions (field editors, block previews, setup pages)",
+    "type": "module",
+    "main": "./dist/index.js",
+    "types": "./dist/index.d.ts",
+    "exports": {
+        ".": "./dist/index.js"
+    },
+    "files": ["dist", "README.md", "LICENSE"],
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/moteurio/moteur.git",
+        "directory": "packages/studio-plugin-sdk"
+    },
+    "engines": {
+        "node": ">=22"
+    },
+    "scripts": {
+        "build": "tsc -b",
+        "clean": "rimraf dist",
+        "test": "vitest run",
+        "prepublishOnly": "pnpm run test && pnpm run build"
+    },
+    "publishConfig": {
+        "access": "public"
+    },
+    "peerDependencies": {
+        "react": ">=18"
+    },
+    "dependencies": {
+        "@moteurio/types": "workspace:*"
+    },
+    "devDependencies": {
+        "@types/react": "^19.2.7",
+        "react": "^19.3.0",
+        "vitest": "5.0.4"
+    },
+    "license": "MIT"
+}

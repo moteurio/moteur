@@ -198,3 +198,106 @@ export function redirectAfterLogin(res: OAuthResponse, token: string, next = '')
 export function redirectLoginFailed(res: OAuthResponse, error: OAuthFailure): void {
     res.redirect(appUrl({ error }));
 }
+
+export type OidcDiscovery = {
+    authorization_endpoint: string;
+    token_endpoint: string;
+    userinfo_endpoint?: string;
+    issuer?: string;
+};
+
+/** Load OIDC metadata from `{issuer}/.well-known/openid-configuration`. */
+export async function discoverOidcIssuer(issuer: string): Promise<OidcDiscovery> {
+    const base = issuer.replace(/\/$/, '');
+    const res = await fetch(`${base}/.well-known/openid-configuration`);
+    if (!res.ok) {
+        throw new Error(`OIDC discovery failed (${res.status}) for ${base}`);
+    }
+    const doc = (await res.json()) as Record<string, unknown>;
+    const authorization_endpoint = doc.authorization_endpoint;
+    const token_endpoint = doc.token_endpoint;
+    if (typeof authorization_endpoint !== 'string' || typeof token_endpoint !== 'string') {
+        throw new Error('OIDC discovery document is missing authorization or token endpoint');
+    }
+    return {
+        authorization_endpoint,
+        token_endpoint,
+        userinfo_endpoint:
+            typeof doc.userinfo_endpoint === 'string' ? doc.userinfo_endpoint : undefined,
+        issuer: typeof doc.issuer === 'string' ? doc.issuer : base
+    };
+}
+
+/** Authorization-code grant at an OIDC/OAuth2 token endpoint. */
+export async function exchangeAuthorizationCode(
+    tokenUrl: string,
+    config: OAuthConfig,
+    code: string
+): Promise<{ access_token: string; id_token?: string }> {
+    const body = new URLSearchParams({
+        grant_type: 'authorization_code',
+        client_id: config.clientId,
+        client_secret: config.clientSecret,
+        redirect_uri: config.redirectUri,
+        code
+    });
+    const res = await fetch(tokenUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body
+    });
+    const data = (await res.json()) as Record<string, unknown>;
+    if (!res.ok) {
+        const err = typeof data.error === 'string' ? data.error : res.statusText;
+        throw new Error(`Token exchange failed: ${err}`);
+    }
+    const access_token = data.access_token;
+    if (typeof access_token !== 'string' || !access_token) {
+        throw new Error('Token response missing access_token');
+    }
+    return {
+        access_token,
+        id_token: typeof data.id_token === 'string' ? data.id_token : undefined
+    };
+}
+
+/** Userinfo GET with bearer token (OIDC). */
+export async function fetchOidcUserInfo(
+    userInfoUrl: string,
+    accessToken: string
+): Promise<Record<string, unknown>> {
+    const res = await fetch(userInfoUrl, {
+        headers: { Authorization: `Bearer ${accessToken}`, Accept: 'application/json' }
+    });
+    if (!res.ok) throw new Error(`Userinfo failed (${res.status})`);
+    return (await res.json()) as Record<string, unknown>;
+}
+
+/** Parse JWT payload without signature verification (use only after token endpoint trust). */
+export function parseJwtPayload(idToken: string): Record<string, unknown> | null {
+    const parts = idToken.split('.');
+    if (parts.length < 2) return null;
+    try {
+        return JSON.parse(Buffer.from(parts[1], 'base64url').toString('utf8')) as Record<
+            string,
+            unknown
+        >;
+    } catch {
+        return null;
+    }
+}
+
+/** Verified email from common OIDC / Microsoft claim shapes. */
+export function emailFromOidcClaims(claims: Record<string, unknown>): string | null {
+    const email = claims.email;
+    if (typeof email === 'string' && email.trim()) {
+        const verified = claims.email_verified;
+        if (verified === false) return null;
+        return email.trim();
+    }
+    for (const key of ['preferred_username', 'mail', 'userPrincipalName', 'upn'] as const) {
+        const v = claims[key];
+        if (typeof v === 'string' && v.includes('@')) return v.trim();
+    }
+    return null;
+}

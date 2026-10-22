@@ -99,6 +99,11 @@ jobs:
               env:
                   NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
+            - name: Publish @moteurio/studio-plugin-sdk
+              run: pnpm --filter @moteurio/studio-plugin-sdk test && pnpm --filter @moteurio/studio-plugin-sdk run build && cd packages/studio-plugin-sdk && npm publish --access public
+              env:
+                  NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
             - name: Publish @moteurio/core
               run: pnpm --filter @moteurio/core test && pnpm --filter @moteurio/core run build && cd packages/core && npm publish --access public
               env:
