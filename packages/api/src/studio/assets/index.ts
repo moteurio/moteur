@@ -26,9 +26,7 @@ import {
 import { getProject } from '@moteurio/core/projects.js';
 import { assetUsage } from '@moteurio/core/assets/assetUsage.js';
 import { PlanLimitError } from '@moteurio/core/planLimits.js';
-import { getAdapter } from '@moteurio/ai';
-import { getCredits, deductCredits, getCreditCost } from '@moteurio/ai';
-import { analyseImage as runImageAnalysis } from '@moteurio/ai';
+import { triggerEvent } from '@moteurio/core/utils/eventBus.js';
 import { requireProjectAccess, requireProjectAdmin } from '../../middlewares/auth.js';
 import type { OpenAPIV3 } from 'openapi-types';
 import type { AssetType } from '@moteurio/types/Asset.js';
@@ -131,36 +129,14 @@ router.post(
                 { folder, alt, title, credit, keepLocalCopy, ...generated }
             );
 
-            const project = await getProject(req.user!, projectId);
-            if (
-                project.ai?.enabled !== false &&
-                project.ai?.autoAnalyseImages &&
-                asset.type === 'image' &&
-                asset.url &&
-                !alt
-            ) {
-                const adapter = await getAdapter();
-                if (adapter?.analyseImage) {
-                    const cost = getCreditCost('analyse.image');
-                    const balance = getCredits(projectId);
-                    if (balance >= cost) {
-                        const deduct = deductCredits(projectId, cost, 'asset.describe');
-                        if (deduct.success) {
-                            try {
-                                const result = await runImageAnalysis(adapter, asset.url, {
-                                    locale: project.defaultLocale ?? 'en'
-                                });
-                                asset = await updateAsset(projectId, req.user!, asset.id, {
-                                    alt: result.alt,
-                                    caption: result.caption
-                                });
-                            } catch {
-                                // Analysis failed; return asset without alt/caption
-                            }
-                        }
-                    }
-                }
-            }
+            await triggerEvent('asset.afterCreate', {
+                projectId,
+                asset,
+                user: req.user!,
+                uploadAlt: alt
+            });
+            const refreshed = await getAsset(projectId, asset.id);
+            if (refreshed) asset = refreshed;
 
             return void res.status(201).json(asset);
         } catch (err: unknown) {

@@ -6,7 +6,7 @@ This document describes the AI layer in Moteur: configuration, providers, credit
 
 ## Overview
 
-Moteur uses a **provider-agnostic AI layer** implemented in the `@moteurio/ai` package. The API and Studio consume this layer for:
+Moteur uses a **provider-agnostic AI layer** implemented in **`@moteurio/plugin-ai`** (private host plugin). The API and Studio consume this layer for:
 
 - **Text generation** — draft, rewrite, shorten, expand, tone adjustment, summarise-excerpt (AI Writing)
 - **Translation** — single-field, block arrays, and whole-entry translation for multilingual content
@@ -20,9 +20,9 @@ All AI operations (except operator-only field generation) use a **project-level 
 
 ---
 
-## Package: @moteurio/ai
+## Package: @moteurio/plugin-ai
 
-The core AI logic lives in **`packages/ai`** and is published as **`@moteurio/ai`**. It provides:
+The core AI logic and host plugin (`id: ai`) live in **`moteur-plugins-extra`** as a single private tarball. Provider plugins register factories via **`registerAIProvider`** imported from the same package. It provides:
 
 | Export               | Description                                                                                                                                                                                                  |
 | -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -35,7 +35,7 @@ The core AI logic lives in **`packages/ai`** and is published as **`@moteurio/ai
 | **Errors**           | `AIError`, `NotImplementedError` (e.g. Anthropic/fal/replicate stubs)                                                                                                                                        |
 | **Mock**             | `MockAdapter` — deterministic implementation for tests (no network)                                                                                                                                          |
 
-The **API** (`@moteurio/api`) depends on `@moteurio/ai` and uses it for all AI routes. The API re-exports `getAdapter`, `setAdapter`, and the credit helpers so existing tests and callers can keep using the same imports; types are imported from `@moteurio/ai`.
+The **API** (`@moteurio/api`) does not bundle AI: hosts load **`plugin-ai`** (and **`ai-provider-*`** plugins) from **`moteur-plugins-extra`**. Self-hosted deployments without those plugins have no `/ai` routes. Credits and plan allowances still use **`@moteurio/core`** metering; billing plugins can call `setCreditAllowance`.
 
 ---
 

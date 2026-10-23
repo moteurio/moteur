@@ -19,7 +19,6 @@ export default defineConfig({
         passWithNoTests: true,
         // Projects for test:ui — only packages that have vitest.config and tests
         projects: [
-            'packages/ai',
             'packages/api',
             'packages/cli',
             'packages/client',

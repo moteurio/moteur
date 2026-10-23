@@ -108,15 +108,15 @@ Plugins should depend on **`@moteurio/plugin-sdk`** for context and types. Avoid
 
 ## Typical open-source plugins (`@moteurio/plugin-*`)
 
-Published from **`moteur-plugins`** (not bundled in the `moteur` workspace). Install the packages on the host and list them in `MOTEUR_HOST_PLUGINS`. Rows marked **`moteur-plugins-extra`** are private: storage, video hosts, search, the AI providers, billing, presence, and several play/media integrations (`3d-viewer`, `poll`, `qr`, `media-lottie-rive`, `shopify`) are released as tarballs on that repository's GitHub Releases for api.moteur.io, not on npm. Versions `2026.3.27` of the storage, video, search and AI provider plugins remain on npm under MIT.
+Published from **`moteur-plugins`** (not bundled in the `moteur` workspace). Install the packages on the host and list them in `MOTEUR_HOST_PLUGINS`. Rows marked **`moteur-plugins-extra`** are private: storage, video hosts, search, **`@moteurio/plugin-ai`** (and **`ai-provider-*`**), billing, presence, and several play/media integrations (`3d-viewer`, `poll`, `qr`, `media-lottie-rive`, `shopify`) are released as tarballs on that repository's GitHub Releases for api.moteur.io, not on npm. Versions `2026.3.27` of the storage, video, search and AI provider plugins remain on npm under MIT.
 
 | Id                                                                                              | Role                                                                                          |
 | ----------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
 | `geo`                                                                                           | Geo field types and `geo/map` block                                                           |
 | `oembed`                                                                                        | `play/oembed` block + resolve API                                                             |
 | `3d-viewer` (`moteur-plugins-extra`)                                                            | `play/3d-viewer` block + Meshy blueprint                                                      |
-| `poll` (`moteur-plugins-extra`)                                                                   | `play/poll` block + public vote API                                                           |
-| `qr` (`moteur-plugins-extra`)                                                                     | `play/qr` field/block + SVG route                                                             |
+| `poll` (`moteur-plugins-extra`)                                                                 | `play/poll` block + public vote API                                                           |
+| `qr` (`moteur-plugins-extra`)                                                                   | `play/qr` field/block + SVG route                                                             |
 | `media-lottie-rive` (`moteur-plugins-extra`)                                                    | `media/lottie` / `media/rive` blocks; `media/lottie-asset` / `media/rive-asset` field editors |
 | `storage-s3` / `storage-r2` / `storage-minio` / `storage-cloudinary` (`moteur-plugins-extra`)   | Remote asset adapters (MinIO is S3-compatible; set `endpoint` in config)                      |
 | `video-mux`, `video-vimeo`, `video-cloudflare-stream`, `video-youtube` (`moteur-plugins-extra`) | Video providers and inbound webhooks                                                          |
@@ -126,7 +126,7 @@ Published from **`moteur-plugins`** (not bundled in the `moteur` workspace). Ins
 | `webhook-slack`, `webhook-vercel`, `webhook-github`                                             | Verified inbound webhook endpoints                                                            |
 | `search-algolia`, `search-meilisearch` (`moteur-plugins-extra`)                                 | Entry indexing and Studio search routes                                                       |
 
-**Text AI** is configured with **`MOTEUR_AI_PROVIDER`** and env keys in `@moteurio/ai` (see [AI](AI.md)), not via a plugin id. Host plugins may still extend storage, auth, or search.
+**Text AI** uses host plugins **`ai`** (`@moteurio/plugin-ai`) and **`ai-provider-*`** from **`moteur-plugins-extra`**, with **`MOTEUR_AI_PROVIDER`** and env keys (see [AI](AI.md)). Load provider plugins before **`plugin-ai`**.
 
 ---
 

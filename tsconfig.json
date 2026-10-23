@@ -5,8 +5,7 @@
         { "path": "packages/core" },
         { "path": "packages/plugin-sdk" },
         { "path": "packages/studio-plugin-sdk" },
-        { "path": "packages/api" },
-        { "path": "packages/ai" }
+        { "path": "packages/api" }
     ],
     "compilerOptions": {
         "target": "ESNext",
@@ -22,12 +21,10 @@
             "@moteurio/core/*": ["./packages/core/dist/*"],
             "@moteurio/api/*": ["./packages/api/dist/*"],
             "@moteurio/plugin-sdk/*": ["./packages/plugin-sdk/dist/*"],
-            "@moteurio/ai/*": ["./packages/ai/dist/*"],
             "@moteurio/types": ["./packages/types/dist"],
             "@moteurio/core": ["./packages/core/dist"],
             "@moteurio/api": ["./packages/api/dist"],
-            "@moteurio/plugin-sdk": ["./packages/plugin-sdk/dist"],
-            "@moteurio/ai": ["./packages/ai/dist"]
+            "@moteurio/plugin-sdk": ["./packages/plugin-sdk/dist"]
         },
         "outDir": "dist"
     },
