@@ -1,6 +1,6 @@
 {
     "name": "@moteurio/demo",
-    "version": "2026.10.23",
+    "version": "2026.3.28.2",
     "private": true,
     "description": "Generator for Moteur's demo projects: Moteur Journal (showcase), fixtures (edge cases) and scale (bulk entries)",
     "type": "module",
