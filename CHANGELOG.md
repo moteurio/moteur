@@ -2,6 +2,10 @@
 
 All notable changes to published `@moteurio/*` packages are documented here. Version lines are kept aligned across the monorepo for coordinated releases (see [RELEASING.md](RELEASING.md) and [VERSIONING.md](VERSIONING.md)).
 
+## 2026.10.23-2
+
+- Release tags (cd3a30d)
+
 ## 2026.3.28.2
 
 - fix buid (8de9db2)
