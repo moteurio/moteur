@@ -5,7 +5,7 @@ Version scheme: calendar release line for published packages ([VERSIONING.md](VE
 ## Required secrets
 
 - `NPM_TOKEN` with publish permissions for `@moteurio/*`.
-- `RELEASE_PAT` — personal access token used to push the release commit and tags to [protected](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-protected-branches/about-protected-branches) branches and to create GitHub Releases. The workflow job keeps `GITHUB_TOKEN` read-only; all git writes and `gh release` use this secret.
+- `RELEASE_PAT` — personal access token used to **push** the release commit and tags to [protected](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-protected-branches/about-protected-branches) branches and to create GitHub Releases. Checkout uses the job’s read-only `GITHUB_TOKEN` (same as CI); only `git push`, tag push, and `gh release` use this secret.
 
 ### Creating `RELEASE_PAT` on GitHub
 
@@ -15,7 +15,7 @@ Version scheme: calendar release line for published packages ([VERSIONING.md](VE
     - **Classic:** Scope **`repo`** (full control of private repositories) for a private repo, or at minimum enough to push and manage releases on this repository.
 3. In the **moteur** repo: **Settings → Secrets and variables → Actions → New repository secret** → name **`RELEASE_PAT`**, value = the token → **Add secret**.
 
-The orchestrator fails fast if `RELEASE_PAT` is missing. After `actions/checkout` with this token, `git push` uses the same credentials for branch and tag pushes; **`gh release create`** uses `GH_TOKEN=$RELEASE_PAT`.
+The orchestrator fails fast if `RELEASE_PAT` is missing. Before the first `git push`, the workflow points `origin` at this token; **`gh release create`** uses `GH_TOKEN=$RELEASE_PAT`. If checkout fails with “could not read Username”, CI is usually fine—do **not** pass `RELEASE_PAT` to `actions/checkout`; fix or recreate the secret if **push** or `gh release` returns 403.
 
 ## Primary release path
 
@@ -42,14 +42,13 @@ Publish order is deterministic:
 2. `@moteurio/plugin-sdk`
 3. `@moteurio/studio-plugin-sdk`
 4. `@moteurio/core`
-5. `@moteurio/ai`
-6. `@moteurio/client`
-7. `@moteurio/commands`
-8. `@moteurio/mcp` (the API serves it at `/mcp`)
-9. `@moteurio/api`
-10. optional: `@moteurio/cli`
+5. `@moteurio/client`
+6. `@moteurio/commands`
+7. `@moteurio/mcp` (the API serves it at `/mcp`)
+8. `@moteurio/api`
+9. optional: `@moteurio/cli`
 
-Studio UI companions (`@moteurio/studio-plugin-*` except the SDK) live in **moteur-plugins-extra** and ship on that repo’s GitHub Release tarballs, not on npm.
+**`@moteurio/plugin-ai`** (and **`ai-provider-*`**) live in **moteur-plugins-extra** (private tarballs). Studio UI companions (`@moteurio/studio-plugin-*` except the SDK) ship on the same GitHub Releases, not on npm.
 
 The workflow stops on first failure.
 
