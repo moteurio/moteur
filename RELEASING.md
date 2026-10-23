@@ -15,7 +15,7 @@ Version scheme: calendar release line for published packages ([VERSIONING.md](VE
     - **Classic:** Scope **`repo`** (full control of private repositories) for a private repo, or at minimum enough to push and manage releases on this repository.
 3. In the **moteur** repo: **Settings → Secrets and variables → Actions → New repository secret** → name **`RELEASE_PAT`**, value = the token → **Add secret**.
 
-The orchestrator fails fast if `RELEASE_PAT` is missing. Before the first `git push`, the workflow points `origin` at this token; **`gh release create`** uses `GH_TOKEN=$RELEASE_PAT`. If checkout fails with “could not read Username”, CI is usually fine—do **not** pass `RELEASE_PAT` to `actions/checkout`; fix or recreate the secret if **push** or `gh release` returns 403.
+The orchestrator fails fast if `RELEASE_PAT` is missing. Checkout uses `persist-credentials: false` so `GITHUB_TOKEN` is not stored in git; before each `git push`, the workflow clears the credential helper and points `origin` at `RELEASE_PAT`. **`gh release create`** uses `GH_TOKEN=$RELEASE_PAT`. If push fails with **Permission denied to github-actions[bot]**, the job is still using the default token—merge the workflow fix above. If push fails with 403 on your user/PAT, recreate **`RELEASE_PAT`** (Contents read+write on this repo, bypass branch protection if needed).
 
 ## Primary release path
 
