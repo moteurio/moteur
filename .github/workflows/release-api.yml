@@ -33,7 +33,6 @@ jobs:
               run: pnpm --filter @moteurio/api run build
 
             - name: Publish to npm
-              working-directory: packages/api
-              run: npm publish --access public
+              run: pnpm --filter @moteurio/api publish --access public --no-git-checks
               env:
                   NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

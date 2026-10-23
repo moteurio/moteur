@@ -41,7 +41,6 @@ jobs:
               uses: actions/checkout@v4
               with:
                   fetch-depth: 0
-                  token: ${{ secrets.RELEASE_PAT }}
 
             - name: Setup Node.js
               uses: actions/setup-node@v4
@@ -73,6 +72,7 @@ jobs:
               run: |
                   git config user.name "github-actions[bot]"
                   git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+                  git remote set-url origin "https://x-access-token:${RELEASE_PAT}@github.com/${GITHUB_REPOSITORY}.git"
                   git add packages/*/package.json CHANGELOG.md
                   if git diff --cached --quiet; then
                     echo "No staged changes; aborting"
@@ -80,11 +80,15 @@ jobs:
                   fi
                   git commit -m "chore(release): ${EXPECTED_MOTEUR_LINE}"
                   git push origin "HEAD:${GITHUB_REF_NAME}"
+              env:
+                  RELEASE_PAT: ${{ secrets.RELEASE_PAT }}
 
             - name: Tag release and push tag
               run: |
                   git tag "moteur@${EXPECTED_MOTEUR_LINE}"
                   git push origin "moteur@${EXPECTED_MOTEUR_LINE}"
+              env:
+                  RELEASE_PAT: ${{ secrets.RELEASE_PAT }}
 
             - name: Validate release line policy
               run: node scripts/validate-release-versions.mjs
@@ -109,11 +113,6 @@ jobs:
               env:
                   NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
-            - name: Publish @moteurio/ai
-              run: pnpm --filter @moteurio/ai test && pnpm --filter @moteurio/ai run build && cd packages/ai && npm publish --access public
-              env:
-                  NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-
             - name: Publish @moteurio/client
               run: pnpm --filter @moteurio/client test && pnpm --filter @moteurio/client run build && cd packages/client && npm publish --access public
               env:
@@ -130,7 +129,7 @@ jobs:
                   NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
             - name: Publish @moteurio/api
-              run: pnpm --filter @moteurio/api test && pnpm --filter @moteurio/api run build && cd packages/api && npm publish --access public
+              run: pnpm --filter @moteurio/api test && pnpm --filter @moteurio/api run build && pnpm --filter @moteurio/api publish --access public --no-git-checks
               env:
                   NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
