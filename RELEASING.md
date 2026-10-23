@@ -79,7 +79,8 @@ Do not run fallback tag workflows in parallel with the orchestrator.
 
 - `node scripts/validate-release-versions.mjs`
 - Ensure package versions/dependency ranges are aligned to the expected release line (including `@moteurio/client`: published packages must use `^<line>` when not `workspace:*`, same as other `@moteurio/*` internals). Override the default line with `EXPECTED_MOTEUR_LINE` if needed (see [VERSIONING.md](VERSIONING.md)).
-- Dry-run each tarball before staging: from the package directory after `pnpm --filter <pkg> run build`, run `npm stage publish --dry-run` (or `npm publish --dry-run` to inspect the pack list) and confirm `files`, `exports`, and no accidental `src/` leakage.
+- Staging uses `node scripts/stage-publish.mjs @moteurio/<pkg>` (`pnpm pack` then `npm stage publish` on the tarball). Do **not** run `npm stage publish` from `packages/<pkg>` — that uploads `workspace:*` and breaks `npm install` on hosts.
+- Dry-run: after `pnpm pack`, inspect the tarball’s `package/package.json` dependencies before staging.
 
 ## Release notes
 

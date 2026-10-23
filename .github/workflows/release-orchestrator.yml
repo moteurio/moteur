@@ -123,32 +123,32 @@ jobs:
               run: node scripts/validate-release-versions.mjs
 
             - name: Stage @moteurio/types on npm
-              run: pnpm --filter @moteurio/types test && pnpm --filter @moteurio/types run build && cd packages/types && npm stage publish --access public
+              run: node scripts/stage-publish.mjs @moteurio/types
 
             - name: Stage @moteurio/plugin-sdk on npm
-              run: pnpm --filter @moteurio/plugin-sdk test && pnpm --filter @moteurio/plugin-sdk run build && cd packages/plugin-sdk && npm stage publish --access public
+              run: node scripts/stage-publish.mjs @moteurio/plugin-sdk
 
             - name: Stage @moteurio/studio-plugin-sdk on npm
-              run: pnpm --filter @moteurio/studio-plugin-sdk test && pnpm --filter @moteurio/studio-plugin-sdk run build && cd packages/studio-plugin-sdk && npm stage publish --access public
+              run: node scripts/stage-publish.mjs @moteurio/studio-plugin-sdk
 
             - name: Stage @moteurio/core on npm
-              run: pnpm --filter @moteurio/core test && pnpm --filter @moteurio/core run build && cd packages/core && npm stage publish --access public
+              run: node scripts/stage-publish.mjs @moteurio/core
 
             - name: Stage @moteurio/client on npm
-              run: pnpm --filter @moteurio/client test && pnpm --filter @moteurio/client run build && cd packages/client && npm stage publish --access public
+              run: node scripts/stage-publish.mjs @moteurio/client
 
             - name: Stage @moteurio/commands on npm
-              run: pnpm --filter @moteurio/commands test && pnpm --filter @moteurio/commands run build && cd packages/commands && npm stage publish --access public
+              run: node scripts/stage-publish.mjs @moteurio/commands
 
             - name: Stage @moteurio/mcp on npm
-              run: pnpm --filter @moteurio/mcp test && pnpm --filter @moteurio/mcp run build && cd packages/mcp && npm stage publish --access public
+              run: node scripts/stage-publish.mjs @moteurio/mcp
 
             - name: Stage @moteurio/api on npm
-              run: pnpm --filter @moteurio/api test && pnpm --filter @moteurio/api run build && cd packages/api && npm stage publish --access public
+              run: node scripts/stage-publish.mjs @moteurio/api
 
             - name: Stage optional @moteurio/cli on npm
               if: ${{ inputs.release_client_cli == 'true' }}
-              run: pnpm --filter @moteurio/cli test && pnpm --filter @moteurio/cli run build && cd packages/cli && npm stage publish --access public
+              run: node scripts/stage-publish.mjs @moteurio/cli
 
             - name: Approve staged packages (maintainer, outside CI)
               run: |
