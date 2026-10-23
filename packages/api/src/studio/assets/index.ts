@@ -23,7 +23,6 @@ import {
     updateAssets,
     type AssetPatch
 } from '@moteurio/core/assets/assetService.js';
-import { getProject } from '@moteurio/core/projects.js';
 import { assetUsage } from '@moteurio/core/assets/assetUsage.js';
 import { PlanLimitError } from '@moteurio/core/planLimits.js';
 import { triggerEvent } from '@moteurio/core/utils/eventBus.js';

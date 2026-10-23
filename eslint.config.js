@@ -23,6 +23,7 @@ export default [
             'src/tests/**',
             // Run with tsx (see the file); not part of a tsconfig project.
             'scripts/**/*.ts',
+            'scripts/**/*.mjs',
             'html/**'
         ]
     },
