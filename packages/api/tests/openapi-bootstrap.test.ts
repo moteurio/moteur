@@ -7,12 +7,6 @@ vi.mock('@moteurio/core', () => ({
     registerHostPlugins: vi.fn(async () => {})
 }));
 
-vi.mock('@moteurio/ai', () => ({
-    initAiFromEnv: vi.fn(async () => {}),
-    createAiRouter: vi.fn(() => express.Router()),
-    getAiOpenApiPaths: vi.fn(() => ({}))
-}));
-
 vi.mock('../src/plugins/hostPlugins', () => ({
     loadHostPluginsFromEnv: vi.fn(async () => [])
 }));

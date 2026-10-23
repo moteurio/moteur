@@ -36,11 +36,9 @@
             "@moteurio/plugin-search-meilisearch": [
                 "./packages/plugins/plugin-search-meilisearch/dist"
             ],
-            "@moteurio/ai/*": ["./packages/ai/dist/*"],
             "@moteurio/types": ["./packages/types/dist"],
             "@moteurio/core": ["./packages/core/dist"],
-            "@moteurio/api": ["./packages/api/dist"],
-            "@moteurio/ai": ["./packages/ai/dist"]
+            "@moteurio/api": ["./packages/api/dist"]
         }
     }
 }

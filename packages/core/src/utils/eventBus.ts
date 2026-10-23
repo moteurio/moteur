@@ -90,6 +90,15 @@ export interface EventMap {
     'blueprint.afterUpdate': { blueprint: BlueprintSchema; user: User };
     'blueprint.afterDelete': { blueprint: BlueprintSchema; user: User };
 
+    // Assets (projectId + user for follow-up actions such as AI auto-analysis)
+    'asset.afterCreate': {
+        projectId: string;
+        asset: Asset;
+        user: User;
+        /** Alt text supplied on upload; when set, hosts skip automatic image analysis. */
+        uploadAlt?: string;
+    };
+
     // Activity (emitted after an event is persisted to the activity log)
     'activity.logged': { event: ActivityEvent };
 

@@ -9,7 +9,6 @@ import type { AuthProviderContribution } from '@moteurio/types/Plugin.js';
 import '@moteurio/core';
 import { registerCorePlugins, registerHostPlugins } from '@moteurio/core';
 import '@moteurio/core/assets/index.js';
-import { initAiFromEnv, createAiRouter, getAiOpenApiPaths } from '@moteurio/ai';
 import type { HostPluginModule } from '@moteurio/plugin-sdk';
 
 import { baseSpec } from '../openapi.js';
@@ -171,7 +170,6 @@ export async function bootstrapApi(options?: {
     await registerCorePlugins();
     const hostPlugins = options?.hostPlugins ?? (await loadHostPluginsFromEnv());
     await registerHostPlugins(hostPlugins);
-    await initAiFromEnv();
 
     const routeContext = {
         requireAuth,
@@ -182,13 +180,6 @@ export async function bootstrapApi(options?: {
     const pluginRouteContributions: PluginRouteContribution[] = [];
     const authProviders: AuthProviderContribution[] = [];
     const pluginPaths: Record<string, unknown> = {};
-
-    pluginRouteContributions.push({
-        path: '/ai',
-        router: createAiRouter(routeContext),
-        openapi: { paths: getAiOpenApiPaths() }
-    });
-    Object.assign(pluginPaths, getAiOpenApiPaths());
 
     for (const plugin of hostPlugins) {
         try {

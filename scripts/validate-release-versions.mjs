@@ -8,7 +8,6 @@ const targetDeps = new Set([
     '@moteurio/types',
     '@moteurio/plugin-sdk',
     '@moteurio/core',
-    '@moteurio/ai',
     '@moteurio/api',
     '@moteurio/client',
     '@moteurio/commands',
