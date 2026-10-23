@@ -80,6 +80,7 @@ Do not run fallback tag workflows in parallel with the orchestrator.
 - `node scripts/validate-release-versions.mjs`
 - Ensure package versions/dependency ranges are aligned to the expected release line (including `@moteurio/client`: published packages must use `^<line>` when not `workspace:*`, same as other `@moteurio/*` internals). Override the default line with `EXPECTED_MOTEUR_LINE` if needed (see [VERSIONING.md](VERSIONING.md)).
 - Staging uses `node scripts/stage-publish.mjs @moteurio/<pkg>` (`pnpm pack` then `npm stage publish` on the tarball). Do **not** run `npm stage publish` from `packages/<pkg>` — that uploads `workspace:*` and breaks `npm install` on hosts.
+- Same-day republish override must be semver prerelease: **`2026.3.28-2`**, not `2026.3.28.2`. The orchestrator normalizes the dotted form when possible; prerelease stages pass **`--tag latest`** to npm.
 - Dry-run: after `pnpm pack`, inspect the tarball’s `package/package.json` dependencies before staging.
 
 ## Release notes

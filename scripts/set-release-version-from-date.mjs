@@ -12,9 +12,16 @@ function calVerUtc(d = new Date()) {
     return `${y}.${m}.${day}`;
 }
 
+/** npm semver same-day republish: `2026.3.28-2`, not `2026.3.28.2` (see VERSIONING.md). */
+function normalizeReleaseVersion(input) {
+    const micro = /^(\d{4}\.\d{1,2}\.\d{1,2})\.(\d+)$/.exec(input);
+    if (micro) return `${micro[1]}-${micro[2]}`;
+    return input;
+}
+
 function resolveVersion() {
     const override = process.env.RELEASE_VERSION?.trim();
-    if (override) return override;
+    if (override) return normalizeReleaseVersion(override);
     return calVerUtc();
 }
 

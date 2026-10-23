@@ -20,6 +20,18 @@ function run(cmd, args, opts = {}) {
     execFileSync(cmd, args, { cwd: root, stdio: 'inherit', ...opts });
 }
 
+function versionFromTgz(tgzPath) {
+    const pkgJson = execFileSync('tar', ['-xOf', tgzPath, 'package/package.json'], {
+        encoding: 'utf8'
+    });
+    return JSON.parse(pkgJson).version;
+}
+
+/** Semver prerelease (`2026.3.28-2`) or mistaken four-part (`2026.3.28.2`). */
+function needsDistTag(version) {
+    return version.includes('-') || /^\d+\.\d+\.\d+\.\d+/.test(version);
+}
+
 run('pnpm', ['--filter', filter, 'test']);
 run('pnpm', ['--filter', filter, 'run', 'build']);
 const packLog = execFileSync('pnpm', ['--filter', filter, 'pack', '--pack-destination', packDir], {
@@ -36,5 +48,10 @@ if (!tgz || !fs.existsSync(tgz)) {
     console.error('stage-publish: could not find pack output');
     process.exit(1);
 }
-console.error(`stage-publish: ${filter} from ${path.basename(tgz)}`);
-run('npm', ['stage', 'publish', tgz, '--access', 'public']);
+const version = versionFromTgz(tgz);
+console.error(`stage-publish: ${filter}@${version} from ${path.basename(tgz)}`);
+const npmArgs = ['stage', 'publish', tgz, '--access', 'public'];
+if (needsDistTag(version)) {
+    npmArgs.push('--tag', 'latest');
+}
+run('npm', npmArgs);
