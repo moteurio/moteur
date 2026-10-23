@@ -1,5 +1,5 @@
 # Publish @moteurio/plugin-sdk to npm when a tag plugin-sdk@<version> is pushed.
-# Requires NPM_TOKEN secret (npm auth token with publish access).
+# Requires NPM_STAGING_TOKEN (granular, stage only); approve on npmjs.com after.
 name: Release @moteurio/plugin-sdk
 
 on:
@@ -32,8 +32,11 @@ jobs:
             - name: Build plugin-sdk package
               run: pnpm --filter @moteurio/plugin-sdk run build
 
-            - name: Publish to npm
+            - name: Ensure npm for staged publish
+              run: npm install -g npm@11.15
+
+            - name: Stage on npm
               working-directory: packages/plugin-sdk
-              run: npm publish --access public
+              run: npm stage publish --access public
               env:
-                  NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+                  NODE_AUTH_TOKEN: ${{ secrets.NPM_STAGING_TOKEN }}

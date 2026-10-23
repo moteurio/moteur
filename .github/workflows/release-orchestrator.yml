@@ -27,6 +27,8 @@ concurrency:
 jobs:
     release:
         runs-on: ubuntu-latest
+        env:
+            NODE_AUTH_TOKEN: ${{ secrets.NPM_STAGING_TOKEN }}
         steps:
             - name: Require RELEASE_PAT
               run: |
@@ -36,6 +38,15 @@ jobs:
                   fi
               env:
                   RELEASE_PAT: ${{ secrets.RELEASE_PAT }}
+
+            - name: Require NPM_STAGING_TOKEN
+              run: |
+                  if [ -z "$NPM_STAGING_TOKEN" ]; then
+                    echo "::error::Set repository secret NPM_STAGING_TOKEN (granular, Read and write stage only, @moteurio/*). See RELEASING.md."
+                    exit 1
+                  fi
+              env:
+                  NPM_STAGING_TOKEN: ${{ secrets.NPM_STAGING_TOKEN }}
 
             - name: Checkout
               uses: actions/checkout@v4
@@ -50,6 +61,9 @@ jobs:
 
             - name: Install pnpm
               run: npm install -g pnpm
+
+            - name: Ensure npm for staged publish
+              run: npm install -g npm@11.15
 
             - name: Install dependencies
               run: pnpm install
@@ -93,51 +107,39 @@ jobs:
             - name: Validate release line policy
               run: node scripts/validate-release-versions.mjs
 
-            - name: Publish @moteurio/types
-              run: pnpm --filter @moteurio/types test && pnpm --filter @moteurio/types run build && cd packages/types && npm publish --access public
-              env:
-                  NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+            - name: Stage @moteurio/types on npm
+              run: pnpm --filter @moteurio/types test && pnpm --filter @moteurio/types run build && cd packages/types && npm stage publish --access public
 
-            - name: Publish @moteurio/plugin-sdk
-              run: pnpm --filter @moteurio/plugin-sdk test && pnpm --filter @moteurio/plugin-sdk run build && cd packages/plugin-sdk && npm publish --access public
-              env:
-                  NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+            - name: Stage @moteurio/plugin-sdk on npm
+              run: pnpm --filter @moteurio/plugin-sdk test && pnpm --filter @moteurio/plugin-sdk run build && cd packages/plugin-sdk && npm stage publish --access public
 
-            - name: Publish @moteurio/studio-plugin-sdk
-              run: pnpm --filter @moteurio/studio-plugin-sdk test && pnpm --filter @moteurio/studio-plugin-sdk run build && cd packages/studio-plugin-sdk && npm publish --access public
-              env:
-                  NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+            - name: Stage @moteurio/studio-plugin-sdk on npm
+              run: pnpm --filter @moteurio/studio-plugin-sdk test && pnpm --filter @moteurio/studio-plugin-sdk run build && cd packages/studio-plugin-sdk && npm stage publish --access public
 
-            - name: Publish @moteurio/core
-              run: pnpm --filter @moteurio/core test && pnpm --filter @moteurio/core run build && cd packages/core && npm publish --access public
-              env:
-                  NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+            - name: Stage @moteurio/core on npm
+              run: pnpm --filter @moteurio/core test && pnpm --filter @moteurio/core run build && cd packages/core && npm stage publish --access public
 
-            - name: Publish @moteurio/client
-              run: pnpm --filter @moteurio/client test && pnpm --filter @moteurio/client run build && cd packages/client && npm publish --access public
-              env:
-                  NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+            - name: Stage @moteurio/client on npm
+              run: pnpm --filter @moteurio/client test && pnpm --filter @moteurio/client run build && cd packages/client && npm stage publish --access public
 
-            - name: Publish @moteurio/commands
-              run: pnpm --filter @moteurio/commands test && pnpm --filter @moteurio/commands run build && cd packages/commands && npm publish --access public
-              env:
-                  NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+            - name: Stage @moteurio/commands on npm
+              run: pnpm --filter @moteurio/commands test && pnpm --filter @moteurio/commands run build && cd packages/commands && npm stage publish --access public
 
-            - name: Publish @moteurio/mcp
-              run: pnpm --filter @moteurio/mcp test && pnpm --filter @moteurio/mcp run build && cd packages/mcp && npm publish --access public
-              env:
-                  NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+            - name: Stage @moteurio/mcp on npm
+              run: pnpm --filter @moteurio/mcp test && pnpm --filter @moteurio/mcp run build && cd packages/mcp && npm stage publish --access public
 
-            - name: Publish @moteurio/api
-              run: pnpm --filter @moteurio/api test && pnpm --filter @moteurio/api run build && pnpm --filter @moteurio/api publish --access public --no-git-checks
-              env:
-                  NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+            - name: Stage @moteurio/api on npm
+              run: pnpm --filter @moteurio/api test && pnpm --filter @moteurio/api run build && cd packages/api && npm stage publish --access public
 
-            - name: Publish optional @moteurio/cli
+            - name: Stage optional @moteurio/cli on npm
               if: ${{ inputs.release_client_cli == 'true' }}
-              run: pnpm --filter @moteurio/cli test && pnpm --filter @moteurio/cli run build && cd packages/cli && npm publish --access public
-              env:
-                  NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+              run: pnpm --filter @moteurio/cli test && pnpm --filter @moteurio/cli run build && cd packages/cli && npm stage publish --access public
+
+            - name: Approve staged packages (maintainer, outside CI)
+              run: |
+                  echo "::warning::Versions are on npm's staging area, not live yet."
+                  echo "Approve each package with 2FA: https://www.npmjs.com/settings/~/packages/staged"
+                  echo "Or locally: npm stage list && npm stage approve <stage-id>"
 
             - name: Create GitHub Release
               run: |

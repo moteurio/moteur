@@ -4,8 +4,23 @@ Version scheme: calendar release line for published packages ([VERSIONING.md](VE
 
 ## Required secrets
 
-- `NPM_TOKEN` with publish permissions for `@moteurio/*`.
 - `RELEASE_PAT` — personal access token used to **push** the release commit and tags to [protected](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-protected-branches/about-protected-branches) branches and to create GitHub Releases. Checkout uses the job’s read-only `GITHUB_TOKEN` (same as CI); only `git push`, tag push, and `gh release` use this secret.
+- `NPM_STAGING_TOKEN` — **granular access token** used only in CI to run [`npm stage publish`](https://docs.npmjs.com/staged-publishing/). Create it at [npm → Access Tokens](https://www.npmjs.com/settings/~tokens):
+    - **Packages and scopes:** `@moteurio/*` (or each published package).
+    - **Permissions:** **Read and write (stage only)** — not “publish and stage”.
+    - **Bypass 2FA:** may be enabled for staging in automation (staging does not require 2FA; **approval** always does).
+    - Direct `npm publish` with bypass-2FA tokens is deprecated (removed **January 2027**); this repo does not use it.
+
+### After the orchestrator runs (maintainer)
+
+CI stages every package version; nothing is live on the registry until you **approve** with 2FA:
+
+1. [npm → Staged packages](https://www.npmjs.com/settings/~/packages/staged), or
+2. Locally: `npm stage list`, then `npm stage approve <stage-id>` (npm CLI **≥ 11.15**, Node **≥ 22.14**).
+
+Approve in **publish order** (types → … → api → optional cli) so dependents exist when downstream consumers resolve the new line.
+
+Emergency **direct** publish from a laptop (not CI): `npm publish` with your normal npm login session and 2FA — do not put that credential in GitHub.
 
 ### Creating `RELEASE_PAT` on GitHub
 
@@ -31,7 +46,7 @@ In one run the workflow:
 2. Prepends a `## <line>` section to [CHANGELOG.md](CHANGELOG.md) with `git log` entries since the latest `moteur@*` tag (by tag date), or a capped bootstrap list when no `moteur@*` tag exists yet (see [scripts/prepend-release-changelog.mjs](scripts/prepend-release-changelog.mjs)).
 3. Commits those changes and pushes to the branch you ran the workflow from.
 4. Creates and pushes tag `moteur@<line>` (same string as the npm release line).
-5. Publishes packages to npm in the order below.
+5. **Stages** packages on npm (`npm stage publish`) in the order below — versions are not public until approved (see above).
 6. Creates a [GitHub Release](https://docs.github.com/en/repositories/releasing-projects-on-github/about-releases) for `moteur@<line>` using the same notes as the new changelog section.
 
 Re-running for an unchanged release line fails: [CHANGELOG.md](CHANGELOG.md) already contains that `##` section.
@@ -56,7 +71,7 @@ The workflow stops on first failure.
 
 Per-package tag workflows still exist (for manual/emergency publishes):
 
-- `types@*`, `plugin-sdk@*`, `core@*`, `ai@*`, `api@*`, `client@*`, `cli@*`
+- `types@*`, `plugin-sdk@*`, `core@*`, `api@*`, `client@*`, `cli@*`
 
 Do not run fallback tag workflows in parallel with the orchestrator.
 
@@ -64,8 +79,7 @@ Do not run fallback tag workflows in parallel with the orchestrator.
 
 - `node scripts/validate-release-versions.mjs`
 - Ensure package versions/dependency ranges are aligned to the expected release line (including `@moteurio/client`: published packages must use `^<line>` when not `workspace:*`, same as other `@moteurio/*` internals). Override the default line with `EXPECTED_MOTEUR_LINE` if needed (see [VERSIONING.md](VERSIONING.md)).
-- Dry-run each tarball before publishing: from the package directory after `pnpm --filter <pkg> run build`, run `npm publish --dry-run` and confirm `files`, `exports`, and no accidental `src/` leakage.
-- Optional: [npm provenance](https://docs.npmjs.com/generating-provenance-statements) (`npm publish --provenance`) when publishing from GitHub Actions with OIDC.
+- Dry-run each tarball before staging: from the package directory after `pnpm --filter <pkg> run build`, run `npm stage publish --dry-run` (or `npm publish --dry-run` to inspect the pack list) and confirm `files`, `exports`, and no accidental `src/` leakage.
 
 ## Release notes
 
