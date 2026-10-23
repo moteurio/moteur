@@ -30,7 +30,7 @@ Emergency **direct** publish from a laptop (not CI): `npm publish` with your nor
     - **Classic:** Scope **`repo`** (full control of private repositories) for a private repo, or at minimum enough to push and manage releases on this repository.
 3. In the **moteur** repo: **Settings → Secrets and variables → Actions → New repository secret** → name **`RELEASE_PAT`**, value = the token → **Add secret**.
 
-The orchestrator fails fast if `RELEASE_PAT` is missing. Before the first `git push`, the workflow points `origin` at this token; **`gh release create`** uses `GH_TOKEN=$RELEASE_PAT`. If checkout fails with “could not read Username”, CI is usually fine—do **not** pass `RELEASE_PAT` to `actions/checkout`; fix or recreate the secret if **push** or `gh release` returns 403.
+The orchestrator verifies `RELEASE_PAT` with `git ls-remote` before checkout (`persist-credentials: false`). Pushes use an explicit PAT URL with the credential helper disabled so GitHub never authenticates as `github-actions[bot]`. **`gh release create`** uses `GH_TOKEN=$RELEASE_PAT`. If push still fails with 403, the PAT account needs permission to push to protected `main`.
 
 ## Primary release path
 

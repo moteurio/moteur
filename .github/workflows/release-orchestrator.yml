@@ -48,10 +48,19 @@ jobs:
               env:
                   NPM_STAGING_TOKEN: ${{ secrets.NPM_STAGING_TOKEN }}
 
+            - name: Verify RELEASE_PAT can reach GitHub
+              run: |
+                  git -c credential.helper= ls-remote \
+                    "https://x-access-token:${RELEASE_PAT}@github.com/${GITHUB_REPOSITORY}.git" \
+                    HEAD >/dev/null
+              env:
+                  RELEASE_PAT: ${{ secrets.RELEASE_PAT }}
+
             - name: Checkout
               uses: actions/checkout@v4
               with:
                   fetch-depth: 0
+                  persist-credentials: false
 
             - name: Setup Node.js
               uses: actions/setup-node@v4
@@ -83,26 +92,32 @@ jobs:
                   node scripts/prepend-release-changelog.mjs
 
             - name: Commit release and push
+              env:
+                  RELEASE_PAT: ${{ secrets.RELEASE_PAT }}
+                  HUSKY: '0'
               run: |
+                  set -euo pipefail
+                  AUTH_REMOTE="https://x-access-token:${RELEASE_PAT}@github.com/${GITHUB_REPOSITORY}.git"
                   git config user.name "github-actions[bot]"
                   git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-                  git remote set-url origin "https://x-access-token:${RELEASE_PAT}@github.com/${GITHUB_REPOSITORY}.git"
+                  git config --local --unset-all http.https://github.com/.extraheader || true
+                  git config --local credential.helper ""
                   git add packages/*/package.json CHANGELOG.md
                   if git diff --cached --quiet; then
                     echo "No staged changes; aborting"
                     exit 1
                   fi
                   git commit -m "chore(release): ${EXPECTED_MOTEUR_LINE}"
-                  git push origin "HEAD:${GITHUB_REF_NAME}"
-              env:
-                  RELEASE_PAT: ${{ secrets.RELEASE_PAT }}
+                  git -c credential.helper= push "${AUTH_REMOTE}" "HEAD:refs/heads/${GITHUB_REF_NAME}"
 
             - name: Tag release and push tag
-              run: |
-                  git tag "moteur@${EXPECTED_MOTEUR_LINE}"
-                  git push origin "moteur@${EXPECTED_MOTEUR_LINE}"
               env:
                   RELEASE_PAT: ${{ secrets.RELEASE_PAT }}
+              run: |
+                  set -euo pipefail
+                  AUTH_REMOTE="https://x-access-token:${RELEASE_PAT}@github.com/${GITHUB_REPOSITORY}.git"
+                  git -c credential.helper= tag "moteur@${EXPECTED_MOTEUR_LINE}"
+                  git -c credential.helper= push "${AUTH_REMOTE}" "refs/tags/moteur@${EXPECTED_MOTEUR_LINE}"
 
             - name: Validate release line policy
               run: node scripts/validate-release-versions.mjs
