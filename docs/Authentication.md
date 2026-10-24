@@ -39,7 +39,7 @@ If enabled, use the browser flow:
 - The provider redirects back to `.../auth/github/callback` (or `.../auth/google/callback`). The API checks `state` against the cookie (10 minutes, same browser), then signs the person in by their verified email, creating an account with no roles the first time.
 - The API then redirects to `AUTH_REDIRECT_AFTER_LOGIN` (default `/auth/callback`) with the result in the URL fragment, so it never reaches server logs: `#token=<jwt>&next=/projects`, or `#error=state|email|inactive|failed` (bad or expired state, no verified email, account turned off, anything else).
 
-The Studio handles this at `/auth/callback`: point `AUTH_REDIRECT_AFTER_LOGIN` at it (e.g. `https://studio.moteur.io/auth/callback`). The `AUTH_*_REDIRECT_URI` values must reach the API **through the same origin the sign-in started on**, or the browser won't send the cookie back. In local development the Studio proxies the API, so use `http://localhost:5173/moteur-api/auth/github/callback` and `AUTH_REDIRECT_AFTER_LOGIN=http://localhost:5173/auth/callback`.
+The Studio handles this at `/auth/callback`: point `AUTH_REDIRECT_AFTER_LOGIN` at it (e.g. `https://studio.moteur.io/auth/callback`). The `AUTH_*_REDIRECT_URI` values must reach the API **through the same origin the sign-in started on**, or the browser won't send the cookie back. In local development the Studio proxies the API, so use `http://localhost:5181/moteur-api/auth/github/callback` and `AUTH_REDIRECT_AFTER_LOGIN=http://localhost:5181/auth/callback`.
 
 List available providers with `GET {basePath}/auth/providers` (returns `{ "providers": [{ "id": "github", "label": "GitHub" }] }`). The Studio shows a "Continue with…" button for each, and nothing about OAuth when the list is empty.
 
@@ -147,15 +147,34 @@ Each user has **account roles** (`roles` in `users.json`). A project may set oth
 - Whoever creates a project (`POST /projects`, or the demo copy made at sign-up) becomes **Admin** and **Billing** on it, on top of their Studio roles.
 - Project admins (`requireProjectAdmin`) may update or delete the project and create, update or delete its models.
 - `PATCH /projects/:projectId/users/:userId` with `roles` sets that member's roles in this project only. It needs Admin in the project, and the project must keep at least one admin. `memberRoles` cannot be written through `PATCH /projects/:projectId`.
-- `GET /projects` lists the projects the signed-in user belongs to. `GET /blueprints/*` is open to anyone signed in, so they can pick a starting point; changing blueprints stays with operators.
+- `GET /projects` lists the projects the signed-in user belongs to. `GET /blueprints/*` is open to anyone signed in, so they can pick a starting point; changing blueprints is for operators (below).
+- A project's member list changes through invitations and the members routes, never `PATCH /projects/:projectId`. A member's account itself (name, email, active) is changed by them, or by an operator: `PATCH /projects/:projectId/users/:userId` only sets their roles in that project.
+- A project's Git remote is an `https://` address, for everyone: a local path, `file://` or SSH could reach another project's repository on the host.
 
-### Platform operator role
+## Operators
 
-Users who can manage global blueprints and call `/studio/*` routes carry the **operator** role. The exact string stored in JWT and in `users.json` `roles` is **`OPERATOR_ROLE_SLUG`** from `@moteurio/types` (kept stable for existing deployments; today this value is `admin`). Operator rights come from **account roles only**: being Admin in a project never makes someone an operator.
+**Operators run the whole server**: every project and account, plugins, plans and revenue, server-wide blueprints, blocks and structures, seeding and usage. They are **not users**. No role on an account or in a project, `admin` and `developer` included, reaches beyond the projects someone belongs to; an account's roles only set its default roles in projects.
 
-Operators may also change another member's account (name, email, `isActive`, `avatar`) via `PATCH /projects/:projectId/users/:userId`. That updates the global `users.json` record. Account roles are set when the user is created (`moteur auth create-user --operator`) or by editing `users.json`.
+- **Where they live:** `OPERATORS_FILE` (default `data/operators.json` under `DATA_ROOT`), never `users.json`. The file is written readable by the server's own user only (`0600`). Passwords are bcrypt hashes; authenticator secrets are encrypted (AES-256-GCM); recovery codes are stored as hashes.
+- **Signing in:** `POST /operator/auth/login` with `email`, `password` and `code`, the 6-digit code from an authenticator app (TOTP, RFC 6238: 1Password, Google Authenticator, Authy…) or one of their ten one-time recovery codes. A code works once. Every mistake answers the same `401`; five in a row lock the email for 15 minutes (`429`), on top of a rate limit per address.
+- **Their token:** one hour, no refresh; then they sign in again with a new code. It is signed with a key of its own (from `OPERATOR_SECRET`, else derived from `JWT_SECRET`), so a user token never passes as an operator's, nor the other way round. Each request checks the operator still exists and their sign-in hasn't been reset, so removing or resetting an operator ends their sessions at once.
+- **Operator routes** (`requireOperator`: `/operator/*`, `/billing/operator/*`, `POST /moteur/blocks`, blueprint changes, `/studio/seed`, `/studio/usage`, `GET /activity`, plugin routes marked so) accept only an operator token. The request then acts as the engine, named after the operator ("Louise (operator)") in what it records.
 
-Studio's **Operator** area (`/operator`) is the same people: every project and account, plans and revenue (when billing is on), blueprints, server-wide blocks and structures, and plugins. The routes live under `/operator` (and `/billing/operator` on api.moteur.io).
+### Adding operators
+
+The first operator starts on the server, where the API's data is (nobody can create one over HTTP):
+
+```bash
+moteur-operators add you@example.com --name "Your Name"   # ships with @moteurio/api
+```
+
+It prints a **one-time link** (24 hours; `STUDIO_URL` makes it a full address): `<studio>/operator/enroll/<token>`. There they add Moteur to their authenticator app (QR code, or the key typed in), confirm with a code, choose a password (12 characters or more) and keep their recovery codes. After that, operators add, reset (lost phone: sessions end, new link) and remove each other in the Studio (**Operator › Operators**), with `moteur operator add-operator`, or with `moteur-operators` on the server (`list`, `add`, `reset`, `remove`). The last operator who can sign in can't be removed.
+
+### In the Studio and the CLI
+
+The Studio's operator area has its own sign-in at **`/operator`** (email, password, code), apart from the projects': its session lives in that browser tab only and ends after the hour. People's menus don't link to it.
+
+On the command line, `moteur operator login` asks for the email, password and code and keeps the hour-long session in `~/.moteur/operator.json` (only you can read it; `MOTEUR_OPERATOR_TOKEN` works too). Every command that calls an operator route uses that session, never `moteur auth login`. The MCP server never offers operator commands, whatever its options.
 
 ### Sign-in timestamps
 

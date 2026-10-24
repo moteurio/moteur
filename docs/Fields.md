@@ -6,8 +6,6 @@ Fields are the **building blocks** of everything you store in Moteur: **models**
 
 **Multilingual:** Many types store **per-locale** values (e.g. `{ "en": "Hello", "fr": "Bonjour" }`). Below, examples often show a single locale for clarity.
 
-**Renamed type:** `core/composition-ref` → **`core/layout`** (same value shape; only the `type` string changed).
-
 ---
 
 ## How to read each field section
@@ -1326,8 +1324,7 @@ Declare the children under `fields` on the definition; Studio then shows them as
 
 ---
 
-> Geo is now provided by the optional `geo` plugin (`geo/location`, `geo/area`, `geo/polyline`, `geo/map`).
-> If you previously used `core/geo`, migrate to `geo/location`.
+> Geo fields come from the optional `geo` plugin (`geo/location`, `geo/area`, `geo/polyline`, `geo/map`).
 
 ---
 

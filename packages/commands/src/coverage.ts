@@ -6,6 +6,10 @@ import type { CommandSpec } from './spec.js';
 
 /** Operations without a command on purpose, with why. Same `METHOD /path` form as `http`. */
 export const SKIPPED: Record<string, string> = {
+    'POST /operator/auth/login': 'moteur operator login (prompts, keeps the operator session)',
+    'GET /operator/auth/enroll/{token}': 'an operator’s one-time link, opened in the Studio',
+    'POST /operator/auth/enroll/{token}': 'an operator’s one-time link, finished in the Studio',
+    'GET /operator/auth/me': 'moteur operator whoami reads the local session',
     'GET /auth/github': 'browser sign-in redirect',
     'GET /auth/github/callback': 'browser sign-in redirect',
     'GET /auth/google': 'browser sign-in redirect',
@@ -73,15 +77,19 @@ export interface Coverage {
     unknown: { command: string; op: string }[];
 }
 
-type OpenApi = { paths?: Record<string, Record<string, unknown>> };
+export type OpenApi = { paths?: Record<string, object | undefined> };
 const METHODS = ['get', 'post', 'put', 'patch', 'delete'];
 
-export function coverage(commands: CommandSpec[], doc: OpenApi): Coverage {
-    const ops = Object.entries(doc.paths ?? {}).flatMap(([path, item]) =>
-        Object.keys(item)
+/** Every operation a document lists, normalized. */
+const operations = (doc: OpenApi): string[] =>
+    Object.entries(doc.paths ?? {}).flatMap(([path, item]) =>
+        Object.keys(item ?? {})
             .filter(m => METHODS.includes(m))
             .map(m => normalize(`${m} ${path}`))
     );
+
+export function coverage(commands: CommandSpec[], doc: OpenApi): Coverage {
+    const ops = operations(doc);
     const known = new Set(ops);
     const byCommand = new Set(commands.flatMap(operationsOf));
     const skipped = new Set(Object.keys(SKIPPED).map(normalize));
@@ -96,4 +104,13 @@ export function coverage(commands: CommandSpec[], doc: OpenApi): Coverage {
                 .map(op => ({ command: `${c.group} ${c.name}`.trim(), op }))
         )
     };
+}
+
+/**
+ * The commands a server can run: those whose calls its OpenAPI document lists (plugin routes
+ * included). Commands that make no call (local settings) always stay.
+ */
+export function available(commands: CommandSpec[], doc: OpenApi): CommandSpec[] {
+    const known = new Set(operations(doc));
+    return commands.filter(c => operationsOf(c).every(o => known.has(o)));
 }

@@ -282,7 +282,8 @@ Same domain objects, **different URLs and rules**:
 - **`forProject(id)`** — same namespaces with `projectId` fixed, including **`activity`**
 - **`instance`** — deployment maintenance: `usage`, `seed`, `migrateProvider` (operator-oriented; see table under admin section)
 - **`blueprints`** — global blueprint templates
-- **`operator`** — the whole-server view (projects, accounts, plugins, server-wide blocks and structures); requires an account with the `admin` role
+- **`operator`** — the whole-server view (projects, accounts, plugins, server-wide blocks and structures). Needs an **operator token** (`POST /operator/auth/login`, password and authenticator code), not a user's: create a second client with it
+- **`ai`** — writing, translation, image descriptions, generation. **Needs the AI plugin** (Moteur Cloud): a self-hosted API without it has no `/ai` routes and answers 404; check its `/openapi.json` for `/ai/` paths before offering AI
 - **`activity`** (on the root client only) — **`client.activity.list()`** for **cross-project** / system-wide logs (operators); prefer **`forProject().activity`** for normal tooling
 
 Types: **`MoteurAdminClient`**, **`MoteurPublicClient`**, **`ProjectClient`**, **`createProjectClient`**
@@ -344,6 +345,8 @@ The **public** client does **not** expose `_raw`; it only exposes the curated re
 ## Real-time presence (WebSocket)
 
 `@moteurio/client` is **HTTP only**. For live collaboration (presence, field locks, shared draft state), connect with **socket.io-client** to the same API origin, `path: '/socket.io'`, JWT in `auth.token`, and the event contract in [**Presence API**](../../docs/Presence%20API.md).
+
+The socket comes from the **presence plugin** (Moteur Cloud). A self-hosted API without it has no `/socket.io`, so treat a failed connection as "no live updates" rather than retrying forever. Live activity, comments and reviews arrive on the same socket.
 
 ---
 

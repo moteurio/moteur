@@ -10,6 +10,7 @@ export default [
                 fetch: 'readonly',
                 NodeJS: 'readonly',
                 URL: 'readonly',
+                URLSearchParams: 'readonly',
                 setTimeout: 'readonly',
                 clearTimeout: 'readonly',
                 setInterval: 'readonly',

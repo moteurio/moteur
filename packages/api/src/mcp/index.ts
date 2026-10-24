@@ -44,8 +44,8 @@ export function optionsFromQuery(query: Request['query']): ServerOptions {
     };
 }
 
-/** The tools for the signed-in person, calling the API at `self`. */
-export function mcpRouter(self: () => string): Router {
+/** The tools for the signed-in person, calling the API at `self` (whose routes `spec` lists). */
+export function mcpRouter(self: () => string, spec?: OpenAPIV3.Document): Router {
     const router = Router();
 
     router.post('/', requireAuth, async (req: Request, res: Response) => {
@@ -65,6 +65,7 @@ export function mcpRouter(self: () => string): Router {
         const options = optionsFromQuery(req.query);
         const server = createServer({
             ...options,
+            routes: spec ? async () => spec : false,
             session: body => ({
                 client: async () => client,
                 defaultProject: async () => options.project,

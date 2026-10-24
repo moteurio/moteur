@@ -43,48 +43,10 @@ function effectiveKind(b: BlueprintSchema): BlueprintKind {
 }
 
 /**
- * One-time migration: move root-level .json files to data/blueprints/projects/.
- * Idempotent: if root has no .json files, no-op. Call before any read when using subdir layout.
- */
-function migrateBlueprintsToSubdirs(): void {
-    const dir = storageConfig.blueprintsDir;
-    if (!fs.existsSync(dir)) return;
-
-    const entries = fs.readdirSync(dir, { withFileTypes: true });
-    const rootJsonFiles = entries.filter(e => e.isFile() && e.name.endsWith('.json'));
-    if (rootJsonFiles.length === 0) return;
-
-    const projectsDir = kindSubdir('project');
-    if (!fs.existsSync(projectsDir)) {
-        fs.mkdirSync(projectsDir, { recursive: true });
-    }
-
-    for (const e of rootJsonFiles) {
-        const src = path.join(dir, e.name);
-        const dest = path.join(projectsDir, e.name);
-        try {
-            fs.renameSync(src, dest);
-        } catch (err) {
-            console.error(`[Moteur] Failed to migrate blueprint ${e.name}`, err);
-        }
-    }
-
-    // Ensure all kind subdirs exist
-    for (const k of BLUEPRINT_KINDS) {
-        const subdir = kindSubdir(k);
-        if (!fs.existsSync(subdir)) {
-            fs.mkdirSync(subdir, { recursive: true });
-        }
-    }
-}
-
-/**
  * List all blueprints of a given kind.
  * @param kind - Required. One of 'project', 'model', 'structure', 'template'.
  */
 export function listBlueprints(kind: BlueprintKind): BlueprintSchema[] {
-    migrateBlueprintsToSubdirs();
-
     const byId = new Map<string, BlueprintSchema>();
 
     const dir = kindSubdir(kind);
@@ -123,7 +85,6 @@ export function getBlueprint(kind: BlueprintKind, id: string): BlueprintSchema {
     const fromPlugin = pluginMap?.get(id);
     if (fromPlugin) return fromPlugin;
 
-    migrateBlueprintsToSubdirs();
     const filePath = blueprintFilePath(kind, id);
     if (!fs.existsSync(filePath)) {
         throw new Error(`Blueprint "${kind}/${id}" not found`);
@@ -196,7 +157,6 @@ export function createBlueprint(blueprint: BlueprintSchema, performedBy?: User):
     const kind = effectiveKind(blueprint);
     validateBlueprintPayload(blueprint);
 
-    migrateBlueprintsToSubdirs();
     const dir = kindSubdir(kind);
     fs.mkdirSync(dir, { recursive: true });
 
@@ -236,7 +196,6 @@ export function deleteBlueprint(kind: BlueprintKind, id: string, performedBy?: U
     if (!isValidId(id)) {
         throw new Error(`Invalid blueprint id: "${id}"`);
     }
-    migrateBlueprintsToSubdirs();
     const filePath = blueprintFilePath(kind, id);
     if (fs.existsSync(filePath)) {
         const current = getBlueprint(kind, id);

@@ -27,7 +27,7 @@ router.get('/', requireProjectAccess, async (req: Request, res: Response) => {
 });
 
 /**
- * One audit row. Operators see full prompt/response; other project members see summary only.
+ * One audit row. The project's admins see the full prompt and response; other members a summary.
  */
 router.get('/:eventId', requireProjectAccess, async (req: Request, res: Response) => {
     const { projectId, eventId } = req.params as Record<string, string>;
@@ -36,8 +36,7 @@ router.get('/:eventId', requireProjectAccess, async (req: Request, res: Response
         if (!event) {
             return void res.status(404).json({ error: 'Audit event not found' });
         }
-        const isOperator = hasRole(req.user, 'admin');
-        if (isOperator) {
+        if (hasRole(req.user, 'admin')) {
             return void res.json(event);
         }
         return void res.json(toAiAuditSummary(event));
@@ -50,6 +49,8 @@ export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
     '/projects/{projectId}/ai-audit': {
         get: {
             summary: 'List AI audit events (summary — no prompts)',
+            description:
+                'Written by the AI plugin (Moteur Cloud) for each AI call; an empty list on a server without it.',
             tags: ['AI'],
             parameters: [
                 { name: 'projectId', in: 'path', required: true, schema: { type: 'string' } },

@@ -32,13 +32,9 @@ Storage is flat JSON files (no database). Optional **blueprints** and **seeds** 
  pnpm run server:dev
 ```
 
-API base URL: `http://localhost:3000` (or with `API_BASE_PATH`, e.g. `http://localhost:3000/api`). 4. **Run Moteur Studio** (from `moteur-admin`): create projects, models, templates, pages, and entries from the UI.
+API base URL: `http://localhost:3000` (or with `API_BASE_PATH`, e.g. `http://localhost:3000/api`).
 
-```bash
- cd ../moteur-admin && pnpm install && pnpm run dev
-```
-
-Open [http://localhost:5173](http://localhost:5173) and point it at your API (e.g. `VITE_API_URL=http://localhost:3000`).
+4. **Edit content**: with the `moteur` CLI (`pnpm run cli`), or in the terminal with [`moteur-studio`](https://www.npmjs.com/package/@moteurio/studio-cli) (`npm install -g @moteurio/studio-cli`). Moteur Studio, the web app, comes with Moteur Cloud.
 
 ---
 
@@ -178,7 +174,7 @@ pnpm run cli
 
 ### Moteur Studio
 
-The **moteur-admin** app gives you a full admin UI: projects, models, structures, templates, pages, layouts, blocks, entries, blueprints. Use it for content editing and schema setup; use the API or CLI for automation and integration.
+**Moteur Studio** is the web app for writing, reviewing and setting up projects (models, templates, pages, media, people). It is part of Moteur Cloud and not open source. **`moteur-studio`** ([`@moteurio/studio-cli`](https://www.npmjs.com/package/@moteurio/studio-cli)) is the same editorial work in a terminal, open source. Use the API or the `moteur` CLI for automation and integration.
 
 ---
 

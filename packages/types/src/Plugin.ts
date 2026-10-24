@@ -97,7 +97,7 @@ type RequestHandler = (...args: any[]) => any;
 export interface PluginRouteContext {
     requireAuth: RequestHandler;
     requireProjectAccess: RequestHandler;
-    /** JWT user must have the platform operator role (see `OPERATOR_ROLE_SLUG` in @moteurio/types). */
+    /** An operator signed in on /operator/auth (password and authenticator); user tokens never pass. */
     requireOperator: RequestHandler;
     /** Optional; provided by the API for auth provider plugins (e.g. run onboarding after OAuth). */
     authCallbacks?: {

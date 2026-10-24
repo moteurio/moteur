@@ -231,8 +231,6 @@ The public API reads `entry.json` and checks `publishedCommit` and `publishedRev
 - If `revision == publishedRevision` (or no `publishedCommit`): serves `entry.json` directly — it's already the published content.
 - If `revision > publishedRevision` and `publishedCommit` exists: uses `git show <publishedCommit>:path/to/entry.json` to serve the frozen published content. Draft edits in the latest `entry.json` are invisible to the public API.
 
-Falls back to `entry.json` for backward compatibility with entries created before the revision pointer system.
-
 ### Revision history
 
 `GET .../entries/:id/revisions` returns the git log for the entry file (newest first). Each commit that touched the entry file is one revision. Query parameter `?max=N` (default 20, max 100).

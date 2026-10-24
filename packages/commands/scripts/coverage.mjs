@@ -7,7 +7,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { API_COMMANDS, coverage, SKIPPED, normalize } from '../dist/index.js';
+import { API_COMMANDS, coverage, SKIPPED, normalize, PLUGIN_GROUPS } from '../dist/index.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const source = process.argv[2] ?? path.resolve(here, '../../api/dist-openapi/openapi.json');
@@ -26,10 +26,17 @@ if (c.missing.length)
     console.log(
         `\nNo command yet (${c.missing.length}):\n${c.missing.map(o => `  ${o}`).join('\n')}`
     );
-if (c.unknown.length)
+// Plugin routes are only in a document from an API running those plugins.
+const fromPlugins = c.unknown.filter(u => PLUGIN_GROUPS[u.command.split(' ')[0]]);
+const unknown = c.unknown.filter(u => !PLUGIN_GROUPS[u.command.split(' ')[0]]);
+if (fromPlugins.length)
     console.log(
-        `\nCommands calling routes the document doesn't list:\n${c.unknown.map(u => `  ${u.command}: ${u.op}`).join('\n')}`
+        `\nPlugin commands this document has no routes for (${fromPlugins.length}): ${[...new Set(fromPlugins.map(u => u.command.split(' ')[0]))].join(', ')}`
+    );
+if (unknown.length)
+    console.log(
+        `\nCommands calling routes the document doesn't list:\n${unknown.map(u => `  ${u.command}: ${u.op}`).join('\n')}`
     );
 if (process.argv.includes('--skipped'))
     console.log(`\nLeft out:\n${c.skipped.map(o => `  ${o} — ${skippedReasons[o]}`).join('\n')}`);
-process.exitCode = c.missing.length || c.unknown.length ? 1 : 0;
+process.exitCode = c.missing.length || unknown.length ? 1 : 0;

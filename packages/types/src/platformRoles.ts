@@ -6,8 +6,8 @@
  * Developer implies Admin. Admin, Reviewer and Developer imply Writer. Translator and Billing
  * imply nothing. An empty list is a Writer, for people saved before Writer was stored.
  *
- * Platform operator rights (every project, global blueprints, seed, usage) only ever come from
- * account roles: project roles never grant them.
+ * No role, on an account or in a project, reaches beyond the projects someone belongs to. Running
+ * the whole server is for operators, who are not users (see @moteurio/core/operators).
  */
 export const ROLE_SLUGS = [
     'writer',
@@ -19,12 +19,6 @@ export const ROLE_SLUGS = [
 ] as const;
 
 export type RoleSlug = (typeof ROLE_SLUGS)[number];
-
-/**
- * Persisted JWT / `User.roles` value for platform operators (full project list,
- * blueprints, seed, usage, asset migration). Developer satisfies it without being stored as admin.
- */
-export const OPERATOR_ROLE_SLUG = 'admin';
 
 type WithRoles =
     | { roles?: readonly string[] | null; agent?: { reviewOnly?: boolean } | null }

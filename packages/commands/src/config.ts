@@ -75,6 +75,62 @@ export async function clearConfig(): Promise<void> {
 
 const defaultBaseUrl = 'http://localhost:3000';
 
+// ---- the operator session --------------------------------------------------------------------
+
+/** An operator's session (`moteur operator login`): apart from the person's, an hour long. */
+export interface OperatorSessionFile {
+    apiUrl: string;
+    token: string;
+    expiresAt: string;
+    email: string;
+}
+
+const OPERATOR_FILE = path.join(CONFIG_DIR, 'operator.json');
+
+export function readOperatorSession(): OperatorSessionFile | null {
+    const fromEnv = process.env.MOTEUR_OPERATOR_TOKEN?.trim();
+    if (fromEnv) {
+        return {
+            apiUrl: process.env.MOTEUR_API_URL ?? '',
+            token: fromEnv,
+            expiresAt: '',
+            email: ''
+        };
+    }
+    try {
+        const s = JSON.parse(fs.readFileSync(OPERATOR_FILE, 'utf8')) as OperatorSessionFile;
+        return Date.parse(s.expiresAt) > Date.now() ? s : null;
+    } catch {
+        return null;
+    }
+}
+
+export function saveOperatorSession(session: OperatorSessionFile | null): void {
+    if (!session) {
+        fs.rmSync(OPERATOR_FILE, { force: true });
+        return;
+    }
+    ensureConfigDir();
+    // Only you may read it: it runs the whole server for an hour.
+    fs.writeFileSync(OPERATOR_FILE, JSON.stringify(session, null, 2), { mode: 0o600 });
+    fs.chmodSync(OPERATOR_FILE, 0o600);
+}
+
+/** The client for operator commands, signed in as the operator. */
+export async function getOperatorClientOrThrow(): Promise<MoteurAdminClient> {
+    const session = readOperatorSession();
+    if (!session) {
+        throw new Error(
+            'This needs an operator session: moteur operator login (it lasts an hour).'
+        );
+    }
+    const baseURL = (session.apiUrl || (await loadConfig()).apiUrl || defaultBaseUrl).replace(
+        /\/+$/,
+        ''
+    );
+    return createMoteurAdminClient({ baseURL, auth: { type: 'bearer', token: session.token } });
+}
+
 export async function getClient(): Promise<ReturnType<typeof createMoteurAdminClient>> {
     const creds = await resolveCredentials();
     const baseURL = (creds.apiUrl || defaultBaseUrl).replace(/\/+$/, '');

@@ -26,16 +26,14 @@ Forget the sign-in
 
 Create an account straight in a local server’s files (no API)
 
-Runs where the server’s data is (DATA_ROOT / AUTH_USERS_FILE). To add someone through the API, use moteur invites send.
+Runs where the server’s data is (DATA_ROOT / AUTH_USERS_FILE). To add someone through the API, use moteur invites send. Operators are not users: add them with moteur-operators on the server.
 
-| Option                |                             |
-| --------------------- | --------------------------- |
-| `--email <string>`    | Their email                 |
-| `--password <string>` | Their password              |
-| `--name <string>`     | Their name                  |
-| `--project <string>`  | Add them to this project    |
-| `--admin`             | Make them an admin          |
-| `--operator`          | Make them a server operator |
+| Option                |                          |
+| --------------------- | ------------------------ |
+| `--email <string>`    | Their email              |
+| `--password <string>` | Their password           |
+| `--name <string>`     | Their name               |
+| `--project <string>`  | Add them to this project |
 
 ### `moteur auth reset-password`
 
@@ -73,6 +71,203 @@ What the agent changes reads “<you> via <name>”, is marked until a person re
 | `--name <string>`  | Who its changes are marked as made by (default `Claude`) |
 | `--allow-publish`  | Let its changes go live without a person approving them  |
 | `--hours <number>` | How long it lasts, up to 8 (default `8`)                 |
+
+## operator
+
+### `moteur operator login`
+
+Sign in as an operator (password and authenticator code), for an hour
+
+| Option               |                                             |
+| -------------------- | ------------------------------------------- |
+| `--api-url <string>` | The API (default: the one you signed in to) |
+| `--email <string>`   | Your operator email                         |
+
+### `moteur operator logout`
+
+End the operator session on this machine
+
+### `moteur operator whoami`
+
+Which operator is signed in here, and until when
+
+### `moteur operator operators`
+
+The operators: who runs this server
+
+Calls `GET /operator/operators`.
+
+### `moteur operator add-operator <email>`
+
+Add an operator; prints their one-time link (24 hours)
+
+| Option             |                        |
+| ------------------ | ---------------------- |
+| `--email <string>` | Their email (required) |
+| `--name <string>`  | Their name             |
+
+Calls `POST /operator/operators`.
+
+### `moteur operator reset-operator <id>`
+
+Start an operator’s sign-in again (lost phone): ends their sessions, new link Asks first (or `--yes`).
+
+| Option          |                                                        |
+| --------------- | ------------------------------------------------------ |
+| `--id <string>` | Their id (moteur operator operators --json) (required) |
+
+Calls `POST /operator/operators/{id}/reset`.
+
+### `moteur operator remove-operator <id>`
+
+Remove an operator; their sessions end at once Asks first (or `--yes`).
+
+| Option          |                     |
+| --------------- | ------------------- |
+| `--id <string>` | Their id (required) |
+
+Calls `DELETE /operator/operators/{id}`.
+
+### `moteur operator summary`
+
+The whole server at a glance
+
+Calls `GET /operator/summary`.
+
+### `moteur operator users`
+
+Every account
+
+Calls `GET /operator/users`.
+
+### `moteur operator update-user <id>`
+
+Change an account (JSON, or active and roles)
+
+| Option            |                                   |
+| ----------------- | --------------------------------- |
+| `--id <string>`   | User id (required)                |
+| `--active`        | Account on (--no-active: off)     |
+| `--roles <list>`  | Account roles                     |
+| `--file <string>` | Read the JSON body from this file |
+| `--data <string>` | The JSON body, inline             |
+
+Calls `PATCH /operator/users/{id}`.
+
+### `moteur operator projects`
+
+Every project on the server
+
+Calls `GET /operator/projects`.
+
+### `moteur operator project-plugins <project>`
+
+Set which plugins a project may use (JSON)
+
+| Option               |                                                                                         |
+| -------------------- | --------------------------------------------------------------------------------------- |
+| `--project <string>` | Project id (default: MOTEUR_PROJECT, .moteur.json, or `moteur projects use`) (required) |
+| `--file <string>`    | Read the JSON body from this file                                                       |
+| `--data <string>`    | The JSON body, inline                                                                   |
+
+Calls `PATCH /operator/projects/{project}`.
+
+### `moteur operator plugins`
+
+Every plugin the server knows of
+
+Calls `GET /operator/plugins`.
+
+### `moteur operator plugin <id>`
+
+Switch a host plugin on or off
+
+| Option          |                                   |
+| --------------- | --------------------------------- |
+| `--id <string>` | Plugin id (required)              |
+| `--enabled`     | On (--no-enabled: off) (required) |
+
+Calls `PATCH /operator/plugins/{id}`.
+
+### `moteur operator schemas <kind>`
+
+Server-wide blocks or structures
+
+| Option                        |                                 |
+| ----------------------------- | ------------------------------- |
+| `--kind <blocks\|structures>` | blocks or structures (required) |
+
+Calls `GET /operator/schemas/{kind}`.
+
+### `moteur operator put-schema <kind> <name>`
+
+Add or change a server-wide block or structure (JSON)
+
+| Option                        |                                   |
+| ----------------------------- | --------------------------------- |
+| `--kind <blocks\|structures>` | blocks or structures (required)   |
+| `--name <string>`             | Its name (required)               |
+| `--file <string>`             | Read the JSON body from this file |
+| `--data <string>`             | The JSON body, inline             |
+
+Calls `PUT /operator/schemas/{kind}/{name}`.
+
+### `moteur operator delete-schema <kind> <name>`
+
+Remove a server-wide block or structure Asks first (or `--yes`).
+
+| Option                        |                                 |
+| ----------------------------- | ------------------------------- |
+| `--kind <blocks\|structures>` | blocks or structures (required) |
+| `--name <string>`             | Its name (required)             |
+
+Calls `DELETE /operator/schemas/{kind}/{name}`.
+
+### `moteur operator plans`
+
+Every plan: limits, features, availability (billing)
+
+Calls `GET /billing/operator/plans`.
+
+### `moteur operator update-plan <id>`
+
+Change a plan’s limits, features or availability (JSON)
+
+| Option            |                                   |
+| ----------------- | --------------------------------- |
+| `--id <string>`   | Plan id (required)                |
+| `--file <string>` | Read the JSON body from this file |
+| `--data <string>` | The JSON body, inline             |
+
+Calls `PATCH /billing/operator/plans/{id}`.
+
+### `moteur operator billing`
+
+Every project’s plan and extras
+
+Calls `GET /billing/operator/projects`.
+
+### `moteur operator revenue`
+
+Monthly recurring revenue, and what Stripe collected
+
+Calls `GET /billing/operator/revenue`.
+
+### `moteur operator requests`
+
+API request counts (Studio and public)
+
+Calls `GET /studio/usage`.
+
+### `moteur operator seed`
+
+Copy the blueprint seeds into the server’s blueprints
+
+| Option        |                         |
+| ------------- | ----------------------- |
+| `--overwrite` | Replace ones that exist |
+
+Calls `POST /studio/seed`.
 
 ## status
 
@@ -2710,7 +2905,7 @@ Move the project to a plan (gives the payment link)
 | Option                     |                                                                              |
 | -------------------------- | ---------------------------------------------------------------------------- |
 | `--project <string>`       | Project id (default: MOTEUR_PROJECT, .moteur.json, or `moteur projects use`) |
-| `--plan <string>`          | free, pro, extra… (required)                                                 |
+| `--plan <string>`          | A plan id from `moteur billing plans` (personal, pro…) (required)            |
 | `--interval <month\|year>` | Billed monthly or yearly (default `month`)                                   |
 | `--studio-url <string>`    | Where to come back to (default: MOTEUR_STUDIO_URL)                           |
 
@@ -2721,7 +2916,7 @@ Set how many packs of an extra the project has
 | Option               |                                                                              |
 | -------------------- | ---------------------------------------------------------------------------- |
 | `--project <string>` | Project id (default: MOTEUR_PROJECT, .moteur.json, or `moteur projects use`) |
-| `--addon <string>`   | seats, requests, aiCredits, storage (required)                               |
+| `--addon <string>`   | An extra id from `moteur billing plans` (seats, storage…) (required)         |
 | `--packs <number>`   | How many packs (required)                                                    |
 
 Calls `POST /billing/projects/{project}/addons`.
@@ -2736,149 +2931,6 @@ A link to the Stripe customer portal
 | `--studio-url <string>` | Where to come back to (default: MOTEUR_STUDIO_URL)                           |
 
 Calls `POST /billing/projects/{project}/portal`.
-
-## operator
-
-### `moteur operator summary`
-
-The whole server at a glance
-
-Calls `GET /operator/summary`.
-
-### `moteur operator users`
-
-Every account
-
-Calls `GET /operator/users`.
-
-### `moteur operator update-user <id>`
-
-Change an account (JSON, or active and roles)
-
-| Option            |                                   |
-| ----------------- | --------------------------------- |
-| `--id <string>`   | User id (required)                |
-| `--active`        | Account on (--no-active: off)     |
-| `--roles <list>`  | Account roles                     |
-| `--file <string>` | Read the JSON body from this file |
-| `--data <string>` | The JSON body, inline             |
-
-Calls `PATCH /operator/users/{id}`.
-
-### `moteur operator projects`
-
-Every project on the server
-
-Calls `GET /operator/projects`.
-
-### `moteur operator project-plugins <project>`
-
-Set which plugins a project may use (JSON)
-
-| Option               |                                                                                         |
-| -------------------- | --------------------------------------------------------------------------------------- |
-| `--project <string>` | Project id (default: MOTEUR_PROJECT, .moteur.json, or `moteur projects use`) (required) |
-| `--file <string>`    | Read the JSON body from this file                                                       |
-| `--data <string>`    | The JSON body, inline                                                                   |
-
-Calls `PATCH /operator/projects/{project}`.
-
-### `moteur operator plugins`
-
-Every plugin the server knows of
-
-Calls `GET /operator/plugins`.
-
-### `moteur operator plugin <id>`
-
-Switch a host plugin on or off
-
-| Option          |                                   |
-| --------------- | --------------------------------- |
-| `--id <string>` | Plugin id (required)              |
-| `--enabled`     | On (--no-enabled: off) (required) |
-
-Calls `PATCH /operator/plugins/{id}`.
-
-### `moteur operator schemas <kind>`
-
-Server-wide blocks or structures
-
-| Option                        |                                 |
-| ----------------------------- | ------------------------------- |
-| `--kind <blocks\|structures>` | blocks or structures (required) |
-
-Calls `GET /operator/schemas/{kind}`.
-
-### `moteur operator put-schema <kind> <name>`
-
-Add or change a server-wide block or structure (JSON)
-
-| Option                        |                                   |
-| ----------------------------- | --------------------------------- |
-| `--kind <blocks\|structures>` | blocks or structures (required)   |
-| `--name <string>`             | Its name (required)               |
-| `--file <string>`             | Read the JSON body from this file |
-| `--data <string>`             | The JSON body, inline             |
-
-Calls `PUT /operator/schemas/{kind}/{name}`.
-
-### `moteur operator delete-schema <kind> <name>`
-
-Remove a server-wide block or structure Asks first (or `--yes`).
-
-| Option                        |                                 |
-| ----------------------------- | ------------------------------- |
-| `--kind <blocks\|structures>` | blocks or structures (required) |
-| `--name <string>`             | Its name (required)             |
-
-Calls `DELETE /operator/schemas/{kind}/{name}`.
-
-### `moteur operator plans`
-
-Every plan: limits, features, availability (billing)
-
-Calls `GET /billing/operator/plans`.
-
-### `moteur operator update-plan <id>`
-
-Change a plan’s limits, features or availability (JSON)
-
-| Option            |                                   |
-| ----------------- | --------------------------------- |
-| `--id <string>`   | Plan id (required)                |
-| `--file <string>` | Read the JSON body from this file |
-| `--data <string>` | The JSON body, inline             |
-
-Calls `PATCH /billing/operator/plans/{id}`.
-
-### `moteur operator billing`
-
-Every project’s plan and extras
-
-Calls `GET /billing/operator/projects`.
-
-### `moteur operator revenue`
-
-Monthly recurring revenue, and what Stripe collected
-
-Calls `GET /billing/operator/revenue`.
-
-### `moteur operator requests`
-
-API request counts (Studio and public)
-
-Calls `GET /studio/usage`.
-
-### `moteur operator seed`
-
-Copy the blueprint seeds into the server’s blueprints
-
-| Option        |                         |
-| ------------- | ----------------------- |
-| `--overwrite` | Replace ones that exist |
-
-Calls `POST /studio/seed`.
 
 ## api
 

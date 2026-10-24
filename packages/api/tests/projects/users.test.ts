@@ -198,20 +198,11 @@ describe('PATCH /projects/:projectId/users/:userId', () => {
         expect(updateUserAsOperator).not.toHaveBeenCalled();
     });
 
-    it('lets an operator change account fields', async () => {
-        authCtx.account.roles = ['admin'];
-        (updateUserAsOperator as any).mockImplementation(() => {
-            authCtx.members = [admin, { ...target, name: 'Ted' }];
-        });
-
+    it('never changes account fields: an account is not a project’s, whatever the roles', async () => {
+        authCtx.account.roles = ['admin', 'developer'];
         const res = await request(app).patch('/projects/p1/users/target').send({ name: 'Ted' });
-        expect(res.status).toBe(200);
-        expect(res.body.user.name).toBe('Ted');
-        expect(updateUserAsOperator).toHaveBeenCalledWith(
-            'target',
-            { name: 'Ted' },
-            expect.objectContaining({ id: 'admin1' })
-        );
+        expect(res.status).toBe(403);
+        expect(updateUserAsOperator).not.toHaveBeenCalled();
     });
 
     it('returns 404 when target is not in project', async () => {

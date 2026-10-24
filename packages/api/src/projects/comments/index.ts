@@ -8,7 +8,6 @@ import {
     editComment
 } from '@moteurio/core/comments.js';
 import type { CommentResourceType } from '@moteurio/types/Comment.js';
-import { OPERATOR_ROLE_SLUG } from '@moteurio/types';
 import type { OpenAPIV3 } from 'openapi-types';
 import { requireProjectAccess } from '../../middlewares/auth.js';
 import { sendApiError, getMessage } from '../../utils/apiError.js';
@@ -179,8 +178,7 @@ router.delete(
         } catch (err: unknown) {
             const status = getMessage(err)?.includes('not found')
                 ? 404
-                : getMessage(err)?.includes('author') ||
-                    getMessage(err)?.includes(OPERATOR_ROLE_SLUG)
+                : getMessage(err)?.includes('author') || getMessage(err)?.includes('admin')
                   ? 403
                   : 400;
             return void res

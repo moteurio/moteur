@@ -14,7 +14,7 @@ Moteur uses a **provider-agnostic AI layer** implemented in **`@moteurio/plugin-
 - **Field generation** — generate field definitions from a prompt (operator)
 - **Image generation** — generate images from a text prompt (when the provider supports it)
 
-All AI operations (except operator-only field generation) use a **project-level credit system**. Credits are deducted before each call; when the balance is insufficient, the API returns `402 Payment Required` with `error: 'insufficient_credits'`.
+All AI operations (except operator-only field generation) use a **project-level credit system**. Writing and translation are charged when they succeed; generation (images, audio, 3D) and automatic image descriptions are charged up front and refunded when the provider fails. When the balance is insufficient, the API returns `402 Payment Required` with `error: 'insufficient_credits'`.
 
 **Per-project helpers:** Each capability (`write`, `translate`, `alt`, `notes`, `images`) must be turned on in `project.ai.helpers` and is limited to roles listed in `project.ai.roles` (see `GET /ai/helpers/:projectId`). Set `project.ai.enabled: false` to disable AI for a project entirely.
 
@@ -36,6 +36,23 @@ The core AI logic and host plugin (`id: ai`) live in **`moteur-plugins-extra`** 
 | **Mock**             | `MockAdapter` — deterministic implementation for tests (no network)                                                                                                                                          |
 
 The **API** (`@moteurio/api`) does not bundle AI: hosts load **`plugin-ai`** (and **`ai-provider-*`** plugins) from **`moteur-plugins-extra`**. Self-hosted deployments without those plugins have no `/ai` routes. Credits and plan allowances still use **`@moteurio/core`** metering; billing plugins can call `setCreditAllowance`.
+
+### What the engine keeps for the plugin
+
+The plugin brings the routes and the providers; the engine keeps what the plugin writes into, so
+projects, the Studio and billing read it the same way with or without the plugin. Treat these as
+the plugin's contract (the plugin reaches them through `@moteurio/core/host.js`):
+
+| In the engine                                                              | Used for                                                             | Without the plugin                  |
+| -------------------------------------------------------------------------- | -------------------------------------------------------------------- | ----------------------------------- |
+| `project.ai` settings, `DEFAULT_AI_ROLES` (`@moteurio/types`)              | Which helpers a project turns on, and for whom                       | Saved and validated, but do nothing |
+| Credits in core metering (`creditBalance`, `spendCredits`, `grantCredits`) | Monthly allowance and spends; plan limits and billing set allowances | Allowance shown, never spent        |
+| AI audit log (`appendAiAuditEvent`, `GET /projects/{id}/ai-audit`)         | Every AI call, for Setup › AI                                        | Empty list                          |
+| `asset.afterCreate` / `asset.afterReplace` events                          | Automatic image descriptions after any upload or replaced file       | No listener                         |
+
+Clients find out whether a server has AI from its OpenAPI document (`/ai/*` paths): the MCP
+server leaves the `ai_*` tools out when they're missing, and the CLI says the AI plugin is needed
+when a route isn't there.
 
 ---
 
@@ -189,7 +206,7 @@ Persisted under **`.moteur/ai-audit.json`** per project (workspace file, not mai
 
 ### POST /ai/generate/fields
 
-**Auth:** JWT with **operator** role (see [Authentication](Authentication.md)).
+**Auth:** an operator token (see [Authentication](Authentication.md#operators)).
 
 **Body:** `prompt`, `currentFields` (object of existing field definitions).
 
@@ -229,12 +246,6 @@ Persisted under **`.moteur/ai-audit.json`** per project (workspace file, not mai
 
 **Response (200):** `{ asset }` — the saved media asset with `generationPrompt`, `aiProvider`, `aiGenerated: true`. The image is fetched from the provider URL and stored in the project’s media storage.
 
-### POST /ai/generate/image (legacy)
-
-**Auth:** JWT. Uses global `getAdapter()` (no project image provider). **Body:** `prompt`, `size?`, `quality?`. **Response (200):** `{ image, width, height, prompt }`. Prefer **POST /ai/generate-image** for Studio (project-scoped, credits, style hints).
-
----
-
 ### GET /ai/settings/:projectId
 
 **Auth:** JWT + project access.
@@ -267,11 +278,10 @@ Persisted under **`.moteur/ai-audit.json`** per project (workspace file, not mai
 ## Architecture summary (review)
 
 - **Adapter paths:** **Text/analysis/translation** use `getAdapter()` (env: `MOTEUR_AI_PROVIDER` = openai \| anthropic \| google \| fal \| mock). **Image generation** uses `getImageAdapter(project.ai)` (`ai.imageProvider` = openai \| google \| fal \| replicate). **Audio** uses `getAudioAdapter(project.ai)` (`ai.audioProvider` = elevenlabs \| fal). **3D models** use `getModel3dAdapter(project.ai)` (`ai.model3dProvider` = meshy \| fal). Global and per-media providers can differ (e.g. Anthropic for writing, Google for images, Meshy for 3D).
-- **Credits:** Monthly allowance per project, kept in a ledger (see Credits). Deducted before each operation; 402 when insufficient. Costs in `creditCosts.ts`; overridable via `MOTEUR_AI_CREDIT_COSTS`.
+- **Credits:** Monthly allowance per project, kept in a ledger (see Credits). Writing and translation are charged when they succeed; generation and image descriptions up front, refunded on failure; 402 when insufficient. Costs in `creditCosts.ts`; overridable via `MOTEUR_AI_CREDIT_COSTS`.
 - **Project AI settings** (`project.ai`): `autoAnalyseImages`, `imageProvider`, `audioProvider`, `model3dProvider`, `imageGenerationAcknowledged`, and per-helper toggles (`helpers.audio`, `helpers.model3d`, …). Stored in project JSON; Studio Configuration → AI.
-- **402 response shape:** Endpoints use either `creditsRemaining` (analyse/image, generate-image) or `message` (write, translate, generate/entry). Consider standardising on `{ error: 'insufficient_credits', creditsRemaining }` for all.
+- **402 response shape:** Endpoints use either `creditsRemaining` (analyse/image, generate-image) or `message` (write, translate, generate/entry).
 - **GET /ai/status:** Reflects only `getAdapter()` (global text provider). Studio uses it to show/hide AI UI; image generation is additionally gated by `project.ai.imageProvider` in the UI.
-- **Legacy:** `POST /ai/generate/image` (under `/generate`) still exists; uses global adapter, no project credits. Prefer `POST /ai/generate-image` and `POST /ai/save-generated-image` for new flows.
 
 ---
 

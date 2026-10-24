@@ -239,6 +239,26 @@ export type UploadOptions = {
     aiGenerated?: boolean;
 };
 
+/**
+ * Lets plugins act on a new or replaced file (the AI plugin describes images), then reads the
+ * asset again for what they changed. Whatever they do, the file is saved: a failing listener is
+ * logged, not passed on.
+ */
+async function afterFile(
+    event: 'asset.afterCreate' | 'asset.afterReplace',
+    projectId: string,
+    user: User,
+    asset: Asset,
+    uploadAlt?: string
+): Promise<Asset> {
+    try {
+        await triggerEvent(event, { projectId, asset, user, ...(uploadAlt ? { uploadAlt } : {}) });
+    } catch (err) {
+        console.error(`[assets] ${event} listener failed for ${projectId}/${asset.id}:`, err);
+    }
+    return (await getAsset(projectId, asset.id)) ?? asset;
+}
+
 function generateId(): string {
     return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
 }
@@ -335,7 +355,7 @@ export async function uploadAsset(
             // never fail the operation
         }
         void queueVideoUpload(project, id, buffer);
-        return withUrls(initial);
+        return afterFile('asset.afterCreate', projectId, user, withUrls(initial), options?.alt);
     }
 
     // Image, document, 3D model, or video without provider
@@ -430,7 +450,7 @@ export async function uploadAsset(
         // never fail the operation
     }
     if (queueCopies) void queueImageCopies(project, id, buffer);
-    return withUrls(initial);
+    return afterFile('asset.afterCreate', projectId, user, withUrls(initial), options?.alt);
 }
 
 /** Verify webhook signature against project-level provider config. */
@@ -1521,7 +1541,7 @@ export async function replaceAssetFile(
     } catch {
         // never fail the operation
     }
-    return withUrls(updated);
+    return afterFile('asset.afterReplace', projectId, user, withUrls(updated));
 }
 
 /** What is in the bin, most recently binned first. */

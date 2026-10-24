@@ -3,10 +3,9 @@
  * anyone can sign in. Everything else goes through the API.
  */
 import { randomUUID } from 'node:crypto';
-import { text, password as passwordPrompt, confirm, isCancel, cancel } from '@clack/prompts';
+import { text, password as passwordPrompt, isCancel, cancel } from '@clack/prompts';
 import { config as loadDotenv } from 'dotenv';
 import type { ProjectSchema } from '@moteurio/types/Project.js';
-import { OPERATOR_ROLE_SLUG } from '@moteurio/types';
 import { isWebSessionMode } from '@moteurio/commands';
 
 const MIN_PASSWORD_LEN = 8;
@@ -112,28 +111,6 @@ export async function createUserCommand(args: Record<string, unknown>): Promise<
         name = (v as string)?.trim() || undefined;
     }
 
-    let grantOperator =
-        args.operator === true ||
-        args.admin === true ||
-        (args.operator as string) === 'true' ||
-        (args.admin as string) === 'true';
-    if (
-        !grantOperator &&
-        process.stdout.isTTY &&
-        args.operator === undefined &&
-        args.admin === undefined
-    ) {
-        const v = await confirm({
-            message: `Grant platform operator role (${OPERATOR_ROLE_SLUG})?`,
-            initialValue: false
-        });
-        if (isCancel(v)) {
-            cancel('Cancelled.');
-            process.exit(0);
-        }
-        grantOperator = v === true;
-    }
-
     let projectId = projectIdArg;
     if (!projectId && process.stdout.isTTY) {
         const v = await text({
@@ -157,7 +134,7 @@ export async function createUserCommand(args: Record<string, unknown>): Promise<
         email,
         name,
         passwordHash,
-        roles: grantOperator ? [OPERATOR_ROLE_SLUG] : [],
+        roles: [],
         projects: [] as string[],
         isActive: true
     };

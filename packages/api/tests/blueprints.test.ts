@@ -8,6 +8,9 @@ vi.mock('../src/middlewares/auth', () => ({
     },
     requireOperator: (_req: any, _res: any, next: any) => {
         next();
+    },
+    requireAuthOrOperator: (_req: any, _res: any, next: any) => {
+        next();
     }
 }));
 

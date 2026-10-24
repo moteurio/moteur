@@ -1,11 +1,7 @@
 import type { Request, Response } from 'express';
 /**
- * Global (non-project-scoped) block registry routes.
- * Canonical: `{API_BASE_PATH}/moteur/blocks`. When `API_BASE_PATH` is empty, `/api/moteur/blocks` is also mounted for compatibility. GET: JWT. POST: operator.
- *
- * NOTE: The "public/" folder name is a legacy artifact — these routes are NOT
- * publicly accessible. They live here because they are global (not under
- * /projects/:projectId).
+ * The server-wide block registry, at `{API_BASE_PATH}/moteur/blocks` (blocks of one project are
+ * under /projects/:projectId/blocks). GET: JWT. POST: operator.
  */
 import express, { Router } from 'express';
 import { createBlock, listBlocks } from '@moteurio/core/blocks.js';

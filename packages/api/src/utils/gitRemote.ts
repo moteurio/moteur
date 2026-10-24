@@ -1,18 +1,13 @@
 import { URL } from 'url';
-import { hasRole } from '@moteurio/types';
-import type { User } from '@moteurio/types/User.js';
 
 /**
- * The server clones from and pushes to a project's Git remote with its own filesystem and keys.
- * Only platform operators may point it at a local path, `file://` or SSH; everyone else gets
- * `https://` remotes, so one project cannot read or write another's repository on the host.
+ * The server clones from and pushes to a project's Git remote with its own filesystem and keys,
+ * so a project's remote is an `https://` address: a local path, `file://` or SSH could reach
+ * another project's repository on the host. No role changes that.
  */
-export function gitRemoteRefusal(
-    git: { remoteUrl?: unknown } | null | undefined,
-    account: User | undefined
-): string | null {
+export function gitRemoteRefusal(git: { remoteUrl?: unknown } | null | undefined): string | null {
     const remote = typeof git?.remoteUrl === 'string' ? git.remoteUrl.trim() : '';
-    if (!remote || hasRole(account, 'admin')) return null;
+    if (!remote) return null;
     try {
         if (new URL(remote).protocol === 'https:') return null;
     } catch {

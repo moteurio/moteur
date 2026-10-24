@@ -3,11 +3,7 @@ import { Router } from 'express';
 import type { OpenAPIV3 } from 'openapi-types';
 import { hasRole, normalizeStoredRoles } from '@moteurio/types';
 import { requireProjectAccess } from '../middlewares/auth.js';
-import {
-    getProjectUsers,
-    updateUserAsOperator,
-    type OperatorUserPatch
-} from '@moteurio/core/users.js';
+import { getProjectUsers, type OperatorUserPatch } from '@moteurio/core/users.js';
 import { getProject, updateProject } from '@moteurio/core/projects.js';
 import { sendApiError } from '../utils/apiError.js';
 import { getOnlineUserIdsForProject } from '@moteurio/core';
@@ -95,8 +91,12 @@ router.patch(
         if (roles && !hasRole(actor, 'admin')) {
             return void res.status(403).json({ error: 'Project admin role required' });
         }
-        if (Object.keys(patch).length > 0 && !hasRole(account, 'admin')) {
-            return void res.status(403).json({ error: 'Platform operator role required' });
+        // A person's account (name, email, whether it is active) is theirs, or an operator's to
+        // change (Operator › Users), never a project's.
+        if (Object.keys(patch).length > 0) {
+            return void res
+                .status(403)
+                .json({ error: 'Account details are changed by the person, or by an operator' });
         }
 
         if (!getProjectUsers(projectId).some(u => u.id === userId)) {
@@ -113,7 +113,6 @@ router.patch(
                 return void res.status(400).json({ error: 'A project needs at least one admin' });
             }
 
-            if (Object.keys(patch).length > 0) updateUserAsOperator(userId, patch, account!);
             if (memberRoles) project = await updateProject(account!, projectId, { memberRoles });
 
             const member = getProjectUsers(projectId, project).find(u => u.id === userId);
@@ -202,7 +201,7 @@ export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
         patch: {
             summary: 'Update a project member',
             description:
-                "`roles` sets the member's roles in this project only (stored in the project's `memberRoles`) and needs the Admin role in this project; the project must keep at least one admin. `name`, `email`, `isActive` and `avatar` change the account itself and need the platform operator role (`OPERATOR_ROLE_SLUG` in account roles). The target user must already belong to the project.",
+                "`roles` sets the member's roles in this project only (stored in the project's `memberRoles`) and needs the Admin role in this project; the project must keep at least one admin. `name`, `email`, `isActive` and `avatar` belong to the account, not the project: they are refused here (403); operators change them under /operator/users. The target user must already belong to the project.",
             tags: ['Users'],
             security: [{ bearerAuth: [] }],
             parameters: [
@@ -242,7 +241,7 @@ export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
                 },
                 '401': { description: 'Unauthorized' },
                 '403': {
-                    description: 'Not a project admin (roles) or platform operator (account fields)'
+                    description: 'Not a project admin (roles), or account fields were sent'
                 },
                 '404': {
                     description: 'User not in project or not found',

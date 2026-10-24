@@ -2,6 +2,8 @@ import { Request, Response, NextFunction } from 'express';
 import { hasRole, inProject } from '@moteurio/types';
 import { actingUser, verifyJWT } from '@moteurio/core/auth.js';
 import { getUserById } from '@moteurio/core/users.js';
+import { verifyOperatorToken } from '@moteurio/core/operators.js';
+import { systemActor } from '@moteurio/core/utils/systemActor.js';
 import { getProject } from '@moteurio/core/projects.js';
 import { verifyProjectApiKey } from '@moteurio/core/projectApiKey.js';
 import { requestHostMatchesAllowed } from '@moteurio/core/apiKeyAllowedHosts.js';
@@ -33,15 +35,41 @@ export function requireAuth(req: Request, res: Response, next: NextFunction) {
     }
 }
 
-/** Platform operator, from account roles only. */
+/**
+ * An operator: someone who runs the whole server, signed in on /operator/auth with their
+ * authenticator (see @moteurio/core/operators). Only an operator token passes; a user's, whatever
+ * their roles, never does. The request then acts as the engine itself (`req.user`, a system
+ * actor named after them), so it may reach every project, and `req.operator` says who it is.
+ */
 export function requireOperator(req: Request, res: Response, next: NextFunction) {
-    requireAuth(req, res, () => {
-        const user = req.user;
-        if (!hasRole(user, 'admin')) {
-            return void res.status(403).json({ error: 'Operator access required' });
-        }
+    const token = readBearerToken(req.headers.authorization);
+    try {
+        if (!token) throw new Error('No token');
+        const operator = verifyOperatorToken(token);
+        req.operator = operator;
+        req.user = systemActor(`operator:${operator.id}`, `${operator.name} (operator)`);
         next();
-    });
+    } catch {
+        res.status(401).json({ error: 'Operator sign-in required', code: 'operator_auth' });
+    }
+}
+
+/** A signed-in person or an operator: for the few reads both need (the blueprint catalogue). */
+export function requireAuthOrOperator(req: Request, res: Response, next: NextFunction) {
+    const token = readBearerToken(req.headers.authorization);
+    if (token) {
+        try {
+            req.operator = verifyOperatorToken(token);
+            req.user = systemActor(
+                `operator:${req.operator.id}`,
+                `${req.operator.name} (operator)`
+            );
+            return void next();
+        } catch {
+            // Not an operator's: try it as a person's.
+        }
+    }
+    requireAuth(req, res, next);
 }
 
 /** Project member who is a Developer. Admin is not enough. */
