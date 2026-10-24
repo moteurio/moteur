@@ -2,6 +2,14 @@
 
 All notable changes to published `@moteurio/*` packages are documented here. Version lines are kept aligned across the monorepo for coordinated releases (see [RELEASING.md](RELEASING.md) and [VERSIONING.md](VERSIONING.md)).
 
+## 2026.10.24
+
+- chore(deps-dev): bump react from 19.3.0 to 19.3.1 (0a005f4)
+- chore(deps): bump dotenv from 18.0.7 to 18.0.8 (42c0411)
+- chore(deps-dev): bump @vitest/ui from 5.0.4 to 5.0.5 (ff0c4b2)
+- chore(deps-dev): bump eslint from 10.12.0 to 10.13.0 (6418e18)
+- fix: Operators are now a special class of users, require 2FA. (adc34b9)
+
 ## 2026.10.23-2
 
 - Release tags (cd3a30d)
