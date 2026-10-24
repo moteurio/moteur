@@ -5,7 +5,7 @@
  * for them ("Louise via Claude", review-only unless their token allows more) and call this API
  * itself, so its permissions, plan limits and quotas apply as to any other call.
  */
-import type { Request, Response } from 'express';
+import type { Request, Response, RequestHandler } from 'express';
 import { Router } from 'express';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import { createServer, parseOptions, type ServerOptions } from '@moteurio/mcp';
@@ -14,6 +14,7 @@ import { generateSessionToken } from '@moteurio/core/auth.js';
 import { getUserById } from '@moteurio/core/users.js';
 import type { OpenAPIV3 } from 'openapi-types';
 import { requireAuth } from '../middlewares/auth.js';
+import { scopedServerOptions, restrictClient, type McpConnection } from './access.js';
 
 /** Who the client is, from its User-Agent, until OAuth gives each client its own name. */
 export function agentFromUserAgent(ua: string | undefined): string {
@@ -45,10 +46,14 @@ export function optionsFromQuery(query: Request['query']): ServerOptions {
 }
 
 /** The tools for the signed-in person, calling the API at `self` (whose routes `spec` lists). */
-export function mcpRouter(self: () => string, spec?: OpenAPIV3.Document): Router {
+export function mcpRouter(
+    self: () => string,
+    spec?: OpenAPIV3.Document,
+    authenticate: RequestHandler = requireAuth
+): Router {
     const router = Router();
 
-    router.post('/', requireAuth, async (req: Request, res: Response) => {
+    router.post('/', authenticate, async (req: Request, res: Response) => {
         const person = req.user!;
         const account = getUserById(person.id);
         if (!account) return void res.status(401).json({ error: 'Invalid or expired token' });
@@ -63,8 +68,11 @@ export function mcpRouter(self: () => string, spec?: OpenAPIV3.Document): Router
             auth: { type: 'bearer', token }
         });
         const options = optionsFromQuery(req.query);
+        const connection = res.locals.mcpConnection as McpConnection | undefined;
+        if (connection) restrictClient(client, connection);
         const server = createServer({
             ...options,
+            ...(connection ? scopedServerOptions(connection, options.project) : {}),
             routes: spec ? async () => spec : false,
             session: body => ({
                 client: async () => client,

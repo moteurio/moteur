@@ -48,6 +48,7 @@ import operatorRoute from './operator/index.js';
 import operatorAuthRoute from './operator/auth.js';
 import invitesRoute from './invites/index.js';
 import { mcpRouter } from './mcp/index.js';
+import { createMcpOAuth } from './mcp/oauth.js';
 import usageRouter from './studio/usage.js';
 import fieldTypesRouter from './studio/fieldTypes.js';
 import assetsMigrateRouter from './studio/assets/migrate.js';
@@ -120,12 +121,27 @@ const basePath = process.env.API_BASE_PATH || '';
 
 app.use(securityHeaders);
 app.use(
-    cors({
-        origin: getCorsOrigin(),
-        methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-        allowedHeaders: ['Content-Type', 'Authorization', 'x-api-key'],
-        exposedHeaders: ['X-Total-Count', 'Retry-After']
-    })
+    cors<express.Request>((req, callback) =>
+        callback(null, {
+            // MCP browser clients authenticate with bearer tokens, independent of Studio's origins.
+            origin:
+                /^\/(?:authorize|token|register|revoke|\.well-known)(?:\/|$)/.test(req.path) ||
+                req.path === basePath + '/mcp' ||
+                req.path === basePath + '/mcp/'
+                    ? '*'
+                    : getCorsOrigin(),
+            methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+            allowedHeaders: [
+                'Content-Type',
+                'Authorization',
+                'x-api-key',
+                'MCP-Protocol-Version',
+                'Mcp-Session-Id',
+                'Last-Event-ID'
+            ],
+            exposedHeaders: ['X-Total-Count', 'Retry-After', 'WWW-Authenticate', 'Mcp-Session-Id']
+        })
+    )
 );
 
 // Request counts and AI credits survive restarts. Set before plugins load: a host plugin may
@@ -224,10 +240,33 @@ app.use(basePath + '/operator', operatorRoute);
 app.use(basePath + '/invites', invitesRoute);
 // MCP for remote AI clients; its tools call this API itself. MOTEUR_MCP=off leaves it out.
 if (process.env.MOTEUR_MCP?.trim().toLowerCase() !== 'off') {
+    const publicUrl = process.env.MOTEUR_MCP_PUBLIC_URL?.trim();
+    const studioUrl = process.env.STUDIO_URL?.trim();
+    const oauth =
+        publicUrl && studioUrl
+            ? createMcpOAuth({
+                  resourceUrl: publicUrl,
+                  studioUrl,
+                  directory: path.join(storageConfig.dataRoot, 'data', 'mcp-oauth')
+              })
+            : undefined;
+    if (oauth) {
+        // Discovery and OAuth protocol endpoints live at the origin root, even with API_BASE_PATH.
+        app.use(oauth.router);
+        app.use(basePath + '/auth/mcp', oauth.consent);
+    } else {
+        console.warn(
+            '[mcp] Browser sign-in requires MOTEUR_MCP_PUBLIC_URL and STUDIO_URL; token/stdio access remains available.'
+        );
+    }
     app.use(
         basePath + '/mcp',
         studioRateLimiter,
-        mcpRouter(() => `http://127.0.0.1:${process.env.PORT || 3000}${basePath}`, mergedApiSpecs)
+        mcpRouter(
+            () => `http://127.0.0.1:${process.env.PORT || 3000}${basePath}`,
+            mergedApiSpecs,
+            oauth?.provider.authenticate
+        )
     );
 }
 app.use(basePath + '/studio/usage', usageRouter);
