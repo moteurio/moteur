@@ -1,6 +1,5 @@
 import type { Request, Response } from 'express';
 import { Router } from 'express';
-import { hasRole } from '@moteurio/types';
 import { requireAuth } from '../middlewares/auth.js';
 import { createProjectFromBlueprint } from '@moteurio/core/projects.js';
 import { validateProject } from '@moteurio/core/validators/validateProject.js';
@@ -15,8 +14,9 @@ router.post('/', requireAuth, async (req: Request, res: Response) => {
     try {
         const { blueprintId, ...body } = req.body || {};
         delete body.memberRoles;
-        if (!hasRole(req.user, 'admin')) delete body.users;
-        const refusal = gitRemoteRefusal(body.git, req.user);
+        // The person creating it is its first member; others join by invitation.
+        delete body.users;
+        const refusal = gitRemoteRefusal(body.git);
         if (refusal) return void res.status(400).json({ error: refusal });
         const validation = validateProject(body);
         if (!validation.valid) {

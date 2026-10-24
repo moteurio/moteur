@@ -2,7 +2,6 @@ import type { Request, Response } from 'express';
 import { Router } from 'express';
 import type { OpenAPIV3 } from 'openapi-types';
 import { getReviews, getReview, approveReview, rejectReview } from '@moteurio/core/reviews.js';
-import { OPERATOR_ROLE_SLUG } from '@moteurio/types';
 import { requireProjectAccess } from '../../middlewares/auth.js';
 import { getMessage } from '../../utils/apiError.js';
 
@@ -63,7 +62,7 @@ router.post(
             const status =
                 (err as { statusCode?: number }).statusCode === 403 ||
                 getMessage(err)?.includes('reviewer') ||
-                getMessage(err)?.includes(OPERATOR_ROLE_SLUG)
+                getMessage(err)?.includes('admin')
                     ? 403
                     : getMessage(err)?.includes('not found') ||
                         getMessage(err)?.includes('not pending')
@@ -94,7 +93,7 @@ router.post(
             const status =
                 (err as { statusCode?: number }).statusCode === 403 ||
                 getMessage(err)?.includes('reviewer') ||
-                getMessage(err)?.includes(OPERATOR_ROLE_SLUG)
+                getMessage(err)?.includes('admin')
                     ? 403
                     : getMessage(err)?.includes('not found') ||
                         getMessage(err)?.includes('not pending')

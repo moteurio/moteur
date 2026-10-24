@@ -1,9 +1,10 @@
 import fs from 'fs';
-import { hasRole, inProject, normalizeStoredRoles } from '@moteurio/types';
+import { inProject, normalizeStoredRoles } from '@moteurio/types';
 import { User } from '@moteurio/types/User.js';
 import { storageConfig } from './config/storageConfig.js';
 import { writeJsonAtomic } from './utils/fileUtils.js';
 import { triggerEvent } from './utils/eventBus.js';
+import { isSystemActor } from './utils/systemActor.js';
 
 function getUsersFilePath(): string {
     return storageConfig.usersFile;
@@ -262,15 +263,16 @@ export interface OperatorUserPatch {
 }
 
 /**
- * Update a user record (users.json). Caller must enforce platform admin (`admin` role).
+ * Update a user record (users.json): operators only (they act as the engine, see
+ * requireOperator). No account role allows it.
  */
 export function updateUserAsOperator(
     userId: string,
     patch: OperatorUserPatch,
     performedBy: User
 ): User {
-    if (!hasRole(performedBy, 'admin')) {
-        throw new Error('Admin role required');
+    if (!isSystemActor(performedBy)) {
+        throw new Error('Only an operator can change an account');
     }
     if (!userId) {
         throw new Error('User id is required');

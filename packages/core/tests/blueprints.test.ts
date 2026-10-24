@@ -67,22 +67,6 @@ describe('blueprints', () => {
             const list = listBlueprints('project');
             expect(list).toEqual([]);
         });
-
-        it('migrates root-level files to projects subdir', async () => {
-            const bp: BlueprintSchema = {
-                id: 'legacy',
-                name: 'Legacy',
-                description: 'Pre-migration'
-            };
-            await fs.mkdir(tempDir, { recursive: true });
-            await fs.writeFile(path.join(tempDir, 'legacy.json'), JSON.stringify(bp), 'utf-8');
-            const list = listBlueprints('project');
-            expect(list).toHaveLength(1);
-            expect(list[0]).toMatchObject({ id: 'legacy', name: 'Legacy' });
-            const projectsDir = path.join(tempDir, 'project');
-            const files = await fs.readdir(projectsDir);
-            expect(files).toContain('legacy.json');
-        });
     });
 
     describe('getBlueprint', () => {

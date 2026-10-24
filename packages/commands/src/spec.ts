@@ -78,6 +78,11 @@ export interface CommandSpec {
     readOnly?: boolean;
     /** Runs instead of `http` when a command needs more than one call, a file, or a prompt. */
     run?: (ctx: RunContext) => Promise<unknown>;
+    /**
+     * Runs as an operator (see OPERATOR_ROUTES): with the operator session from
+     * `moteur operator login`, never the person's sign-in. Never offered to agents.
+     */
+    operator?: boolean;
     /** API operations a `run` command covers, as `METHOD /path` (for the coverage check). */
     covers?: string[];
     /** Doesn't need a signed-in API (local checks, login). */

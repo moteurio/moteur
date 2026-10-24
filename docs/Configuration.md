@@ -9,7 +9,7 @@ This page lists environment variables used by the Moteur API. Details (rate limi
 | Variable                 | Description                                                                                                                                                                                                        |
 | ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `API_BASE_PATH`          | Base path for all API routes (e.g. `/api`). Default: empty. Also prefixes interactive docs (`{basePath}/docs`), static asset URLs from the local adapter, and the canonical global blocks path (`/moteur/blocks`). |
-| `CORS_ORIGINS`           | Comma-separated allowed origins. **Required for browser access:** if unset, no cross-origin origins are allowed (empty default). For local dev, set e.g. `http://localhost:3000,http://localhost:5173`.            |
+| `CORS_ORIGINS`           | Comma-separated allowed origins. **Required for browser access:** if unset, no cross-origin origins are allowed (empty default). For local dev, set e.g. `http://localhost:3000,http://localhost:5181`.            |
 | `STATIC_ASSETS_BASE_URL` | Origin for **local** asset URLs (scheme + host + port, **no** path). Default: `http://localhost:3000`. The API prepends `API_BASE_PATH` before `/static/assets/...` when generating URLs.                          |
 | `API_UPLOAD_MAX_MB`      | Max multipart upload size for **studio** asset uploads. Default: `50` (aligned with per-project limits enforced in core). Each upload is held in memory while it's processed, so size the server's RAM to match.   |
 | `MOTEUR_MCP`             | `off` leaves out `/mcp`, the MCP server for remote AI clients (on by default). Its tools call the API itself at `http://127.0.0.1:{PORT}{API_BASE_PATH}`.                                                          |
@@ -60,6 +60,7 @@ This page lists environment variables used by the Moteur API. Details (rate limi
 - **JWT:** `JWT_SECRET` (required for login/refresh); `JWT_EXPIRY` (default `1h`).
 - **Users file:** `AUTH_USERS_FILE` (default `data/users.json` relative to `DATA_ROOT`). See [REST API](REST%20API.md) for login and refresh.
 - **OAuth:** `AUTH_GITHUB_*`, `AUTH_GOOGLE_*`, `AUTH_REDIRECT_AFTER_LOGIN` when using auth plugins. See [Plugins](Plugins.md).
+- **Operators** (they run the server and are not users; see [Authentication](Authentication.md#operators)): `OPERATORS_FILE` (default `data/operators.json` relative to `DATA_ROOT`); `OPERATOR_SECRET` (recommended: the key for operator tokens and authenticator secrets, so a leaked `JWT_SECRET` reaches no operator; derived from `JWT_SECRET` when unset; changing it ends every operator session, and they then sign in with a recovery code or are reset); `STUDIO_URL` (for the full one-time links `moteur-operators` prints).
 
 ---
 
@@ -115,11 +116,11 @@ Export and response checks do not require the server; see [REST API — OpenAPI]
 
 Project and content are stored locally (git-native). See the main [README](../README.md) for data layout.
 
-| Variable         | Description                                                                                                                                                                                            |
-| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `DATA_ROOT`      | Root directory for Moteur data (default: repo root when running from API package). `PROJECTS_DIR`, `AUTH_USERS_FILE`, and `BLUEPRINTS_DIR` are resolved relative to this when given as relative paths. |
-| `PROJECTS_DIR`   | Projects directory (default `data/projects` relative to `DATA_ROOT`). Each project is a directory with `project.json`, content files, and optionally `.moteur/` and `user-data/` (gitignored).         |
-| `BLUEPRINTS_DIR` | Blueprints directory (default `data/blueprints` relative to `DATA_ROOT`).                                                                                                                              |
+| Variable         | Description                                                                                                                                                                                                             |
+| ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `DATA_ROOT`      | Root directory for Moteur data (default: repo root when running from API package). `PROJECTS_DIR`, `AUTH_USERS_FILE`, `OPERATORS_FILE` and `BLUEPRINTS_DIR` are resolved relative to this when given as relative paths. |
+| `PROJECTS_DIR`   | Projects directory (default `data/projects` relative to `DATA_ROOT`). Each project is a directory with `project.json`, content files, and optionally `.moteur/` and `user-data/` (gitignored).                          |
+| `BLUEPRINTS_DIR` | Blueprints directory (default `data/blueprints` relative to `DATA_ROOT`).                                                                                                                                               |
 
 - **Git**: Content is committed on every save when the project is a Git repo; `.moteur/` and `user-data/` are never committed on the main branch. See [Git integration](Git.md) for snapshots, branches, and the snapshot scheduler.
 - **Snapshot scheduler**: Runs in-process; per-project schedule is stored in `.moteur/snapshot-schedule.json` (`enabled`, `cron`). No environment variables are required for the scheduler.

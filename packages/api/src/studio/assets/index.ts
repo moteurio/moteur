@@ -25,7 +25,6 @@ import {
 } from '@moteurio/core/assets/assetService.js';
 import { assetUsage } from '@moteurio/core/assets/assetUsage.js';
 import { PlanLimitError } from '@moteurio/core/planLimits.js';
-import { triggerEvent } from '@moteurio/core/utils/eventBus.js';
 import { requireProjectAccess, requireProjectAdmin } from '../../middlewares/auth.js';
 import type { OpenAPIV3 } from 'openapi-types';
 import type { AssetType } from '@moteurio/types/Asset.js';
@@ -117,7 +116,8 @@ router.post(
                               : {})
                       }
                     : {};
-            let asset = await uploadAsset(
+            // Plugins (AI descriptions) have had their turn: this is the asset as they left it.
+            const asset = await uploadAsset(
                 projectId,
                 req.user!,
                 {
@@ -127,15 +127,6 @@ router.post(
                 },
                 { folder, alt, title, credit, keepLocalCopy, ...generated }
             );
-
-            await triggerEvent('asset.afterCreate', {
-                projectId,
-                asset,
-                user: req.user!,
-                uploadAlt: alt
-            });
-            const refreshed = await getAsset(projectId, asset.id);
-            if (refreshed) asset = refreshed;
 
             return void res.status(201).json(asset);
         } catch (err: unknown) {

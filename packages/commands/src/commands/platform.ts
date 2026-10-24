@@ -145,6 +145,60 @@ const SCHEMA_KINDS = ['blocks', 'structures'] as const;
 
 export const operator = group('operator', [
     {
+        name: 'operators',
+        summary: 'The operators: who runs this server',
+        http: 'GET /operator/operators',
+        pick: 'operators',
+        table: [
+            { key: 'email', header: 'email' },
+            { key: 'name', header: 'name' },
+            { key: 'enrolled', header: 'set up', format: v => (v ? 'yes' : 'not yet') },
+            { key: 'lastLoginAt', header: 'last sign-in' }
+        ],
+        readOnly: true
+    },
+    {
+        name: 'add-operator',
+        summary: 'Add an operator; prints their one-time link (24 hours)',
+        args: [
+            {
+                name: 'email',
+                description: 'Their email',
+                required: true,
+                positional: 0,
+                in: 'body'
+            },
+            { name: 'name', description: 'Their name', in: 'body' }
+        ],
+        http: 'POST /operator/operators',
+        done: r =>
+            `Send them this, privately (it works once, for 24 hours): <studio>/operator/enroll/${(r as { enrollToken: string }).enrollToken}`
+    },
+    {
+        name: 'reset-operator',
+        summary: 'Start an operator’s sign-in again (lost phone): ends their sessions, new link',
+        args: [
+            {
+                name: 'id',
+                description: 'Their id (moteur operator operators --json)',
+                required: true,
+                positional: 0
+            }
+        ],
+        http: 'POST /operator/operators/{id}/reset',
+        destructive: true,
+        done: r =>
+            `Their new one-time link: <studio>/operator/enroll/${(r as { enrollToken: string }).enrollToken}`
+    },
+    {
+        name: 'remove-operator',
+        summary: 'Remove an operator; their sessions end at once',
+        args: [{ name: 'id', description: 'Their id', required: true, positional: 0 }],
+        http: 'DELETE /operator/operators/{id}',
+        destructive: true,
+        done: () => 'Removed.'
+    },
+    {
         name: 'summary',
         summary: 'The whole server at a glance',
         http: 'GET /operator/summary',
@@ -335,7 +389,7 @@ export const billing = group('billing', [
             project,
             {
                 name: 'plan',
-                description: 'free, pro, extra…',
+                description: 'A plan id from `moteur billing plans` (personal, pro…)',
                 required: true,
                 positional: 0,
                 in: 'body'
@@ -385,7 +439,7 @@ export const billing = group('billing', [
             project,
             {
                 name: 'addon',
-                description: 'seats, requests, aiCredits, storage',
+                description: 'An extra id from `moteur billing plans` (seats, storage…)',
                 required: true,
                 positional: 0,
                 in: 'body'

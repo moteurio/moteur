@@ -67,15 +67,16 @@ The agent's name is the client's (“Claude Code”), or `--agent-name`.
 By default: a tool per command for reading and ordinary changes (175 tools). Agents should start
 with `projects_describe`: the project's languages, how content goes live, and every model's fields
 in one answer. Tools that can't be
-undone (deleting, purging, merging branches, moving storage) are off; so are the server's operator
-tools, billing, and raw API calls.
+undone (deleting, purging, merging branches, moving storage) are off; so are billing and raw API
+calls. Operator commands are never tools: running the whole server takes an operator's own sign-in
+(password and authenticator), not an agent's.
 
 | Option                           |                                                                                                                                  |
 | -------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
 | `--read-only`                    | reading tools only                                                                                                               |
 | `--allow-destructive`            | also tools that can't be undone (the client still asks you)                                                                      |
 | `--groups entries,media,reviews` | only these groups                                                                                                                |
-| `--all`                          | every group, operator and billing included                                                                                       |
+| `--all`                          | every group, billing included (never operator commands)                                                                          |
 | `--compact`                      | three tools (`moteur_find`, `moteur_describe`, `moteur_run`) that reach every command, for clients that struggle with many tools |
 | `--project <id>`                 | the project when a call names none                                                                                               |
 | `--list`                         | print the tools and exit                                                                                                         |

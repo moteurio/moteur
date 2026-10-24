@@ -106,7 +106,7 @@ Schema revisions help you **recover or inspect the contract**. Content keeps wha
 
 ### What schema revisions do **not** do (today)
 
-- They do **not** pin a collection or API key to a fixed schema revision (planned as a separate “contract pinning” feature).
+- They do **not** pin a collection or API key to a fixed schema revision.
 - They do **not** freeze entry **content** — that is **[entry publish](Workflows.md)** (`publishedCommit` on the entry audit), which snapshots the entry file at publish time for the public **published** view.
 - Restore does **not** bulk-update entries, pages, or layouts to match an old schema.
 

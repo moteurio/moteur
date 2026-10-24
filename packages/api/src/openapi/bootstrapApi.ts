@@ -19,13 +19,14 @@ import { modelsSpecs } from '../models/index.js';
 import { entriesSpecs } from '../entries/index.js';
 import { openapi as activityGlobalSpec } from '../activity/index.js';
 import { openapi as operatorSpec } from '../operator/index.js';
+import { openapi as operatorAuthSpec } from '../operator/auth.js';
 import { openapi as invitesSpec } from '../invites/index.js';
 import { openapi as mcpSpec } from '../mcp/index.js';
 import { openapi as usageSpec } from '../studio/usage.js';
 import { openapi as fieldTypesSpec } from '../studio/fieldTypes.js';
 import { openapi as assetsMigrateSpec } from '../studio/assets/migrate.js';
 import { openapi as seedSpec } from '../studio/seed.js';
-import { openapi as blocksSpec } from '../public/blocks.js';
+import { openapi as blocksSpec } from '../blocks/index.js';
 import { openapi as webhooksAssetsSpec } from '../webhooks/assets.js';
 import { requireAuth, requireProjectAccess, requireOperator } from '../middlewares/auth.js';
 import { runOnboardingForNewUser } from '../auth/onboarding.js';
@@ -224,6 +225,7 @@ export async function bootstrapApi(options?: {
             { owner: 'blueprints-core', paths: blueprintsSpec as OpenAPIV3.PathsObject },
             { owner: 'activity-core', paths: activityGlobalSpec as OpenAPIV3.PathsObject },
             { owner: 'operator-core', paths: operatorSpec as OpenAPIV3.PathsObject },
+            { owner: 'operator-auth', paths: operatorAuthSpec as OpenAPIV3.PathsObject },
             { owner: 'invites-core', paths: invitesSpec as OpenAPIV3.PathsObject },
             { owner: 'mcp-core', paths: mcpSpec as OpenAPIV3.PathsObject },
             { owner: 'models-core', paths: modelsSpecs.paths as OpenAPIV3.PathsObject },

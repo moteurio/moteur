@@ -12,7 +12,7 @@ Shared **TypeScript types** for Moteur: JSON shapes for projects, models, entrie
 **Barrel (recommended for app code):**
 
 ```ts
-import type { ProjectSchema, Entry, OPERATOR_ROLE_SLUG } from '@moteurio/types';
+import type { ProjectSchema, Entry } from '@moteurio/types';
 ```
 
 **Subpath (same modules; useful to avoid pulling the whole barrel in bundles):**

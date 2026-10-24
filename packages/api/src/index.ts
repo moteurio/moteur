@@ -45,13 +45,14 @@ import modelsRoute from './models/index.js';
 import entriesRoute from './entries/index.js';
 import activityGlobalRoute from './activity/index.js';
 import operatorRoute from './operator/index.js';
+import operatorAuthRoute from './operator/auth.js';
 import invitesRoute from './invites/index.js';
 import { mcpRouter } from './mcp/index.js';
 import usageRouter from './studio/usage.js';
 import fieldTypesRouter from './studio/fieldTypes.js';
 import assetsMigrateRouter from './studio/assets/migrate.js';
 import seedRouter from './studio/seed.js';
-import blocksRouter from './public/blocks.js';
+import blocksRouter from './blocks/index.js';
 import webhooksAssetsRouter from './webhooks/assets.js';
 import { storageConfig, validateStorageConfig } from '@moteurio/core';
 import { schedulerEngine, startSnapshotScheduler, stopSnapshotScheduler } from '@moteurio/core';
@@ -217,6 +218,8 @@ app.use(basePath + '/projects', mergedProjectsRouter);
 
 app.use(basePath + '/blueprints', blueprintsRoutes);
 app.use(basePath + '/activity', activityGlobalRoute);
+// Operators' own sign-in first: everything else under /operator needs its token.
+app.use(basePath + '/operator/auth', operatorAuthRoute);
 app.use(basePath + '/operator', operatorRoute);
 app.use(basePath + '/invites', invitesRoute);
 // MCP for remote AI clients; its tools call this API itself. MOTEUR_MCP=off leaves it out.
@@ -224,7 +227,7 @@ if (process.env.MOTEUR_MCP?.trim().toLowerCase() !== 'off') {
     app.use(
         basePath + '/mcp',
         studioRateLimiter,
-        mcpRouter(() => `http://127.0.0.1:${process.env.PORT || 3000}${basePath}`)
+        mcpRouter(() => `http://127.0.0.1:${process.env.PORT || 3000}${basePath}`, mergedApiSpecs)
     );
 }
 app.use(basePath + '/studio/usage', usageRouter);
@@ -232,9 +235,6 @@ app.use(basePath + '/studio/field-types', fieldTypesRouter);
 app.use(basePath + '/studio/seed', seedRouter);
 app.use(basePath + '/studio/assets', assetsMigrateRouter);
 app.use(basePath + '/moteur/blocks', blocksRouter);
-if (!basePath) {
-    app.use('/api/moteur/blocks', blocksRouter);
-}
 
 mountStaticAssets(app, basePath);
 mountResizedImages(app, basePath);

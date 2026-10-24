@@ -1,6 +1,5 @@
 import type { Request, Response } from 'express';
 import { Router } from 'express';
-import { hasRole } from '@moteurio/types';
 import type { ProjectSchema } from '@moteurio/types/Project.js';
 import { requireProjectAdmin } from '../middlewares/auth.js';
 import { getProject, applyProjectPatch, updateProject } from '@moteurio/core/projects.js';
@@ -28,8 +27,9 @@ router.patch('/:projectId', requireProjectAdmin, async (req: Request, res: Respo
     const { assetConfig, videoProviders } = patch;
     delete patch.assetConfig;
     delete patch.videoProviders;
-    if (!hasRole(req.account, 'admin')) delete patch.users;
-    const refusal = gitRemoteRefusal(patch.git, req.account);
+    // Members come and go through invites and the members routes, never a project patch.
+    delete patch.users;
+    const refusal = gitRemoteRefusal(patch.git);
     if (refusal) return void res.status(400).json({ error: refusal });
 
     try {

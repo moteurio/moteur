@@ -75,6 +75,10 @@ export interface AiModel3dResult {
     creditsRemaining: number;
 }
 
+/**
+ * AI help (`/ai/*`). These routes come from the AI plugin (Moteur Cloud): on a server without it
+ * these calls fail with 404, except `activity` (the engine's audit log), which comes back empty.
+ */
 export function aiApi(client: MoteurClient) {
     return {
         /** What this person may ask for in a project, with credits and costs. */

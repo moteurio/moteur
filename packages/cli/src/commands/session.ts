@@ -9,7 +9,9 @@ import {
     group,
     isWebSessionMode,
     loadConfig,
+    readOperatorSession,
     saveConfig,
+    saveOperatorSession,
     UsageError
 } from '@moteurio/commands';
 import { createUserCommand, resetPasswordCommand } from './local.js';
@@ -21,6 +23,87 @@ async function ask(message: string, secret = false): Promise<string> {
     if (isCancel(value)) throw new UsageError('Cancelled.');
     return String(value ?? '').trim();
 }
+
+/**
+ * Operators sign in apart from people: password and authenticator code, an hour long, kept in
+ * ~/.moteur/operator.json (only you can read it). Operator commands use it, never `auth login`.
+ */
+export const operatorSession = group('operator', [
+    {
+        name: 'login',
+        summary: 'Sign in as an operator (password and authenticator code), for an hour',
+        args: [
+            {
+                name: 'api-url',
+                description: 'The API (default: the one you signed in to)',
+                in: 'none',
+                aliases: ['apiUrl']
+            },
+            { name: 'email', description: 'Your operator email', in: 'none' }
+        ],
+        offline: true,
+        run: async ctx => {
+            const config = await loadConfig();
+            const apiUrl = String(
+                ctx.args['api-url'] ?? config.apiUrl ?? 'http://localhost:3000'
+            ).replace(/\/+$/, '');
+            const email = (ctx.args.email as string | undefined) ?? (await ask('Operator email:'));
+            const password = await ask('Password:', true);
+            const code = await ask('Authenticator code (or a recovery code):');
+            const s = await createMoteurAdminClient({ baseURL: apiUrl }).post<{
+                token: string;
+                expiresAt: string;
+                operator: { email: string };
+                recoveryCodeUsed?: boolean;
+            }>('/operator/auth/login', { email, password, code });
+            saveOperatorSession({
+                apiUrl,
+                token: s.token,
+                expiresAt: s.expiresAt,
+                email: s.operator.email
+            });
+            return {
+                apiUrl,
+                email: s.operator.email,
+                expiresAt: s.expiresAt,
+                recoveryCodeUsed: s.recoveryCodeUsed
+            };
+        },
+        covers: ['POST /operator/auth/login'],
+        done: r => {
+            const s = r as { email: string; expiresAt: string; recoveryCodeUsed?: boolean };
+            const until = new Date(s.expiresAt).toLocaleTimeString([], {
+                hour: 'numeric',
+                minute: '2-digit'
+            });
+            return `Signed in as operator ${s.email} until ${until}.${s.recoveryCodeUsed ? ' You used a recovery code: you have one less.' : ''}`;
+        }
+    },
+    {
+        name: 'logout',
+        summary: 'End the operator session on this machine',
+        offline: true,
+        run: async () => {
+            saveOperatorSession(null);
+            return null;
+        },
+        done: () => 'Operator session ended.'
+    },
+    {
+        name: 'whoami',
+        summary: 'Which operator is signed in here, and until when',
+        offline: true,
+        run: async () => {
+            const s = readOperatorSession();
+            if (!s) throw new UsageError('No operator session: moteur operator login');
+            return { email: s.email, expiresAt: s.expiresAt, apiUrl: s.apiUrl };
+        },
+        done: r => {
+            const s = r as { email: string; expiresAt: string; apiUrl: string };
+            return `${s.email || 'MOTEUR_OPERATOR_TOKEN'} on ${s.apiUrl}${s.expiresAt ? `, until ${s.expiresAt}` : ''}`;
+        }
+    }
+]);
 
 export const session = group('auth', [
     {
@@ -73,19 +156,12 @@ export const session = group('auth', [
         name: 'create-user',
         summary: 'Create an account straight in a local server’s files (no API)',
         description:
-            'Runs where the server’s data is (DATA_ROOT / AUTH_USERS_FILE). To add someone through the API, use moteur invites send.',
+            'Runs where the server’s data is (DATA_ROOT / AUTH_USERS_FILE). To add someone through the API, use moteur invites send. Operators are not users: add them with moteur-operators on the server.',
         args: [
             { name: 'email', description: 'Their email', in: 'none' },
             { name: 'password', description: 'Their password', in: 'none' },
             { name: 'name', description: 'Their name', in: 'none' },
-            { name: 'project', description: 'Add them to this project', in: 'none' },
-            { name: 'admin', type: 'boolean', description: 'Make them an admin', in: 'none' },
-            {
-                name: 'operator',
-                type: 'boolean',
-                description: 'Make them a server operator',
-                in: 'none'
-            }
+            { name: 'project', description: 'Add them to this project', in: 'none' }
         ],
         offline: true,
         run: async ctx => {

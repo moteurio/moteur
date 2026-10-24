@@ -5,10 +5,33 @@
  */
 import type { MoteurAdminClient } from '@moteurio/client';
 import type { ArgSpec, CommandSpec, RunContext } from './spec.js';
-import { getClientOrThrow, getProjectId } from './config.js';
+import { getClientOrThrow, getOperatorClientOrThrow, getProjectId } from './config.js';
 
 /** The caller used the command wrongly (missing or bad argument): exit code 2, not an API error. */
 export class UsageError extends Error {}
+
+/** Command groups whose routes come from a plugin, and the plugin to ask for. */
+export const PLUGIN_GROUPS: Record<string, string> = {
+    ai: 'the AI plugin (Moteur Cloud)',
+    billing: 'the billing plugin (Moteur Cloud)',
+    shopify: 'the Shopify plugin',
+    play: 'the poll plugin',
+    search: 'a search plugin (Meilisearch or Algolia)'
+};
+
+/** The server has no such route at all (Express's own 404, not an answer from a route). */
+export class NotOnServer extends Error {
+    readonly status = 404;
+}
+
+function isMissingRoute(err: unknown): boolean {
+    const e = err as { status?: number; response?: { data?: unknown } };
+    return (
+        e?.status === 404 &&
+        typeof e.response?.data === 'string' &&
+        /Cannot (GET|POST|PUT|PATCH|DELETE) \//.test(e.response.data)
+    );
+}
 
 /** A command list, findable by its words. */
 export class Commands {
@@ -189,6 +212,8 @@ export interface Session {
     say?: (message: string) => void;
     /** Logs each request. */
     debug?: boolean;
+    /** The client for operator commands (default: the operator session on this machine). */
+    operatorClient?: () => Promise<MoteurAdminClient>;
 }
 
 /** The signed-in session from MOTEUR_TOKEN/MOTEUR_API_KEY or ~/.moteur/config.json. */
@@ -208,7 +233,10 @@ export function makeContext(
 ): RunContext {
     return {
         args,
-        client: session.client,
+        // Operator commands never run with the person's sign-in.
+        client: command.operator
+            ? (session.operatorClient ?? getOperatorClientOrThrow)
+            : session.client,
         project: async () => {
             const id = (args.project as string | undefined) ?? (await session.defaultProject());
             if (!id)
@@ -256,5 +284,16 @@ export async function execute(
     session: Session
 ): Promise<unknown> {
     const ctx = makeContext(command, args, session);
-    return command.run ? command.run(ctx) : callHttp(command, ctx, session.debug);
+    try {
+        return await (command.run ? command.run(ctx) : callHttp(command, ctx, session.debug));
+    } catch (err) {
+        if (!isMissingRoute(err)) throw err;
+        const words = `${command.group} ${command.name}`.trim();
+        const plugin = PLUGIN_GROUPS[command.group];
+        throw new NotOnServer(
+            plugin
+                ? `This server can’t ${words}: it needs ${plugin}.`
+                : `This server can’t ${words}: it has no ${command.http ?? 'such route'} (an older API?).`
+        );
+    }
 }

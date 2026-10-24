@@ -36,7 +36,7 @@ function fakeApi(answer: unknown = { ok: true }) {
 }
 
 async function connect(options: ServerOptions) {
-    const server = createServer(options);
+    const server = createServer({ routes: false, ...options });
     const client = new Client({ name: 'test', version: '1.0.0' });
     const [a, b] = InMemoryTransport.createLinkedPair();
     await Promise.all([server.connect(a), client.connect(b)]);
@@ -64,6 +64,13 @@ describe('tools', () => {
             'entries_delete'
         );
         expect(selectCommands(API_COMMANDS, { readOnly: true }).every(c => c.readOnly)).toBe(true);
+        // Not even when asked: running the server takes an operator's own sign-in.
+        const asked = selectCommands(API_COMMANDS, {
+            groups: ['operator', 'blueprints', 'search'],
+            allowDestructive: true
+        });
+        expect(asked.some(c => c.operator || c.group === 'operator')).toBe(false);
+        expect(asked.map(toolName)).toContain('blueprints_list');
     });
 
     it('describe their arguments as JSON Schema', () => {
@@ -105,6 +112,26 @@ describe('the server', () => {
         expect(tools.find(t => t.name === 'entries_delete')!.annotations?.destructiveHint).toBe(
             true
         );
+    });
+
+    it('offers only the tools whose routes the server lists (no AI tools without the AI plugin)', async () => {
+        const client = await connect({
+            session: fakeApi().session,
+            groups: ['entries', 'ai'],
+            routes: async () => ({
+                paths: {
+                    '/projects/{projectId}/models/{modelId}/entries': { get: {} },
+                    '/projects/{projectId}/models/{modelId}/entries/{entryId}': { get: {} }
+                }
+            })
+        });
+        const names = (await client.listTools()).tools.map(t => t.name);
+        expect(names).toContain('entries_list');
+        expect(names).toContain('entries_get');
+        expect(names).not.toContain('entries_publish');
+        expect(names.some(n => n.startsWith('ai_'))).toBe(false);
+        const res = await client.callTool({ name: 'entries_publish', arguments: {} });
+        expect(res.isError).toBe(true);
     });
 
     it('runs a call: path, query and body from the arguments, the default project when none', async () => {

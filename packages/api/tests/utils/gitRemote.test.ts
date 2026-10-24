@@ -1,17 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import { gitRemoteRefusal } from '../../src/utils/gitRemote.js';
 
-const customer = { id: 'c1', email: 'c@x.com', roles: ['writer'], isActive: true } as any;
-const operator = { ...customer, roles: ['admin'] };
-
 describe('gitRemoteRefusal', () => {
     it('lets anyone use an https remote, or none', () => {
-        expect(gitRemoteRefusal({ remoteUrl: 'https://github.com/a/b.git' }, customer)).toBeNull();
-        expect(gitRemoteRefusal(undefined, customer)).toBeNull();
-        expect(gitRemoteRefusal({ remoteUrl: '  ' }, customer)).toBeNull();
+        expect(gitRemoteRefusal({ remoteUrl: 'https://github.com/a/b.git' })).toBeNull();
+        expect(gitRemoteRefusal(undefined)).toBeNull();
+        expect(gitRemoteRefusal({ remoteUrl: '  ' })).toBeNull();
     });
 
-    it('keeps paths, file:// and SSH remotes for operators', () => {
+    it('refuses paths, file:// and SSH remotes, whoever asks: they could reach another project', () => {
         for (const remoteUrl of [
             '/data/projects/other',
             '../other',
@@ -19,8 +16,7 @@ describe('gitRemoteRefusal', () => {
             'git@github.com:a/b.git',
             'ssh://git@github.com/a/b.git'
         ]) {
-            expect(gitRemoteRefusal({ remoteUrl }, customer), remoteUrl).toMatch(/https/);
-            expect(gitRemoteRefusal({ remoteUrl }, operator), remoteUrl).toBeNull();
+            expect(gitRemoteRefusal({ remoteUrl }), remoteUrl).toMatch(/https/);
         }
     });
 });

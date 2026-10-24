@@ -4,7 +4,7 @@ Optional behavior is **host-composed**: nothing loads unless the deployment list
 
 **Canonical taxonomy** (global vs project, API vs Studio companion, routes vs schemas only): **[Plugin architecture.md](Plugin%20architecture.md)**.
 
-**Not plugins (always in core):** git commit on save and **AI** (`/ai` routes). Toggle per project with `project.git.enabled` and `project.ai.enabled`. **Presence** (Socket.IO) is the host plugin **`@moteurio/plugin-presence`** in **`moteur-plugins-extra`**; gate with `project.presence.enabled` and host `MOTEUR_HOST_PLUGINS`. Default **block**, **structure**, and **blueprint** catalogs are registered in `@moteurio/core` ([`builtinContent.ts`](../packages/core/src/plugins/builtinContent.ts) and file-based blueprints under `data/blueprints/`).
+**Not plugins (always in core):** git commit on save (toggle per project with `project.git.enabled`). **AI** (`/ai` routes) is the private host plugin **`@moteurio/plugin-ai`** in **`moteur-plugins-extra`**; the engine keeps its settings (`project.ai`), credits and audit log (see [AI](AI.md#what-the-engine-keeps-for-the-plugin)). **Presence** (Socket.IO) is the host plugin **`@moteurio/plugin-presence`** in **`moteur-plugins-extra`**; gate with `project.presence.enabled` and host `MOTEUR_HOST_PLUGINS`. Default **block**, **structure**, and **blueprint** catalogs are registered in `@moteurio/core` ([`builtinContent.ts`](../packages/core/src/plugins/builtinContent.ts) and file-based blueprints under `data/blueprints/`).
 
 ---
 
@@ -79,7 +79,9 @@ When **`project.plugins` is unset**, all server-enabled project-scoped plugins a
 
 ## SDK boundary
 
-Plugins should depend on **`@moteurio/plugin-sdk`** for context and types. Avoid deep imports from `@moteurio/core/*` so plugins can live in separate repositories.
+Plugins should depend on **`@moteurio/plugin-sdk`** for context and types. When a plugin needs core itself (a project, an asset, its own stored data, credits), it imports from **`@moteurio/core/host.js`** only: that list is kept stable for plugins released from other repositories, and every other `@moteurio/core/*` path is internal and may change. Need something it doesn't have? Add it to [`host.ts`](../packages/core/src/host.ts) (and its test) rather than importing the file.
+
+List **`@moteurio/core`**, **`@moteurio/types`** and **`@moteurio/plugin-sdk`** as **`peerDependencies`** (and `devDependencies`, to build), not `dependencies`: the plugin then runs on the host's one copy of core, so metering, settings, registries and events are the ones the API set up. The plugin repositories' release checks enforce both rules.
 
 ---
 
@@ -137,7 +139,7 @@ Published from **`moteur-plugins`** (not bundled in the `moteur` workspace). Ins
 3. Add the specifier to the host’s **`MOTEUR_HOST_PLUGINS`** and id to **`MOTEUR_ENABLED_PLUGINS`** when using an allowlist.
 4. For per-project behavior, use **`scope: "project"`** and **`ctx.isPluginEnabledForProject`**.
 
-The old `packages/plugins/*` tree in this repo is **transitional** — see [`packages/plugins/README.md`](../packages/plugins/README.md).
+Public plugins live in the [`moteur-plugins`](https://github.com/moteurio/moteur-plugins) repository; Moteur Cloud's private plugins in `moteur-plugins-extra`.
 
 ---
 

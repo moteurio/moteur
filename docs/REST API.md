@@ -45,13 +45,13 @@ All project endpoints require JWT. Project list/get/update/delete may require **
 
 `GET /projects/:projectId/users` requires **JWT** and **project membership** (same as other `/projects/:projectId/*` studio routes). Each element of `users` is a **public** object:
 
-| Field                             | Description                                                                                                                                                        |
-| --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `id`, `email`, `name?`, `avatar?` | Identity and display                                                                                                                                               |
-| `roles`                           | Role slugs from `users.json`                                                                                                                                       |
-| `isActive`                        | Account enabled                                                                                                                                                    |
-| `lastLoginAt?`                    | ISO 8601 time of last successful **password or OAuth** sign-in (not updated on JWT refresh alone)                                                                  |
-| `online`                          | `true` if the user currently has **Studio presence** in this project within **`ONLINE_PRESENCE_MAX_IDLE_MS`** (default 90s; see [Configuration](Configuration.md)) |
+| Field                             | Description                                                                                                                                                                                                              |
+| --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `id`, `email`, `name?`, `avatar?` | Identity and display                                                                                                                                                                                                     |
+| `roles`                           | Role slugs from `users.json`                                                                                                                                                                                             |
+| `isActive`                        | Account enabled                                                                                                                                                                                                          |
+| `lastLoginAt?`                    | ISO 8601 time of last successful **password or OAuth** sign-in (not updated on JWT refresh alone)                                                                                                                        |
+| `online`                          | `true` if the user currently has **Studio presence** in this project within **`ONLINE_PRESENCE_MAX_IDLE_MS`** (default 90s; see [Configuration](Configuration.md)). Needs the presence plugin; always `false` without it |
 
 **Omitted** from this list (never returned): `passwordHash`, `auth` (OAuth ids, etc.), and `projects`.
 
@@ -456,7 +456,7 @@ Under a project and model. JWT + project access. Path param: `projectId`, `model
 
 ## 🤖 AI
 
-All AI endpoints use the shared layer ([AI](AI.md)). When no provider is configured, AI is disabled (503; Studio hides AI via `GET /ai/status`). Project-scoped operations consume credits; 402 when insufficient.
+These routes come from the AI plugin (`@moteurio/plugin-ai`, Moteur Cloud); a server without it has none of them. See [AI](AI.md). When no provider is configured, AI is disabled (503; Studio hides AI via `GET /ai/status`). Project-scoped operations consume credits; 402 when insufficient.
 
 | Method | Endpoint                   | Description                                                                                                                                       |
 | ------ | -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -468,7 +468,6 @@ All AI endpoints use the shared layer ([AI](AI.md)). When no provider is configu
 | POST   | `/ai/translate/entry`      | Translate whole entry into target locales (project access).                                                                                       |
 | POST   | `/ai/generate/entry`       | Generate entry from prompt + model schema (project access).                                                                                       |
 | POST   | `/ai/generate/fields`      | Generate field definitions from prompt (operator).                                                                                                |
-| POST   | `/ai/generate/image`       | _(Legacy)_ Generate single image (auth; global adapter). Prefer `/ai/generate-image` for project-scoped flow.                                     |
 | POST   | `/ai/generate-image`       | Generate image variants from prompt (auth; projectId; project `ai.imageProvider`). **402** insufficient credits, **422** provider not configured. |
 | POST   | `/ai/generate-audio`       | Generate speech from prompt (auth; project `ai.audioProvider`; helper `audio`). **402**, **422** `audio_provider_not_configured`.                 |
 | POST   | `/ai/generate-3d`          | Generate 3D model from prompt (auth; project `ai.model3dProvider`; helper `model3d`). **402**, **422** `model3d_provider_not_configured`.         |
@@ -533,7 +532,7 @@ npx tsx packages/api/scripts/recalculate-usage.ts /var/log/api-requests.log
 USAGE_WINDOW=month npx tsx packages/api/scripts/recalculate-usage.ts /var/log/api-requests.log
 ```
 
-Output is JSON: `{ source, window, totals: { [windowKey]: { studio, public: { [projectId]: count } } } }`. Older audit logs may use a legacy `type` label for studio-classified requests; those lines are counted in **studio**. Use `USAGE_WINDOW=day` or `USAGE_WINDOW=month` to get per-period breakdowns.
+Output is JSON: `{ source, window, totals: { [windowKey]: { studio, public: { [projectId]: count } } } }`. Use `USAGE_WINDOW=day` or `USAGE_WINDOW=month` to get per-period breakdowns.
 
 ---
 
@@ -558,5 +557,5 @@ A project already over a limit (after a downgrade) keeps what it has; it just ca
 
 - **Layout CRUD** and **Structure CRUD** are mounted under `/projects/:projectId/layouts` and `/projects/:projectId/structures` (JWT + project access). See the Projects section and the table above.
 - **Schedules** (publish/unpublish jobs) are at `/projects/:projectId/schedules` (JWT + project access). See [Schedules](#-schedules).
-- **Blocks (global catalog):** `GET|POST {basePath}/moteur/blocks` (JWT; POST requires operator). If `API_BASE_PATH` is empty, `/api/moteur/blocks` is also mounted for compatibility. Project-scoped block CRUD is at `/projects/:projectId/blocks` (JWT + project access).
+- **Blocks (global catalog):** `GET|POST {basePath}/moteur/blocks` (JWT; POST requires operator). Project-scoped block CRUD is at `/projects/:projectId/blocks` (JWT + project access).
 - For **TypeScript/JavaScript over HTTP**, use [`@moteurio/client`](../packages/client/README.md). For **in-process** access inside the monorepo (same Node process as the engine), see [Embedded core API](Developer%20API.md) (`@moteurio/core`).

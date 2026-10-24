@@ -74,6 +74,15 @@ export const storageConfig = {
         return resolveFromRoot(raw);
     },
 
+    /**
+     * The operators (the people who run the whole server), apart from users.json: their own
+     * sign-in with a second factor. Env: OPERATORS_FILE. Default: data/operators.json.
+     */
+    get operatorsFile(): string {
+        const raw = process.env.OPERATORS_FILE || 'data/operators.json';
+        return resolveFromRoot(raw);
+    },
+
     /** Data root used for resolving relative paths. */
     get dataRoot(): string {
         return getDataRoot();

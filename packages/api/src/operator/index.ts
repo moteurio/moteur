@@ -3,18 +3,23 @@ import { Router } from 'express';
 import type { OpenAPIV3 } from 'openapi-types';
 import type { ProjectSchema } from '@moteurio/types/Project.js';
 import type { User } from '@moteurio/types/User.js';
-import { hasRole } from '@moteurio/types';
 import { loadProjects, updateProject } from '@moteurio/core/projects.js';
 import { listUsers, reloadUsers, updateUserAsOperator } from '@moteurio/core/users.js';
 import { creditBalance, currentPeriod, getMeteringStore } from '@moteurio/core/metering.js';
 import { pluginRegistry } from '@moteurio/core/registry/PluginRegistry.js';
-import { systemActor } from '@moteurio/core/utils/systemActor.js';
 import {
     deleteServerSchema,
     listServerSchemas,
     saveServerSchema,
     type ServerSchemaKind
 } from '@moteurio/core/serverSchemas.js';
+import {
+    addOperator,
+    listOperators,
+    removeOperator,
+    resetOperator,
+    OperatorAuthError
+} from '@moteurio/core/operators.js';
 import { requireOperator } from '../middlewares/auth.js';
 import { sendApiError } from '../utils/apiError.js';
 import {
@@ -26,16 +31,15 @@ import {
 } from '../plugins/pluginCatalog.js';
 
 /**
- * The operator's view of the whole server: every project, every account, every plugin.
- * Operators are accounts whose own roles include `admin`.
+ * The operator's view of the whole server: every project, every account, every plugin, and the
+ * operators themselves. Operators are not accounts: see @moteurio/core/operators.
  */
 const router: Router = Router();
 router.use(requireOperator);
 
 const params = (req: Request) => req.params as Record<string, string>;
+/** Who changes are recorded as: the engine, named after the operator (requireOperator). */
 const operator = (req: Request) => req.user as User;
-/** Changes made here are the operator's, even in projects they are not a member of. */
-const actingAs = (op: User) => systemActor(op.id, op.name || op.email);
 
 function createdAt(p: ProjectSchema): string | undefined {
     const audit = (p as { meta?: { audit?: { createdAt?: string } } }).meta?.audit;
@@ -134,9 +138,9 @@ router.get('/summary', (req: Request, res: Response) => {
             users: {
                 total: users.length,
                 active: users.filter(u => u.isActive).length,
-                signedInThisMonth: users.filter(u => (u.lastLoginAt ?? '') >= monthStart).length,
-                operators: users.filter(u => hasRole(u, 'admin')).length
+                signedInThisMonth: users.filter(u => (u.lastLoginAt ?? '') >= monthStart).length
             },
+            operators: listOperators().length,
             month: {
                 publicRequests,
                 studioRequests: totals.studio,
@@ -183,7 +187,7 @@ router.patch('/projects/:projectId', async (req: Request, res: Response) => {
     }
     try {
         // null clears the allowlist (applyProjectPatch drops null keys).
-        const updated = await updateProject(actingAs(operator(req)), projectId, {
+        const updated = await updateProject(operator(req), projectId, {
             plugins: plugins as unknown as string[]
         });
         res.json({ project: projectRow(updated, currentPeriod()) });
@@ -219,14 +223,6 @@ router.patch('/users/:userId', (req: Request, res: Response) => {
     }
     if (!Object.keys(patch).length)
         return void res.status(400).json({ error: 'Nothing to change' });
-    if (userId === op.id) {
-        if (patch.isActive === false) {
-            return void res.status(400).json({ error: 'You cannot deactivate your own account' });
-        }
-        if (patch.roles && !hasRole({ ...op, roles: patch.roles }, 'admin')) {
-            return void res.status(400).json({ error: 'You cannot remove your own operator role' });
-        }
-    }
     try {
         const updated = updateUserAsOperator(userId, patch, op);
         const projectIds = new Set(loadProjects().map(p => p.id));
@@ -238,6 +234,57 @@ router.patch('/users/:userId', (req: Request, res: Response) => {
             return void res.status(409).json({ error: message });
         }
         sendApiError(res, req, err);
+    }
+});
+
+// ---- operators ------------------------------------------------------------------------------
+
+function operatorFailed(res: Response, req: Request, err: unknown) {
+    if (err instanceof OperatorAuthError)
+        return void res.status(err.status).json({ error: err.message });
+    sendApiError(res, req, err);
+}
+
+router.get('/operators', (req: Request, res: Response) => {
+    res.json({ operators: listOperators(), you: req.operator?.id });
+});
+
+/** Body `{ email, name? }`: a new operator, and the token of their one-time link (24 hours). */
+router.post('/operators', (req: Request, res: Response) => {
+    const body = (req.body ?? {}) as { email?: unknown; name?: unknown };
+    try {
+        const { operator, token } = addOperator(
+            {
+                email: typeof body.email === 'string' ? body.email : '',
+                ...(typeof body.name === 'string' ? { name: body.name } : {})
+            },
+            req.operator!.email
+        );
+        console.log(`[operators] ${req.operator!.email} added ${operator.email}`);
+        res.status(201).json({ operator, enrollToken: token });
+    } catch (err) {
+        operatorFailed(res, req, err);
+    }
+});
+
+/** Their password, authenticator and sessions are gone; a new one-time link starts them again. */
+router.post('/operators/:id/reset', (req: Request, res: Response) => {
+    try {
+        const { operator, token } = resetOperator(params(req).id);
+        console.log(`[operators] ${req.operator!.email} reset ${operator.email}`);
+        res.json({ operator, enrollToken: token });
+    } catch (err) {
+        operatorFailed(res, req, err);
+    }
+});
+
+router.delete('/operators/:id', (req: Request, res: Response) => {
+    try {
+        removeOperator(params(req).id);
+        console.log(`[operators] ${req.operator!.email} removed operator ${params(req).id}`);
+        res.status(204).end();
+    } catch (err) {
+        operatorFailed(res, req, err);
     }
 });
 
@@ -266,8 +313,7 @@ router.patch('/plugins/:pluginId', (req: Request, res: Response) => {
             .json({ error: 'Core plugins are part of the engine and always on' });
     }
     try {
-        const op = operator(req);
-        const choices = savePluginChoice(pluginId, on, op.email || op.id);
+        const choices = savePluginChoice(pluginId, on, req.operator!.email);
         res.json({ plugin: pluginRow(entry, choices, loadProjects()) });
     } catch (err) {
         sendApiError(res, req, err);
@@ -383,20 +429,21 @@ const serverSchemaSchema: OpenAPIV3.SchemaObject = {
     }
 };
 
-export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
+const paths: Record<string, OpenAPIV3.PathItemObject> = {
     '/operator/summary': {
         get: {
             summary: 'The whole server at a glance',
             description:
-                'Projects, accounts (active, signed in this month, operators), this month’s requests, form submissions and AI credits across every project, and plugins. Operators only.',
+                'Projects, accounts (active, signed in this month), operators, this month’s requests, form submissions and AI credits across every project, and plugins. Operators only.',
             tags,
-            responses: ok('`{ period, projects, users, month, plugins }`', {
+            responses: ok('`{ period, projects, users, operators, month, plugins }`', {
                 period: str,
                 projects: { type: 'object', properties: { total: int } },
                 users: {
                     type: 'object',
-                    properties: { total: int, active: int, signedInThisMonth: int, operators: int }
+                    properties: { total: int, active: int, signedInThisMonth: int }
                 },
+                operators: int,
                 month: {
                     type: 'object',
                     properties: {
@@ -548,5 +595,69 @@ export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
         }
     }
 };
+
+const operatorObject: OpenAPIV3.SchemaObject = {
+    type: 'object',
+    properties: {
+        id: str,
+        email: str,
+        name: str,
+        enrolled: { type: 'boolean' },
+        createdAt: str,
+        lastLoginAt: str,
+        recoveryCodesLeft: int
+    }
+};
+paths['/operator/operators'] = {
+    get: {
+        summary: 'The operators',
+        description:
+            'Who runs this server. Operators are not accounts; they live in OPERATORS_FILE.',
+        tags,
+        responses: ok('`{ operators, you }`', {
+            operators: { type: 'array', items: operatorObject },
+            you: str
+        })
+    },
+    post: {
+        summary: 'Add an operator',
+        description:
+            'Body `{ email, name? }`. Answers with `enrollToken`: their one-time link is `<studio>/operator/enroll/<enrollToken>` (24 hours), where they set a password and their authenticator.',
+        tags,
+        responses: ok('`{ operator, enrollToken }`', { operator: operatorObject, enrollToken: str })
+    }
+};
+paths['/operator/operators/{id}/reset'] = {
+    post: {
+        summary: 'Start an operator’s sign-in again',
+        description:
+            'Their password, authenticator and recovery codes are removed and every session ends; `enrollToken` is their new one-time link.',
+        tags,
+        responses: ok('`{ operator, enrollToken }`', { operator: operatorObject, enrollToken: str })
+    }
+};
+paths['/operator/operators/{id}'] = {
+    delete: {
+        summary: 'Remove an operator',
+        description: 'Their sessions end at once. The last operator who can sign in stays.',
+        tags,
+        responses: { '204': { description: 'Removed' } }
+    }
+};
+
+/** Every operator route takes an operator token (operatorAuth), never a user's. */
+export const openapi: Record<string, OpenAPIV3.PathItemObject> = Object.fromEntries(
+    Object.entries(paths).map(([path, item]) => [
+        path,
+        Object.fromEntries(
+            Object.entries(item).map(([method, op]) => [
+                method,
+                typeof op === 'object' && op && !Array.isArray(op)
+                    ? { ...op, security: [{ operatorAuth: [] }] }
+                    : op
+            ])
+        )
+    ])
+);
 
 export default router;

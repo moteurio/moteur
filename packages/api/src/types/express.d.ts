@@ -11,6 +11,8 @@ declare global {
             user?: User;
             /** The account as stored (account roles), set by project access middleware. */
             account?: User;
+            /** Set by requireOperator: the operator signed in. */
+            operator?: import('@moteurio/core/operators.js').Operator;
             /** The project, set by project access middleware. */
             project?: ProjectSchema;
             /** Set when a valid project API key was presented. */

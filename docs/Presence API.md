@@ -4,6 +4,18 @@ Socket.IO events for real-time collaboration in Studio: who is online, optional 
 
 For a **REST** snapshot of who is “online” in a project (derived from recent presence heartbeats; window default **90s**, overridable with **`ONLINE_PRESENCE_MAX_IDLE_MS`** on the API host), see `GET /projects/:projectId/users` and the `online` flag in [REST API — Project members](REST%20API.md#project-members).
 
+## Where it runs
+
+Presence is the private host plugin **`@moteurio/plugin-presence`** (in `moteur-plugins-extra`, on Moteur Cloud). A server without it has no `/socket.io`: nobody shows as online (`online` is always `false` on `GET /projects/:projectId/users`), and the Studio gets no live updates. The engine sends its live events (activity, comments, reviews, media ready or failed) through this same socket (`app.locals.io`, see `socketEventBridge.ts`), so they need the plugin too.
+
+**Who is in a room.** Only the project's members whose account is active may join, and only when `project.presence.enabled !== false`. When someone is removed from a project, the project is deleted, or an account is deactivated or deleted, their sockets in that room are disconnected (with an `error` event saying why). A socket is also disconnected when its token expires; the client signs in again and reconnects.
+
+**Screen state is per project.** A `screenId` is the Studio path inside a project (`models/article/entries/x`); the server keeps ephemeral screen state per project and screen, so the same id in two projects never shares state.
+
+**One server.** Presence, locks and screen state live in the API process's memory. Several API machines would each see only their own sockets; run one, or add a shared Socket.IO adapter first.
+
+**CORS.** Socket origins come from `PRESENCE_CORS_ORIGINS`, else `CORS_ORIGINS`; none are allowed cross-origin when both are unset (as for the API).
+
 ## Transport
 
 - **Socket.IO** (WebSocket).
@@ -36,7 +48,7 @@ When the room switches from **exclusive** to **shared**, the server clears all f
 
 **Server**
 
-- Joins room `projectId`, registers presence, applies `collaborationMode` (default `shared` when omitted).
+- Checks that the person is a member of the project now (else emits `error`: access denied), then joins room `projectId`, registers presence, applies `collaborationMode` (default `shared` when omitted).
 - Emits to this socket: `screen:sync` (if the screen has ephemeral data), `presence:sync`, `locks:sync`, then `presence:roomMode` (and may broadcast `presence:roomMode` / clear locks if the effective mode changed).
 - First join also broadcasts `presence:change` to others.
 

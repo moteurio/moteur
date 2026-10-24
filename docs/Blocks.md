@@ -49,6 +49,6 @@ Registered in [`packages/core/src/plugins/builtinContent.ts`](../packages/core/s
 ## HTTP API (summary)
 
 - **List / get / create / update / delete project-scoped definitions:** `GET|POST /projects/:projectId/blocks`, `GET|PUT|PATCH|DELETE /projects/:projectId/blocks/:slug`. Short slug `hero` resolves to `projectId/hero` if present, otherwise `core/hero`. Mutations apply only to files under `data/projects/<projectId>/blocks/`.
-- **Global catalog + register `core/*` type:** `GET|POST {API_BASE_PATH}/moteur/blocks` (if `API_BASE_PATH` is empty, `/api/moteur/blocks` is also served for compatibility). **POST requires operator** and writes `data/core/blocks/`.
+- **Global catalog + register `core/*` type:** `GET|POST {API_BASE_PATH}/moteur/blocks`. **POST requires operator** and writes `data/core/blocks/`.
 
 See [REST API](REST%20API.md) for layout, block, and structure routes under `/projects/:projectId/...`, and [`@moteurio/client`](../packages/client/README.md) for typed HTTP calls. [Embedded `@moteurio/core`](Developer%20API.md) remains available for in-process monorepo tooling only.

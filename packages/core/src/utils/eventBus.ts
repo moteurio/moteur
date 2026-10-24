@@ -98,6 +98,12 @@ export interface EventMap {
         /** Alt text supplied on upload; when set, hosts skip automatic image analysis. */
         uploadAlt?: string;
     };
+    /** A new file in an existing asset (same id); plugins may describe it again. */
+    'asset.afterReplace': {
+        projectId: string;
+        asset: Asset;
+        user: User;
+    };
 
     // Activity (emitted after an event is persisted to the activity log)
     'activity.logged': { event: ActivityEvent };

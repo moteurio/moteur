@@ -5,7 +5,7 @@
 import type { ArgSpec, CommandSpec } from '@moteurio/commands';
 
 /** Groups left out unless asked for: the server's operators, payments, and raw calls. */
-export const OPT_IN_GROUPS = ['operator', 'billing', 'api'];
+export const OPT_IN_GROUPS = ['billing', 'api'];
 
 /** Commands about this machine's sign-in or defaults, or handing out tokens: never tools. */
 const LOCAL_ONLY = new Set(['projects use', 'auth refresh', 'auth agent-token']);
@@ -22,6 +22,8 @@ export interface Selection {
 export function selectCommands(all: CommandSpec[], s: Selection = {}): CommandSpec[] {
     return all.filter(c => {
         if (LOCAL_ONLY.has(`${c.group} ${c.name}`)) return false;
+        // Running the whole server takes an operator's own sign-in: never an agent's tool.
+        if (c.operator || c.group === 'operator') return false;
         if (s.groups ? !s.groups.includes(c.group) : OPT_IN_GROUPS.includes(c.group)) return false;
         if (s.readOnly && !c.readOnly) return false;
         if (c.destructive && !s.allowDestructive) return false;

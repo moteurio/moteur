@@ -18,7 +18,6 @@ Blueprints are **server-wide templates** (project / model / structure / page tem
 - **Override:** Set `BLUEPRINTS_DIR` to use another path (relative to the data root).
 - **Subfolders:** one per kind, named in the singular: `data/blueprints/project/`, `model/`, `structure/`, `template/`. Each blueprint is a single file: `data/blueprints/<kind>/<id>.json`. The `id` must be filesystem-safe (alphanumeric, hyphens, underscores; same rules as project ids). IDs are unique **within** a kind, so `blog` can exist as both a project and a model blueprint.
 - **Plugins:** a plugin can register blueprints with `ctx.registerBlueprint()` (the `core-blueprints` plugin does). They are listed with the files; when a plugin and a file share an id and kind, the plugin's wins.
-- **Migration:** On first use, any root-level `.json` files in `data/blueprints/` are automatically moved to `data/blueprints/project/`.
 
 ## Blueprint JSON shape
 
@@ -166,11 +165,11 @@ Creating a project from a blueprint uses the existing **Create project** endpoin
 - **New project:** “Start with” lists `GET /blueprints/projects`; the choice is sent as **blueprintId** on `POST /projects`.
 - **Setup › Models, Structures, Page templates:** the “New …” dialog offers “Start from” with the blueprints of that kind (hidden when there are none). Choosing one fills the name and, for models, the kind; the new item gets the blueprint’s fields under the id and name you give it, and you edit it from there.
 
-Studio's **Operator › Blueprints** (`/operator/blueprints`) lists, edits and deletes them (account Admin). Setup still only **starts from** a blueprint; it does not change the catalogue.
+Studio's **Operator › Blueprints** (`/operator/blueprints`) lists, edits and deletes them (operators: see [Authentication](Authentication.md#operators)). Setup still only **starts from** a blueprint; it does not change the catalogue.
 
 ## Managing blueprints (operators)
 
-Operators can also use the **CLI** or the **API**:
+Operators can also use the **CLI** (after `moteur operator login`) or the **API** (with an operator token):
 
 ```bash
 moteur blueprints list model

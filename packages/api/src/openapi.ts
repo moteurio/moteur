@@ -691,6 +691,12 @@ export const baseSpec: OpenAPIV3.Document = {
                 type: 'http',
                 scheme: 'bearer'
             },
+            operatorAuth: {
+                type: 'http',
+                scheme: 'bearer',
+                description:
+                    'An operator token from POST /operator/auth/login (password and authenticator code). User tokens never pass.'
+            },
             apiKeyAuth: {
                 type: 'apiKey',
                 in: 'header',

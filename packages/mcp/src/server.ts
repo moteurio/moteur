@@ -7,12 +7,14 @@ import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprot
 import {
     API_COMMANDS,
     UsageError,
+    available,
     checkArgs,
     configSession,
     getClientOrThrow,
     errorText,
     execute,
     type CommandSpec,
+    type OpenApi,
     type Session
 } from '@moteurio/commands';
 import type { MoteurAdminClient } from '@moteurio/client';
@@ -34,6 +36,11 @@ export interface ServerOptions extends Selection {
     session?: (body: Record<string, unknown>) => Session;
     /** The commands to offer (tests); default: every API command. */
     commands?: CommandSpec[];
+    /**
+     * The server's OpenAPI document, so tools whose routes it lacks (plugins it doesn't run) are
+     * left out. Default: its /openapi.json; `false` offers every tool.
+     */
+    routes?: (() => Promise<OpenApi | undefined>) | false;
 }
 
 const INSTRUCTIONS = `Moteur is a headless CMS. These tools read and change one Moteur API.
@@ -71,8 +78,7 @@ const fail = (message: string): Result => ({
 
 export function createServer(options: ServerOptions = {}): Server {
     const all = options.commands ?? API_COMMANDS;
-    const offered = selectCommands(all, options);
-    const byTool = new Map(offered.map(c => [toolName(c), c]));
+    const selected = selectCommands(all, options);
     const server = new Server(
         { name: 'moteur', version: '2026.3.29' },
         { capabilities: { tools: {} }, instructions: INSTRUCTIONS }
@@ -89,6 +95,25 @@ export function createServer(options: ServerOptions = {}): Server {
                 body: async () => body,
                 ...(options.project ? { defaultProject: async () => options.project } : {})
             }));
+
+    const routes =
+        options.routes === false
+            ? undefined
+            : (options.routes ??
+              (async () => (await session({}).client()).get<OpenApi>('/openapi.json')));
+    /** The tools, once: those the server has routes for (all of them if it can't say). */
+    let tools: Promise<{ offered: CommandSpec[]; byTool: Map<string, CommandSpec> }> | undefined;
+    const offer = () =>
+        (tools ??= (async () => {
+            let offered = selected;
+            try {
+                const doc = routes ? await routes() : undefined;
+                if (doc?.paths) offered = available(selected, doc);
+            } catch {
+                // Not signed in yet, or an API without the document: offer them all.
+            }
+            return { offered, byTool: new Map(offered.map(c => [toolName(c), c])) };
+        })());
 
     /** Runs one command with a tool's arguments. */
     async function run(command: CommandSpec, input: Record<string, unknown>): Promise<Result> {
@@ -167,10 +192,11 @@ export function createServer(options: ServerOptions = {}): Server {
     ];
 
     server.setRequestHandler(ListToolsRequestSchema, async () => ({
-        tools: options.compact ? compactTools : offered.map(toolOf)
+        tools: options.compact ? compactTools : (await offer()).offered.map(toolOf)
     }));
 
     server.setRequestHandler(CallToolRequestSchema, async request => {
+        const { offered, byTool } = await offer();
         const { name } = request.params;
         const input = (request.params.arguments ?? {}) as Record<string, unknown>;
         if (options.compact) {
