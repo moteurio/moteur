@@ -132,6 +132,11 @@ describe('gitService', () => {
             expect(repoLog[0].message).toBe('Two');
             expect(repoLog[1].message).toBe('One');
         });
+
+        it('never evaluates a runtime count as shell syntax', async () => {
+            getRepoLog(tempDir, '1$(touch INJECTED_COUNT)' as unknown as number);
+            await expect(fs.access(path.join(tempDir, 'INJECTED_COUNT'))).rejects.toThrow();
+        });
     });
 
     describe('getLog', () => {
@@ -151,6 +156,21 @@ describe('gitService', () => {
             expect(log[0].message).toBe('Commit 1');
             expect(log[0].authorName).toBe('Dev');
             expect(log[0].date).toBeTruthy();
+        });
+
+        it.each([
+            '$(touch INJECTED_LOG).json',
+            '`touch INJECTED_LOG`.json',
+            'quoted "document".json'
+        ])('treats the path %s as data while preserving its history', async filename => {
+            await fs.writeFile(path.join(tempDir, filename), '{}');
+            const hash = addAndCommit(tempDir, [filename], 'Literal filename', {
+                name: 'Test',
+                email: 'test@example.com'
+            });
+            const log = getLog(tempDir, filename, 10);
+            await expect(fs.access(path.join(tempDir, 'INJECTED_LOG'))).rejects.toThrow();
+            expect(log[0]?.hash).toBe(hash);
         });
 
         it('returns empty array for non-git dir', async () => {
@@ -179,6 +199,33 @@ describe('gitService', () => {
             expect(log.length).toBe(1);
             const content = show(tempDir, log[0].hash, 'content.json');
             expect(content).toContain('"v":1');
+        });
+
+        it.each([
+            '$(touch INJECTED_SHOW).json',
+            '`touch INJECTED_SHOW`.json',
+            'quoted "document".json'
+        ])('reads the literal path %s without executing it', async filename => {
+            await fs.writeFile(path.join(tempDir, filename), '{"literal":true}');
+            const hash = addAndCommit(tempDir, [filename], 'Literal content', {
+                name: 'Test',
+                email: 'test@example.com'
+            });
+            const content = show(tempDir, hash, filename);
+            await expect(fs.access(path.join(tempDir, 'INJECTED_SHOW'))).rejects.toThrow();
+            expect(content).toBe('{"literal":true}');
+        });
+
+        it('does not evaluate shell syntax in a revision', async () => {
+            expect(show(tempDir, 'HEAD$(touch INJECTED_REVISION)', 'content.json')).toBeNull();
+            await expect(fs.access(path.join(tempDir, 'INJECTED_REVISION'))).rejects.toThrow();
+        });
+
+        it('does not interpret a revision as a Git option', async () => {
+            expect(show(tempDir, '--output=INJECTED_OPTION', 'content.json')).toBeNull();
+            await expect(
+                fs.access(path.join(tempDir, 'INJECTED_OPTION:content.json'))
+            ).rejects.toThrow();
         });
 
         it('returns null for missing file at rev', () => {

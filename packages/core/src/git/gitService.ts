@@ -1,4 +1,4 @@
-import { execSync, spawn, spawnSync } from 'child_process';
+import { spawn, spawnSync } from 'child_process';
 import fs from 'fs/promises';
 import path from 'path';
 import { existsSync } from 'fs';
@@ -20,14 +20,19 @@ function safeAuthor(user: { name?: string; email?: string; id?: string }): GitAu
 /**
  * Run a git command in the project directory. Uses spawnSync so arguments (e.g. commit message) are not parsed by a shell.
  */
-function git(projectDir: string, args: string[], env?: Record<string, string>): string {
+function git(
+    projectDir: string,
+    args: string[],
+    env?: Record<string, string>,
+    maxBuffer = 256 * 1024 * 1024
+): string {
     const fullEnv = { ...process.env, ...env };
     const r = spawnSync('git', args, {
         cwd: projectDir,
         encoding: 'utf-8',
         env: fullEnv,
         // A commit of thousands of files lists each one; Node's default 1 MB fails with ENOBUFS.
-        maxBuffer: 256 * 1024 * 1024
+        maxBuffer
     });
     if (r.error) throw r.error;
     if (r.status !== 0) {
@@ -192,10 +197,12 @@ export interface CommitInfo {
 export function getRepoLog(projectDir: string, maxCount = 50): CommitInfo[] {
     if (!isGitRepo(projectDir)) return [];
     try {
-        const out = execSync(`git log -n ${maxCount} --format=%H%n%s%n%an%n%ae%n%aI`, {
-            cwd: projectDir,
-            encoding: 'utf-8'
-        }).trim();
+        const out = git(
+            projectDir,
+            ['log', '-n', String(maxCount), '--format=%H%n%s%n%an%n%ae%n%aI'],
+            undefined,
+            1024 * 1024
+        );
         if (!out) return [];
         const lines = out.split(/\n/);
         const commits: CommitInfo[] = [];
@@ -223,10 +230,12 @@ export function getLog(projectDir: string, relativePath: string, maxCount = 50):
     if (!isGitRepo(projectDir)) return [];
     const normalized = relativePath.replace(/\\/g, '/');
     try {
-        const out = execSync(
-            `git log -n ${maxCount} --format=%H%n%s%n%an%n%ae%n%aI -- "${normalized}"`,
-            { cwd: projectDir, encoding: 'utf-8' }
-        ).trim();
+        const out = git(
+            projectDir,
+            ['log', '-n', String(maxCount), '--format=%H%n%s%n%an%n%ae%n%aI', '--', normalized],
+            undefined,
+            1024 * 1024
+        );
         if (!out) return [];
         const lines = out.split(/\n/);
         const commits: CommitInfo[] = [];
@@ -254,11 +263,12 @@ export function show(projectDir: string, rev: string, relativePath: string): str
     if (!isGitRepo(projectDir)) return null;
     const normalized = relativePath.replace(/\\/g, '/');
     try {
-        return execSync(`git show "${rev}:${normalized}"`, {
-            cwd: projectDir,
-            encoding: 'utf-8',
-            maxBuffer: 10 * 1024 * 1024
-        }).trim();
+        return git(
+            projectDir,
+            ['show', '--end-of-options', `${rev}:${normalized}`],
+            undefined,
+            10 * 1024 * 1024
+        );
     } catch {
         return null;
     }
