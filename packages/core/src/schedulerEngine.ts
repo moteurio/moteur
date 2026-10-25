@@ -14,6 +14,8 @@ import { getProjectUsers } from './users.js';
 import { dispatch as webhookDispatch } from './webhooks/webhookService.js';
 
 const timeouts = new Map<string, NodeJS.Timeout>();
+// The file store has one writer. Claim before the first await so timer/sweep cannot run twice.
+const running = new Map<string, Promise<void>>();
 /** setTimeout fires at once for delays above 2^31−1 ms (~24.8 days): longer waits are re-armed. */
 const MAX_TIMER_MS = 2 ** 31 - 1;
 let sweepInterval: NodeJS.Timeout | null = null;
@@ -35,6 +37,21 @@ async function saveSchedule(schedule: Schedule): Promise<void> {
 }
 
 async function executeSchedule(projectId: string, scheduleId: string): Promise<void> {
+    const key = `${projectId}:${scheduleId}`;
+    const active = running.get(key);
+    if (active) return active;
+    const execution = executeScheduleOnce(projectId, scheduleId)
+        .catch(error => {
+            console.error('[Scheduler] Execution interrupted; will recover on next sweep:', error);
+        })
+        .finally(() => {
+            running.delete(key);
+        });
+    running.set(key, execution);
+    return execution;
+}
+
+async function executeScheduleOnce(projectId: string, scheduleId: string): Promise<void> {
     const schedule = await loadSchedule(projectId, scheduleId);
     if (!schedule || schedule.status !== 'pending') return;
 
@@ -85,7 +102,7 @@ async function executeSchedule(projectId: string, scheduleId: string): Promise<v
 
         try {
             if (schedule.resourceType === 'entry' && schedule.modelId) {
-                webhookDispatch(
+                await webhookDispatch(
                     schedule.action === 'publish' ? 'entry.published' : 'entry.unpublished',
                     {
                         entryId: schedule.resourceId,
@@ -96,7 +113,7 @@ async function executeSchedule(projectId: string, scheduleId: string): Promise<v
                     { projectId, source: 'scheduler' }
                 );
             } else {
-                webhookDispatch(
+                await webhookDispatch(
                     schedule.action === 'publish' ? 'page.published' : 'page.unpublished',
                     {
                         pageId: schedule.resourceId,
@@ -145,7 +162,7 @@ async function executeSchedule(projectId: string, scheduleId: string): Promise<v
 
         try {
             if (schedule.resourceType === 'entry') {
-                webhookDispatch(
+                await webhookDispatch(
                     'entry.schedule.failed',
                     {
                         scheduleId,
@@ -157,7 +174,7 @@ async function executeSchedule(projectId: string, scheduleId: string): Promise<v
                     { projectId, source: 'scheduler' }
                 );
             } else {
-                webhookDispatch(
+                await webhookDispatch(
                     'page.schedule.failed',
                     {
                         scheduleId,
@@ -268,11 +285,20 @@ export async function sweep(): Promise<void> {
 
                 for (const id of ids) {
                     try {
-                        const schedule = await getProjectJson<Schedule>(
-                            project.id,
-                            scheduleKey(id)
-                        );
-                        if (!schedule || schedule.status !== 'pending') continue;
+                        let schedule = await getProjectJson<Schedule>(project.id, scheduleKey(id));
+                        if (!schedule || running.has(`${project.id}:${schedule.id}`)) continue;
+                        // In the single-writer process, processing without an active claim means
+                        // the process stopped between claiming and recording completion. Replay
+                        // the status assignment (at-least-once), never leave it stranded forever.
+                        if (schedule.status === 'processing') {
+                            schedule = {
+                                ...schedule,
+                                status: 'pending',
+                                updatedAt: new Date().toISOString()
+                            };
+                            await saveSchedule(schedule);
+                        }
+                        if (schedule.status !== 'pending') continue;
                         if (timeouts.has(schedule.id)) continue;
 
                         const at = new Date(schedule.scheduledAt).getTime();

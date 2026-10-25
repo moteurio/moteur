@@ -12,6 +12,11 @@ export type {
 export type { StudioPluginManifest, StudioPluginModule } from './manifest.js';
 export type { StudioPluginContext } from './context.js';
 export { createStudioPluginContext } from './context.js';
+export {
+    StudioContributionCollector,
+    getStudioPluginContributions,
+    allStudioPluginContributions
+} from './contributions.js';
 export { configureStudioHost, getStudioHost } from './host.js';
 export { StudioScopeProvider, useStudioScope } from './scope.js';
 export { defineStudioPlugin, applyStudioPlugins } from './apply.js';

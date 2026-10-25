@@ -228,17 +228,6 @@ On api.moteur.io, billing adds `/billing/operator/plans`, `PATCH /billing/operat
 
 ---
 
-## 📁 Webhooks (signature-verified, no JWT)
-
-These endpoints are called by the video providers. They are **not** JWT-protected studio routes and do not use Bearer auth. Signature verification is performed first; on failure the response is **400** with no side effects. On success the server responds **200** immediately and processes the payload asynchronously.
-
-| Method | Endpoint          | Description                                                                                         |
-| ------ | ----------------- | --------------------------------------------------------------------------------------------------- |
-| POST   | `/webhooks/mux`   | Mux webhook. Header: `mux-signature`. Configure URL and signing secret in Mux dashboard.            |
-| POST   | `/webhooks/vimeo` | Vimeo webhook. Header: `x-vimeo-signature` or `vimeo-signature`. Configure URL and secret in Vimeo. |
-
----
-
 ## 🔗 Webhooks (outbound)
 
 JWT + project access. Outbound webhooks POST a signed JSON payload to your HTTPS endpoint when content events occur (entry published, asset deleted, review approved, etc.). Register an endpoint; Moteur delivers events asynchronously with retries.
@@ -454,34 +443,11 @@ Under a project and model. JWT + project access. Path param: `projectId`, `model
 
 ---
 
-## 🤖 AI
+## Optional plugin routes
 
-These routes come from the AI plugin (`@moteurio/plugin-ai`, Moteur Cloud); a server without it has none of them. See [AI](AI.md). When no provider is configured, AI is disabled (503; Studio hides AI via `GET /ai/status`). Project-scoped operations consume credits; 402 when insufficient.
+AI generation, Socket.IO presence and integration-specific callbacks are supplied by host plugins. Their endpoint manuals live with those plugins, not in the engine reference. See the [host plugin guide](https://github.com/moteurio/moteur-plugins/blob/main/docs/Plugins.md) and the running host's merged OpenAPI document for availability.
 
-| Method | Endpoint                   | Description                                                                                                                                       |
-| ------ | -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
-| GET    | `/ai/status`               | Whether text AI is enabled (auth). Studio uses this to show/hide AI UI.                                                                           |
-| GET    | `/ai/helpers/:projectId`   | Helpers allowed for the user, credit balance, and costs (project access).                                                                         |
-| GET    | `/ai/settings/:projectId`  | Text provider + credits overview for Studio settings (project access).                                                                            |
-| POST   | `/ai/write`                | Writing suggestion for one field; body includes `action` (project access; helper `write`). Returns `{ text, creditsUsed, creditsRemaining }`.     |
-| POST   | `/ai/translate/field`      | Translate one field’s text (`value`, `from`, `to`) (project access; helper `translate`).                                                          |
-| POST   | `/ai/translate/entry`      | Translate whole entry into target locales (project access).                                                                                       |
-| POST   | `/ai/generate/entry`       | Generate entry from prompt + model schema (project access).                                                                                       |
-| POST   | `/ai/generate/fields`      | Generate field definitions from prompt (operator).                                                                                                |
-| POST   | `/ai/generate-image`       | Generate image variants from prompt (auth; projectId; project `ai.imageProvider`). **402** insufficient credits, **422** provider not configured. |
-| POST   | `/ai/generate-audio`       | Generate speech from prompt (auth; project `ai.audioProvider`; helper `audio`). **402**, **422** `audio_provider_not_configured`.                 |
-| POST   | `/ai/generate-3d`          | Generate 3D model from prompt (auth; project `ai.model3dProvider`; helper `model3d`). **402**, **422** `model3d_provider_not_configured`.         |
-| POST   | `/ai/save-generated-image` | Save chosen variant URL to project media library (auth; projectId).                                                                               |
-| POST   | `/ai/analyse/image`        | Suggest alt/caption for an asset (`assetId`) (project access; helper `alt`). **402** if insufficient credits.                                     |
-
----
-
-## 👁 Presence (debug)
-
-| Method | Endpoint                                         | Description                                                             |
-| ------ | ------------------------------------------------ | ----------------------------------------------------------------------- |
-| GET    | `/projects/:projectId/presence/debug`            | Debug presence state.                                                   |
-| DELETE | `/projects/:projectId/presence/screen/:screenId` | Clear ephemeral screen state (LWW fields + UI keys) for that screen id. |
+Core project settings, credit metering and AI audit records can remain present without the AI plugin; this does not enable `/ai/*`. Member `online` flags also remain false without a heartbeat source.
 
 ---
 
@@ -492,7 +458,7 @@ These routes come from the AI plugin (`@moteurio/plugin-ai`, Moteur Cloud); a se
 | GET    | `{basePath}/openapi.json` | OpenAPI 3 spec (merged with optional plugins when the server starts). |
 | (UI)   | `{basePath}/docs`         | Scalar API reference (same document as `openapi.json`).               |
 
-**Export without running the server** (writes `packages/api/dist-openapi/openapi.json`; uses the same `.env` as the API for host plugins and AI):
+**Export without running the server** (writes `packages/api/dist-openapi/openapi.json`; uses the same `.env` as the API for host plugins):
 
 ```bash
 pnpm --filter @moteurio/api run openapi:export

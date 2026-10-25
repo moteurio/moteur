@@ -72,7 +72,7 @@ export async function createLayout(user: User, projectId: string, layout: Layout
         throw new Error(`Layout with ID "${layout.id}" already exists in project "${projectId}"`);
     }
 
-    triggerEvent('layout.beforeCreate', { layout, user, projectId });
+    await triggerEvent('layout.beforeCreate', { layout, user, projectId });
     await putProjectJson(projectId, layoutKey(layout.id), layout);
     triggerEvent('content.saved', {
         projectId,
@@ -121,7 +121,7 @@ export async function updateLayout(
             `Layout validation failed: ${result.issues.map(issue => issue.message).join(', ')}`
         );
     }
-    triggerEvent('layout.beforeUpdate', { layout: updated, user, projectId });
+    await triggerEvent('layout.beforeUpdate', { layout: updated, user, projectId });
     await putProjectJson(projectId, layoutKey(id), updated);
     triggerEvent('content.saved', {
         projectId,
@@ -172,7 +172,7 @@ export async function restoreLayoutAtRevision(
 export async function deleteLayout(user: User, projectId: string, id: string): Promise<void> {
     const layout = await getLayout(user, projectId, id);
 
-    triggerEvent('layout.beforeDelete', { layout, user, projectId });
+    await triggerEvent('layout.beforeDelete', { layout, user, projectId });
 
     const source = layoutFilePath(projectId, id);
     const destDir = trashLayoutDir(projectId, id);

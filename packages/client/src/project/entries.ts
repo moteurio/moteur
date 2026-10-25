@@ -80,9 +80,18 @@ export function entriesApi(client: MoteurClient) {
                 entryListQuery(params)
             );
         },
-        get(projectId: string, modelId: string, entryId: string): Promise<{ entry: Entry }> {
+        get(
+            projectId: string,
+            modelId: string,
+            entryId: string,
+            options?: { resolveUrl?: boolean; resolveAssets?: boolean }
+        ): Promise<{ entry: Entry & { resolvedUrl?: string }; version?: string }> {
+            const params: Record<string, string> = {};
+            if (options?.resolveUrl) params.resolveUrl = '1';
+            if (options?.resolveAssets) params.resolveAssets = '1';
             return client.get(
-                `/projects/${encodeURIComponent(projectId)}/models/${encodeURIComponent(modelId)}/entries/${encodeURIComponent(entryId)}`
+                `/projects/${encodeURIComponent(projectId)}/models/${encodeURIComponent(modelId)}/entries/${encodeURIComponent(entryId)}`,
+                Object.keys(params).length ? params : undefined
             );
         },
         create(
@@ -99,8 +108,16 @@ export function entriesApi(client: MoteurClient) {
             projectId: string,
             modelId: string,
             entryId: string,
-            body: Record<string, unknown>
+            body: Record<string, unknown>,
+            options?: { version?: string }
         ): Promise<{ entry: Entry }> {
+            if (options?.version)
+                return client.request({
+                    method: 'PATCH',
+                    url: `/projects/${encodeURIComponent(projectId)}/models/${encodeURIComponent(modelId)}/entries/${encodeURIComponent(entryId)}`,
+                    data: body,
+                    headers: { 'If-Match': `"${options.version}"` }
+                });
             return client.patch(
                 `/projects/${encodeURIComponent(projectId)}/models/${encodeURIComponent(modelId)}/entries/${encodeURIComponent(entryId)}`,
                 body

@@ -84,14 +84,17 @@ export function permitsCommand(policy: McpAccessPolicy, command: CommandSpec): b
 
 export function scopedServerOptions(
     connection: McpConnection,
-    defaultProject?: string
+    defaultProject?: string,
+    commands: CommandSpec[] = API_COMMANDS
 ): Pick<ServerOptions, 'commands' | 'beforeRun'> {
     const policy = connection.current();
     return {
-        commands: API_COMMANDS.filter(c => permitsCommand(policy, c)).map(c => ({
-            ...c,
-            args: c.args?.filter(a => a.name !== 'out')
-        })),
+        commands: commands
+            .filter(c => permitsCommand(policy, c))
+            .map(c => ({
+                ...c,
+                args: c.args?.filter(a => a.name !== 'out')
+            })),
         beforeRun: (command, args) => {
             const policy = connection.current();
             if (args.out !== undefined)

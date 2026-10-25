@@ -83,7 +83,7 @@ export async function addComment(
         try {
             if (input.resourceType === 'entry' && input.resourceId.includes('__')) {
                 const [modelId, entryId] = input.resourceId.split('__');
-                webhookDispatch(
+                await webhookDispatch(
                     'comment.created',
                     {
                         commentId: comment.id,

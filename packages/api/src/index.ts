@@ -1,3 +1,4 @@
+import { startWebhookWorker, stopWebhookWorker } from '@moteurio/core/webhooks/webhookService.js';
 /**
  * Moteur API — Express server entry point.
  *
@@ -48,6 +49,7 @@ import operatorRoute from './operator/index.js';
 import operatorAuthRoute from './operator/auth.js';
 import invitesRoute from './invites/index.js';
 import { mcpRouter } from './mcp/index.js';
+import { commandsRouter } from './commands/index.js';
 import { createMcpOAuth } from './mcp/oauth.js';
 import usageRouter from './studio/usage.js';
 import fieldTypesRouter from './studio/fieldTypes.js';
@@ -121,27 +123,29 @@ const basePath = process.env.API_BASE_PATH || '';
 
 app.use(securityHeaders);
 app.use(
-    cors<express.Request>((req, callback) =>
+    cors<express.Request>((req, callback) => {
+        const mcp =
+            /^\/(?:authorize|token|register|revoke|\.well-known)(?:\/|$)/.test(req.path) ||
+            req.path === basePath + '/mcp' ||
+            req.path === basePath + '/mcp/';
         callback(null, {
-            // MCP browser clients authenticate with bearer tokens, independent of Studio's origins.
-            origin:
-                /^\/(?:authorize|token|register|revoke|\.well-known)(?:\/|$)/.test(req.path) ||
-                req.path === basePath + '/mcp' ||
-                req.path === basePath + '/mcp/'
-                    ? '*'
-                    : getCorsOrigin(),
+            // Protocol clients use bearer tokens; Studio verification uses its browser cookie.
+            origin: mcp ? '*' : getCorsOrigin(),
+            credentials: !mcp,
             methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
             allowedHeaders: [
                 'Content-Type',
                 'Authorization',
                 'x-api-key',
+                'x-preview-token',
+                'If-Match',
                 'MCP-Protocol-Version',
                 'Mcp-Session-Id',
                 'Last-Event-ID'
             ],
             exposedHeaders: ['X-Total-Count', 'Retry-After', 'WWW-Authenticate', 'Mcp-Session-Id']
-        })
-    )
+        });
+    })
 );
 
 // Request counts and AI credits survive restarts. Set before plugins load: a host plugin may
@@ -230,7 +234,7 @@ app.use(basePath + '/projects/:projectId/models', modelsRoute);
 const mergedProjectsRouter = express.Router();
 mergedProjectsRouter.use(projectRoutes);
 for (const c of projectContribs) mergedProjectsRouter.use(c.router);
-app.use(basePath + '/projects', mergedProjectsRouter);
+app.use(basePath + '/projects', studioRateLimiter, mergedProjectsRouter);
 
 app.use(basePath + '/blueprints', blueprintsRoutes);
 app.use(basePath + '/activity', activityGlobalRoute);
@@ -238,6 +242,7 @@ app.use(basePath + '/activity', activityGlobalRoute);
 app.use(basePath + '/operator/auth', operatorAuthRoute);
 app.use(basePath + '/operator', operatorRoute);
 app.use(basePath + '/invites', invitesRoute);
+app.use(basePath + '/commands', commandsRouter);
 // MCP for remote AI clients; its tools call this API itself. MOTEUR_MCP=off leaves it out.
 if (process.env.MOTEUR_MCP?.trim().toLowerCase() !== 'off') {
     const publicUrl = process.env.MOTEUR_MCP_PUBLIC_URL?.trim();
@@ -310,6 +315,8 @@ registerSocketEventBridge(app);
 validateStorageConfig();
 
 const PORT = process.env.PORT || 3000;
+httpServer.requestTimeout = 120_000;
+httpServer.headersTimeout = 30_000;
 httpServer.listen(PORT, async () => {
     console.log(`Moteur API running at http://localhost:${PORT}`);
     try {
@@ -317,6 +324,7 @@ httpServer.listen(PORT, async () => {
     } catch (err) {
         console.error('[Moteur] Scheduler init failed:', err);
     }
+    await startWebhookWorker();
     startSnapshotScheduler(60_000);
     // Images uploaded just before a restart still need their resized copies.
     try {
@@ -336,6 +344,7 @@ httpServer.listen(PORT, async () => {
 
 function gracefulShutdown(): void {
     schedulerEngine.stopSweep();
+    stopWebhookWorker();
     stopSnapshotScheduler();
     getMeteringStore().flush();
     process.exit(0);

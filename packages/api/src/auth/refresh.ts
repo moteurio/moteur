@@ -1,6 +1,6 @@
 import type { Request, Response } from 'express';
 import express, { Router } from 'express';
-import { generateJWT } from '@moteurio/core/auth.js';
+import { refreshJWT, verifyJWT } from '@moteurio/core/auth.js';
 import { requireAuth } from '../middlewares/auth.js';
 import type { OpenAPIV3 } from 'openapi-types';
 
@@ -12,7 +12,8 @@ router.post('/refresh', requireAuth, async (req: Request, res: Response) => {
         if (!user) {
             return void res.status(401).json({ error: 'Unauthorized' });
         }
-        return void res.json({ token: generateJWT(user) });
+        const payload = verifyJWT(req.headers.authorization!.replace(/^Bearer\s+/i, ''));
+        return void res.json({ token: refreshJWT(user, payload) });
     } catch (_err) {
         return void res.status(401).json({ error: 'Invalid or expired token' });
     }

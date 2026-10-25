@@ -70,7 +70,7 @@ export function parseEntryQuery(
 ): EntryQuery {
     const query: EntryQuery = {};
 
-    const limit = nonNegativeInt(single(req.query.limit), 'limit');
+    const limit = nonNegativeInt(single(req.query.limit), 'limit') ?? 100;
     if (limit !== undefined) {
         const min = options.allowList ? 0 : 1;
         if (limit < min || limit > MAX_ENTRY_PAGE_SIZE) {

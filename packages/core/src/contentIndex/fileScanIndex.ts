@@ -2,7 +2,7 @@ import type { Entry } from '@moteurio/types/Model.js';
 import { entryKey } from '../utils/storageKeys.js';
 import { listEntryFiles, mapSliced, readEntryFile, readPublishedSnapshots } from './entryFiles.js';
 import { applyQuery } from './listQuery.js';
-import { publishedSnapshotCommit } from './publishedView.js';
+import { publishedSnapshotCommit, requiresPublishedSnapshot } from './publishedView.js';
 import type { ContentIndex, EntryQuery, EntryQueryResult, ReindexStats } from './types.js';
 import { usesListFeatures } from './types.js';
 
@@ -41,12 +41,12 @@ export class FileScanIndex implements ContentIndex {
             const commit = publishedSnapshotCommit(e);
             return commit ? [{ modelId, entryId: e.id, commit }] : [];
         });
-        if (wanted.length === 0) return entries;
         const snapshots = await readPublishedSnapshots(projectId, wanted);
-        return entries.map(e => {
+        return entries.flatMap(e => {
             const commit = publishedSnapshotCommit(e);
-            if (!commit) return e;
-            return snapshots.get(`${commit}:${entryKey(modelId, e.id)}`) ?? e;
+            if (!commit) return requiresPublishedSnapshot(e) ? [] : [e];
+            const snapshot = snapshots.get(`${commit}:${entryKey(modelId, e.id)}`);
+            return snapshot ? [snapshot] : [];
         });
     }
 

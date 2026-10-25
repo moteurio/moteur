@@ -18,6 +18,7 @@ import type { Schedule } from '@moteurio/types/Schedule.js';
 
 // Event context uses explicit resource keys (like { project, user }) for clarity.
 export interface EventMap {
+    'auth.sessions.revoked': { userId: string; sessionIds?: string[] };
     // Projects
     'project.beforeCreate': { project: ProjectSchema; user: User };
     'project.afterCreate': { project: ProjectSchema; user: User };
@@ -201,6 +202,14 @@ export function onEvent<K extends keyof EventMap>(
 export async function triggerEvent<K extends keyof EventMap>(eventName: K, context: EventMap[K]) {
     const cbs = listeners[eventName] || [];
     for (const cb of cbs) {
-        await cb(context);
+        if (String(eventName).includes('.before')) {
+            await cb(context);
+        } else {
+            try {
+                await cb(context);
+            } catch (error) {
+                console.error(`[Moteur] Event handler failed (${String(eventName)}):`, error);
+            }
+        }
     }
 }

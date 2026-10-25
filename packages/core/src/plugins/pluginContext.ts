@@ -23,6 +23,22 @@ import {
 } from '../planLimits.js';
 import type { PluginInitContext } from '@moteurio/plugin-sdk';
 import type { FieldSchema } from '@moteurio/types/Field.js';
+import type { VideoProvidersConfig } from '@moteurio/types/Project.js';
+import type { PlanLimitKind } from '@moteurio/types/Plugin.js';
+import { ContributionCollector } from './contributionCollector.js';
+import { pluginCommandIds, registerPluginCommand } from './commandRegistry.js';
+import type { PluginCommandSpec } from '@moteurio/types/PluginCommand.js';
+import {
+    registerMediaGenerator as registerMediaGeneratorCore,
+    registerMediaTransform as registerMediaTransformCore,
+    registerMediaVariantPreset as registerMediaVariantPresetCore
+} from './mediaPipeline.js';
+import { registerModelTemplate as registerModelTemplateCore } from './modelTemplates.js';
+import {
+    registerGitCommitHook as registerGitCommitHookCore,
+    registerGitProvider as registerGitProviderCore
+} from './gitHooks.js';
+import { registerOutboundWebhookEvent as registerOutboundWebhookEventCore } from './outboundEvents.js';
 
 const globalScopePluginIds = new Set<string>();
 
@@ -74,6 +90,138 @@ export function createPluginContext(): PluginContext {
         setCountLimit,
         setSubmissionQuota,
         grantCredits,
-        creditBalance: projectId => creditBalance(projectId)
+        creditBalance: projectId => creditBalance(projectId),
+        registerCommand: spec => registerPluginCommand(spec),
+        registerMcpTool: spec => registerPluginCommand({ ...spec, surfaces: ['mcp'] }),
+        registerMediaVariantPreset: preset => registerMediaVariantPresetCore(preset),
+        registerMediaTransform: transform => registerMediaTransformCore(transform),
+        registerMediaGenerator: generator => registerMediaGeneratorCore(generator),
+        registerModelTemplate: schema => registerModelTemplateCore(schema),
+        registerGitCommitHook: hook => registerGitCommitHookCore(hook),
+        registerGitProvider: id => registerGitProviderCore(id),
+        registerOutboundWebhookEvent: event => registerOutboundWebhookEventCore(event)
+    };
+}
+
+/** Wrap a context so each hook records a contribution. */
+export function wrapPluginContext(
+    ctx: PluginContext,
+    collector: ContributionCollector,
+    pluginId?: string
+): PluginContext {
+    return {
+        ...ctx,
+        onEvent: (name, callback) => {
+            collector.addEvent(String(name));
+            return ctx.onEvent(name, callback);
+        },
+        registerBlockSchema: schema => {
+            collector.addBlock(schema.type);
+            ctx.registerBlockSchema(schema);
+        },
+        registerStructureSchema: schema => {
+            collector.addStructure(schema.type);
+            ctx.registerStructureSchema(schema);
+        },
+        registerBlueprint: blueprint => {
+            collector.addBlueprint(blueprint.id);
+            ctx.registerBlueprint(blueprint);
+        },
+        registerFieldSchema: field => {
+            collector.addField(field.type);
+            ctx.registerFieldSchema(field);
+        },
+        registerStorageAdapterFactory: (id, factory) => {
+            collector.addStorageAdapter(id);
+            ctx.registerStorageAdapterFactory(id, factory);
+        },
+        registerVideoProviderFactory: (id, factory) => {
+            collector.addVideoProvider(id);
+            ctx.registerVideoProviderFactory(id, factory);
+        },
+        setVideoProvidersConfig: (config: VideoProvidersConfig | null) => {
+            if (config?.active) collector.setActiveVideoProvider(config.active);
+            ctx.setVideoProvidersConfig(config);
+        },
+        setCreditAllowance: allowance => {
+            collector.setPlanLimit('aiCredits');
+            ctx.setCreditAllowance(allowance);
+        },
+        setPeopleLimit: limit => {
+            collector.setPlanLimit('people');
+            ctx.setPeopleLimit(limit);
+        },
+        setStorageLimit: limit => {
+            collector.setPlanLimit('storageBytes');
+            ctx.setStorageLimit(limit);
+        },
+        setRequestQuota: quota => {
+            collector.setPlanLimit('apiRequests');
+            ctx.setRequestQuota(quota);
+        },
+        setSubmissionQuota: quota => {
+            collector.setPlanLimit('formSubmissions');
+            ctx.setSubmissionQuota(quota);
+        },
+        setProjectsLimit: limit => {
+            collector.setPlanLimit('projectsPerUser');
+            ctx.setProjectsLimit(limit);
+        },
+        setCountLimit: limit => {
+            collector.addCountKinds([
+                'channels',
+                'models',
+                'entries',
+                'forms',
+                'structures',
+                'blocks',
+                'templates',
+                'pages'
+            ] satisfies PlanLimitKind[]);
+            ctx.setCountLimit(limit);
+        },
+        grantCredits: (projectId, amount, detail) => {
+            collector.markCreditsMutated();
+            return ctx.grantCredits(projectId, amount, detail);
+        },
+        registerCommand: spec => {
+            const ids = pluginCommandIds(spec);
+            collector.addCommand(ids.cli, ids.mcp);
+            registerPluginCommand(spec, pluginId);
+        },
+        registerMcpTool: spec => {
+            const tool = { ...spec, surfaces: ['mcp'] as PluginCommandSpec['surfaces'] };
+            const ids = pluginCommandIds(tool);
+            collector.addCommand(ids.cli, ids.mcp);
+            registerPluginCommand(tool, pluginId);
+        },
+        registerMediaVariantPreset: preset => {
+            collector.addMediaVariant(preset.id);
+            registerMediaVariantPresetCore(preset, pluginId);
+        },
+        registerMediaTransform: transform => {
+            collector.addMediaTransform(transform.id);
+            registerMediaTransformCore(transform, pluginId);
+        },
+        registerMediaGenerator: generator => {
+            collector.addMediaGenerator(generator.id);
+            registerMediaGeneratorCore(generator, pluginId);
+        },
+        registerModelTemplate: schema => {
+            collector.addModel(schema.id);
+            ctx.registerModelTemplate(schema);
+        },
+        registerGitCommitHook: hook => {
+            collector.markGitCommitHook();
+            ctx.registerGitCommitHook(hook);
+        },
+        registerGitProvider: id => {
+            collector.addGitProvider(id);
+            ctx.registerGitProvider(id);
+        },
+        registerOutboundWebhookEvent: event => {
+            collector.addOutboundWebhookEvent(event);
+            ctx.registerOutboundWebhookEvent(event);
+        }
     };
 }

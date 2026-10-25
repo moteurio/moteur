@@ -8,6 +8,7 @@ import type { OpenAPIV3 } from 'openapi-types';
 import { requireProjectAccess } from '../middlewares/auth.js';
 import { getProjectById } from '@moteurio/core/projects.js';
 import { sendApiError } from '../utils/apiError.js';
+import { entryVersion } from '@moteurio/core/utils/entryVersion.js';
 
 const router: Router = Router({ mergeParams: true });
 
@@ -30,8 +31,17 @@ router.patch('/:entryId', requireProjectAccess, async (req: Request, res: Respon
     // Validate the entry as it will be saved: fields left out of a partial update keep their
     // stored value, so required fields don't have to be resent.
     let merged;
+    let version: string;
     try {
         const current = await getEntry(req.user!, projectId, modelId, entryId);
+        version = entryVersion(current);
+        const ifMatch = req.get('If-Match');
+        if (ifMatch && ifMatch !== '*' && ifMatch !== `"${version}"`) {
+            return void res.status(412).json({
+                error: 'This entry changed. Reload it before saving again.',
+                code: 'ENTRY_CONFLICT'
+            });
+        }
         merged = mergeEntryPatch(current, req.body ?? {}, getCoreIdFieldIds(modelSchema));
     } catch (err: unknown) {
         return void sendApiError(res, req, err);
@@ -55,7 +65,9 @@ router.patch('/:entryId', requireProjectAccess, async (req: Request, res: Respon
     }
 
     try {
-        const entry = await updateEntry(req.user!, projectId, modelId, entryId, req.body);
+        const entry = await updateEntry(req.user!, projectId, modelId, entryId, req.body, {
+            expectedVersion: version
+        });
         return void res.json(entry);
     } catch (err: unknown) {
         return void sendApiError(res, req, err);
@@ -67,9 +79,15 @@ export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
         patch: {
             summary: 'Update an entry',
             description:
-                'Partial update. Fields in `data` replace the stored value (send null to clear one); fields left out keep their value. The resulting entry is validated against the model.',
+                'Partial update. Fields in `data` replace the stored value (send null to clear one); fields left out keep their value. Send If-Match with the quoted version from GET to reject stale edits. A concurrent save returns 409; a stale If-Match returns 412.',
             tags: ['Entries'],
             parameters: [
+                {
+                    name: 'If-Match',
+                    in: 'header',
+                    schema: { type: 'string' },
+                    description: 'Quoted authoring version from GET'
+                },
                 {
                     name: 'projectId',
                     in: 'path',
@@ -101,6 +119,10 @@ export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
                 }
             },
             responses: {
+                '409': { description: 'Entry changed during validation; reload and retry' },
+                '412': {
+                    description: 'The supplied version is stale; reload and resolve conflicts'
+                },
                 '200': {
                     description: 'Entry updated',
                     content: {

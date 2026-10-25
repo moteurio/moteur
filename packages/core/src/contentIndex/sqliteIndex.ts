@@ -11,7 +11,12 @@ import {
     readPublishedSnapshots,
     statEntryFile
 } from './entryFiles.js';
-import { entryStatus, publishedSnapshotCommit, sortValue } from './publishedView.js';
+import {
+    entryStatus,
+    publishedSnapshotCommit,
+    requiresPublishedSnapshot,
+    sortValue
+} from './publishedView.js';
 import { fold, listFacts, project, searchTerms, type ListFacts } from './listQuery.js';
 import type {
     ContentIndex,
@@ -25,7 +30,7 @@ import { usesListFeatures } from './types.js';
 type DatabaseConstructor = typeof DatabaseSync;
 
 /** Bump when the table layout changes: an index with another version is rebuilt from scratch. */
-const SCHEMA_VERSION = '3';
+const SCHEMA_VERSION = '4';
 
 const SCHEMA = `
 CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
@@ -145,7 +150,8 @@ function rowFor(
         updated_at: sortValue(entry, 'updatedAt'),
         published_at: sortValue(entry, 'publishedAt'),
         json: JSON.stringify(entry),
-        pub_status: entryStatus(pub),
+        pub_status:
+            requiresPublishedSnapshot(entry) && !published ? 'unavailable' : entryStatus(pub),
         pub_created_at: sortValue(pub, 'createdAt'),
         pub_updated_at: sortValue(pub, 'updatedAt'),
         pub_published_at: sortValue(pub, 'publishedAt'),
@@ -218,6 +224,7 @@ export class SqliteIndex implements ContentIndex {
         // Conditions as SQL fragments with their parameters, so counts can leave one out.
         type Cond = { sql: string; params: SQLInputValue[]; filter?: string; missing?: true };
         const conds: Cond[] = [{ sql: 'model_id = ?', params: [modelId] }];
+        if (published) conds.push({ sql: "pub_status != 'unavailable'", params: [] });
         if (query.status) {
             conds.push({
                 sql: `${published ? 'pub_status' : 'status'} IN (${PLACEHOLDERS(query.status.length)})`,
@@ -625,7 +632,7 @@ export class SqliteIndex implements ContentIndex {
             const snapshots = await readPublishedSnapshots(projectId, fromGit);
             for (const w of fromGit) {
                 const snapshot = snapshots.get(`${w.commit}:${entryKey(w.modelId, w.entryId)}`);
-                // An unreadable snapshot serves the entry file, like the git-only code path.
+                // Missing snapshots are excluded from published queries by rowFor.
                 if (snapshot) {
                     result[w.index] = {
                         entry: snapshot,

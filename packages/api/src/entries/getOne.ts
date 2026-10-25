@@ -11,6 +11,7 @@ import { listBlocks } from '@moteurio/core/blocks.js';
 import { stripEditorialBlocksFromPayload } from '../utils/stripBlockSchema.js';
 import { sendApiError } from '../utils/apiError.js';
 import { queryFlag } from '../utils/queryFlag.js';
+import { entryVersion } from '@moteurio/core/utils/entryVersion.js';
 
 const router: Router = Router({ mergeParams: true });
 
@@ -26,6 +27,7 @@ router.get('/:entryId', requireProjectAccess, async (req: Request, res: Response
         if (!entry) {
             return void res.status(404).json({ error: 'Entry not found' });
         }
+        const version = entryVersion(entry);
         if (queryFlag(req.query.resolveAssets)) {
             const schema = await getModelSchema(req.user!, projectId, modelId);
             entry = await resolveEntryAssets(projectId, entry, schema);
@@ -39,7 +41,7 @@ router.get('/:entryId', requireProjectAccess, async (req: Request, res: Response
             ...(resolvedUrl != null && { resolvedUrl: resolvedUrl ?? undefined })
         };
         const filtered = stripEditorialBlocksFromPayload(payload, listBlocks(projectId));
-        return void res.json({ entry: filtered });
+        return void res.json({ entry: filtered, version });
     } catch (err: unknown) {
         return void sendApiError(res, req, err);
     }

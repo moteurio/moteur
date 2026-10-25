@@ -5,6 +5,8 @@ server with a tool for everything the Moteur API can do, from listing entries to
 schedules, media, menus and AI help. The tools are generated from the same declarations as the
 `moteur` CLI ([@moteurio/commands](../commands)), so both always offer the same things.
 
+Engine guide: [MCP](../../docs/MCP.md), including current hosted authentication and tool-selection limits.
+
 ## Set up
 
 Sign in once with the CLI (or set `MOTEUR_API_URL` with `MOTEUR_TOKEN` or `MOTEUR_API_KEY`):

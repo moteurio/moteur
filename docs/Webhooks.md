@@ -142,6 +142,8 @@ When creating or updating a webhook you can set **filters** so it only receives 
 
 Failed deliveries (non-2xx or timeout) are retried at: **30 s**, **5 min**, **30 min**, **2 hr**. After 5 attempts, the delivery is marked failed. You can **retry** a failed delivery from the API or Studio (Project → Webhooks → delivery log).
 
+The persisted delivery log is also the retry outbox. On startup and periodic sweeps, the API resumes pending/retrying deliveries using their saved deadlines. Attempts are claimed before sending; an interrupted attempt becomes due again after its lease expires (30 seconds). Workers are bounded to four concurrent requests. Completed history is trimmed to 500 records per project, while pending work is retained. Keep consumers idempotent: a process can stop after the receiver accepted a request but before success was recorded, so delivery is at least once, not exactly once. Content and outbox files are not one atomic transaction.
+
 ---
 
 ## Registering a webhook
@@ -158,5 +160,6 @@ Other operations: list, get, update, delete, **rotate secret**, **test** (sends 
 ## Security
 
 - Store the webhook **secret** securely; use it only for signature verification.
-- Prefer **HTTPS**; HTTP is allowed only for localhost in development.
+- Use a final public **HTTPS** URL; HTTP is allowed only for localhost outside production. Private/restricted destinations are rejected, and the validated IP is pinned for the connection.
+- Redirects are not followed. The request deadline covers DNS, connection and response reading (10 seconds); the log retains at most 1,000 response bytes.
 - Secrets can be stored encrypted at rest when `MOTEUR_ENCRYPTION_KEY` is set.

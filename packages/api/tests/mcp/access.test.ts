@@ -77,6 +77,27 @@ async function connect(fixture: ReturnType<typeof setup>, compact = false) {
 }
 
 describe('MCP project and access boundaries', () => {
+    it('applies consent restrictions to plugin commands as well as built-ins', () => {
+        const fixture = setup('developer');
+        const plugin = {
+            group: 'custom',
+            name: 'inspect',
+            summary: 'Inspect plugin content',
+            readOnly: true,
+            http: 'GET /projects/{project}/custom',
+            args: [{ name: 'project', type: 'string' }]
+        } as (typeof API_COMMANDS)[number];
+        const scoped = scopedServerOptions(fixture.connection, 'demo', [...API_COMMANDS, plugin]);
+        expect(scoped.commands).toContainEqual(plugin);
+        expect(() => scoped.beforeRun!(plugin, { project: 'other' })).toThrow(
+            'This project was not granted'
+        );
+        fixture.setPolicy({ level: 'read', projectIds: ['demo'], allowCreateProjects: false });
+        expect(() => scoped.beforeRun!(plugin, { project: 'demo' })).toThrow(
+            'outside the connection'
+        );
+    });
+
     it('filters project discovery and identity to the explicitly granted projects', async () => {
         const { api } = setup();
         expect((await api.projects.list()).projects).toEqual([{ id: 'demo' }]);
@@ -204,8 +225,10 @@ describe('MCP project and access boundaries', () => {
                     : client.callTool({ name, arguments: args });
             const list = await call('projects_list', {});
             expect(JSON.stringify(list)).not.toContain('other');
+            const afterList = fixture.send.mock.calls.length;
             const rejected = await call('entries_list', { project: 'other', model: 'article' });
             expect(rejected.isError).toBe(true);
+            expect(fixture.send).toHaveBeenCalledTimes(afterList);
             const updated = await call('entries_update', {
                 project: 'demo',
                 model: 'article',
@@ -213,6 +236,13 @@ describe('MCP project and access boundaries', () => {
                 set: ['title.en=Hello']
             });
             expect(updated.isError).toBeFalsy();
+            expect(fixture.send).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    method: 'patch',
+                    url: '/projects/demo/models/article/entries/a'
+                })
+            );
+            const afterUpdate = fixture.send.mock.calls.length;
             fixture.setPolicy({ level: 'read', projectIds: ['demo'], allowCreateProjects: false });
             const tightened = await call('entries_update', {
                 project: 'demo',
@@ -227,7 +257,7 @@ describe('MCP project and access boundaries', () => {
                 body: {}
             });
             expect(schema.isError).toBe(true);
-            expect(fixture.send).toHaveBeenCalledTimes(2);
+            expect(fixture.send).toHaveBeenCalledTimes(afterUpdate);
             await client.close();
         }
     );

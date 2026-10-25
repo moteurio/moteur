@@ -1,3 +1,5 @@
+import { WorkBudget } from './utils/workBudget.js';
+const verificationMailBudget = new WorkBudget(2, 8);
 import type { Review } from '@moteurio/types/Review.js';
 import type { ProjectSchema } from '@moteurio/types/Project.js';
 import type { User } from '@moteurio/types/User.js';
@@ -6,6 +8,39 @@ export type ReviewEmailType = 'review_requested' | 'approved' | 'rejected';
 
 function isEmailConfigured(): boolean {
     return !!(process.env.SMTP_HOST && process.env.SMTP_FROM);
+}
+
+/** Verification must fail visibly if delivery is unavailable; never silently mark mail verified. */
+export async function sendVerificationEmail(email: string, code: string): Promise<void> {
+    return verificationMailBudget.run(() => deliverVerificationEmail(email, code));
+}
+
+async function deliverVerificationEmail(email: string, code: string): Promise<void> {
+    if (!isEmailConfigured())
+        throw Object.assign(new Error('Email verification is not configured on this server.'), {
+            status: 503
+        });
+    const nodemailer = await import('nodemailer');
+    const port = Number(process.env.SMTP_PORT || 587);
+    const transporter = nodemailer.default.createTransport({
+        host: process.env.SMTP_HOST,
+        port,
+        secure: port === 465,
+        connectionTimeout: 10_000,
+        greetingTimeout: 10_000,
+        socketTimeout: 10_000,
+        ...(process.env.SMTP_USER && process.env.SMTP_PASS
+            ? {
+                  auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS }
+              }
+            : {})
+    });
+    await transporter.sendMail({
+        from: process.env.SMTP_FROM!,
+        to: email,
+        subject: 'Verify your Moteur email',
+        text: `Your Moteur verification code is ${code}. It expires with your sign-in in 10 minutes. If you did not request this, ignore this email.`
+    });
 }
 
 /**

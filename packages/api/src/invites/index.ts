@@ -97,7 +97,7 @@ router.post('/:token/register', async (req: Request, res: Response) => {
         const project = await getProjectById(invite.projectId);
         if (!project) return void res.status(404).json(GONE);
         assertPeopleRoom(invite.projectId, project.users?.length ?? 0);
-        const user = createUser({
+        const user = await createUser({
             id: `user:${randomUUID()}`,
             isActive: true,
             email: invite.email,
@@ -108,7 +108,7 @@ router.post('/:token/register', async (req: Request, res: Response) => {
         });
         await addProjectMember(invite.projectId, user, invite.roles);
         consumeInvite(invite.id);
-        const loginAt = recordUserLogin(user.id);
+        const loginAt = await recordUserLogin(user.id);
         const signedIn = {
             ...user,
             ...(loginAt ? { lastLoginAt: loginAt } : {}),

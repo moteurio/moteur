@@ -1,12 +1,28 @@
 // src/registry/PluginRegistry.ts
 
-import type { PluginManifest } from '@moteurio/types/Plugin.js';
+import type { PluginContributions, PluginManifest } from '@moteurio/types/Plugin.js';
+import { mergeContributions } from '@moteurio/types/Plugin.js';
 
 export class PluginRegistry {
     private plugins: Record<string, PluginManifest> = {};
+    private contributions: Record<string, PluginContributions> = {};
 
     register(id: string, manifest: PluginManifest): void {
         this.plugins[id] = manifest;
+        if (manifest.contributes) {
+            this.contributions[id] = mergeContributions(
+                this.contributions[id],
+                manifest.contributes
+            );
+        }
+    }
+
+    setContributions(id: string, contributions: PluginContributions): void {
+        this.contributions[id] = mergeContributions(this.contributions[id], contributions);
+    }
+
+    getContributions(id: string): PluginContributions {
+        return this.contributions[id] ?? {};
     }
 
     get(id: string): PluginManifest {
@@ -31,6 +47,7 @@ export class PluginRegistry {
 
     clear(): void {
         this.plugins = {};
+        this.contributions = {};
     }
 }
 

@@ -92,7 +92,7 @@ export async function createTemplate(
         updatedAt: now
     };
 
-    triggerEvent('template.beforeCreate', { template: schema, user, projectId });
+    await triggerEvent('template.beforeCreate', { template: schema, user, projectId });
     await putProjectJson(projectId, templateKey(id), schema);
     triggerEvent('content.saved', {
         projectId,
@@ -113,7 +113,7 @@ export async function updateTemplate(
     const current = await getTemplateWithAuth(user, projectId, id);
     const updated = { ...current, ...patch };
 
-    triggerEvent('template.beforeUpdate', { template: updated, user, projectId });
+    await triggerEvent('template.beforeUpdate', { template: updated, user, projectId });
     await putProjectJson(projectId, templateKey(id), updated);
     triggerEvent('content.saved', {
         projectId,
@@ -128,7 +128,7 @@ export async function updateTemplate(
 export async function deleteTemplate(projectId: string, user: User, id: string): Promise<void> {
     const current = await getTemplateWithAuth(user, projectId, id);
 
-    triggerEvent('template.beforeDelete', { template: current, user, projectId });
+    await triggerEvent('template.beforeDelete', { template: current, user, projectId });
 
     const source = templateFilePath(projectId, id);
     const destDir = trashTemplatesDir(projectId);

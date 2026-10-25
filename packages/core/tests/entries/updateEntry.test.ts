@@ -6,6 +6,7 @@ import type { Entry } from '@moteurio/types/Model.js';
 import { getProjectJson, putProjectJson } from '../../src/utils/projectStorage.js';
 import { entryKey, modelKey } from '../../src/utils/storageKeys.js';
 import { mergeEntryPatch, updateEntry } from '../../src/entries.js';
+import { entryVersion } from '../../src/utils/entryVersion.js';
 
 const stored: Entry = {
     id: 'e1',
@@ -111,5 +112,39 @@ describe('updateEntry', () => {
 
         const onDisk = await getProjectJson<Entry>(projectId, entryKey('article', 'e1'));
         expect(onDisk?.data).toEqual({ ...stored.data, slug: 'renamed' });
+    });
+
+    it('preserves independent fields when saves overlap', async () => {
+        await Promise.all([
+            updateEntry(user, projectId, 'article', 'e1', { data: { slug: 'first' } }),
+            updateEntry(user, projectId, 'article', 'e1', { data: { title: 'second' } })
+        ]);
+        const saved = await getProjectJson<Entry>(projectId, entryKey('article', 'e1'));
+        expect(saved?.data).toMatchObject({ slug: 'first', title: 'second' });
+    });
+
+    it('rejects a stale save without overwriting the first change', async () => {
+        const expectedVersion = entryVersion(stored);
+        await updateEntry(
+            user,
+            projectId,
+            'article',
+            'e1',
+            { data: { slug: 'first' } },
+            { expectedVersion }
+        );
+        await expect(
+            updateEntry(
+                user,
+                projectId,
+                'article',
+                'e1',
+                { data: { slug: 'second' } },
+                { expectedVersion }
+            )
+        ).rejects.toMatchObject({ status: 409, code: 'ENTRY_CONFLICT' });
+        expect(
+            (await getProjectJson<Entry>(projectId, entryKey('article', 'e1')))?.data?.slug
+        ).toBe('first');
     });
 });

@@ -1,6 +1,7 @@
 import type { Request, Response } from 'express';
 import { Router } from 'express';
 import multer from 'multer';
+import { uploadAdmission } from '../../middlewares/uploadAdmission.js';
 import {
     uploadAsset,
     listAssets,
@@ -91,6 +92,7 @@ const upload = multer({
 router.post(
     '/',
     requireProjectAccess,
+    uploadAdmission,
     upload.single('file'),
     async (req: Request<ProjectParams, unknown, AssetUploadBody>, res: Response) => {
         const { projectId } = req.params as Record<string, string>;
@@ -139,6 +141,7 @@ router.post(
 router.post(
     '/:id/replace',
     requireProjectAccess,
+    uploadAdmission,
     upload.single('file'),
     async (req: Request<AssetIdParams>, res: Response) => {
         const { projectId, id } = req.params as Record<string, string>;

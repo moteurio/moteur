@@ -9,7 +9,23 @@ export const manifest: PluginManifest = {
     label: 'Validation',
     description: 'Validates project, model, and template schemas before create/update',
     source: 'builtin',
-    kind: 'core'
+    kind: 'core',
+    scope: 'global',
+    contributes: {
+        events: {
+            subscribes: [
+                'project.beforeCreate',
+                'project.beforeUpdate',
+                'model.beforeCreate',
+                'model.beforeUpdate',
+                'template.beforeCreate',
+                'template.beforeUpdate'
+            ]
+        },
+        validation: {
+            hooks: ['project', 'model', 'template']
+        }
+    }
 };
 
 export function init(ctx: PluginContext): void {

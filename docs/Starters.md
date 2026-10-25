@@ -42,9 +42,9 @@ a familiar ecosystem and strong TypeScript support.
 **Rendering:** SSG at build time with ISR — pages revalidate automatically
 when you publish in Moteur Studio via webhook.
 
-**Unique feature:** Draft Mode — editors preview unpublished content in context
-directly from Moteur Studio. The static page is the default; Draft Mode is the
-deliberate escape hatch to client-side rendering when freshness matters.
+**Unique feature:** Preview tokens — Studio opens your site with `?preview=`; the
+starter passes `x-preview-token` on collection reads for latest/draft content.
+Use `@moteurio/react` `usePreview` or server `withPreview` on the public client.
 
 ---
 
@@ -132,8 +132,8 @@ shared hosting or VPS, projects that need server-side logic alongside content.
 **Rendering:** Runtime PHP — server renders each request, with APCu caching
 and webhook-based cache invalidation.
 
-**Unique feature:** Draft preview via token — share a preview link before
-publishing. One middleware, one route, works without touching the main codebase.
+**Unique feature:** Preview via `moteurio/php` `PreviewTokenMiddleware` — `?preview=`
+on any URL; `MoteurClient::withPreviewToken` sends `x-preview-token` to the API.
 
 ---
 

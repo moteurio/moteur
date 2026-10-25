@@ -8,6 +8,7 @@ import { projectDir } from '../utils/pathUtils.js';
 import { log, toActivityEvent } from '../activityLogger.js';
 import { addAndCommit, GITIGNORE_LINES, hasRemote, isGitRepo, push } from './gitService.js';
 import type { User } from '@moteurio/types/User.js';
+import { runGitCommitHooks } from '../plugins/gitHooks.js';
 
 type ContentEventPayload = { projectId: string; paths: string[]; message: string; user: User };
 
@@ -61,6 +62,7 @@ async function handleContentChange(payload: ContentEventPayload): Promise<void> 
                 message
             })
         );
+        await runGitCommitHooks({ projectId, paths, message, user, commitHash });
     }
 
     // A project without a remote keeps its history locally; there is nothing to push or report.

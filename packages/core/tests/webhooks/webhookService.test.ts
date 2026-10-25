@@ -15,6 +15,12 @@ import {
     sendTestPing
 } from '../../src/webhooks/webhookService.js';
 
+vi.mock('../../src/webhooks/outboundHttp.js', () => ({ postWebhook: vi.fn() }));
+import { postWebhook } from '../../src/webhooks/outboundHttp.js';
+vi.mock('node:dns/promises', () => ({
+    default: { lookup: vi.fn().mockResolvedValue([{ address: '93.184.216.34', family: 4 }]) }
+}));
+
 const projectId = 'webhook-test-proj';
 const USER = 'user1';
 
@@ -23,7 +29,7 @@ describe('webhookService', () => {
     let projectDir: string;
     let originalDataRoot: string | undefined;
     let originalNodeEnv: string | undefined;
-    let fetchMock: ReturnType<typeof vi.fn>;
+    let postMock: ReturnType<typeof vi.fn>;
 
     beforeEach(async () => {
         tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'moteur-webhooks-'));
@@ -45,12 +51,11 @@ describe('webhookService', () => {
         process.env.NODE_ENV = 'test';
         process.env.MOTEUR_ENCRYPTION_KEY = 'a'.repeat(64);
 
-        fetchMock = vi.fn();
-        vi.stubGlobal('fetch', fetchMock);
-        fetchMock.mockResolvedValue({
+        postMock = vi.mocked(postWebhook).mockReset();
+        postMock.mockResolvedValue({
             ok: true,
             status: 200,
-            text: () => Promise.resolve('OK')
+            body: 'OK'
         });
     });
 
@@ -246,8 +251,8 @@ describe('webhookService', () => {
 
             await new Promise(r => setTimeout(r, 150));
 
-            expect(fetchMock).toHaveBeenCalledTimes(1);
-            expect((fetchMock.mock.calls[0] as any)[0]).toBe('https://example.com/h1');
+            expect(postMock).toHaveBeenCalledTimes(1);
+            expect((postMock.mock.calls[0] as any)[0]).toBe('https://example.com/h1');
         });
 
         it('respects event filter when webhook has events', async () => {
@@ -268,7 +273,7 @@ describe('webhookService', () => {
             );
 
             await new Promise(r => setTimeout(r, 100));
-            expect(fetchMock).not.toHaveBeenCalled();
+            expect(postMock).not.toHaveBeenCalled();
         });
 
         it('dispatches when events is empty (all events)', async () => {
@@ -289,7 +294,7 @@ describe('webhookService', () => {
             );
 
             await new Promise(r => setTimeout(r, 150));
-            expect(fetchMock).toHaveBeenCalledTimes(1);
+            expect(postMock).toHaveBeenCalledTimes(1);
         });
 
         it('respects filters', async () => {
@@ -311,7 +316,7 @@ describe('webhookService', () => {
             );
 
             await new Promise(r => setTimeout(r, 100));
-            expect(fetchMock).not.toHaveBeenCalled();
+            expect(postMock).not.toHaveBeenCalled();
         });
 
         it('never throws (fire-and-forget)', async () => {
@@ -361,19 +366,20 @@ describe('webhookService', () => {
             expect(delivery.payload.source).toBe('studio');
             expect(delivery.payload.test).toBeUndefined();
 
-            expect(fetchMock).toHaveBeenCalledTimes(1);
-            const [, opts] = fetchMock.mock.calls[0] as [string, RequestInit];
-            const body = opts.body as string;
+            expect(postMock).toHaveBeenCalledTimes(1);
+            const [, headers, body] = postMock.mock.calls[0] as [
+                string,
+                Record<string, string>,
+                string
+            ];
             expect(JSON.parse(body)).toEqual(delivery.payload);
-            expect(opts.headers).toMatchObject({
+            expect(headers).toMatchObject({
                 'Content-Type': 'application/json',
                 'X-Moteur-Event': 'entry.published',
                 'X-Moteur-Delivery': delivery.id,
                 'X-Moteur-Timestamp': expect.any(String)
             });
-            expect((opts.headers as Record<string, string>)['X-Moteur-Signature']).toMatch(
-                /^sha256=/
-            );
+            expect(headers['X-Moteur-Signature']).toMatch(/^sha256=/);
         });
     });
 
@@ -464,10 +470,10 @@ describe('webhookService', () => {
         });
 
         it('enqueues retry when delivery is failed', async () => {
-            fetchMock.mockResolvedValueOnce({
+            postMock.mockResolvedValueOnce({
                 ok: false,
                 status: 500,
-                text: () => Promise.resolve('Error')
+                body: 'Error'
             });
             const created = await createWebhook(projectId, USER, {
                 name: 'W',
@@ -574,9 +580,8 @@ describe('webhookService', () => {
             );
             await new Promise(r => setTimeout(r, 150));
 
-            expect(fetchMock).toHaveBeenCalledTimes(1);
-            const opts = fetchMock.mock.calls[0][1] as RequestInit;
-            const headers = opts.headers as Record<string, string>;
+            expect(postMock).toHaveBeenCalledTimes(1);
+            const headers = postMock.mock.calls[0][1] as Record<string, string>;
             expect(headers['X-Moteur-Signature']).toMatch(/^sha256=/);
             expect(headers['X-Moteur-Event']).toBe('entry.created');
             expect(headers['X-Custom']).toBe('custom-value');
@@ -585,10 +590,10 @@ describe('webhookService', () => {
 
     describe('non-2xx marks delivery as failure', () => {
         it('500 response triggers retry/failed', async () => {
-            fetchMock.mockResolvedValue({
+            postMock.mockResolvedValue({
                 ok: false,
                 status: 500,
-                text: () => Promise.resolve('Server Error')
+                body: 'Server Error'
             });
             const { id: webhookId } = await createWebhook(projectId, USER, {
                 name: 'W',

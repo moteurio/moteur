@@ -27,6 +27,7 @@ import {
     type ProjectApiKeyCreateBody,
     type ProjectApiKeyPatchBody
 } from '../project/apiKeys.js';
+import { projectPreviewTokensApi, type PreviewTokenCreateBody } from '../project/previewTokens.js';
 import type { CreateScheduleInput, ListSchedulesOptions } from '@moteurio/types';
 
 /** Project-scoped API: same HTTP routes as the root client, with `projectId` fixed. */
@@ -50,6 +51,7 @@ export function createProjectClient(client: MoteurClient, projectId: string) {
     const mediaSettings = projectMediaSettingsApi(client);
     const blocks = projectBlocksApi(client);
     const apiKeys = projectApiKeysApi(client);
+    const previewTokens = projectPreviewTokensApi(client);
 
     return {
         projectId: pid,
@@ -272,6 +274,10 @@ export function createProjectClient(client: MoteurClient, projectId: string) {
             rotate: (keyId: string) => apiKeys.rotate(pid, keyId),
             revoke: (keyId: string) => apiKeys.revoke(pid, keyId),
             patch: (keyId: string, body: ProjectApiKeyPatchBody) => apiKeys.patch(pid, keyId, body)
+        },
+
+        previewTokens: {
+            create: (body?: PreviewTokenCreateBody) => previewTokens.create(pid, body)
         }
     };
 }

@@ -58,6 +58,22 @@ export type {
 
 export { createMoteurAdminClient } from './admin/adminClient.js';
 export { createMoteurPublicClient } from './public/createPublicClient.js';
+export { t, siblingPath, localeFromPathname } from './delivery/locale.js';
+export {
+    createBlockRegistry,
+    type DeliveryBlock,
+    type BlockRenderer,
+    type BlockRegistryOptions
+} from './delivery/blocks.js';
+export {
+    createPreviewSession,
+    readPreviewTokenFromSource,
+    type PreviewSessionSource
+} from './delivery/preview.js';
+export type {
+    PreviewTokenCreateBody,
+    PreviewTokenCreateResponse
+} from './project/previewTokens.js';
 export { createProjectClient } from './admin/forProject.js';
 export {
     resolveCredentials,

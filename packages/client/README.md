@@ -154,6 +154,24 @@ await client.projects.activity.list('my-blog', { limit: 50, before: cursor });
 
 ---
 
+## Delivery helpers (preview, locale, blocks)
+
+Framework-agnostic utilities exported from the same package:
+
+| Export                                             | Purpose                              |
+| -------------------------------------------------- | ------------------------------------ |
+| `t(value, locale)`                                 | Localized field strings              |
+| `siblingPath(pathname, locale, segments?)`         | Language-switch URLs                 |
+| `createBlockRegistry({ load, fallback })`          | Map `block.type` → renderer          |
+| `createPreviewSession({ search, cookie })`         | Read `?preview=` / cookie for tokens |
+| `createMoteurPublicClient(...).withPreview(token)` | Send `x-preview-token` on reads      |
+
+Mint tokens with a **JWT** (`forProject(id).previewTokens.create({ entryId, collectionId })`). See [Frontend.md](https://github.com/moteurio/moteur/blob/main/docs/Frontend.md).
+
+Framework adapters (`@moteurio/react`, `@moteurio/vue`, `@moteurio/astro`, `@moteurio/vanilla`) live in the **[moteur-frontend](https://github.com/moteurio/moteur-frontend)** repo — not in this monorepo and not in moteur-plugins.
+
+---
+
 ## For frontend & static sites: `createMoteurPublicClient` (API key)
 
 Use this when you only have the **project API key** and you **read** data for rendering (Next.js, Astro, Nuxt BFF, edge function, cron job, etc.).
@@ -344,7 +362,7 @@ The **public** client does **not** expose `_raw`; it only exposes the curated re
 
 ## Real-time presence (WebSocket)
 
-`@moteurio/client` is **HTTP only**. For live collaboration (presence, field locks, shared draft state), connect with **socket.io-client** to the same API origin, `path: '/socket.io'`, JWT in `auth.token`, and the event contract in [**Presence API**](../../docs/Presence%20API.md).
+`@moteurio/client` is **HTTP only**. Live collaboration is supplied by the optional private `plugin-presence`; its Socket.IO event contract lives with that plugin in `moteur-plugins-extra`. An engine-only host does not expose `/socket.io`.
 
 The socket comes from the **presence plugin** (Moteur Cloud). A self-hosted API without it has no `/socket.io`, so treat a failed connection as "no live updates" rather than retrying forever. Live activity, comments and reviews arrive on the same socket.
 

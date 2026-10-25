@@ -5,11 +5,25 @@ import { projectDir } from './pathUtils.js';
 import { writeJsonAtomicAsync } from './fileUtils.js';
 import { getContentIndex, parseEntryKey } from '../contentIndex/index.js';
 import type { Entry } from '@moteurio/types/Model.js';
+import { isValidId } from './idUtils.js';
 
 const ENCODING = 'utf-8';
 
 function fullPath(projectId: string, key: string): string {
-    return path.join(projectDir(projectId), key);
+    if (!isValidId(projectId))
+        throw Object.assign(new Error('Invalid project ID'), { status: 400 });
+    const root = path.resolve(projectDir(projectId));
+    const target = path.resolve(root, key);
+    const relative = path.relative(root, target);
+    if (
+        path.isAbsolute(key) ||
+        relative === '..' ||
+        relative.startsWith(`..${path.sep}`) ||
+        path.isAbsolute(relative)
+    ) {
+        throw Object.assign(new Error('Invalid project storage key'), { status: 400 });
+    }
+    return target;
 }
 
 /**
@@ -82,8 +96,10 @@ export async function deleteProjectKey(projectId: string, key: string): Promise<
  * List keys under prefix. Uses directory listing, or single-file JSON keys when prefix points to a .json file.
  */
 export async function listProjectKeys(projectId: string, prefix?: string): Promise<string[]> {
-    const basePath = path.join(projectDir(projectId), prefix ?? '');
-    const possibleFile = basePath.endsWith('.json') ? basePath : `${basePath}.json`;
+    const basePath = fullPath(projectId, prefix ?? '');
+    const possibleFile = basePath.endsWith('.json')
+        ? basePath
+        : fullPath(projectId, `${prefix ?? ''}.json`);
 
     let useFileMode = false;
     try {

@@ -3,6 +3,7 @@ import { Router } from 'express';
 import type { OpenAPIV3 } from 'openapi-types';
 import type { ProjectSchema } from '@moteurio/types/Project.js';
 import type { User } from '@moteurio/types/User.js';
+import { capabilitiesFromContributions, mergeContributions } from '@moteurio/types/Plugin.js';
 import { loadProjects, updateProject } from '@moteurio/core/projects.js';
 import { listUsers, reloadUsers, updateUserAsOperator } from '@moteurio/core/users.js';
 import { creditBalance, currentPeriod, getMeteringStore } from '@moteurio/core/metering.js';
@@ -82,8 +83,14 @@ function userRow(u: User, projectIds: Set<string>) {
 function pluginRow(e: PluginEntry, choices: Record<string, boolean>, projects: ProjectSchema[]) {
     const next = runsNextStart(e, choices);
     const projectScoped = e.kind === 'host' && e.scope !== 'global';
+    const contributions = mergeContributions(
+        e.contributions,
+        pluginRegistry.has(e.id) ? pluginRegistry.getContributions(e.id) : undefined
+    );
     return {
         ...e,
+        contributions,
+        capabilities: capabilitiesFromContributions(contributions, e.capabilities as never),
         /** The operator's saved choice; null: follows the host's list. */
         choice: e.kind === 'core' ? null : (choices[e.id] ?? null),
         runsNextStart: next,
@@ -107,7 +114,12 @@ function allPlugins(): PluginEntry[] {
             source: m.source,
             scope: m.scope ?? 'global',
             capabilities: m.capabilities,
-            kind: 'core',
+            role: m.role,
+            categories: m.categories,
+            contributions: pluginRegistry.getContributions(id),
+            requires: m.requires,
+            studio: m.studio,
+            kind: 'core' as const,
             running: true,
             hostAllows: true
         }));
@@ -207,7 +219,7 @@ router.get('/users', (req: Request, res: Response) => {
 });
 
 /** Body: any of `name`, `email`, `isActive`, `roles` (the account's own, not a project's). */
-router.patch('/users/:userId', (req: Request, res: Response) => {
+router.patch('/users/:userId', async (req: Request, res: Response) => {
     const { userId } = params(req);
     const op = operator(req);
     const body = (req.body ?? {}) as Record<string, unknown>;
@@ -224,7 +236,7 @@ router.patch('/users/:userId', (req: Request, res: Response) => {
     if (!Object.keys(patch).length)
         return void res.status(400).json({ error: 'Nothing to change' });
     try {
-        const updated = updateUserAsOperator(userId, patch, op);
+        const updated = await updateUserAsOperator(userId, patch, op);
         const projectIds = new Set(loadProjects().map(p => p.id));
         res.json({ user: userRow(updated, projectIds) });
     } catch (err) {
@@ -412,6 +424,11 @@ const pluginRowSchema: OpenAPIV3.SchemaObject = {
         label: str,
         description: str,
         kind: { type: 'string', enum: ['core', 'host'] },
+        role: { type: 'string', enum: ['platform', 'integration'] },
+        categories: { type: 'array', items: { type: 'string' } },
+        requires: strings,
+        contributions: object,
+        capabilities: strings,
         scope: str,
         running: { type: 'boolean' },
         choice: { type: 'boolean', nullable: true, description: "Null: follows the host's list" },

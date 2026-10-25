@@ -1,4 +1,5 @@
 import type { StudioHostAdapter } from './types.js';
+import type { StudioContributionCollector } from './contributions.js';
 
 export type StudioPluginContext = {
     pluginId: string;
@@ -10,14 +11,26 @@ export type StudioPluginContext = {
 
 export function createStudioPluginContext(
     pluginId: string,
-    host: StudioHostAdapter
+    host: StudioHostAdapter,
+    collector?: StudioContributionCollector
 ): StudioPluginContext {
     return {
         pluginId,
-        registerFieldEditor: (type, component) => host.registerFieldEditor(type, component),
-        registerBlockPreview: (type, component) =>
-            host.registerBlockPreview(type, component, pluginId),
-        registerProjectRoute: route => host.registerProjectRoute(route),
-        registerOperatorRoute: route => host.registerOperatorRoute(route)
+        registerFieldEditor: (type, component) => {
+            collector?.addFieldEditor(type);
+            host.registerFieldEditor(type, component);
+        },
+        registerBlockPreview: (type, component) => {
+            collector?.addBlockPreview(type);
+            host.registerBlockPreview(type, component, pluginId);
+        },
+        registerProjectRoute: route => {
+            collector?.addProjectRoute(route.path);
+            host.registerProjectRoute(route);
+        },
+        registerOperatorRoute: route => {
+            collector?.addOperatorRoute(route.path);
+            host.registerOperatorRoute(route);
+        }
     };
 }

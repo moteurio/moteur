@@ -10,6 +10,8 @@ export interface User {
     roles: string[];
     projects: string[];
     auth?: Record<string, any>;
+    /** Incremented when credentials change; invalidates all previous user sessions. */
+    authVersion?: number;
     /** ISO 8601 — updated on successful sign-in (password or OAuth). */
     lastLoginAt?: string;
     /**

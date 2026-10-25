@@ -38,6 +38,7 @@ import {
     radar,
     search,
     shopify,
+    pluginCommands,
     status
 } from './commands/platform.js';
 
@@ -116,6 +117,7 @@ export const API_COMMANDS = [
     ...radar,
     ...search,
     ...shopify,
+    ...pluginCommands,
     ...play,
     ...blueprints,
     ...billing,

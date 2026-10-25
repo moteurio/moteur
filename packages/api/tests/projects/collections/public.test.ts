@@ -9,6 +9,9 @@ vi.mock('@moteurio/core/apiCollections.js', () => ({
 vi.mock('@moteurio/core/projectApiKey.js', () => ({
     verifyProjectApiKey: vi.fn()
 }));
+vi.mock('@moteurio/core/previewTokens.js', () => ({
+    verifyPreviewToken: vi.fn()
+}));
 vi.mock('@moteurio/core/entries.js', () => ({
     queryEntriesForProject: vi.fn(),
     getEntryForProject: vi.fn(),
@@ -32,6 +35,8 @@ vi.mock('@moteurio/core/projects.js', () => ({
 
 import { listCollections, getCollection } from '@moteurio/core/apiCollections.js';
 import { verifyProjectApiKey } from '@moteurio/core/projectApiKey.js';
+import { verifyPreviewToken } from '@moteurio/core/previewTokens.js';
+import { previewTokenAuth } from '../../../src/middlewares/previewToken.js';
 import { queryEntriesForProject } from '@moteurio/core/entries.js';
 import { getModelSchemaForProject } from '@moteurio/core/models.js';
 import { getProjectJson, listProjectKeys } from '@moteurio/core/utils/projectStorage.js';
@@ -57,6 +62,7 @@ app.use(
     },
     optionalAuth,
     apiKeyAuth,
+    previewTokenAuth,
     requireCollectionOrProjectAccess,
     collectionsPublicRouter
 );
@@ -205,6 +211,7 @@ describe('GET /projects/:projectId/collections/:collectionId/:resourceId/entries
 
     beforeEach(() => {
         vi.clearAllMocks();
+        vi.mocked(verifyPreviewToken).mockResolvedValue({ ok: false });
         vi.mocked(verifyProjectApiKey).mockResolvedValue({
             ok: true,
             keyId: 'k1',
@@ -227,10 +234,14 @@ describe('GET /projects/:projectId/collections/:collectionId/:resourceId/entries
         expect(res.status).toBe(200);
         expect(res.body.map((e: { id: string }) => e.id)).toEqual(['a', 'b']);
         expect(res.headers['x-total-count']).toBe('7');
-        expect(queryEntriesForProject).toHaveBeenCalledWith('demo', 'articles', {
-            view: 'published',
-            status: ['published']
-        });
+        expect(queryEntriesForProject).toHaveBeenCalledWith(
+            'demo',
+            'articles',
+            expect.objectContaining({
+                view: 'published',
+                status: ['published']
+            })
+        );
     });
 
     it('passes limit, offset and sort to the content index', async () => {
@@ -256,6 +267,23 @@ describe('GET /projects/:projectId/collections/:collectionId/:resourceId/entries
         expect(vi.mocked(queryEntriesForProject).mock.calls[0][2]).toMatchObject({
             status: ['published']
         });
+    });
+
+    it('uses latest view and draft statuses when a valid preview token is sent', async () => {
+        vi.mocked(verifyPreviewToken).mockResolvedValue({ ok: true, tokenId: 'pt1' });
+        await request(app)
+            .get('/projects/demo/collections/c1/articles/entries')
+            .set('x-api-key', 'key')
+            .set('x-preview-token', 'mpv_testtoken');
+        expect(verifyPreviewToken).toHaveBeenCalledWith('demo', 'mpv_testtoken');
+        expect(queryEntriesForProject).toHaveBeenCalledWith(
+            'demo',
+            'articles',
+            expect.objectContaining({
+                view: 'latest',
+                status: ['draft', 'in_review', 'published']
+            })
+        );
     });
 
     it.each([

@@ -21,6 +21,12 @@ declare global {
             apiKeyId?: string;
             /** Access policy for collection / site-wide public routes when using an API key. */
             apiKeyPolicy?: ApiKeyAccessPolicy;
+            /** Valid preview token presented (`x-preview-token` or `?preview=` on GET). */
+            previewAuth?: boolean;
+            previewTokenId?: string;
+            previewCollectionId?: string;
+            previewEntryId?: string;
+            previewPageId?: string;
             /** Set by request classification middleware for usage/rate-limit logic. */
             apiRequestType?: 'studio' | 'public' | null;
             /** Project id inferred by request classification middleware for public routes. */

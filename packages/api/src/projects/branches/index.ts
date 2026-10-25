@@ -13,10 +13,26 @@ import {
 } from '@moteurio/core/git/index.js';
 import { getContentIndex } from '@moteurio/core/contentIndex/index.js';
 import { requireProjectAccess } from '../../middlewares/auth.js';
+import { requireDeveloper } from '../../middlewares/auth.js';
+import { needsApproval } from '@moteurio/types';
+import type { NextFunction } from 'express';
 import { sendApiError } from '../../utils/apiError.js';
 import { log, toActivityEvent } from '@moteurio/core/activityLogger.js';
+import { withProjectWriteLock } from '@moteurio/core/utils/projectWriteLock.js';
 
 const router: Router = Router({ mergeParams: true });
+
+// A shared branch can change live content outside the per-entry review workflow.
+function requireBranchWrite(req: Request, res: Response, next: NextFunction) {
+    requireDeveloper(req, res, () => {
+        if (needsApproval(req.user, req.project)) {
+            return void res
+                .status(403)
+                .json({ error: 'Branch changes require unrestricted publishing access' });
+        }
+        next();
+    });
+}
 
 router.get('/', requireProjectAccess, async (req: Request, res: Response) => {
     const { projectId } = req.params as Record<string, string>;
@@ -33,7 +49,7 @@ router.get('/', requireProjectAccess, async (req: Request, res: Response) => {
     }
 });
 
-router.post('/', requireProjectAccess, async (req: Request, res: Response) => {
+router.post('/', requireBranchWrite, async (req: Request, res: Response) => {
     const { projectId } = req.params as Record<string, string>;
     const name = req.body?.name as string | undefined;
     const from = (req.body?.from as string) ?? 'HEAD';
@@ -47,14 +63,16 @@ router.post('/', requireProjectAccess, async (req: Request, res: Response) => {
         return void res.status(400).json({ error: 'Project is not a Git repository' });
     }
     try {
-        createBranch(dir, name, from);
+        await withProjectWriteLock(projectId, async () => {
+            createBranch(dir, name, from);
+        });
         return void res.status(201).json({ branch: name, from });
     } catch (err: unknown) {
         return void sendApiError(res, req, err);
     }
 });
 
-router.post('/switch', requireProjectAccess, async (req: Request, res: Response) => {
+router.post('/switch', requireBranchWrite, async (req: Request, res: Response) => {
     const { projectId } = req.params as Record<string, string>;
     const branch = req.body?.branch as string | undefined;
     if (!branch || typeof branch !== 'string') {
@@ -65,8 +83,10 @@ router.post('/switch', requireProjectAccess, async (req: Request, res: Response)
         return void res.status(400).json({ error: 'Project is not a Git repository' });
     }
     try {
-        checkoutBranch(dir, branch);
-        (await getContentIndex()).invalidate(projectId);
+        await withProjectWriteLock(projectId, async () => {
+            checkoutBranch(dir, branch);
+            (await getContentIndex()).invalidate(projectId);
+        });
         if (!push(dir)) {
             log(
                 toActivityEvent(projectId, 'git', 'repo', 'git_push_failed', req.user, undefined, {
@@ -81,7 +101,7 @@ router.post('/switch', requireProjectAccess, async (req: Request, res: Response)
     }
 });
 
-router.post('/merge', requireProjectAccess, async (req: Request, res: Response) => {
+router.post('/merge', requireBranchWrite, async (req: Request, res: Response) => {
     const { projectId } = req.params as Record<string, string>;
     const sourceBranch = req.body?.sourceBranch as string | undefined;
     if (!sourceBranch || typeof sourceBranch !== 'string') {
@@ -94,8 +114,10 @@ router.post('/merge', requireProjectAccess, async (req: Request, res: Response) 
     const user = req.user;
     const author = user ? { name: user.name, email: user.email, id: user.id } : undefined;
     try {
-        mergeBranch(dir, sourceBranch, author);
-        (await getContentIndex()).invalidate(projectId);
+        await withProjectWriteLock(projectId, async () => {
+            mergeBranch(dir, sourceBranch, author);
+            (await getContentIndex()).invalidate(projectId);
+        });
         if (!push(dir)) {
             log(
                 toActivityEvent(projectId, 'git', 'repo', 'git_push_failed', req.user, undefined, {

@@ -1,13 +1,28 @@
-/** Studio-side plugin manifest (pairs with an API host plugin by id). */
-export type StudioPluginManifest = {
-    /** Must match the API plugin id (`qr`, `poll`, `billing`, …). */
-    id: string;
-    label?: string;
+import type { PluginManifest } from '@moteurio/types/Plugin.js';
+import type { StudioPluginContext } from './context.js';
+
+/**
+ * Studio companion manifest. Same catalog axes as an API host plugin
+ * (`id`, `label`, `source`, `scope`, `role`, `categories`, `contributes`, `requires`).
+ * `id` matches the paired API plugin. Omit `kind` / `studio` — those are API-host fields.
+ */
+export type StudioPluginManifest = Pick<
+    PluginManifest,
+    | 'id'
+    | 'label'
+    | 'description'
+    | 'source'
+    | 'scope'
+    | 'role'
+    | 'categories'
+    | 'contributes'
+    | 'requires'
+> & {
     /** npm name of this package (documentation / tooling). */
     packageName?: string;
 };
 
 export type StudioPluginModule = {
     manifest: StudioPluginManifest;
-    register: (ctx: import('./context.js').StudioPluginContext) => void;
+    register: (ctx: StudioPluginContext) => void;
 };

@@ -4,7 +4,13 @@ import type { HostPluginModule } from '@moteurio/plugin-sdk';
 
 vi.mock('@moteurio/core', () => ({
     registerCorePlugins: vi.fn(async () => {}),
-    registerHostPlugins: vi.fn(async () => {})
+    registerHostPlugins: vi.fn(async () => {}),
+    listPluginCommands: vi.fn(() => []),
+    pluginRegistry: {
+        setContributions: vi.fn(),
+        getContributions: vi.fn(() => ({})),
+        has: vi.fn(() => false)
+    }
 }));
 
 vi.mock('../src/plugins/hostPlugins', () => ({

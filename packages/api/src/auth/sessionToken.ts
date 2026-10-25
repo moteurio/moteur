@@ -1,7 +1,7 @@
 import type { Request, Response } from 'express';
 import { Router } from 'express';
 import { requireAuth } from '../middlewares/auth.js';
-import { generateSessionToken } from '@moteurio/core/auth.js';
+import { generateSessionToken, verifyJWT } from '@moteurio/core/auth.js';
 import { getUserById } from '@moteurio/core/users.js';
 import type { OpenAPIV3 } from 'openapi-types';
 
@@ -31,8 +31,9 @@ router.post('/', requireAuth, (req: Request, res: Response) => {
         return void res.status(400).json({ error: '"agent.name" is required' });
     }
     const account = user.agent ? { ...getUserById(user.id)!, agent } : { ...user, agent };
-    const sessionToken = generateSessionToken(agent ? account : user, ttlSeconds);
-    const expiresAt = new Date(Date.now() + ttlSeconds * 1000).toISOString();
+    const payload = verifyJWT(req.headers.authorization!.replace(/^Bearer\s+/i, ''));
+    const sessionToken = generateSessionToken(agent ? account : user, ttlSeconds, payload);
+    const expiresAt = new Date(verifyJWT(sessionToken).exp! * 1000).toISOString();
     res.json({ sessionToken, expiresAt });
 });
 

@@ -81,8 +81,21 @@ describe('PATCH /projects/:projectId/models/:modelId/entries/:entryId', () => {
             'test-project',
             'article',
             'entry-1',
-            { data: { title: 'New title' } }
+            { data: { title: 'New title' } },
+            { expectedVersion: expect.any(String) }
         );
+    });
+
+    it('rejects a stale version before validating or writing', async () => {
+        (getModelSchema as any).mockReturnValue(mockSchema);
+        const res = await request(app)
+            .patch(basePath)
+            .set('If-Match', '"stale-version"')
+            .send({ data: { title: 'Lost edit' } });
+        expect(res.status).toBe(412);
+        expect(res.body.code).toBe('ENTRY_CONFLICT');
+        expect(updateEntry).not.toHaveBeenCalled();
+        expect(validateEntry).not.toHaveBeenCalled();
     });
 
     it('validates required fields strictly only on a live entry', async () => {
