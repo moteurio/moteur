@@ -12,7 +12,7 @@ const HELP = `moteur-mcp: Moteur for AI agents (Model Context Protocol, over std
   moteur-mcp --read-only           reading tools only
   moteur-mcp --allow-destructive   also tools that can't be undone (delete, purge, merge…)
   moteur-mcp --groups entries,media,reviews   only these groups (see --list)
-  moteur-mcp --all                 every group, operator and billing included
+  moteur-mcp --all                 every group, billing and raw calls included (never operator commands)
   moteur-mcp --compact             three tools that find, describe and run any command
   moteur-mcp --project <id>        the project when a call names none
   moteur-mcp --allow-publish       changes may go live without a person approving them

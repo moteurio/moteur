@@ -36,6 +36,8 @@ export interface ServerOptions extends Selection {
     session?: (body: Record<string, unknown>) => Session;
     /** The commands to offer (tests); default: every API command. */
     commands?: CommandSpec[];
+    /** Server-side authorization, checked again for every standard or compact tool execution. */
+    beforeRun?: (command: CommandSpec, args: Record<string, unknown>) => void | Promise<void>;
     /**
      * The server's OpenAPI document, so tools whose routes it lacks (plugins it doesn't run) are
      * left out. Default: its /openapi.json; `false` offers every tool.
@@ -45,7 +47,8 @@ export interface ServerOptions extends Selection {
 
 const INSTRUCTIONS = `Moteur is a headless CMS. These tools read and change one Moteur API.
 Content lives in projects; a project has models (article, author…), and each model has entries with fields, often in several languages ({ "fr": "…", "en": "…" }).
-Most tools take "project"; leave it out to use the default. Start with projects_describe: languages, how content goes live, and every model's fields in one answer. Then entries_list for a model.
+Most tools take "project"; leave it out to use the default. Start with projects_list to find the person's projects. If none exist, ask what they want to build, their project's name and languages, then use projects_create (optionally blueprints_list to choose a starting point). Account creation and sign-in happen in the browser when connecting MCP; never ask for passwords or provider tokens in chat. A new account can create its first project using the same tools and account limits as Studio. If a plan limit requires checkout, send the person to Studio to choose a plan.
+Once a project is chosen, use projects_describe: languages, how content goes live, and every model's fields in one answer. Then entries_list for a model. Pass the chosen project explicitly on subsequent calls when no default project is configured.
 Entries are drafts until published (entries_publish), or go through review (entries_review, reviews_approve) when the project asks for it.
 To change fields, entries_update takes "set": ["title.en=Under the ice", "readingTime=5"].
 You act for the signed-in person: what you change is marked as yours ("Louise via Claude") until a person reads it, and goes live only once a person approves it. When publishing is refused, ask for a review (entries_review) and say so.`;
@@ -135,6 +138,7 @@ export function createServer(options: ServerOptions = {}): Server {
         try {
             const { body, ...rest } = input;
             const args = checkArgs(command.args ?? [], rest, { naming: a => a.name });
+            await options.beforeRun?.(command, args);
             const result = await execute(
                 command,
                 args,
@@ -258,3 +262,4 @@ export function createServer(options: ServerOptions = {}): Server {
 export { parseOptions } from './options.js';
 export { agentName } from './agent.js';
 export { selectCommands, toolName, OPT_IN_GROUPS } from './tools.js';
+export { API_COMMANDS, type CommandSpec } from '@moteurio/commands';

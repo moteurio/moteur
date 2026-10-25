@@ -5,7 +5,7 @@
  * for them ("Louise via Claude", review-only unless their token allows more) and call this API
  * itself, so its permissions, plan limits and quotas apply as to any other call.
  */
-import type { Request, Response } from 'express';
+import type { Request, Response, RequestHandler } from 'express';
 import { Router } from 'express';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import { createServer, parseOptions, withPluginCommands, type ServerOptions } from '@moteurio/mcp';
@@ -15,6 +15,7 @@ import { generateSessionToken, verifyJWT } from '@moteurio/core/auth.js';
 import { getUserById } from '@moteurio/core/users.js';
 import type { OpenAPIV3 } from 'openapi-types';
 import { requireAuth } from '../middlewares/auth.js';
+import { scopedServerOptions, restrictClient, type McpConnection } from './access.js';
 
 /** Who the client is, from its User-Agent, until OAuth gives each client its own name. */
 export function agentFromUserAgent(ua: string | undefined): string {
@@ -46,10 +47,14 @@ export function optionsFromQuery(query: Request['query']): ServerOptions {
 }
 
 /** The tools for the signed-in person, calling the API at `self` (whose routes `spec` lists). */
-export function mcpRouter(self: () => string, spec?: OpenAPIV3.Document): Router {
+export function mcpRouter(
+    self: () => string,
+    spec?: OpenAPIV3.Document,
+    authenticate: RequestHandler = requireAuth
+): Router {
     const router = Router();
 
-    router.post('/', requireAuth, async (req: Request, res: Response) => {
+    router.post('/', authenticate, async (req: Request, res: Response) => {
         const person = req.user!;
         const account = getUserById(person.id);
         if (!account) return void res.status(401).json({ error: 'Invalid or expired token' });
@@ -58,16 +63,23 @@ export function mcpRouter(self: () => string, spec?: OpenAPIV3.Document): Router
             name: agentFromUserAgent(req.get('user-agent')),
             reviewOnly: true
         };
-        const payload = verifyJWT(req.headers.authorization!.replace(/^Bearer\s+/i, ''));
+        const connection = res.locals.mcpConnection as McpConnection | undefined;
+        // OAuth authentication already checked its opaque token; JWT sessions retain ancestry.
+        const payload = connection
+            ? undefined
+            : verifyJWT(req.headers.authorization!.replace(/^Bearer\s+/i, ''));
         const token = generateSessionToken({ ...account, agent }, 60 * 60, payload);
         const client = createMoteurAdminClient({
             baseURL: self(),
             auth: { type: 'bearer', token }
         });
         const options = optionsFromQuery(req.query);
+        if (connection) restrictClient(client, connection);
+        const commands = withPluginCommands(listPluginCommands({ surface: 'mcp' }));
         const server = createServer({
             ...options,
-            commands: withPluginCommands(listPluginCommands({ surface: 'mcp' })),
+            commands,
+            ...(connection ? scopedServerOptions(connection, options.project, commands) : {}),
             routes: spec ? async () => spec : false,
             session: body => ({
                 client: async () => client,

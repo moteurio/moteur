@@ -71,7 +71,7 @@ Verification uses `SMTP_HOST`, `SMTP_FROM` and optional `SMTP_PORT`, `SMTP_USER`
 | GET    | `/connections`           | List the account's connected provider IDs                             |
 | DELETE | `/connections/:provider` | Disconnect after recent personal sign-in                              |
 
-Provider installation belongs to the [host plugin guide](https://github.com/moteurio/moteur-plugins/blob/main/docs/Plugins.md). See [MCP](MCP.md) for the distinct Bearer-token connection used by hosted MCP.
+Provider installation belongs to the [host plugin guide](https://github.com/moteurio/moteur-plugins/blob/main/docs/Plugins.md). See [MCP](MCP.md) for hosted MCP's separate OAuth connection flow and JWT fallback.
 
 ### Sessions and revocation
 

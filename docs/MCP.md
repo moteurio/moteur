@@ -29,7 +29,9 @@ The process can also use `MOTEUR_API_URL` with `MOTEUR_TOKEN` or `MOTEUR_API_KEY
 
 ## Hosted HTTP
 
-The current API checkout serves `/mcp` with Bearer-token authentication. Add `API_BASE_PATH` when configured. Use a client that supports an `Authorization: Bearer <token>` header, or use the local stdio process instead. This implementation does not expose MCP OAuth discovery/dynamic registration or account signup; an OAuth-only connection flow cannot configure it automatically.
+The API serves `/mcp`; add `API_BASE_PATH` when configured. Hosts that set `MOTEUR_MCP_PUBLIC_URL` and `STUDIO_URL` enable OAuth discovery, dynamic registration and browser consent through Studio. People sign in or create an account through an enabled provider, then choose the projects and access level to share with their assistant. See the [MCP hosting guide](../packages/mcp/README.md#hosting-browser-sign-in) for configuration and connection lifetime.
+
+Clients can also supply a member or agent JWT in an `Authorization: Bearer <token>` header, or use the local stdio process. JWT exchanges retain the original session ancestry and cannot extend its deadline. OAuth connections use separate, revocable grants and are managed in Studio's **AI connections** page.
 
 An agent token can be created with `moteur auth agent-token <name>`. Add `?project=my-project` to choose a default project. The hosted transport accepts POST requests; GET and DELETE return 405 because it keeps no SSE stream or persistent MCP session. `MOTEUR_MCP=off` disables the hosted endpoint.
 
@@ -50,4 +52,4 @@ These tool-selection options do not grant API permissions or create scoped crede
 
 See the [MCP package README](../packages/mcp/README.md) for client examples, [CLI](CLI.md) for the command catalog, and [Workflows](Workflows.md) for publication behavior.
 
-Agent/delegated tokens inherit their parent session deadline and authentication time. Ending the parent session or changing credentials invalidates them; agents cannot refresh tokens or perform recent-person account-linking operations.
+Agent/delegated JWTs inherit their parent session deadline and authentication time. Ending the parent session or changing credentials invalidates them. These JWTs cannot be refreshed by agents or used for recent-person account-linking operations. OAuth consent remains a ceiling over the tool-selection options: query parameters cannot widen the selected projects or access level.
