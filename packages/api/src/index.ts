@@ -1,3 +1,4 @@
+import { startWebhookWorker, stopWebhookWorker } from '@moteurio/core/webhooks/webhookService.js';
 /**
  * Moteur API — Express server entry point.
  *
@@ -281,6 +282,7 @@ httpServer.listen(PORT, async () => {
     } catch (err) {
         console.error('[Moteur] Scheduler init failed:', err);
     }
+    await startWebhookWorker();
     startSnapshotScheduler(60_000);
     // Images uploaded just before a restart still need their resized copies.
     try {
@@ -300,6 +302,7 @@ httpServer.listen(PORT, async () => {
 
 function gracefulShutdown(): void {
     schedulerEngine.stopSweep();
+    stopWebhookWorker();
     stopSnapshotScheduler();
     getMeteringStore().flush();
     process.exit(0);

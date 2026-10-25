@@ -1,7 +1,12 @@
+import { loadProjects } from '../projects.js';
+import { projectDir } from '../utils/pathUtils.js';
+import { withWriteLock } from '../utils/projectWriteLock.js';
+import { WorkBudget } from '../utils/workBudget.js';
 import crypto from 'crypto';
 import { randomUUID } from 'crypto';
-import dns from 'node:dns/promises';
-import { isIPv4, isIPv6 } from 'node:net';
+import { validateUrl } from './networkPolicy.js';
+import { postWebhook } from './outboundHttp.js';
+export { assertPublicHttpsUrl } from './networkPolicy.js';
 import type {
     Webhook,
     WebhookDelivery,
@@ -17,6 +22,7 @@ import type {
 } from '@moteurio/types/Webhook.js';
 import { getProjectJson, putProjectJson } from '../utils/projectStorage.js';
 import { WEBHOOKS_KEY, WEBHOOK_LOG_KEY } from '../utils/storageKeys.js';
+import { listPluginOutboundWebhookEvents } from '../plugins/outboundEvents.js';
 import { encryptSecret, decryptSecret } from './secretEncryption.js';
 
 const REDACTED_SECRET = '***';
@@ -62,177 +68,13 @@ function redactSecret(w: Webhook): Webhook {
     return { ...w, secret: REDACTED_SECRET };
 }
 
-function isHttpsOrLocalhost(urlStr: string): boolean {
-    try {
-        const u = new URL(urlStr);
-        if (u.protocol === 'https:') return true;
-        if (u.protocol === 'http:' && (u.hostname === 'localhost' || u.hostname === '127.0.0.1')) {
-            return process.env.NODE_ENV !== 'production';
-        }
-        return false;
-    } catch {
-        return false;
-    }
-}
-
-function ipv4ToUint32(ip: string): number {
-    const parts = ip.split('.');
-    if (parts.length !== 4) throw new Error('Invalid IPv4');
-    let n = 0;
-    for (const p of parts) {
-        const o = Number(p);
-        if (!Number.isInteger(o) || o < 0 || o > 255) throw new Error('Invalid IPv4');
-        n = (n << 8) | o;
-    }
-    return n >>> 0;
-}
-
-/** RFC 1918, loopback, link-local, CGNAT, and common SSRF targets. When allowLoopback, 127.0.0.0/8 is allowed. */
-function isRestrictedIpv4Uint32(n: number, allowLoopback: boolean): boolean {
-    if (allowLoopback && n >>> 24 === 127) return false;
-    if (n >>> 24 === 10) return true;
-    if (n >= 0xac10_0000 && n <= 0xac1f_ffff) return true;
-    if (n >>> 16 === 0xc0a8) return true;
-    if (n >>> 16 === 0xa9fe) return true;
-    if (n >= 0x6440_0000 && n <= 0x647f_ffff) return true;
-    if (n >>> 24 === 127) return true;
-    return false;
-}
-
-function expandIpv6ForCheck(ip: string): string {
-    const lower = ip.toLowerCase();
-    if (lower.includes('.')) {
-        const idx = lower.lastIndexOf(':');
-        const v4str = lower.slice(idx + 1);
-        const prefix = lower.slice(0, idx);
-        const n = ipv4ToUint32(v4str);
-        const tail =
-            ((n >>> 16) & 0xffff).toString(16).padStart(4, '0') +
-            ':' +
-            (n & 0xffff).toString(16).padStart(4, '0');
-        return expandIpv6Only(prefix ? `${prefix}:${tail}` : `::${tail}`);
-    }
-    return expandIpv6Only(lower);
-}
-
-function expandIpv6Only(ip: string): string {
-    const lower = ip.toLowerCase();
-    const [head, tail = ''] = lower.includes('::') ? lower.split('::', 2) : [lower, ''];
-    const left = head ? head.split(':').filter(Boolean) : [];
-    const right = tail ? tail.split(':').filter(Boolean) : [];
-    const missing = 8 - left.length - right.length;
-    if (missing < 0) throw new Error('Invalid IPv6');
-    const parts = [...left, ...Array(missing).fill('0'), ...right];
-    return parts.map(p => p.padStart(4, '0')).join(':');
-}
-
-function isRestrictedIpv6(ip: string, allowLoopback: boolean): boolean {
-    const v4m = /^::ffff:(\d{1,3}(?:\.\d{1,3}){3})$/i.exec(ip);
-    if (v4m) {
-        try {
-            return isRestrictedIpv4Uint32(ipv4ToUint32(v4m[1]!), allowLoopback);
-        } catch {
-            return true;
-        }
-    }
-    if (ip.toLowerCase() === '::1') return !allowLoopback;
-    let expanded: string;
-    try {
-        expanded = expandIpv6ForCheck(ip);
-    } catch {
-        return true;
-    }
-    const first = parseInt(expanded.split(':')[0]!, 16);
-    if (first >= 0xfe80 && first <= 0xfebf) return true;
-    if (first >= 0xfc00 && first <= 0xfdff) return true;
-    if (first >= 0xff00) return true;
-    return false;
-}
-
-function isRestrictedAddress(address: string, family: 4 | 6, allowLoopback: boolean): boolean {
-    if (family === 4) {
-        try {
-            return isRestrictedIpv4Uint32(ipv4ToUint32(address), allowLoopback);
-        } catch {
-            return true;
-        }
-    }
-    return isRestrictedIpv6(address, allowLoopback);
-}
-
-function devLocalHttpAllowsLoopback(u: URL): boolean {
-    return (
-        process.env.NODE_ENV !== 'production' &&
-        u.protocol === 'http:' &&
-        (u.hostname === 'localhost' || u.hostname === '127.0.0.1')
-    );
-}
-
-/** IPv6 literals in URLs are often `::1` without brackets; some parsers keep `[::1]` — normalize for net.isIPv* and dns. */
-function normalizedHostname(u: URL): string {
-    const h = u.hostname;
-    if (h.startsWith('[') && h.endsWith(']')) {
-        return h.slice(1, -1);
-    }
-    return h;
-}
-
-async function assertResolvedTargetAllowed(u: URL, what = 'Webhook URL'): Promise<void> {
-    const allowLoopback = devLocalHttpAllowsLoopback(u);
-    const host = normalizedHostname(u);
-    let records: { address: string; family: number }[];
-    if (isIPv4(host)) {
-        records = [{ address: host, family: 4 }];
-    } else if (isIPv6(host)) {
-        records = [{ address: host, family: 6 }];
-    } else {
-        try {
-            records = await dns.lookup(host, { all: true, verbatim: true });
-        } catch {
-            throw new Error(`${what} host could not be resolved`);
-        }
-    }
-    if (records.length === 0) {
-        throw new Error(`${what} host could not be resolved`);
-    }
-    for (const { address, family } of records) {
-        if (isRestrictedAddress(address, family as 4 | 6, allowLoopback)) {
-            throw new Error(
-                `${what} resolves to a private or restricted network address, which is not allowed`
-            );
-        }
-    }
-}
-
-async function validateUrl(url: string): Promise<void> {
-    if (!url || typeof url !== 'string') throw new Error('URL is required');
-    if (!isHttpsOrLocalhost(url)) {
-        throw new Error('URL must be HTTPS (or HTTP localhost in development only)');
-    }
-    await assertResolvedTargetAllowed(new URL(url.trim()));
-}
-
-/**
- * For any server-side fetch of an address a client gave (a provider's file, a picture): HTTPS
- * only, and never a private or restricted network address. Same rules as webhook targets.
- */
-export async function assertPublicHttpsUrl(url: string, what = 'URL'): Promise<void> {
-    let u: URL;
-    try {
-        u = new URL(url.trim());
-    } catch {
-        throw new Error(`${what} is not a valid address`);
-    }
-    if (u.protocol !== 'https:') throw new Error(`${what} must be HTTPS`);
-    await assertResolvedTargetAllowed(u, what);
-}
-
 function validateEvents(events: WebhookEvent[] | undefined): void {
     if (events === undefined || events === null) return;
     if (!Array.isArray(events)) throw new Error('events must be an array');
+    const allowed = new Set<string>([...VALID_EVENTS, ...listPluginOutboundWebhookEvents()]);
     for (const e of events) {
-        if (!VALID_EVENTS.includes(e)) {
-            throw new Error(`Invalid event: ${e}. Valid: ${VALID_EVENTS.join(', ')}`);
+        if (!allowed.has(e)) {
+            throw new Error(`Invalid event: ${e}. Valid: ${[...allowed].join(', ')}`);
         }
     }
 }
@@ -315,6 +157,7 @@ export function evaluateFilters(
 
 async function loadWebhooks(projectId: string): Promise<Webhook[]> {
     const list = await getProjectJson<Webhook[]>(projectId, WEBHOOKS_KEY);
+    if (list != null && !Array.isArray(list)) throw new Error('Invalid webhook registry');
     return Array.isArray(list) ? list : [];
 }
 
@@ -324,14 +167,23 @@ async function saveWebhooks(projectId: string, webhooks: Webhook[]): Promise<voi
 
 async function loadDeliveryLog(projectId: string): Promise<WebhookDelivery[]> {
     const list = await getProjectJson<WebhookDelivery[]>(projectId, WEBHOOK_LOG_KEY);
+    if (list != null && !Array.isArray(list)) throw new Error('Invalid webhook outbox');
     return Array.isArray(list) ? list : [];
 }
 
 async function appendDeliveryAndTrim(projectId: string, delivery: WebhookDelivery): Promise<void> {
-    const list = await getProjectJson<WebhookDelivery[]>(projectId, WEBHOOK_LOG_KEY);
-    const arr = Array.isArray(list) ? list : [];
+    return withWriteLock(`${projectDir(projectId)}/${WEBHOOK_LOG_KEY}`, () =>
+        appendDeliveryAndTrimUnlocked(projectId, delivery)
+    );
+}
+
+async function appendDeliveryAndTrimUnlocked(
+    projectId: string,
+    delivery: WebhookDelivery
+): Promise<void> {
+    const arr = await loadDeliveryLog(projectId);
     const next = [delivery, ...arr];
-    const trimmed = next.length > DELIVERY_LOG_MAX ? next.slice(0, DELIVERY_LOG_MAX) : next;
+    const trimmed = retainDeliveries(next);
     await putProjectJson(projectId, WEBHOOK_LOG_KEY, trimmed);
 }
 
@@ -340,11 +192,19 @@ async function appendDeliveriesAndTrim(
     projectId: string,
     newDeliveries: WebhookDelivery[]
 ): Promise<void> {
+    return withWriteLock(`${projectDir(projectId)}/${WEBHOOK_LOG_KEY}`, () =>
+        appendDeliveriesAndTrimUnlocked(projectId, newDeliveries)
+    );
+}
+
+async function appendDeliveriesAndTrimUnlocked(
+    projectId: string,
+    newDeliveries: WebhookDelivery[]
+): Promise<void> {
     if (newDeliveries.length === 0) return;
-    const list = await getProjectJson<WebhookDelivery[]>(projectId, WEBHOOK_LOG_KEY);
-    const arr = Array.isArray(list) ? list : [];
+    const arr = await loadDeliveryLog(projectId);
     const next = [...newDeliveries, ...arr];
-    const trimmed = next.length > DELIVERY_LOG_MAX ? next.slice(0, DELIVERY_LOG_MAX) : next;
+    const trimmed = retainDeliveries(next);
     await putProjectJson(projectId, WEBHOOK_LOG_KEY, trimmed);
 }
 
@@ -353,12 +213,21 @@ async function updateDeliveryInLog(
     deliveryId: string,
     updater: (d: WebhookDelivery) => WebhookDelivery
 ): Promise<void> {
-    const list = await getProjectJson<WebhookDelivery[]>(projectId, WEBHOOK_LOG_KEY);
-    const arr = Array.isArray(list) ? list : [];
+    return withWriteLock(`${projectDir(projectId)}/${WEBHOOK_LOG_KEY}`, () =>
+        updateDeliveryInLogUnlocked(projectId, deliveryId, updater)
+    );
+}
+
+async function updateDeliveryInLogUnlocked(
+    projectId: string,
+    deliveryId: string,
+    updater: (d: WebhookDelivery) => WebhookDelivery
+): Promise<void> {
+    const arr = await loadDeliveryLog(projectId);
     const idx = arr.findIndex(d => d.id === deliveryId);
     if (idx === -1) return;
     arr[idx] = updater(arr[idx]!);
-    await putProjectJson(projectId, WEBHOOK_LOG_KEY, arr);
+    await putProjectJson(projectId, WEBHOOK_LOG_KEY, retainDeliveries(arr));
 }
 
 export async function listWebhooks(projectId: string): Promise<Webhook[]> {
@@ -374,6 +243,24 @@ export async function getWebhook(projectId: string, id: string): Promise<Webhook
 }
 
 export async function createWebhook(
+    projectId: string,
+    user: string,
+    data: {
+        name: string;
+        url: string;
+        secret?: string;
+        events?: WebhookEvent[];
+        filters?: WebhookFilter[];
+        headers?: Record<string, string>;
+        enabled?: boolean;
+    }
+): Promise<Webhook> {
+    return withWriteLock(`${projectDir(projectId)}/${WEBHOOKS_KEY}`, () =>
+        createWebhookUnlocked(projectId, user, data)
+    );
+}
+
+async function createWebhookUnlocked(
     projectId: string,
     user: string,
     data: {
@@ -423,6 +310,17 @@ export async function updateWebhook(
     id: string,
     patch: Partial<Omit<Webhook, 'id' | 'projectId' | 'createdAt' | 'createdBy'>>
 ): Promise<Webhook> {
+    return withWriteLock(`${projectDir(projectId)}/${WEBHOOKS_KEY}`, () =>
+        updateWebhookUnlocked(projectId, user, id, patch)
+    );
+}
+
+async function updateWebhookUnlocked(
+    projectId: string,
+    user: string,
+    id: string,
+    patch: Partial<Omit<Webhook, 'id' | 'projectId' | 'createdAt' | 'createdBy'>>
+): Promise<Webhook> {
     const list = await loadWebhooks(projectId);
     const idx = list.findIndex(w => w.id === id);
     if (idx === -1) throw new Error(`Webhook "${id}" not found`);
@@ -453,6 +351,12 @@ export async function updateWebhook(
 }
 
 export async function deleteWebhook(projectId: string, user: string, id: string): Promise<void> {
+    return withWriteLock(`${projectDir(projectId)}/${WEBHOOKS_KEY}`, () =>
+        deleteWebhookUnlocked(projectId, user, id)
+    );
+}
+
+async function deleteWebhookUnlocked(projectId: string, user: string, id: string): Promise<void> {
     const list = await loadWebhooks(projectId);
     const idx = list.findIndex(w => w.id === id);
     if (idx === -1) throw new Error(`Webhook "${id}" not found`);
@@ -461,6 +365,16 @@ export async function deleteWebhook(projectId: string, user: string, id: string)
 }
 
 export async function rotateSecret(
+    projectId: string,
+    user: string,
+    id: string
+): Promise<{ secret: string }> {
+    return withWriteLock(`${projectDir(projectId)}/${WEBHOOKS_KEY}`, () =>
+        rotateSecretUnlocked(projectId, user, id)
+    );
+}
+
+async function rotateSecretUnlocked(
     projectId: string,
     user: string,
     id: string
@@ -523,37 +437,151 @@ function computeSignature(secret: string, rawBody: string): string {
     return 'sha256=' + hmac.digest('hex');
 }
 
-// v1: Retries use setTimeout; they are lost on server restart. Consider a persistent queue for production.
-function scheduleDelivery(delivery: WebhookDelivery, webhook: Webhook): void {
-    const run = () => {
-        attemptDelivery(delivery, webhook).catch(() => {
-            // Errors are recorded on the delivery; never throw
-        });
-    };
-    setTimeout(run, 0);
+let deliveryEpoch = 0;
+let recoveryTask: Promise<void> | undefined;
+const deliveryTimers = new Map<string, NodeJS.Timeout>();
+const runningDeliveries = new Set<string>();
+const idleWaiters: Array<() => void> = [];
+const deliveryBudget = new WorkBudget(4, 16);
+let deliverySweep: NodeJS.Timeout | undefined;
+const activeDelivery = (delivery: WebhookDelivery) =>
+    delivery.status === 'pending' || delivery.status === 'retrying';
+
+function retainDeliveries(deliveries: WebhookDelivery[]): WebhookDelivery[] {
+    // Terminal history can be trimmed. Pending work must survive a busy project's log rotation.
+    return [
+        ...deliveries.filter(activeDelivery),
+        ...deliveries.filter(d => !activeDelivery(d)).slice(0, DELIVERY_LOG_MAX)
+    ];
 }
 
-async function attemptDelivery(delivery: WebhookDelivery, webhook: Webhook): Promise<void> {
+function scheduleDelivery(delivery: WebhookDelivery, webhook: Webhook): void {
+    const epoch = deliveryEpoch;
+    const key = `${delivery.projectId}:${delivery.id}`;
+    if (deliveryTimers.has(key) || runningDeliveries.has(key)) return;
+    const delay = Math.max(0, Date.parse(delivery.nextRetryAt ?? '') - Date.now()) || 0;
+    const timer = setTimeout(
+        () => {
+            deliveryTimers.delete(key);
+            if (runningDeliveries.has(key)) return;
+            runningDeliveries.add(key);
+            void deliveryBudget
+                .run(async () => {
+                    if (epoch !== deliveryEpoch) return;
+                    const latest = (await loadDeliveryLog(delivery.projectId)).find(
+                        d => d.id === delivery.id
+                    );
+                    if (!latest || !activeDelivery(latest)) return;
+                    const current = (await loadWebhooks(delivery.projectId)).find(
+                        w => w.id === webhook.id
+                    );
+                    if (!current?.enabled) {
+                        await updateDeliveryInLog(delivery.projectId, delivery.id, d => ({
+                            ...d,
+                            status: 'failed',
+                            responseBody: 'Webhook removed or disabled',
+                            nextRetryAt: undefined
+                        }));
+                        return;
+                    }
+                    if (Date.parse(latest.nextRetryAt ?? '') > Date.now()) return;
+                    await attemptDelivery(latest, current, epoch);
+                })
+                .catch(error => {
+                    if (error?.status !== 429)
+                        console.error('[Webhooks] Delivery will recover on the next sweep:', error);
+                })
+                .finally(() => {
+                    runningDeliveries.delete(key);
+                    if (runningDeliveries.size === 0)
+                        for (const waiter of idleWaiters.splice(0)) waiter();
+                });
+        },
+        Math.min(delay, 2 ** 31 - 1)
+    );
+    timer.unref?.();
+    deliveryTimers.set(key, timer);
+}
+
+/** Resume persisted pending/retrying records, including a lease left by a stopped process. */
+export function recoverWebhookDeliveries(): Promise<void> {
+    recoveryTask ??= scanWebhookOutbox(deliveryEpoch).finally(() => {
+        recoveryTask = undefined;
+    });
+    return recoveryTask;
+}
+async function scanWebhookOutbox(epoch: number): Promise<void> {
+    for (const project of loadProjects()) {
+        try {
+            const hooks = await loadWebhooks(project.id);
+            if (epoch !== deliveryEpoch) return;
+            for (const delivery of await loadDeliveryLog(project.id)) {
+                if (epoch !== deliveryEpoch) return;
+                if (!activeDelivery(delivery)) continue;
+                const hook = hooks.find(w => w.id === delivery.webhookId);
+                if (hook) scheduleDelivery(delivery, hook);
+                else
+                    await updateDeliveryInLog(project.id, delivery.id, d => ({
+                        ...d,
+                        status: 'failed',
+                        responseBody: 'Webhook removed',
+                        nextRetryAt: undefined
+                    }));
+            }
+        } catch {
+            console.error('[Webhooks] Outbox recovery failed for project', project.id);
+        }
+    }
+}
+export async function startWebhookWorker(): Promise<void> {
+    if (deliverySweep) return;
+    await recoverWebhookDeliveries().catch(() =>
+        console.error('[Webhooks] Initial recovery failed; will retry.')
+    );
+    deliverySweep = setInterval(() => {
+        void recoverWebhookDeliveries().catch(error =>
+            console.error('[Webhooks] Recovery failed:', error)
+        );
+    }, 5000);
+    deliverySweep.unref?.();
+}
+export function stopWebhookWorker(): void {
+    deliveryEpoch++;
+    if (deliverySweep) clearInterval(deliverySweep);
+    deliverySweep = undefined;
+    for (const timer of deliveryTimers.values()) clearTimeout(timer);
+    deliveryTimers.clear();
+}
+export function whenWebhooksIdle(): Promise<void> {
+    return runningDeliveries.size === 0
+        ? Promise.resolve()
+        : new Promise(resolve => idleWaiters.push(resolve));
+}
+
+async function attemptDelivery(
+    delivery: WebhookDelivery,
+    webhook: Webhook,
+    epoch: number
+): Promise<void> {
     const projectId = webhook.projectId;
     const secret = decryptSecret(webhook.secret);
     const start = Date.now();
-
-    try {
-        await validateUrl(webhook.url);
-    } catch (err) {
-        const msg = err instanceof Error ? err.message : String(err);
+    const nextAttempt = delivery.attemptCount + 1;
+    if (nextAttempt > MAX_ATTEMPTS) {
         await updateDeliveryInLog(projectId, delivery.id, d => ({
             ...d,
-            status: 'failed' as WebhookDeliveryStatus,
-            attemptCount: delivery.attemptCount + 1,
-            responseStatus: undefined,
-            responseBody: msg,
-            durationMs: Date.now() - start,
-            lastAttemptAt: new Date().toISOString(),
+            status: 'failed',
             nextRetryAt: undefined
         }));
         return;
     }
+    // Claim durably before sending. A crash consumes an attempt; its lease becomes due again.
+    await updateDeliveryInLog(projectId, delivery.id, d => ({
+        ...d,
+        attemptCount: nextAttempt,
+        lastAttemptAt: new Date().toISOString(),
+        nextRetryAt: new Date(Date.now() + 30_000).toISOString()
+    }));
 
     const payload = delivery.payload;
     const rawBody = JSON.stringify(payload);
@@ -574,32 +602,30 @@ async function attemptDelivery(delivery: WebhookDelivery, webhook: Webhook): Pro
     let success = false;
 
     try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
-        const res = await fetch(webhook.url, {
-            method: 'POST',
+        const res = await postWebhook(
+            webhook.url,
             headers,
-            body: rawBody,
-            signal: controller.signal
-        });
-        clearTimeout(timeoutId);
+            rawBody,
+            REQUEST_TIMEOUT_MS,
+            RESPONSE_BODY_MAX_CHARS
+        );
         responseStatus = res.status;
-        const text = await res.text();
-        responseBody = text.slice(0, RESPONSE_BODY_MAX_CHARS);
-        success = res.ok;
+        responseBody = res.body;
+        success = res.status >= 200 && res.status < 300;
     } catch (err) {
         responseStatus = undefined;
         responseBody = err instanceof Error ? err.message : String(err);
     }
 
     const durationMs = Date.now() - start;
-    const nextAttempt = delivery.attemptCount + 1;
     const lastAttemptAt = new Date().toISOString();
 
     if (success) {
         await updateDeliveryInLog(projectId, delivery.id, d => ({
             ...d,
             status: 'success' as WebhookDeliveryStatus,
+            attemptCount: nextAttempt,
+            nextRetryAt: undefined,
             responseStatus,
             responseBody,
             durationMs,
@@ -628,23 +654,17 @@ async function attemptDelivery(delivery: WebhookDelivery, webhook: Webhook): Pro
         nextRetryAt: willRetry ? new Date(Date.now() + delayMs).toISOString() : undefined
     }));
 
-    if (willRetry && delayMs > 0) {
-        setTimeout(() => {
-            getProjectJson<WebhookDelivery[]>(projectId, WEBHOOK_LOG_KEY).then(list => {
-                const arr = Array.isArray(list) ? list : [];
-                const d = arr.find(x => x.id === delivery.id);
-                if (d && d.status === 'retrying') {
-                    loadWebhooks(projectId).then(webhooks => {
-                        const w = webhooks.find(x => x.id === webhook.id);
-                        if (w && w.enabled) attemptDelivery(d, w).catch(() => {});
-                    });
-                }
-            });
+    if (willRetry && delayMs > 0 && epoch === deliveryEpoch) {
+        // The persisted retry date survives restart; this timer only reduces local latency.
+        const retry = setTimeout(() => {
+            deliveryTimers.delete(`${projectId}:${delivery.id}`);
+            scheduleDelivery({ ...delivery, nextRetryAt: new Date().toISOString() }, webhook);
         }, delayMs);
+        retry.unref?.();
+        deliveryTimers.set(`${projectId}:${delivery.id}`, retry);
     }
 }
 
-// form.submitted is not wired: no form service exists in the repo. Wire dispatch('form.submitted', ...) when the Forms feature is implemented.
 export async function dispatch(
     event: WebhookEvent,
     data: WebhookPayloadData,
@@ -699,7 +719,7 @@ export async function dispatch(
             }
         }
     } catch {
-        // dispatch must never throw — fire-and-forget
+        console.error('[Webhooks] Event could not be persisted for project', context.projectId);
     }
 }
 
