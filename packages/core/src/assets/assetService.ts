@@ -282,7 +282,10 @@ export async function uploadAsset(
     );
     const hash = fileHash(buffer);
     // Photos carry where they were taken: keep the picture, not that.
-    if (assetType === 'image') buffer = await stripImageMetadata(buffer, file.mimeType);
+    if (assetType === 'image') {
+        await readImageShape(buffer);
+        buffer = await stripImageMetadata(buffer, file.mimeType);
+    }
 
     const adapter = getProjectAdapter(project);
     const id = generateId();
@@ -341,7 +344,7 @@ export async function uploadAsset(
         await changeAssets(projectId, user, list => void list.push({ ...initial }));
         triggerEvent('asset:uploaded', { asset: initial });
         try {
-            webhookDispatch(
+            await webhookDispatch(
                 'asset.created',
                 {
                     assetId: initial.id,
@@ -436,7 +439,7 @@ export async function uploadAsset(
     await changeAssets(projectId, user, list => replaceIn(list, initial));
     triggerEvent('asset:uploaded', { asset: initial });
     try {
-        webhookDispatch(
+        await webhookDispatch(
             'asset.created',
             {
                 assetId: initial.id,
@@ -873,7 +876,8 @@ async function makeCopies(
         buffer,
         asset.mimeType,
         getVariantDefinitions(project),
-        asset.focalPoint ?? { x: 0.5, y: 0.5 }
+        asset.focalPoint ?? { x: 0.5, y: 0.5 },
+        project.id
     );
     const original = generated.find(g => g.key === 'original');
     if (!original) throw new Error('The image could not be read.');
@@ -1279,10 +1283,10 @@ function batchIds(ids: unknown): string[] {
     return [...new Set(ids as string[])];
 }
 
-function notifyUpdated(projectId: string, user: User, asset: Asset): void {
+async function notifyUpdated(projectId: string, user: User, asset: Asset): Promise<void> {
     triggerEvent('asset:updated', { asset });
     try {
-        webhookDispatch(
+        await webhookDispatch(
             'asset.updated',
             {
                 assetId: asset.id,
@@ -1351,7 +1355,7 @@ export async function updateAssets(
             return { before, updated };
         })
     );
-    for (const { updated } of results) notifyUpdated(projectId, user, updated);
+    for (const { updated } of results) await notifyUpdated(projectId, user, updated);
 
     // Crops follow the focal point: remake the copies of pictures whose point moved.
     const refocused = results
@@ -1409,7 +1413,7 @@ export async function binAssets(projectId: string, user: User, ids: string[]): P
     for (const asset of binned) {
         triggerEvent('asset:deleted', { id: asset.id });
         try {
-            webhookDispatch(
+            await webhookDispatch(
                 'asset.deleted',
                 {
                     assetId: asset.id,
@@ -1466,6 +1470,7 @@ export async function replaceAssetFile(
         );
     }
     const hash = fileHash(file.buffer);
+    if (type === 'image') await readImageShape(file.buffer);
     const buffer = type === 'image' ? await stripImageMetadata(file.buffer, mimeType) : file.buffer;
     const adapter = getProjectAdapter(project);
     // A new name each time: caches that kept the old file can't serve it for the new one.
@@ -1528,7 +1533,7 @@ export async function replaceAssetFile(
 
     triggerEvent('asset:updated', { asset: updated });
     try {
-        webhookDispatch(
+        await webhookDispatch(
             'asset.updated',
             {
                 assetId: updated.id,
@@ -1577,7 +1582,7 @@ export async function restoreAssets(
     for (const asset of restored) {
         triggerEvent('asset:updated', { asset });
         try {
-            webhookDispatch(
+            await webhookDispatch(
                 'asset.created',
                 {
                     assetId: asset.id,

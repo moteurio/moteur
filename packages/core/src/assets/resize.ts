@@ -1,3 +1,4 @@
+import { imageWork } from './workLimits.js';
 import type { ProjectSchema } from '@moteurio/types/Project.js';
 import type { VariantDefinition } from '@moteurio/types/VariantDefinition.js';
 import { getProjectJson } from '../utils/projectStorage.js';
@@ -84,7 +85,7 @@ export async function getResizedImage(
     const running = inFlight.get(key);
     if (running) return { buffer: await running, format: request.format };
 
-    const job = (async () => {
+    const job = imageWork(async () => {
         try {
             return await adapter.download(storedPath);
         } catch {
@@ -122,7 +123,7 @@ export async function getResizedImage(
             folder
         );
         return made.buffer;
-    })();
+    });
     inFlight.set(key, job);
     try {
         return { buffer: await job, format: request.format };

@@ -18,6 +18,7 @@ import { listPages, getPage, getPageBySlug, resolveEntryUrl } from '@moteurio/co
 import type { PageNode } from '@moteurio/types/Page.js';
 import { selectFields, selectFieldsFromList } from '@moteurio/core/fieldSelection.js';
 import { resolveEntryReferences, type EntryResolver } from '@moteurio/core/referenceResolution.js';
+import { EntryReadBudget } from '../../utils/entryReadBudget.js';
 import { resolveEntryAssets, resolvePageAssets } from '@moteurio/core/assets/assetResolver.js';
 import { getModelSchemaForProject } from '@moteurio/core/models.js';
 import { getProjectById } from '@moteurio/core/projects.js';
@@ -329,9 +330,11 @@ router.get('/:collectionId/:resourceId/entries', async (req: Request, res: Respo
         res.setHeader('X-Total-Count', String(total));
         const depth = (resource.resolve ?? 0) as 0 | 1 | 2;
         const fields = resource.fields && resource.fields.length > 0 ? resource.fields : undefined;
-        const resolver: EntryResolver | undefined = usePublished
-            ? getPublishedEntryForProject
-            : undefined;
+        const readBudget = new EntryReadBudget(
+            usePublished ? getPublishedEntryForProject : getEntryForProject
+        );
+        entries.forEach(entry => readBudget.include(entry));
+        const resolver: EntryResolver = readBudget.resolve;
         let resolved = await Promise.all(
             entries.map(e =>
                 resolveEntryReferences(
@@ -403,9 +406,11 @@ router.get('/:collectionId/:resourceId/entries/:id', async (req: Request, res: R
         if (!statuses.includes((entry.status ?? 'draft') as EntryStatus))
             return void res.status(404).json({ error: 'Entry not found' });
         const depth = (resource.resolve ?? 0) as 0 | 1 | 2;
-        const singleResolver: EntryResolver | undefined = usePublished
-            ? getPublishedEntryForProject
-            : undefined;
+        const readBudget = new EntryReadBudget(
+            usePublished ? getPublishedEntryForProject : getEntryForProject
+        );
+        readBudget.include(entry);
+        const singleResolver: EntryResolver = readBudget.resolve;
         let resolved = await resolveEntryReferences(
             entry,
             projectId,

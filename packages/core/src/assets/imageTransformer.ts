@@ -1,6 +1,8 @@
-import sharp, { type Sharp } from 'sharp';
+import { type Sharp } from 'sharp';
+import { openImage, imageWork, imagePixelLimit } from './workLimits.js';
 import type { FocalPoint } from '@moteurio/types/Asset.js';
 import type { VariantDefinition } from '@moteurio/types/VariantDefinition.js';
+import { applyMediaTransforms } from '../plugins/mediaPipeline.js';
 
 const RESERVED_ORIGINAL = 'original';
 
@@ -25,10 +27,33 @@ export interface ImageShape {
  * (5–8 mean a quarter turn), and an animated image's height is one frame, not the whole strip.
  */
 export async function readImageShape(buffer: Buffer): Promise<ImageShape> {
-    const meta = await sharp(buffer).metadata();
+    return imageWork(() => readImageShapeUnlimited(buffer));
+}
+
+async function readImageShapeUnlimited(buffer: Buffer): Promise<ImageShape> {
+    const meta = await openImage(buffer)
+        .metadata()
+        .catch(error => {
+            const tooLarge = /pixel limit/i.test(String(error));
+            throw Object.assign(
+                new Error(
+                    tooLarge ? 'Image exceeds the pixel limit' : 'The image could not be read'
+                ),
+                {
+                    status: tooLarge ? 413 : 415,
+                    code: tooLarge ? 'IMAGE_PIXEL_LIMIT' : 'INVALID_IMAGE'
+                }
+            );
+        });
     const animated = (meta.pages ?? 1) > 1;
     const width = meta.width ?? 0;
     const height = animated ? (meta.pageHeight ?? meta.height ?? 0) : (meta.height ?? 0);
+    if (width * height * (meta.pages ?? 1) > imagePixelLimit()) {
+        throw Object.assign(new Error('Image exceeds the pixel limit'), {
+            status: 413,
+            code: 'IMAGE_PIXEL_LIMIT'
+        });
+    }
     const turned = (meta.orientation ?? 1) >= 5;
     return { width: turned ? height : width, height: turned ? width : height, animated };
 }
@@ -49,13 +74,17 @@ const STRIPPABLE: Record<string, (img: Sharp) => Sharp> = {
  * one that can't be read is returned as it came (its copies will fail and say so).
  */
 export async function stripImageMetadata(buffer: Buffer, mimeType: string): Promise<Buffer> {
+    return imageWork(() => stripImageMetadataUnlimited(buffer, mimeType));
+}
+
+async function stripImageMetadataUnlimited(buffer: Buffer, mimeType: string): Promise<Buffer> {
     const save = STRIPPABLE[mimeType];
     if (!save) return buffer;
     try {
-        const meta = await sharp(buffer).metadata();
+        const meta = await openImage(buffer).metadata();
         if (!meta.exif && !meta.xmp && !meta.iptc && (meta.orientation ?? 1) === 1) return buffer;
         const animated = (meta.pages ?? 1) > 1;
-        return await save(sharp(buffer, { animated }).rotate().keepIccProfile()).toBuffer();
+        return await save(openImage(buffer, { animated }).rotate().keepIccProfile()).toBuffer();
     } catch (err) {
         console.error('[moteur] Could not remove image metadata', err);
         return buffer;
@@ -73,13 +102,29 @@ export async function generateVariants(
     buffer: Buffer,
     mimeType: string,
     definitions: VariantDefinition[],
-    focalPoint: FocalPoint
+    focalPoint: FocalPoint,
+    projectId?: string
+): Promise<GeneratedVariant[]> {
+    return imageWork(() =>
+        generateVariantsUnlimited(buffer, mimeType, definitions, focalPoint, projectId)
+    );
+}
+
+async function generateVariantsUnlimited(
+    buffer: Buffer,
+    mimeType: string,
+    definitions: VariantDefinition[],
+    focalPoint: FocalPoint,
+    projectId?: string
 ): Promise<GeneratedVariant[]> {
     const results: GeneratedVariant[] = [];
     let shape: ImageShape;
+    const source = Buffer.from(
+        await applyMediaTransforms(buffer, { projectId, mimeType }, 'source')
+    );
 
     try {
-        shape = await readImageShape(buffer);
+        shape = await readImageShape(source);
     } catch (err) {
         console.error('[moteur] Failed to read image metadata', err);
         return results;
@@ -96,17 +141,17 @@ export async function generateVariants(
     }
 
     // Upright, every frame of an animation; metadata (location, camera) is not carried over.
-    const open = (): Sharp => sharp(buffer, { animated: shape.animated }).rotate();
+    const open = (): Sharp => openImage(source, { animated: shape.animated }).rotate();
 
     for (const def of allDefs) {
         try {
             if (def.key === RESERVED_ORIGINAL) {
                 results.push({
                     key: RESERVED_ORIGINAL,
-                    buffer,
+                    buffer: source,
                     width: shape.width,
                     height: shape.height,
-                    size: buffer.length,
+                    size: source.length,
                     format: mimeType.split('/')[1] ?? 'webp'
                 });
                 continue;
@@ -164,6 +209,13 @@ export async function generateVariants(
                 outBuffer = await pipeline.webp({ quality }).toBuffer();
             }
 
+            outBuffer = Buffer.from(
+                await applyMediaTransforms(
+                    outBuffer,
+                    { projectId, mimeType, variantKey: def.key },
+                    'variant'
+                )
+            );
             const out = await readImageShape(outBuffer);
             results.push({
                 key: def.key,

@@ -217,7 +217,7 @@ app.use(basePath + '/projects/:projectId/models', modelsRoute);
 const mergedProjectsRouter = express.Router();
 mergedProjectsRouter.use(projectRoutes);
 for (const c of projectContribs) mergedProjectsRouter.use(c.router);
-app.use(basePath + '/projects', mergedProjectsRouter);
+app.use(basePath + '/projects', studioRateLimiter, mergedProjectsRouter);
 
 app.use(basePath + '/blueprints', blueprintsRoutes);
 app.use(basePath + '/activity', activityGlobalRoute);
@@ -275,6 +275,8 @@ registerSocketEventBridge(app);
 validateStorageConfig();
 
 const PORT = process.env.PORT || 3000;
+httpServer.requestTimeout = 120_000;
+httpServer.headersTimeout = 30_000;
 httpServer.listen(PORT, async () => {
     console.log(`Moteur API running at http://localhost:${PORT}`);
     try {
