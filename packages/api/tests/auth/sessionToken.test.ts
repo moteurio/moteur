@@ -1,7 +1,10 @@
 import request from 'supertest';
 import express from 'express';
 import jwt from 'jsonwebtoken';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 const person = {
     id: 'louise',
@@ -23,7 +26,13 @@ async function appAs(user: Record<string, unknown>) {
             next();
         }
     }));
+    const { generateJWT } = await import('@moteurio/core/auth.js');
+    const parentToken = generateJWT(user as unknown as import('@moteurio/types').User);
     const app = express();
+    app.use((req, _res, next) => {
+        req.headers.authorization = `Bearer ${parentToken}`;
+        next();
+    });
     app.use(express.json());
     app.use('/auth/session-token', (await import('../../src/auth/sessionToken.js')).default);
     return app;
@@ -32,9 +41,17 @@ async function appAs(user: Record<string, unknown>) {
 const claims = (token: string) => jwt.decode(token) as Record<string, any>;
 
 describe('POST /auth/session-token for an agent', () => {
+    let sessionRoot: string;
     beforeEach(() => {
         vi.resetModules();
         vi.stubEnv('JWT_SECRET', 'test-secret');
+        sessionRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'moteur-session-token-'));
+        vi.stubEnv('AUTH_SESSIONS_FILE', path.join(sessionRoot, 'sessions.json'));
+    });
+
+    afterEach(() => {
+        vi.unstubAllEnvs();
+        fs.rmSync(sessionRoot, { recursive: true, force: true });
     });
 
     it('gives the agent a token, review-only unless the person allows more', async () => {

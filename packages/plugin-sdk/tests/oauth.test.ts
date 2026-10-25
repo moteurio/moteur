@@ -8,6 +8,36 @@ import {
     redirectLoginFailed,
     safeNext
 } from '../src/oauth';
+import { emailFromOidcClaims, discoverOidcIssuer } from '../src/oauth';
+import { redirectProviderSignIn } from '../src/oauth';
+
+describe('OIDC identity evidence', () => {
+    afterEach(() => vi.unstubAllGlobals());
+    it.each([
+        { email: 'victim@example.test' },
+        { email: 'victim@example.test', email_verified: false },
+        { preferred_username: 'victim@example.test' },
+        { mail: 'victim@example.test' },
+        { upn: 'victim@example.test' }
+    ])('refuses claims without verified email ownership: %j', claims => {
+        expect(emailFromOidcClaims(claims)).toBeNull();
+    });
+    it('accepts an explicitly verified email', () => {
+        expect(emailFromOidcClaims({ email: ' owner@example.test ', email_verified: true })).toBe(
+            'owner@example.test'
+        );
+    });
+    it('rejects discovery metadata for a different issuer', async () => {
+        vi.stubGlobal(
+            'fetch',
+            vi.fn().mockResolvedValue({
+                ok: true,
+                json: async () => ({ issuer: 'https://other.test' })
+            })
+        );
+        await expect(discoverOidcIssuer('https://expected.test')).rejects.toThrow('issuer');
+    });
+});
 
 function response() {
     const res = {
@@ -39,6 +69,27 @@ describe('OAuth state', () => {
     afterEach(() => {
         vi.unstubAllEnvs();
         vi.useRealTimers();
+    });
+    it('keeps explicit link intent in signed state and binds the continuation to an HttpOnly cookie', () => {
+        const start = response();
+        const state = beginOAuth(
+            { headers: {}, query: { link: '1', next: '/account/security' } },
+            start,
+            'google'
+        );
+        const cookie = String(start.headers['set-cookie']).split(';')[0];
+        expect(
+            completeOAuth({ headers: { cookie }, query: { state } }, response(), 'google')
+        ).toEqual({ next: '/account/security', link: true });
+        const out = response();
+        redirectProviderSignIn({ headers: {}, query: {}, secure: true }, out, {
+            pending: { ticket: 'public-ticket', browserToken: 'private-browser-proof' }
+        });
+        expect(out.location).toContain('provider_ticket=public-ticket');
+        expect(out.location).not.toContain('private-browser-proof');
+        expect(out.headers['set-cookie']).toContainEqual(
+            expect.stringContaining('HttpOnly; Secure; Max-Age=600; SameSite=None')
+        );
     });
 
     it('completes in the browser that started it, keeping next', () => {

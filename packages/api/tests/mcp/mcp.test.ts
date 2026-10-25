@@ -1,3 +1,6 @@
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 import request from 'supertest';
 import express from 'express';
 import jwt from 'jsonwebtoken';
@@ -15,6 +18,10 @@ const person = {
 
 vi.mock('@moteurio/core/users.js', () => ({ getUserById: () => person }));
 vi.mock('@moteurio/core/projects.js', () => ({ getProjectIdsForUser: () => ['demo'] }));
+vi.mock('@moteurio/core', async importOriginal => {
+    const actual = await importOriginal<typeof import('@moteurio/core')>();
+    return { ...actual, listPluginCommands: () => [] };
+});
 vi.mock('../../src/middlewares/auth.js', () => ({
     requireAuth: (req: any, res: any, next: any) => {
         if (!req.headers.authorization)
@@ -33,11 +40,16 @@ fakeApi.use((req, res) => {
     res.json({ entries: [], total: 0 });
 });
 
+let sessionRoot: string;
+let personToken: string;
 let server: ReturnType<typeof fakeApi.listen>;
 let app: express.Express;
 
 beforeAll(async () => {
     vi.stubEnv('JWT_SECRET', 'test-secret');
+    sessionRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'moteur-mcp-session-'));
+    vi.stubEnv('AUTH_SESSIONS_FILE', path.join(sessionRoot, 'sessions.json'));
+    personToken = (await import('@moteurio/core/auth.js')).generateJWT(person);
     server = fakeApi.listen(0);
     const port = (server.address() as AddressInfo).port;
     const { mcpRouter } = await import('../../src/mcp/index.js');
@@ -49,14 +61,15 @@ beforeAll(async () => {
     );
 });
 afterAll(() => {
-    server.close();
+    server?.close();
+    fs.rmSync(sessionRoot, { recursive: true, force: true });
     vi.unstubAllEnvs();
 });
 
 const rpc = (body: unknown, path = '/mcp?project=demo') =>
     request(app)
         .post(path)
-        .set('Authorization', 'Bearer person-token')
+        .set('Authorization', `Bearer ${personToken}`)
         .set('Accept', 'application/json, text/event-stream')
         .set('User-Agent', 'claude-code/2.1')
         .send(body);

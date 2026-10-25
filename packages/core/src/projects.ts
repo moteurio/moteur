@@ -165,7 +165,7 @@ export async function createProject(
     // Ensure new projects are active
     projectWithUsers.isActive = project.isActive !== undefined ? project.isActive : true;
 
-    triggerEvent('project.beforeCreate', { project: projectWithUsers, user });
+    await triggerEvent('project.beforeCreate', { project: projectWithUsers, user });
 
     const dir = projectDir(projectWithUsers.id);
     fs.mkdirSync(dir, { recursive: true });
@@ -192,7 +192,7 @@ export async function createProject(
         user
     });
 
-    addProjectToUser(user.id, projectWithUsers.id);
+    await addProjectToUser(user.id, projectWithUsers.id);
 
     triggerEvent('project.afterCreate', { project: projectWithUsers, user });
     return { project: projectWithUsers };
@@ -272,6 +272,7 @@ export async function updateProject(
 ): Promise<ProjectSchema> {
     const current = await getProject(user, projectId);
     const updated = applyProjectPatch(current, patch);
+    await triggerEvent('project.beforeUpdate', { project: updated, user });
 
     // Keep user.projects in sync when project.users changes (so JWT and presence get correct list after re-login)
     if (patch.users !== undefined) {
@@ -279,14 +280,12 @@ export async function updateProject(
         const next = new Set((updated.users ?? []) as string[]);
         assertPeopleRoom(projectId, prev.size, next.size - prev.size);
         for (const uid of next) {
-            if (!prev.has(uid)) addProjectToUser(uid, projectId);
+            if (!prev.has(uid)) await addProjectToUser(uid, projectId);
         }
         for (const uid of prev) {
-            if (!next.has(uid)) removeProjectFromUser(uid, projectId);
+            if (!next.has(uid)) await removeProjectFromUser(uid, projectId);
         }
     }
-
-    triggerEvent('project.beforeUpdate', { project: updated, user });
 
     await putProjectJson(projectId, PROJECT_KEY, updated);
     await applyProjectGitSideEffects(current, updated, patch, projectId, user);
@@ -319,9 +318,9 @@ export async function addProjectMember(
         memberRoles: { ...current.memberRoles, [member.id]: roles }
     };
 
-    triggerEvent('project.beforeUpdate', { project: updated, user: member });
+    await triggerEvent('project.beforeUpdate', { project: updated, user: member });
     await putProjectJson(projectId, PROJECT_KEY, updated);
-    addProjectToUser(member.id, projectId);
+    await addProjectToUser(member.id, projectId);
     triggerEvent('content.saved', {
         projectId,
         paths: [PROJECT_KEY],
@@ -335,7 +334,7 @@ export async function addProjectMember(
 export async function deleteProject(user: User, projectId: string): Promise<void> {
     const project = await getProject(user, projectId);
 
-    triggerEvent('project.beforeDelete', { project, user });
+    await triggerEvent('project.beforeDelete', { project, user });
 
     const base = baseProjectsDir();
     const source = path.join(base, projectId);
@@ -346,7 +345,7 @@ export async function deleteProject(user: User, projectId: string): Promise<void
     (await getContentIndex()).close(projectId);
     fs.renameSync(source, dest);
 
-    removeProjectFromAllUsers(projectId);
+    await removeProjectFromAllUsers(projectId);
 
     triggerEvent('project.afterDelete', { project, user });
 }
@@ -418,7 +417,7 @@ export async function copyProjectForNewUser(
     };
     addAllAndCommit(destDir, `Copy from ${sourceProjectId} — ${userId}`, userForCommit);
     push(destDir);
-    addProjectToUser(userId, newProjectId);
+    await addProjectToUser(userId, newProjectId);
 
     return { ...updated, id: newProjectId };
 }

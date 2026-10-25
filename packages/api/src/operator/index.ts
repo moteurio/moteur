@@ -219,7 +219,7 @@ router.get('/users', (req: Request, res: Response) => {
 });
 
 /** Body: any of `name`, `email`, `isActive`, `roles` (the account's own, not a project's). */
-router.patch('/users/:userId', (req: Request, res: Response) => {
+router.patch('/users/:userId', async (req: Request, res: Response) => {
     const { userId } = params(req);
     const op = operator(req);
     const body = (req.body ?? {}) as Record<string, unknown>;
@@ -236,7 +236,7 @@ router.patch('/users/:userId', (req: Request, res: Response) => {
     if (!Object.keys(patch).length)
         return void res.status(400).json({ error: 'Nothing to change' });
     try {
-        const updated = updateUserAsOperator(userId, patch, op);
+        const updated = await updateUserAsOperator(userId, patch, op);
         const projectIds = new Set(loadProjects().map(p => p.id));
         res.json({ user: userRow(updated, projectIds) });
     } catch (err) {

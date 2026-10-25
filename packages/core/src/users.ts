@@ -1,8 +1,10 @@
+import { revokeAuthSession } from './authSessions.js';
+import { withWriteLock } from './utils/projectWriteLock.js';
 import fs from 'fs';
 import { inProject, normalizeStoredRoles } from '@moteurio/types';
 import { User } from '@moteurio/types/User.js';
 import { storageConfig } from './config/storageConfig.js';
-import { writeJsonAtomic } from './utils/fileUtils.js';
+import { writePrivateState } from './utils/privateStore.js';
 import { triggerEvent } from './utils/eventBus.js';
 import { isSystemActor } from './utils/systemActor.js';
 
@@ -42,6 +44,56 @@ export function getUserById(id: string): User | undefined {
     return getCachedUsers().find(u => u.id === id);
 }
 
+/** Attach an authenticated provider only after the API proves a recent personal sign-in. */
+export async function linkUserProvider(
+    userId: string,
+    identity: Record<string, string | number>
+): Promise<User> {
+    return withWriteLock(getUsersFilePath(), () => linkUserProviderUnlocked(userId, identity));
+}
+
+async function linkUserProviderUnlocked(
+    userId: string,
+    identity: Record<string, string | number>
+): Promise<User> {
+    reloadUsers();
+    const users = getCachedUsers();
+    const index = users.findIndex(user => user.id === userId && user.isActive);
+    if (index < 0) throw new Error('User not found');
+    const pairs = Object.entries(identity);
+    if (!pairs.length || pairs.some(([, value]) => !String(value).trim()))
+        throw new Error('Provider identity required');
+    if (
+        users.some(
+            user => user.id !== userId && pairs.every(([key, value]) => user.auth?.[key] === value)
+        )
+    ) {
+        throw Object.assign(new Error('This provider is already connected to another account'), {
+            status: 409
+        });
+    }
+    const current = users[index];
+    if (pairs.some(([key, value]) => current.auth?.[key] != null && current.auth[key] !== value)) {
+        throw Object.assign(
+            new Error('A different identity for this provider is already connected'),
+            { status: 409 }
+        );
+    }
+    const updated: User = {
+        ...current,
+        auth: { ...current.auth, ...identity },
+        authVersion: (current.authVersion ?? 0) + 1
+    };
+    await triggerEvent('user.beforeUpdate', { user: updated, performedBy: current });
+    const fresh = getCachedUsers().slice();
+    fresh[index] = updated;
+    writePrivateState(getUsersFilePath(), fresh);
+    cachedUsers = null;
+    revokeAuthSession(userId);
+    await triggerEvent('user.afterUpdate', { user: updated, performedBy: current });
+    return updated;
+}
+
 /** Members of a project. Pass the project to get each member with their roles in it. */
 export function getProjectUsers(
     projectId: string,
@@ -60,14 +112,27 @@ export function getDisplayProjectIds(user: User, existingProjectIds: string[]): 
     return (user.projects ?? []).filter(id => set.has(id));
 }
 
-export function createUser(user: User, performedBy?: User): User {
+export async function createUser(user: User, performedBy?: User): Promise<User> {
+    return withWriteLock(getUsersFilePath(), () => createUserUnlocked(user, performedBy));
+}
+
+async function createUserUnlocked(user: User, performedBy?: User): Promise<User> {
     const users = getCachedUsers();
     if (users.some(u => u.email === user.email)) {
         throw new Error('User with this email already exists');
     }
-    triggerEvent('user.beforeCreate', { user, performedBy });
+    if (
+        user.auth &&
+        Object.keys(user.auth).length &&
+        users.some(existing =>
+            Object.entries(user.auth!).every(([key, value]) => existing.auth?.[key] === value)
+        )
+    ) {
+        throw Object.assign(new Error('Provider identity is already connected'), { status: 409 });
+    }
+    await triggerEvent('user.beforeCreate', { user, performedBy });
     users.push(user);
-    writeJsonAtomic(getUsersFilePath(), users);
+    writePrivateState(getUsersFilePath(), users);
     cachedUsers = null; // Invalidate cache after write
     triggerEvent('user.afterCreate', { user, performedBy });
     return user;
@@ -77,11 +142,21 @@ export function createUser(user: User, performedBy?: User): User {
  * Set password hash for an existing user (local users.json). Match by user id or email.
  * Reads the file directly to avoid stale cache (same pattern as addProjectToUser).
  */
-export function setUserPasswordHash(
+export async function setUserPasswordHash(
     userIdOrEmail: string,
     passwordHash: string,
     performedBy?: User
-): User {
+): Promise<User> {
+    return withWriteLock(getUsersFilePath(), () =>
+        setUserPasswordHashUnlocked(userIdOrEmail, passwordHash, performedBy)
+    );
+}
+
+async function setUserPasswordHashUnlocked(
+    userIdOrEmail: string,
+    passwordHash: string,
+    performedBy?: User
+): Promise<User> {
     const key = userIdOrEmail.trim();
     if (!key) {
         throw new Error('User id or email is required');
@@ -111,13 +186,13 @@ export function setUserPasswordHash(
     }
 
     const current = users[index];
-    const updated: User = { ...current, passwordHash };
+    const updated: User = { ...current, passwordHash, authVersion: (current.authVersion ?? 0) + 1 };
     users = users.slice();
     users[index] = updated;
 
-    triggerEvent('user.beforeUpdate', { user: updated, performedBy });
+    await triggerEvent('user.beforeUpdate', { user: updated, performedBy });
     try {
-        writeJsonAtomic(filePath, users);
+        writePrivateState(filePath, users);
     } catch (err) {
         throw new Error(
             `setUserPasswordHash: failed to write users file (${filePath}): ${err instanceof Error ? err.message : String(err)}`,
@@ -125,6 +200,7 @@ export function setUserPasswordHash(
         );
     }
     cachedUsers = null;
+    if (updated.authVersion !== current.authVersion) revokeAuthSession(updated.id);
     triggerEvent('user.afterUpdate', { user: updated, performedBy });
     return updated;
 }
@@ -135,7 +211,11 @@ export function setUserPasswordHash(
  * Reads users from file to avoid stale cache from the same request.
  * @throws Error if user not found (so assignment failure is not silent).
  */
-export function addProjectToUser(userId: string, projectId: string): void {
+export async function addProjectToUser(userId: string, projectId: string): Promise<void> {
+    return withWriteLock(getUsersFilePath(), () => addProjectToUserUnlocked(userId, projectId));
+}
+
+async function addProjectToUserUnlocked(userId: string, projectId: string): Promise<void> {
     if (!userId || !projectId) {
         throw new Error('addProjectToUser: userId and projectId are required');
     }
@@ -162,7 +242,7 @@ export function addProjectToUser(userId: string, projectId: string): void {
     users = users.slice();
     users[index] = { ...u, projects: [...projects, projectId] };
     try {
-        writeJsonAtomic(filePath, users);
+        writePrivateState(filePath, users);
     } catch (err) {
         throw new Error(
             `addProjectToUser: failed to write users file (${filePath}): ${err instanceof Error ? err.message : String(err)}`,
@@ -175,7 +255,13 @@ export function addProjectToUser(userId: string, projectId: string): void {
 /**
  * Remove a project ID from a single user's projects array (e.g. when user is removed from project.users).
  */
-export function removeProjectFromUser(userId: string, projectId: string): void {
+export async function removeProjectFromUser(userId: string, projectId: string): Promise<void> {
+    return withWriteLock(getUsersFilePath(), () =>
+        removeProjectFromUserUnlocked(userId, projectId)
+    );
+}
+
+async function removeProjectFromUserUnlocked(userId: string, projectId: string): Promise<void> {
     if (!userId || !projectId) return;
     const filePath = getUsersFilePath();
     let users: User[];
@@ -193,7 +279,7 @@ export function removeProjectFromUser(userId: string, projectId: string): void {
     users = users.slice();
     users[index] = { ...u, projects };
     try {
-        writeJsonAtomic(filePath, users);
+        writePrivateState(filePath, users);
     } catch {
         // ignore
     }
@@ -204,7 +290,11 @@ export function removeProjectFromUser(userId: string, projectId: string): void {
  * Remove a project ID from every user's projects array (e.g. after project delete).
  * Keeps user.projects in sync so orphan links are not left in users.json.
  */
-export function removeProjectFromAllUsers(projectId: string): void {
+export async function removeProjectFromAllUsers(projectId: string): Promise<void> {
+    return withWriteLock(getUsersFilePath(), () => removeProjectFromAllUsersUnlocked(projectId));
+}
+
+async function removeProjectFromAllUsersUnlocked(projectId: string): Promise<void> {
     const users = getCachedUsers();
     let changed = false;
     const updated = users.map(u => {
@@ -217,7 +307,7 @@ export function removeProjectFromAllUsers(projectId: string): void {
         return u;
     });
     if (changed) {
-        writeJsonAtomic(getUsersFilePath(), updated);
+        writePrivateState(getUsersFilePath(), updated);
         cachedUsers = null;
     }
 }
@@ -228,7 +318,11 @@ export function reloadUsers(): void {
 }
 
 /** Persist last successful login time (ISO 8601). Returns the timestamp written, if any. */
-export function recordUserLogin(userId: string): string | undefined {
+export async function recordUserLogin(userId: string): Promise<string | undefined> {
+    return withWriteLock(getUsersFilePath(), () => recordUserLoginUnlocked(userId));
+}
+
+async function recordUserLoginUnlocked(userId: string): Promise<string | undefined> {
     if (!userId) return undefined;
     const filePath = getUsersFilePath();
     let users: User[];
@@ -245,7 +339,7 @@ export function recordUserLogin(userId: string): string | undefined {
     users = users.slice();
     users[index] = { ...u, lastLoginAt: iso };
     try {
-        writeJsonAtomic(filePath, users);
+        writePrivateState(filePath, users);
     } catch {
         return undefined;
     }
@@ -266,11 +360,21 @@ export interface OperatorUserPatch {
  * Update a user record (users.json): operators only (they act as the engine, see
  * requireOperator). No account role allows it.
  */
-export function updateUserAsOperator(
+export async function updateUserAsOperator(
     userId: string,
     patch: OperatorUserPatch,
     performedBy: User
-): User {
+): Promise<User> {
+    return withWriteLock(getUsersFilePath(), () =>
+        updateUserAsOperatorUnlocked(userId, patch, performedBy)
+    );
+}
+
+async function updateUserAsOperatorUnlocked(
+    userId: string,
+    patch: OperatorUserPatch,
+    performedBy: User
+): Promise<User> {
     if (!isSystemActor(performedBy)) {
         throw new Error('Only an operator can change an account');
     }
@@ -316,12 +420,19 @@ export function updateUserAsOperator(
         ...(patch.roles !== undefined ? { roles: normalizeStoredRoles(patch.roles) } : {}),
         ...(patch.avatar !== undefined ? { avatar: nextAvatar } : {})
     };
+    if (
+        updated.email !== current.email ||
+        updated.isActive !== current.isActive ||
+        JSON.stringify(updated.roles) !== JSON.stringify(current.roles)
+    ) {
+        updated.authVersion = (current.authVersion ?? 0) + 1;
+    }
 
     users = users.slice();
     users[index] = updated;
-    triggerEvent('user.beforeUpdate', { user: updated, performedBy });
+    await triggerEvent('user.beforeUpdate', { user: updated, performedBy });
     try {
-        writeJsonAtomic(filePath, users);
+        writePrivateState(filePath, users);
     } catch (err) {
         throw new Error(
             `updateUserAsOperator: failed to write users file (${filePath}): ${err instanceof Error ? err.message : String(err)}`,
@@ -329,6 +440,7 @@ export function updateUserAsOperator(
         );
     }
     cachedUsers = null;
+    if (updated.authVersion !== current.authVersion) revokeAuthSession(updated.id);
     triggerEvent('user.afterUpdate', { user: updated, performedBy });
     return updated;
 }

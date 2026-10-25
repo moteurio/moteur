@@ -11,7 +11,7 @@ import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/
 import { createServer, parseOptions, withPluginCommands, type ServerOptions } from '@moteurio/mcp';
 import { listPluginCommands } from '@moteurio/core';
 import { createMoteurAdminClient } from '@moteurio/client';
-import { generateSessionToken } from '@moteurio/core/auth.js';
+import { generateSessionToken, verifyJWT } from '@moteurio/core/auth.js';
 import { getUserById } from '@moteurio/core/users.js';
 import type { OpenAPIV3 } from 'openapi-types';
 import { requireAuth } from '../middlewares/auth.js';
@@ -58,7 +58,8 @@ export function mcpRouter(self: () => string, spec?: OpenAPIV3.Document): Router
             name: agentFromUserAgent(req.get('user-agent')),
             reviewOnly: true
         };
-        const token = generateSessionToken({ ...account, agent }, 60 * 60);
+        const payload = verifyJWT(req.headers.authorization!.replace(/^Bearer\s+/i, ''));
+        const token = generateSessionToken({ ...account, agent }, 60 * 60, payload);
         const client = createMoteurAdminClient({
             baseURL: self(),
             auth: { type: 'bearer', token }

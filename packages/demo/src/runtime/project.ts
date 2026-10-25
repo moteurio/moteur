@@ -43,7 +43,7 @@ export async function ensurePersonas(personas: Persona[], password?: string): Pr
             projects: [],
             ...(password && { passwordHash: await bcrypt.hash(password, 10) })
         };
-        createUser(user);
+        await createUser(user);
     }
 }
 
@@ -92,7 +92,7 @@ export async function createProjectFor(
             );
         }
     }
-    for (const p of personas) addProjectToUser(p.id, project.id);
+    for (const p of personas) await addProjectToUser(p.id, project.id);
     await settle();
 }
 

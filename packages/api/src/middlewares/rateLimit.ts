@@ -51,6 +51,16 @@ export const loginRateLimiter = rateLimit({
     message: { error: 'Too many login attempts. Please try again later.', code: 'rate_limited' }
 });
 
+/** Browser-bound provider proofs have their own budget, independent of password attempts. */
+export const verificationRateLimiter = rateLimit({
+    windowMs: LOGIN_WINDOW_MS,
+    max: Math.max(1, Math.min(1000, Number(process.env.API_RATE_LIMIT_VERIFICATION_MAX) || 60)),
+    standardHeaders: true,
+    legacyHeaders: false,
+    keyGenerator: (req: Request) => ipKey(req),
+    message: { error: 'Too many verification requests. Try again later.', code: 'rate_limited' }
+});
+
 /**
  * Rate limiter for `/studio/*` routes (usage, seed, asset migration).
  * Key: IP. Default: high limit; set API_RATE_LIMIT_STUDIO_MAX to enforce.

@@ -10,6 +10,8 @@ import {
 import refresh, { openapi as refreshSpec } from './refresh.js';
 import me, { openapi as meSpec } from './me.js';
 import sessionToken, { openapi as sessionTokenSpec } from './sessionToken.js';
+import sessions, { openapi as sessionsSpec } from './sessions.js';
+import providerSignIn, { openapi as providerSignInSpec } from './providerSignIn.js';
 
 export function createAuthRouter(authProviders: AuthProviderContribution[] = []): Router {
     const router: Router = Router();
@@ -18,6 +20,8 @@ export function createAuthRouter(authProviders: AuthProviderContribution[] = [])
     router.use(refresh);
     router.use(me);
     router.use('/session-token', sessionToken);
+    router.use(sessions);
+    router.use(providerSignIn);
     return router;
 }
 
@@ -27,7 +31,9 @@ export const authSpecs = {
         ...providersSpec,
         ...refreshSpec,
         ...meSpec,
-        ...sessionTokenSpec
+        ...sessionTokenSpec,
+        ...sessionsSpec,
+        ...providerSignInSpec
     },
     schemas: {
         ...loginSchemas,

@@ -4,10 +4,11 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 // 🧪 generateJWT mock for all tests
 vi.mock('@moteurio/core/auth', () => ({
-    generateJWT: vi.fn()
+    refreshJWT: vi.fn(),
+    verifyJWT: vi.fn().mockReturnValue({ sid: 'session-1', auth_time: 1 })
 }));
 
-import { generateJWT } from '@moteurio/core/auth';
+import { refreshJWT } from '@moteurio/core/auth';
 
 describe('POST /auth/refresh', () => {
     beforeEach(() => {
@@ -28,8 +29,10 @@ describe('POST /auth/refresh', () => {
         app.use(express.json());
         const route = (await import('../../src/auth/refresh')).default;
         app.use('/auth', route);
-        (generateJWT as any).mockReturnValue('mock-token');
-        const res = await request(app).post('/auth/refresh');
+        (refreshJWT as any).mockReturnValue('mock-token');
+        const res = await request(app)
+            .post('/auth/refresh')
+            .set('Authorization', 'Bearer existing-token');
 
         expect(res.status).toBe(200);
         expect(res.body).toEqual({ token: 'mock-token' });
@@ -49,7 +52,9 @@ describe('POST /auth/refresh', () => {
         const route = (await import('../../src/auth/refresh')).default;
         app.use('/auth', route);
 
-        const res = await request(app).post('/auth/refresh');
+        const res = await request(app)
+            .post('/auth/refresh')
+            .set('Authorization', 'Bearer existing-token');
 
         expect(res.status).toBe(401);
         expect(res.body).toEqual({ error: 'Unauthorized' });

@@ -148,6 +148,7 @@ export {
     oauthConfig,
     readOAuthConfig,
     redirectAfterLogin,
+    redirectProviderSignIn,
     redirectLoginFailed,
     safeNext,
     discoverOidcIssuer,

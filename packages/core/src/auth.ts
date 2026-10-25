@@ -2,7 +2,15 @@ import bcrypt from 'bcrypt';
 import { randomUUID } from 'crypto';
 import jwt, { JwtPayload, Secret, SignOptions } from 'jsonwebtoken';
 
-import { createUser, getUserByEmail, reloadUsers, recordUserLogin } from './users.js';
+import {
+    createUser,
+    getUserByEmail,
+    getUserById,
+    listUsers,
+    reloadUsers,
+    recordUserLogin
+} from './users.js';
+import { createAuthSession, requireAuthSession, type AuthSession } from './authSessions.js';
 import { getProjectIdsForUser } from './projects.js';
 import { hasRole } from '@moteurio/types';
 import type { AgentActor, User } from '@moteurio/types/User.js';
@@ -60,7 +68,7 @@ export async function loginUser(
         throw new Error('User is not active');
     }
 
-    const loginAt = recordUserLogin(user.id);
+    const loginAt = await recordUserLogin(user.id);
     const displayUser: User = {
         ...user,
         ...(loginAt ? { lastLoginAt: loginAt } : {}),
@@ -76,12 +84,15 @@ export async function loginUser(
 export type ProviderIdentity = {
     /** Stored under `user.auth`, e.g. `{ githubId: 123 }`. */
     auth: Record<string, string | number>;
+    /** Empty is allowed only when this provider identity is already linked. */
     email: string;
+    /** Unverified provider hint for the verification UI; never used for account lookup. */
+    suggestedEmail?: string;
     name?: string;
 };
 
 /**
- * Sign in through an OAuth provider: the account with that verified address, or a new one.
+ * Sign in by the stored provider identity. Never link an existing account by email alone.
  * `onNewUser` runs once for a new account (onboarding); a disabled account is refused.
  */
 export async function loginWithProvider(
@@ -89,13 +100,28 @@ export async function loginWithProvider(
     onNewUser?: (user: User) => Promise<void>
 ): Promise<{ token: string; user: User; isNew: boolean }> {
     const email = identity.email.trim();
-    if (!email) throw new Error('The provider gave no email address');
 
     reloadUsers();
-    let user = getUserByEmail(email) ?? getUserByEmail(email.toLowerCase());
+    const identifiers = Object.entries(identity.auth);
+    if (
+        identifiers.length === 0 ||
+        identifiers.some(
+            ([, value]) => !['string', 'number'].includes(typeof value) || !String(value).trim()
+        )
+    )
+        throw new Error('The provider gave no stable identity');
+    const matches = listUsers().filter(candidate =>
+        identifiers.every(([key, value]) => candidate.auth?.[key] === value)
+    );
+    if (matches.length > 1) throw new Error('Provider identity is linked to multiple accounts');
+    let user = matches[0];
     const isNew = !user;
     if (!user) {
-        user = createUser({
+        if (!email) throw new Error('The provider gave no verified email address');
+        if (listUsers().some(candidate => candidate.email?.toLowerCase() === email.toLowerCase())) {
+            throw new Error('Sign in with your existing method to link this provider');
+        }
+        user = await createUser({
             id: `user:${randomUUID()}`,
             isActive: true,
             email: email.toLowerCase(),
@@ -110,7 +136,7 @@ export async function loginWithProvider(
         throw new Error('User is not active');
     }
 
-    const loginAt = recordUserLogin(user.id);
+    const loginAt = await recordUserLogin(user.id);
     const displayUser: User = {
         ...user,
         ...(loginAt ? { lastLoginAt: loginAt } : {}),
@@ -120,6 +146,27 @@ export async function loginWithProvider(
 }
 
 export function generateJWT(user: User): string {
+    return tokenForSession(user, createAuthSession(user));
+}
+
+/** Credential maintenance rotates tokens without resetting the original authentication time. */
+export function rotatePersonalSession(user: User, previous: AuthSession): string {
+    if (
+        previous.kind !== 'person' ||
+        previous.userId !== user.id ||
+        previous.expiresAt <= Date.now()
+    )
+        throw new Error('Sign in again');
+    return tokenForSession(
+        user,
+        createAuthSession(user, previous.expiresAt - Date.now(), {
+            kind: 'person',
+            authenticatedAt: previous.authenticatedAt
+        })
+    );
+}
+
+function tokenForSession(user: User, session: AuthSession, ttlSeconds?: number): string {
     const secret = getJwtSecret();
     const projects = getProjectIdsForUser(user.id);
     const payload: JwtPayload = {
@@ -130,34 +177,63 @@ export function generateJWT(user: User): string {
         roles: user.roles,
         projects,
         isActive: user.isActive,
+        sid: session.id,
+        auth_time: Math.floor(session.authenticatedAt / 1000),
+        authVersion: session.version,
         ...(user.avatar ? { avatarUrl: user.avatar } : {}),
         ...(user.agent ? { agent: user.agent } : {})
     };
     const token: string = jwt.sign(
         payload,
         secret as Secret,
-        { expiresIn: JWT_EXPIRES_IN } as SignOptions
+        { expiresIn: ttlSeconds ?? JWT_EXPIRES_IN } as SignOptions
     );
+    const claims = jwt.decode(token) as JwtPayload;
+    const deadline = Math.floor(session.expiresAt / 1000);
+    if (claims.exp! > deadline)
+        return jwt.sign({ ...claims, exp: deadline }, secret as Secret, { algorithm: 'HS256' });
     return token;
 }
 
 /** Generate a short-lived session token (e.g. for web Atelier). TTL in seconds; max 8 hours. */
-export function generateSessionToken(user: User, ttlSeconds: number): string {
-    const secret = getJwtSecret();
+export function generateSessionToken(
+    user: User,
+    ttlSeconds: number,
+    parentPayload?: JwtPayload
+): string {
     const capped = Math.min(Math.max(ttlSeconds, 60), 8 * 60 * 60); // 1 min to 8h
-    const projects = getProjectIdsForUser(user.id);
-    const payload: JwtPayload = {
-        sub: user.id,
-        id: user.id,
-        email: user.email,
-        name: user.name ?? user.email,
-        roles: user.roles,
-        projects,
-        isActive: user.isActive,
-        ...(user.avatar ? { avatarUrl: user.avatar } : {}),
-        ...(user.agent ? { agent: user.agent } : {})
-    };
-    return jwt.sign(payload, secret as Secret, { expiresIn: capped } as SignOptions);
+    const parent = parentPayload
+        ? requireAuthSession(parentPayload.sid, user.id, user.authVersion ?? 0)
+        : undefined;
+    if (
+        parent &&
+        ((parent.kind === 'agent' && user.agent) || (parent.kind === 'delegated' && !user.agent))
+    ) {
+        const originalAgent = parentPayload ? agentOf(parentPayload) : undefined;
+        return tokenForSession(
+            originalAgent ? { ...user, agent: originalAgent } : user,
+            parent,
+            Math.min(capped, Math.max(1, Math.floor((parent.expiresAt - Date.now()) / 1000)))
+        );
+    }
+    const session = createAuthSession(user, capped * 1000, {
+        parent,
+        kind: user.agent ? 'agent' : 'delegated'
+    });
+    return tokenForSession(
+        user,
+        session,
+        Math.min(capped, Math.max(1, Math.floor((session.expiresAt - Date.now()) / 1000)))
+    );
+}
+
+/** Refresh within the original session deadline; agents cannot extend delegated tokens. */
+export function refreshJWT(user: User, payload: JwtPayload): string {
+    const session = requireAuthSession(payload.sid, user.id, user.authVersion ?? 0);
+    if (session.kind !== 'person' || user.agent) throw new Error('Agent sessions cannot refresh');
+    const remaining = Math.floor((session.expiresAt - Date.now()) / 1000);
+    if (remaining < 1) throw new Error('Session expired');
+    return tokenForSession(user, session);
 }
 
 /** The agent a token was given to, if any (`{ name, reviewOnly }` claim). */
@@ -186,7 +262,12 @@ export function verifyJWT(token: string): JwtPayload {
     }
 
     try {
-        const decoded: JwtPayload = jwt.verify(token, secret as Secret) as JwtPayload;
+        const decoded: JwtPayload = jwt.verify(token, secret as Secret, {
+            algorithms: ['HS256']
+        }) as JwtPayload;
+        const account = getUserById(decoded.sub as string);
+        if (!account?.isActive) throw new Error('Account unavailable');
+        requireAuthSession(decoded.sid, account.id, account.authVersion ?? 0);
         return decoded;
     } catch (err) {
         throw new Error(

@@ -16,6 +16,7 @@ export { default as fieldRegistry } from './registry/FieldRegistry.js';
 // People and sign-in
 export { getUserById } from './users.js';
 export { loginWithProvider, verifyJWT } from './auth.js';
+export { startProviderSignIn } from './providerSignIn.js';
 export { resolveOnlinePresenceMaxIdleMs, setOnlineUserIdsProvider } from './onlinePresence.js';
 
 // A plugin's own data, stored with the project

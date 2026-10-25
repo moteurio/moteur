@@ -45,6 +45,7 @@ describe('operators', () => {
     beforeEach(() => {
         dir = fs.mkdtempSync(path.join(os.tmpdir(), 'moteur-operators-'));
         vi.stubEnv('OPERATORS_FILE', path.join(dir, 'operators.json'));
+        vi.stubEnv('AUTH_SESSIONS_FILE', path.join(dir, 'sessions.json'));
         vi.stubEnv('JWT_SECRET', 'test-secret');
         resetOperatorLockouts();
     });

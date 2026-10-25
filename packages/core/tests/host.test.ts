@@ -27,6 +27,7 @@ const CONTRACT = [
     'listProjectKeys',
     'loginWithProvider',
     'runMediaGenerator',
+    'startProviderSignIn',
     'PROJECT_KEY',
     'putProjectJson',
     'resolveOnlinePresenceMaxIdleMs',

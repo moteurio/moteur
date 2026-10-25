@@ -146,6 +146,7 @@ export function beginOAuth(req: OAuthRequest, res: OAuthResponse, provider: stri
             p: provider,
             n: nonce,
             next: safeNext(req.query.next),
+            link: req.query.link === '1' ? true : undefined,
             exp: Math.floor(Date.now() / 1000) + TTL_SECONDS
         })
     ).toString('base64url');
@@ -158,7 +159,7 @@ export function completeOAuth(
     req: OAuthRequest,
     res: OAuthResponse,
     provider: string
-): { next: string } | null {
+): { next: string; link?: true } | null {
     const state = req.query.state;
     const nonce = readCookie(req);
     setCookie(req, res, '', 0);
@@ -170,7 +171,7 @@ export function completeOAuth(
     const given = Buffer.from(mac);
     if (expected.length !== given.length || !timingSafeEqual(expected, given)) return null;
 
-    let payload: { p?: unknown; n?: unknown; next?: unknown; exp?: unknown };
+    let payload: { p?: unknown; n?: unknown; next?: unknown; exp?: unknown; link?: unknown };
     try {
         payload = JSON.parse(Buffer.from(body, 'base64url').toString('utf8'));
     } catch {
@@ -178,7 +179,10 @@ export function completeOAuth(
     }
     if (payload.p !== provider || payload.n !== nonce) return null;
     if (typeof payload.exp !== 'number' || payload.exp < Date.now() / 1000) return null;
-    return { next: safeNext(payload.next) };
+    return {
+        next: safeNext(payload.next),
+        ...(payload.link === true ? { link: true as const } : {})
+    };
 }
 
 function appUrl(params: Record<string, string>): string {
@@ -192,6 +196,23 @@ function appUrl(params: Record<string, string>): string {
 /** Back to the app, signed in: `#token=…&next=…`. */
 export function redirectAfterLogin(res: OAuthResponse, token: string, next = ''): void {
     res.redirect(appUrl({ token, next }));
+}
+
+/** Keep pending identity proofs bound to the browser that completed OAuth. */
+export function redirectProviderSignIn(
+    req: OAuthRequest,
+    res: OAuthResponse,
+    result: { token: string } | { pending: { ticket: string; browserToken: string } },
+    next = ''
+): void {
+    if ('token' in result) return redirectAfterLogin(res, result.token, next);
+    const secure = isHttps(req);
+    const flags = `Path=/; HttpOnly; ${secure ? 'Secure; ' : ''}`;
+    res.setHeader('Set-Cookie', [
+        `${COOKIE}=; ${flags}Max-Age=0; SameSite=Lax`,
+        `moteur_provider=${result.pending.browserToken}; ${flags}Max-Age=600; SameSite=${secure ? 'None' : 'Lax'}`
+    ]);
+    res.redirect(appUrl({ provider_ticket: result.pending.ticket, next }));
 }
 
 /** Back to the app with why it didn't work: `#error=…`. */
@@ -214,10 +235,20 @@ export async function discoverOidcIssuer(issuer: string): Promise<OidcDiscovery>
         throw new Error(`OIDC discovery failed (${res.status}) for ${base}`);
     }
     const doc = (await res.json()) as Record<string, unknown>;
+    if (doc.issuer !== issuer)
+        throw new Error('OIDC discovery issuer does not match configuration');
     const authorization_endpoint = doc.authorization_endpoint;
     const token_endpoint = doc.token_endpoint;
     if (typeof authorization_endpoint !== 'string' || typeof token_endpoint !== 'string') {
         throw new Error('OIDC discovery document is missing authorization or token endpoint');
+    }
+    for (const endpoint of [authorization_endpoint, token_endpoint, doc.userinfo_endpoint]) {
+        if (
+            endpoint != null &&
+            (typeof endpoint !== 'string' || new URL(endpoint).protocol !== 'https:')
+        ) {
+            throw new Error('OIDC endpoints must use HTTPS');
+        }
     }
     return {
         authorization_endpoint,
@@ -287,17 +318,13 @@ export function parseJwtPayload(idToken: string): Record<string, unknown> | null
     }
 }
 
-/** Verified email from common OIDC / Microsoft claim shapes. */
+/** Only an explicit verified-email claim proves ownership; usernames are not emails. */
 export function emailFromOidcClaims(claims: Record<string, unknown>): string | null {
     const email = claims.email;
     if (typeof email === 'string' && email.trim()) {
         const verified = claims.email_verified;
-        if (verified === false) return null;
+        if (verified !== true) return null;
         return email.trim();
-    }
-    for (const key of ['preferred_username', 'mail', 'userPrincipalName', 'upn'] as const) {
-        const v = claims[key];
-        if (typeof v === 'string' && v.includes('@')) return v.trim();
     }
     return null;
 }

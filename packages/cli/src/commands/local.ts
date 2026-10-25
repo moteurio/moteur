@@ -41,7 +41,7 @@ async function assignUserToProject(userId: string, projectId: string): Promise<v
     const prev = project.users ?? [];
     if (prev.includes(userId)) return;
     await putProjectJson(projectId, PROJECT_KEY, { ...project, users: [...prev, userId] });
-    addProjectToUser(userId, projectId);
+    await addProjectToUser(userId, projectId);
 }
 
 /**
@@ -140,7 +140,7 @@ export async function createUserCommand(args: Record<string, unknown>): Promise<
     };
 
     try {
-        createUser(user);
+        await createUser(user);
         if (projectId) await assignUserToProject(user.id, projectId);
     } catch (err) {
         console.error('❌', err instanceof Error ? err.message : String(err));
@@ -224,7 +224,7 @@ export async function resetPasswordCommand(args: Record<string, unknown>): Promi
     const { storageConfig } = await import('@moteurio/core/config/storageConfig.js');
 
     try {
-        const updated = setUserPasswordHash(target, await hashPassword(newPassword));
+        const updated = await setUserPasswordHash(target, await hashPassword(newPassword));
         if (args.json) {
             const { passwordHash: _, auth: __, ...safe } = updated;
             console.log(JSON.stringify(safe, null, 2));
