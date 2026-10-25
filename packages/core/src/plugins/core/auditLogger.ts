@@ -8,7 +8,20 @@ export const manifest: PluginManifest = {
     label: 'Audit metadata',
     description: 'Maintains created/updated audit fields on projects, models, and entries',
     source: 'builtin',
-    kind: 'core'
+    kind: 'core',
+    scope: 'global',
+    contributes: {
+        events: {
+            subscribes: [
+                'project.beforeCreate',
+                'project.beforeUpdate',
+                'model.beforeCreate',
+                'model.beforeUpdate',
+                'entry.beforeCreate',
+                'entry.beforeUpdate'
+            ]
+        }
+    }
 };
 
 function updateAudit(user: User, existingAudit: Audit = {}): Audit {

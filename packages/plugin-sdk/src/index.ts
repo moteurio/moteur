@@ -9,6 +9,14 @@ import type { BlockSchema } from '@moteurio/types/Block.js';
 import type { StructureSchema } from '@moteurio/types/Structure.js';
 import type { BlueprintSchema } from '@moteurio/types/Blueprint.js';
 import type { FieldSchema } from '@moteurio/types/Field.js';
+import type { ModelSchema } from '@moteurio/types/Model.js';
+import type {
+    GitCommitHook,
+    MediaGenerator,
+    MediaTransform,
+    MediaVariantPreset
+} from './extensions.js';
+import type { PluginCommandSpec } from '@moteurio/types/PluginCommand.js';
 
 export type HostPluginScope = 'global' | 'project';
 
@@ -26,6 +34,16 @@ export type PluginInitContext = {
     registerStructureSchema: (schema: StructureSchema) => void;
     registerBlueprint: (blueprint: BlueprintSchema) => void;
     registerFieldSchema: (field: FieldSchema) => void;
+    registerCommand: (spec: PluginCommandSpec) => void;
+    /** Same as `registerCommand` with `surfaces: ['mcp']`. */
+    registerMcpTool: (spec: PluginCommandSpec) => void;
+    registerMediaVariantPreset: (preset: MediaVariantPreset) => void;
+    registerMediaTransform: (transform: MediaTransform) => void;
+    registerMediaGenerator: (generator: MediaGenerator) => void;
+    registerModelTemplate: (schema: ModelSchema) => void;
+    registerGitCommitHook: (hook: GitCommitHook) => void;
+    registerGitProvider: (id: string) => void;
+    registerOutboundWebhookEvent: (event: string) => void;
     /** Who decides each project's monthly AI credits (null: unlimited); null restores the default. */
     setCreditAllowance: (allowance: ((projectId: string) => number | null) | null) => void;
     /**
@@ -112,6 +130,17 @@ export type PluginOpenApiPaths = Record<string, unknown>;
 export function definePlugin(plugin: HostPluginModule): HostPluginModule {
     return plugin;
 }
+
+export type {
+    GitCommitHook,
+    GitCommitHookPayload,
+    MediaGenerator,
+    MediaGeneratorResult,
+    MediaTransform,
+    MediaTransformContext,
+    MediaVariantPreset,
+    ModelTemplate
+} from './extensions.js';
 
 export {
     beginOAuth,

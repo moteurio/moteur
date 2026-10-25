@@ -4,10 +4,11 @@
  */
 import type { OpenAPIV3 } from 'openapi-types';
 import type { Router } from 'express';
-import type { AuthProviderContribution } from '@moteurio/types/Plugin.js';
+import type { AuthProviderContribution, PluginContributions } from '@moteurio/types/Plugin.js';
+import { mergeContributions } from '@moteurio/types/Plugin.js';
 
 import '@moteurio/core';
-import { registerCorePlugins, registerHostPlugins } from '@moteurio/core';
+import { pluginRegistry, registerCorePlugins, registerHostPlugins } from '@moteurio/core';
 import '@moteurio/core/assets/index.js';
 import type { HostPluginModule } from '@moteurio/plugin-sdk';
 
@@ -22,6 +23,7 @@ import { openapi as operatorSpec } from '../operator/index.js';
 import { openapi as operatorAuthSpec } from '../operator/auth.js';
 import { openapi as invitesSpec } from '../invites/index.js';
 import { openapi as mcpSpec } from '../mcp/index.js';
+import { openapi as commandsSpec } from '../commands/index.js';
 import { openapi as usageSpec } from '../studio/usage.js';
 import { openapi as fieldTypesSpec } from '../studio/fieldTypes.js';
 import { openapi as assetsMigrateSpec } from '../studio/assets/migrate.js';
@@ -91,7 +93,11 @@ function toAuthProviders(
 function shouldExposeAuthCallbacks(pluginId: string, hostPlugins: HostPluginModule[]): boolean {
     const plugin = hostPlugins.find(p => p.manifest.id === pluginId);
     if (!plugin) return false;
-    const caps = plugin.manifest.capabilities ?? [];
+    const manifest = plugin.manifest;
+    if (manifest.categories?.includes('auth')) return true;
+    if (manifest.contributes?.auth?.providers?.length) return true;
+    if (typeof plugin.getAuthProviders === 'function') return true;
+    const caps = manifest.capabilities ?? [];
     return caps.includes('auth-provider') || pluginId.startsWith('auth-');
 }
 
@@ -201,11 +207,35 @@ export async function bootstrapApi(options?: {
                     pluginRouteContributions.push(contrib);
                     if (contrib.openapi?.paths) Object.assign(pluginPaths, contrib.openapi.paths);
                 }
+                const derived: PluginContributions = {
+                    api: {
+                        mounts: contribs.map(c => c.path),
+                        openApi: contribs.some(c => Boolean(c.openapi?.paths)),
+                        routePaths: contribs.flatMap(c => Object.keys(c.openapi?.paths ?? {}))
+                    }
+                };
+                if (typeof plugin.attachServer === 'function') {
+                    derived.server = { attach: true };
+                }
+                pluginRegistry.setContributions(
+                    plugin.manifest.id,
+                    mergeContributions(plugin.manifest.contributes, derived)
+                );
             }
             if (typeof plugin.getAuthProviders === 'function') {
-                authProviders.push(
-                    ...toAuthProviders(plugin.manifest.id, plugin.getAuthProviders())
-                );
+                const providers = toAuthProviders(plugin.manifest.id, plugin.getAuthProviders());
+                authProviders.push(...providers);
+                if (providers.length) {
+                    pluginRegistry.setContributions(plugin.manifest.id, {
+                        auth: { providers: providers.map(p => p.id) }
+                    });
+                }
+            }
+            if (
+                typeof plugin.attachServer === 'function' &&
+                typeof plugin.getRoutes !== 'function'
+            ) {
+                pluginRegistry.setContributions(plugin.manifest.id, { server: { attach: true } });
             }
         } catch (err) {
             console.warn(
@@ -228,6 +258,7 @@ export async function bootstrapApi(options?: {
             { owner: 'operator-auth', paths: operatorAuthSpec as OpenAPIV3.PathsObject },
             { owner: 'invites-core', paths: invitesSpec as OpenAPIV3.PathsObject },
             { owner: 'mcp-core', paths: mcpSpec as OpenAPIV3.PathsObject },
+            { owner: 'commands-core', paths: commandsSpec as OpenAPIV3.PathsObject },
             { owner: 'models-core', paths: modelsSpecs.paths as OpenAPIV3.PathsObject },
             { owner: 'entries-core', paths: entriesSpecs.paths as OpenAPIV3.PathsObject },
             { owner: 'studio-usage-core', paths: usageSpec as OpenAPIV3.PathsObject },

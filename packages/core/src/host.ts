@@ -24,6 +24,18 @@ export { PROJECT_KEY } from './utils/storageKeys.js';
 
 // Media
 export { getAsset, updateAsset, uploadAsset } from './assets/assetService.js';
+export {
+    listMediaGenerators,
+    listMediaTransforms,
+    listMediaVariantPresets,
+    runMediaGenerator
+} from './plugins/mediaPipeline.js';
+
+// Commands, model starters, git
+export { listPluginCommands } from './plugins/commandRegistry.js';
+export { getModelTemplate, listModelTemplates } from './plugins/modelTemplates.js';
+export { listGitProviders } from './plugins/gitHooks.js';
+export { listPluginOutboundWebhookEvents } from './plugins/outboundEvents.js';
 
 // Safety: a URL from outside must be public HTTPS before it is fetched
 export { assertPublicHttpsUrl } from './webhooks/webhookService.js';

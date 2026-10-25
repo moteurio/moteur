@@ -21,6 +21,7 @@ import {
 import { createAdapter, storageIds } from './adapterRegistry.js';
 import { videoProviderIds } from './providerRegistry.js';
 import { DEFAULT_IMAGE_VARIANTS, getVariantDefinitions } from './defaultVariants.js';
+import { listMediaVariantPresets } from '../plugins/mediaPipeline.js';
 import { ALLOWED_MIME } from './allowedTypes.js';
 
 const SECRET = '***';
@@ -218,7 +219,12 @@ export async function getProjectMediaSettings(projectId: string, user: User) {
         defaults: {
             maxUploadSizeMb: DEFAULT_MAX_SIZE_MB,
             variants: DEFAULT_IMAGE_VARIANTS,
-            types: Object.keys(ALLOWED_MIME) as AssetType[]
+            types: Object.keys(ALLOWED_MIME) as AssetType[],
+            presets: listMediaVariantPresets().map(p => ({
+                id: p.id,
+                label: p.label,
+                variants: p.variants
+            }))
         }
     };
 }

@@ -8,7 +8,8 @@
 import type { Request, Response } from 'express';
 import { Router } from 'express';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
-import { createServer, parseOptions, type ServerOptions } from '@moteurio/mcp';
+import { createServer, parseOptions, withPluginCommands, type ServerOptions } from '@moteurio/mcp';
+import { listPluginCommands } from '@moteurio/core';
 import { createMoteurAdminClient } from '@moteurio/client';
 import { generateSessionToken } from '@moteurio/core/auth.js';
 import { getUserById } from '@moteurio/core/users.js';
@@ -65,6 +66,7 @@ export function mcpRouter(self: () => string, spec?: OpenAPIV3.Document): Router
         const options = optionsFromQuery(req.query);
         const server = createServer({
             ...options,
+            commands: withPluginCommands(listPluginCommands({ surface: 'mcp' })),
             routes: spec ? async () => spec : false,
             session: body => ({
                 client: async () => client,

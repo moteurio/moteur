@@ -76,6 +76,21 @@ const fail = (message: string): Result => ({
     isError: true
 });
 
+/** Built-ins plus extra specs (plugin commands). Skips ids the catalog already has. */
+export function withPluginCommands(
+    extra: Array<Pick<CommandSpec, 'group' | 'name'> & Partial<CommandSpec>>
+): CommandSpec[] {
+    const seen = new Set(API_COMMANDS.map(c => `${c.group} ${c.name}`));
+    const added: CommandSpec[] = [];
+    for (const spec of extra) {
+        const id = `${spec.group} ${spec.name}`;
+        if (seen.has(id) || !spec.group) continue;
+        seen.add(id);
+        added.push(spec as CommandSpec);
+    }
+    return added.length ? [...API_COMMANDS, ...added] : API_COMMANDS;
+}
+
 export function createServer(options: ServerOptions = {}): Server {
     const all = options.commands ?? API_COMMANDS;
     const selected = selectCommands(all, options);

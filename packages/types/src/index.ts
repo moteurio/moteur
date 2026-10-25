@@ -18,6 +18,7 @@ export * from './Navigation.js';
 export * from './Page.js';
 export * from './Presence.js';
 export * from './Plugin.js';
+export * from './PluginCommand.js';
 export * from './Project.js';
 export * from './Structure.js';
 export * from './Template.js';

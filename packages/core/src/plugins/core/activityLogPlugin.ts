@@ -13,7 +13,39 @@ export const manifest: PluginManifest = {
     label: 'Activity log',
     description: 'Records project and resource changes to the activity log',
     source: 'builtin',
-    kind: 'core'
+    kind: 'core',
+    scope: 'global',
+    contributes: {
+        events: {
+            subscribes: [
+                'project.afterCreate',
+                'project.afterUpdate',
+                'project.afterDelete',
+                'model.afterCreate',
+                'model.afterUpdate',
+                'model.afterDelete',
+                'entry.afterCreate',
+                'entry.afterUpdate',
+                'entry.afterDelete',
+                'template.afterCreate',
+                'template.afterUpdate',
+                'template.afterDelete',
+                'page.afterCreate',
+                'page.afterUpdate',
+                'page.afterDelete',
+                'layout.afterCreate',
+                'layout.afterUpdate',
+                'layout.afterDelete',
+                'structure.afterCreate',
+                'structure.afterUpdate',
+                'structure.afterDelete',
+                'user.afterCreate',
+                'blueprint.afterCreate',
+                'blueprint.afterUpdate',
+                'blueprint.afterDelete'
+            ]
+        }
+    }
 };
 
 export function init(ctx: PluginContext): void {

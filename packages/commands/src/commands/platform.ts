@@ -625,6 +625,16 @@ export const play = group('play', [
     }
 ]);
 
+export const pluginCommands = group('commands', [
+    {
+        name: 'list',
+        summary: 'Commands plugins added on this API',
+        http: 'GET /commands',
+        readOnly: true,
+        pick: 'commands'
+    }
+]);
+
 export const status = group('status', [
     {
         name: '',

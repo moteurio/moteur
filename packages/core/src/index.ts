@@ -79,9 +79,19 @@ export {
     type OnlineUserIdsProvider
 } from './onlinePresence.js';
 export { registerCorePlugins, registerHostPlugins } from './plugins/registerCorePlugins.js';
-export { createPluginContext } from './plugins/pluginContext.js';
+export { createPluginContext, wrapPluginContext } from './plugins/pluginContext.js';
 export type { PluginContext } from './plugins/pluginContext.js';
 export type { CorePluginModule } from './plugins/registerCorePlugins.js';
+export { ContributionCollector } from './plugins/contributionCollector.js';
+export { pluginRegistry } from './registry/PluginRegistry.js';
+export { listPluginCommands } from './plugins/commandRegistry.js';
+export {
+    listMediaGenerators,
+    listMediaTransforms,
+    listMediaVariantPresets,
+    runMediaGenerator
+} from './plugins/mediaPipeline.js';
+export { getModelTemplate, listModelTemplates } from './plugins/modelTemplates.js';
 
 export {
     parseEntryJsonStoragePath,

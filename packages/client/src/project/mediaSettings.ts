@@ -22,7 +22,12 @@ export type MediaSettings = {
      * have a copy here (those can move). Videos in the bin aren't counted.
      */
     videos: Record<string, { count: number; withCopy: number }>;
-    defaults: { maxUploadSizeMb: number; variants: VariantDefinition[]; types: AssetType[] };
+    defaults: {
+        maxUploadSizeMb: number;
+        variants: VariantDefinition[];
+        types: AssetType[];
+        presets?: { id: string; label: string; variants: VariantDefinition[] }[];
+    };
 };
 
 export type MediaSettingsUpdate = {

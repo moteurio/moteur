@@ -1,7 +1,9 @@
 import { pluginRegistry } from '../registry/PluginRegistry.js';
-import { createPluginContext, setPluginScope } from './pluginContext.js';
+import { createPluginContext, setPluginScope, wrapPluginContext } from './pluginContext.js';
+import { ContributionCollector } from './contributionCollector.js';
 import { registerContentCommitHook } from '../git/contentCommitHook.js';
-import type { PluginManifest } from '@moteurio/types/Plugin.js';
+import type { PluginContributions, PluginManifest } from '@moteurio/types/Plugin.js';
+import { mergeContributions } from '@moteurio/types/Plugin.js';
 import type { PluginContext } from './pluginContext.js';
 import type { HostPluginModule } from '@moteurio/plugin-sdk';
 
@@ -22,13 +24,55 @@ const CORE_PLUGIN_ENTRIES: Record<
     'auto-assign-user': () => import('./core/autoAssignUser.js')
 };
 
+function warnContributesMismatch(
+    id: string,
+    declared: PluginContributions | undefined,
+    derived: PluginContributions
+): void {
+    const declaredBlocks = declared?.schemas?.blocks ?? [];
+    if (declaredBlocks.length && !(derived.schemas?.blocks ?? []).length) {
+        console.warn(
+            `[plugins] Plugin "${id}" declares schemas.blocks but registered none during init.`
+        );
+    }
+    const declaredFields = declared?.schemas?.fields ?? [];
+    if (declaredFields.length && !(derived.schemas?.fields ?? []).length) {
+        console.warn(
+            `[plugins] Plugin "${id}" declares schemas.fields but registered none during init.`
+        );
+    }
+}
+
+function warnMissingRequires(loadedIds: Set<string>): void {
+    for (const id of loadedIds) {
+        if (!pluginRegistry.has(id)) continue;
+        const requires = pluginRegistry.get(id).requires ?? [];
+        const missing = requires.filter(dep => !loadedIds.has(dep) && !pluginRegistry.has(dep));
+        if (missing.length) {
+            console.warn(
+                `[plugins] Plugin "${id}" requires ${missing.join(', ')}, which are not loaded.`
+            );
+        }
+    }
+}
+
+async function initAndCollect(
+    id: string,
+    plugin: { manifest: PluginManifest; init: (ctx: PluginContext) => void | Promise<void> }
+): Promise<void> {
+    const collector = new ContributionCollector();
+    const ctx = wrapPluginContext(createPluginContext(), collector, id);
+    await Promise.resolve(plugin.init(ctx));
+    const derived = collector.snapshot();
+    warnContributesMismatch(id, plugin.manifest.contributes, derived);
+    pluginRegistry.setContributions(id, mergeContributions(plugin.manifest.contributes, derived));
+}
+
 /**
  * Register all core plugin manifests and run their init() to attach event handlers.
  * Idempotent: safe to call once at bootstrap.
  */
 export async function registerCorePlugins(): Promise<void> {
-    const ctx = createPluginContext();
-
     for (const id of CORE_PLUGIN_IDS) {
         const load = CORE_PLUGIN_ENTRIES[id];
         if (!load) continue;
@@ -42,7 +86,7 @@ export async function registerCorePlugins(): Promise<void> {
 
         pluginRegistry.register(plugin.manifest.id, plugin.manifest);
         setPluginScope(plugin.manifest.id, 'global');
-        await Promise.resolve(plugin.init(ctx));
+        await initAndCollect(plugin.manifest.id, plugin);
     }
 
     // Core: commit and push on content.saved / content.deleted (gated by project.git.enabled)
@@ -51,7 +95,7 @@ export async function registerCorePlugins(): Promise<void> {
 
 /** Register host-provided plugin modules. Optional plugin composition belongs to the host runtime. */
 export async function registerHostPlugins(plugins: HostPluginModule[]): Promise<void> {
-    const ctx = createPluginContext();
+    const loaded = new Set<string>(pluginRegistry.list());
     for (const plugin of plugins) {
         const id = plugin?.manifest?.id;
         if (!id) continue;
@@ -65,7 +109,8 @@ export async function registerHostPlugins(plugins: HostPluginModule[]): Promise<
             }
             setPluginScope(id, plugin.manifest.scope ?? 'project');
             pluginRegistry.register(plugin.manifest.id, plugin.manifest);
-            await Promise.resolve(plugin.init(ctx));
+            await initAndCollect(id, plugin);
+            loaded.add(id);
         } catch (err) {
             console.warn(
                 `[plugins] Failed to initialize host plugin "${id}":`,
@@ -73,4 +118,5 @@ export async function registerHostPlugins(plugins: HostPluginModule[]): Promise<
             );
         }
     }
+    warnMissingRequires(loaded);
 }

@@ -6,7 +6,11 @@ export const manifest: PluginManifest = {
     label: 'Auto-assign user',
     description: 'Assigns the creating user to the project when it has no users',
     source: 'builtin',
-    kind: 'core'
+    kind: 'core',
+    scope: 'global',
+    contributes: {
+        events: { subscribes: ['project.beforeCreate'] }
+    }
 };
 
 export function init(ctx: PluginContext): void {
