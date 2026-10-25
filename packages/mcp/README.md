@@ -5,6 +5,8 @@ server with a tool for everything the Moteur API can do, from listing entries to
 schedules, media, menus and AI help. The tools are generated from the same declarations as the
 `moteur` CLI ([@moteurio/commands](../commands)), so both always offer the same things.
 
+Engine guide: [MCP](../../docs/MCP.md), including current hosted authentication and tool-selection limits.
+
 ## Set up
 
 Sign in once with the CLI (or set `MOTEUR_API_URL` with `MOTEUR_TOKEN` or `MOTEUR_API_KEY`):
@@ -37,8 +39,9 @@ Claude Desktop, or any MCP client (`mcpServers`):
 ## Hosted: `/mcp` on every Moteur API
 
 Every Moteur API serves the same tools over Streamable HTTP at `/mcp` (on Moteur's cloud:
-`https://api.moteur.io/mcp`), for clients that connect to remote servers. Until sign-in with OAuth
-arrives, give the client a token:
+`https://api.moteur.io/mcp`), for clients that connect to remote servers. This checkout uses Bearer
+tokens; it does not implement MCP OAuth discovery/registration or account onboarding. Use a client
+that accepts an Authorization header, or the local stdio server:
 
 ```bash
 moteur auth agent-token Claude          # lasts up to 8 hours; --allow-publish to let it publish

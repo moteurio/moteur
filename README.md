@@ -85,7 +85,7 @@ The top-level unit. Everything in Moteur is scoped to a **project**: models, ent
 
 ### Collections (Public API)
 
-A **Collection** is a named, configured view of project data for your frontend or SSG. Each project has one **API key**. Collections define which models and pages that key can read, with optional field selection, status filters, and reference resolution. Key auth is **read-only** (GET only). See [Public API and Collections](docs/Public%20API%20and%20Collections.md) for setup, [REST API](docs/REST%20API.md) for endpoints, and [`@moteurio/client`](packages/client/README.md) for TypeScript/JavaScript over HTTP.
+A **Collection** is a named, configured view of project data for your frontend or SSG. Projects can have multiple independently restricted **API keys**. Collections define which models and pages that key can read, with optional field selection, status filters, and reference resolution. Key auth is **read-only** (GET only). See [Public API and Collections](docs/Public%20API%20and%20Collections.md) for setup, [REST API](docs/REST%20API.md) for endpoints, and [`@moteurio/client`](packages/client/README.md) for TypeScript/JavaScript over HTTP.
 
 ### Blueprints
 
@@ -180,26 +180,23 @@ pnpm run cli
 
 ## Documentation & ecosystem
 
-| Resource                                                                 | Description                                                                                                                                                             |
-| ------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **[Documentation index](docs/README.md)**                                | Overview of all docs and where to start.                                                                                                                                |
-| **[Public API & Collections](docs/Public%20API%20and%20Collections.md)** | Quick guide: API key, collections, and consuming content.                                                                                                               |
-| **[REST API](docs/REST%20API.md)**                                       | Full HTTP API reference (auth, projects, collections, admin).                                                                                                           |
-| **[`@moteurio/client`](packages/client/README.md)**                      | Official HTTP client (admin + public factories).                                                                                                                        |
-| **[Developer API](docs/Developer%20API.md)**                             | Embedded `@moteurio/core` API (in-process only; contributors / advanced).                                                                                               |
-| **[OpenAPI (Swagger)](docs/REST%20API.md#-openapi)**                     | When the API is running: **Scalar** at `{basePath}/docs`, **OpenAPI JSON** at `{basePath}/openapi.json`. Hosted docs: [docs.api.moteur.io](https://docs.api.moteur.io). |
-| **Moteur Studio**                                                        | Private admin UI (not open source).                                                                                                                                     |
-| **[Starters](docs/Starters.md)**                                         | Official starters (Next.js, Astro, Eleventy, etc.) — same demo project, same patterns.                                                                                  |
-| **[Configuration](docs/Configuration.md)**                               | Environment variables for the API.                                                                                                                                      |
-| **[CLI](docs/CLI.md)**                                                   | CLI reference.                                                                                                                                                          |
-| **[Blueprints](docs/Blueprints.md)**                                     | Blueprint kinds and usage.                                                                                                                                              |
-| **[Workflows](docs/Workflows.md)**                                       | Entry workflow (draft, review, published).                                                                                                                              |
-| **[Presence API](docs/Presence%20API.md)**                               | Real-time presence (e.g. editor cursors).                                                                                                                               |
-| **[Authentication](docs/Authentication.md)**                             | JWT and project API key: how to get and use them.                                                                                                                       |
-| **[Webhooks](docs/Webhooks.md)**                                         | Outbound webhooks: events, payload, signature verification.                                                                                                             |
-| **[Fields](docs/Fields.md)**                                             | Core field types reference.                                                                                                                                             |
-| **[Blocks](docs/Blocks.md)**                                             | Core block types reference.                                                                                                                                             |
-| **[Seeds](docs/Seeds.md)**                                               | Canonical blueprints and how to run seed.                                                                                                                               |
+Start with the [documentation index](docs/README.md) for the complete guide list.
+
+| Goal                                       | Guide                                                                                                                                  |
+| ------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------- |
+| Define content and languages               | [Content modeling](docs/Content%20modeling.md), [Fields](docs/Fields.md), [Blocks](docs/Blocks.md)                                     |
+| Build a site tree and menus                | [Pages and navigation](docs/Pages%20and%20navigation.md)                                                                               |
+| Deliver content to an application          | [Public API and Collections](docs/Public%20API%20and%20Collections.md), [HTTP client](packages/client/README.md)                       |
+| List, filter and find missing translations | [Entry queries](docs/Entry%20queries.md)                                                                                               |
+| Manage files and image delivery            | [Media](docs/Media.md), [Images](docs/Images.md)                                                                                       |
+| Collect visitor input                      | [Forms](docs/Forms.md)                                                                                                                 |
+| Review and publish                         | [Workflows](docs/Workflows.md), [Scheduling](docs/Scheduling.md)                                                                       |
+| Automate authoring                         | [CLI](docs/CLI.md), [MCP](docs/MCP.md), [REST API](docs/REST%20API.md)                                                                 |
+| Host and restore the API                   | [Operations](docs/Operations.md), [Configuration](docs/Configuration.md), [Authentication](docs/Authentication.md)                     |
+| Extend the engine                          | [Plugin SDK](packages/plugin-sdk/README.md), [host plugin guide](https://github.com/moteurio/moteur-plugins/blob/main/docs/Plugins.md) |
+| Choose a frontend starter                  | [Starters](docs/Starters.md)                                                                                                           |
+
+The running host serves Scalar at `{API_BASE_PATH}/docs` and JSON at `{API_BASE_PATH}/openapi.json`. The [hosted API reference](https://docs.api.moteur.io) includes the production host's plugin composition. Plugin runtime manuals live with their implementations, including private AI and presence plugins in `moteur-plugins-extra`.
 
 ---
 

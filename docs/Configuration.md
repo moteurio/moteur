@@ -59,37 +59,23 @@ This page lists environment variables used by the Moteur API. Details (rate limi
 
 - **JWT:** `JWT_SECRET` (required for login/refresh); `JWT_EXPIRY` (default `1h`).
 - **Users file:** `AUTH_USERS_FILE` (default `data/users.json` relative to `DATA_ROOT`). See [REST API](REST%20API.md) for login and refresh.
-- **OAuth:** `AUTH_GITHUB_*`, `AUTH_GOOGLE_*`, `AUTH_REDIRECT_AFTER_LOGIN` when using auth plugins. See [Plugins](Plugins.md).
+- **OAuth:** `AUTH_GITHUB_*`, `AUTH_GOOGLE_*`, `AUTH_REDIRECT_AFTER_LOGIN` when using auth plugins. See the [host plugin guide](https://github.com/moteurio/moteur-plugins/blob/main/docs/Plugins.md).
 - **Operators** (they run the server and are not users; see [Authentication](Authentication.md#operators)): `OPERATORS_FILE` (default `data/operators.json` relative to `DATA_ROOT`); `OPERATOR_SECRET` (recommended: the key for operator tokens and authenticator secrets, so a leaked `JWT_SECRET` reaches no operator; derived from `JWT_SECRET` when unset; changing it ends every operator session, and they then sign in with a recovery code or are reset); `STUDIO_URL` (for the full one-time links `moteur-operators` prints).
 
 ---
 
-## Presence (Studio)
+## Membership status and metering
 
-| Variable                      | Description                                                                                                                                                                                                                                                                 |
-| ----------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `ONLINE_PRESENCE_MAX_IDLE_MS` | For `GET /projects/:projectId/users`, a user counts as **`online`** if their Socket.IO presence `updatedAt` is at most this many milliseconds old. Integer; default **90000** (90s). Values below **1000** are ignored (fallback to default). Capped at **86400000** (24h). |
+These variables are read by the engine even when no AI or presence plugin is installed. They do not enable those plugins or add their routes.
 
----
+| Variable                      | Description                                                                                                                                             |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ONLINE_PRESENCE_MAX_IDLE_MS` | Freshness window for the online flag on project-member reads; default 90,000 ms. A presence plugin must supply heartbeats before anyone appears online. |
+| `MOTEUR_METERING_DIR`         | Persistent request/submission counts and credit ledger; default `data/metering` under `DATA_ROOT`.                                                      |
+| `MOTEUR_AI_MONTHLY_CREDITS`   | Default engine credit allowance per project and UTC calendar month; default `1000`, or `unlimited`. Host plugins can override allowances.               |
+| `MOTEUR_AI_CREDITS_DISABLED`  | `1` or `true` disables engine credit checks and deductions. It does not enable generation.                                                              |
 
-## AI
-
-| Variable                               | Description                                                                                                                                         |
-| -------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `MOTEUR_AI_PROVIDER`                   | Provider: `openai`, `anthropic`, or `mock`. **Required** for AI; when unset, AI is disabled (503, Studio hides AI).                                 |
-| `MOTEUR_AI_CREDIT_COSTS`               | Optional. JSON object to override default credit costs per operation (see [AI](AI.md)).                                                             |
-| `MOTEUR_AI_CREDITS_DISABLED`           | Set to `1` (or `true`) to disable AI credit checks and deductions (unlimited credits).                                                              |
-| `MOTEUR_AI_MONTHLY_CREDITS`            | AI credits each project gets per calendar month (default `1000`, or `unlimited`), unless a host plugin sets allowances. See [AI](AI.md#credits).    |
-| `MOTEUR_METERING_DIR`                  | Where the API server keeps AI credits and request counts across restarts (default `data/metering` under `DATA_ROOT`).                               |
-| `OPENAI_API_KEY`                       | OpenAI key; used when provider is `openai`.                                                                                                         |
-| `ANTHROPIC_API_KEY`                    | Anthropic key; used when provider is `anthropic`.                                                                                                   |
-| `GOOGLE_AI_API_KEY` / `GEMINI_API_KEY` | Google Gemini key; used when `MOTEUR_AI_PROVIDER=google` or project `ai.imageProvider` is `google`. Requires `@moteurio/plugin-ai-provider-google`. |
-| `FAL_KEY`                              | fal.ai key; used when `MOTEUR_AI_PROVIDER=fal` or project `ai.imageProvider` / `audioProvider` / `model3dProvider` is `fal`.                        |
-| `MESHY_API_KEY`                        | Meshy key; used when project `ai.model3dProvider` is `meshy`. Requires `@moteurio/plugin-ai-provider-meshy`.                                        |
-| `ELEVENLABS_API_KEY`                   | ElevenLabs key; used when project `ai.audioProvider` is `elevenlabs`. Requires `@moteurio/plugin-ai-provider-elevenlabs`.                           |
-| `ELEVENLABS_VOICE_ID`                  | Optional default ElevenLabs voice id for TTS (overrides built-in default).                                                                          |
-
-See [AI](AI.md) for full documentation.
+Provider keys, AI generation costs and Socket.IO transport settings belong to the optional plugins. Their manuals live in `moteur-plugins-extra`; the engine does not bundle those services.
 
 ---
 
@@ -116,11 +102,40 @@ Export and response checks do not require the server; see [REST API — OpenAPI]
 
 Project and content are stored locally (git-native). See the main [README](../README.md) for data layout.
 
-| Variable         | Description                                                                                                                                                                                                             |
-| ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `DATA_ROOT`      | Root directory for Moteur data (default: repo root when running from API package). `PROJECTS_DIR`, `AUTH_USERS_FILE`, `OPERATORS_FILE` and `BLUEPRINTS_DIR` are resolved relative to this when given as relative paths. |
-| `PROJECTS_DIR`   | Projects directory (default `data/projects` relative to `DATA_ROOT`). Each project is a directory with `project.json`, content files, and optionally `.moteur/` and `user-data/` (gitignored).                          |
-| `BLUEPRINTS_DIR` | Blueprints directory (default `data/blueprints` relative to `DATA_ROOT`).                                                                                                                                               |
+| Variable         | Description                                                                                                                                                                                                                                                     |
+| ---------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `DATA_ROOT`      | Root directory for Moteur data. Set it explicitly on deployed hosts; fallback resolution depends on the working directory. `PROJECTS_DIR`, `AUTH_USERS_FILE`, `OPERATORS_FILE` and `BLUEPRINTS_DIR` are resolved relative to this when given as relative paths. |
+| `PROJECTS_DIR`   | Projects directory (default `data/projects` relative to `DATA_ROOT`). Each project is a directory with `project.json`, content files, and optionally `.moteur/` and `user-data/` (gitignored).                                                                  |
+| `BLUEPRINTS_DIR` | Blueprints directory (default `data/blueprints` relative to `DATA_ROOT`).                                                                                                                                                                                       |
 
 - **Git**: Content is committed on every save when the project is a Git repo; `.moteur/` and `user-data/` are never committed on the main branch. See [Git integration](Git.md) for snapshots, branches, and the snapshot scheduler.
 - **Snapshot scheduler**: Runs in-process; per-project schedule is stored in `.moteur/snapshot-schedule.json` (`enabled`, `cron`). No environment variables are required for the scheduler.
+
+## Content index
+
+| Variable                          | Description                                                                                                                                                                         |
+| --------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `MOTEUR_CONTENT_INDEX`            | `sqlite` (default) for a rebuildable per-project index, or `files` for direct scans. SQLite requires `node:sqlite`; unavailable/unknown adapters fall back to scans with a warning. |
+| `MOTEUR_CONTENT_INDEX_RECHECK_MS` | SQLite reconciliation interval for external file edits: default `30000`; `0` disables background reconciliation. API writes update the index directly.                              |
+
+See [Operations](Operations.md) for storage, backup/restore, the single-writer model and scheduler requirements, and [MCP](MCP.md) for hosted transport configuration.
+
+## Webhook secret storage
+
+`MOTEUR_ENCRYPTION_KEY` encrypts stored webhook secrets with AES-256-GCM. Preserve the key when restoring a data backup. See [Webhooks](Webhooks.md) for delivery limits and signature verification.
+
+## Verification and resource budgets
+
+| Variable                          | Default    | Purpose                                                                        |
+| --------------------------------- | ---------- | ------------------------------------------------------------------------------ |
+| `SMTP_HOST`, `SMTP_FROM`          | Unset      | Required to deliver signup verification codes; no silent verification fallback |
+| `SMTP_PORT`                       | `587`      | SMTP port; `465` uses TLS at connection                                        |
+| `SMTP_USER`, `SMTP_PASS`          | Unset      | Optional SMTP authentication                                                   |
+| `API_RATE_LIMIT_VERIFICATION_MAX` | `60`       | Provider verification requests per IP per 15 minutes; maximum 1,000            |
+| `API_UPLOAD_CONCURRENCY`          | `2`        | Concurrent buffered uploads; maximum 8; excess receives 429                    |
+| `MOTEUR_IMAGE_CONCURRENCY`        | `2`        | Image workers; maximum 8; eight additional jobs may wait                       |
+| `MOTEUR_IMAGE_MAX_PIXELS`         | `16000000` | Input pixel ceiling, including animation frames; maximum 100 million           |
+| `API_READ_MAX_REFERENCES`         | `200`      | Reference edges per delivery request; maximum 2,000                            |
+| `API_READ_MAX_BYTES`              | `8388608`  | Serialized entry-work budget per delivery request; maximum 64 MiB              |
+
+Session and verification state follows `AUTH_USERS_FILE` into its parent directory. The session-aware release requires users to sign in again. Release the engine/API, auth providers, presence plugin and Studio together; provider callbacks use the updated SDK contract. See [Authentication](Authentication.md) and [Operations](Operations.md).

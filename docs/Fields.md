@@ -1417,5 +1417,4 @@ Declare the children under `fields` on the definition; Studio then shows them as
 - **Defining fields:** Set `type`, `label`, `required`, and `options` on each field in models, structures, blocks, and templates. See [Blueprints](Blueprints.md), the [REST API](REST%20API.md), and [`@moteurio/client`](../packages/client/README.md).
 - **Implementation:** `packages/core/src/fields/index.ts` loads all registrations; validators live under `packages/core/src/validators/`.
 - **Studio picker:** Order and labels match the Studio front-end’s `src/components/field-builders/fieldTypes.tsx`.
-- **Validators (behavior, locale maps, required):** [Field-validators.md](Field-validators.md).
-- **Coverage audit:** [Fields-Audit.md](Fields-Audit.md).
+- **Validation:** [Entry validation](../packages/core/src/validators/validateEntry.ts) and [field validators](../packages/core/src/validators/fields/core) define accepted values. [Content modeling](Content%20modeling.md) explains drafts, required fields and safe updates.

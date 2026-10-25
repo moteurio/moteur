@@ -138,7 +138,7 @@ Same pattern with `POST /projects/:projectId/templates` and a **blueprintId** of
 
 ## API endpoints (global)
 
-Blueprints are **global**; no project ID is required. **Reading** them (`GET`) is open to anyone signed in, so every project's Setup can offer them. **Creating, changing and deleting** them needs an **operator**: an account whose own roles (not a project's) include `admin` (see [Authentication](Authentication.md)). The API uses **path-based** routes by kind; `/blueprints/templates` follows the same pattern as the others.
+Blueprints are **global**; no project ID is required. **Reading** them (`GET`) is open to signed-in users and operators, so every project's Setup can offer them. **Creating, changing and deleting** them requires an **operator token**; a user's account or project admin role is insufficient. See [operator authentication](Authentication.md#operators). The API uses **path-based** routes by kind; `/blueprints/templates` follows the same pattern as the others.
 
 | Method | Endpoint                     | Description                                                         |
 | ------ | ---------------------------- | ------------------------------------------------------------------- |

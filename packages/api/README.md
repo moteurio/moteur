@@ -2,7 +2,7 @@
 
 Express **REST API** for Moteur: JWT admin routes, read-only **project API key** collections, Scalar docs, merged **OpenAPI 3**, webhooks, and in-process integration with `@moteurio/core`. Optional host plugins (e.g. **`@moteurio/plugin-ai`**, **`@moteurio/plugin-presence`**) add routes and behavior when loaded.
 
-Product documentation: monorepo [`docs/`](../../docs/README.md). HTTP reference: [REST API](../../docs/REST%20API.md). Configuration: [Configuration](../../docs/Configuration.md). Plugins: [Plugins](../../docs/Plugins.md).
+Product documentation: monorepo [`docs/`](../../docs/README.md). HTTP reference: [REST API](../../docs/REST%20API.md). Hosting: [Operations](../../docs/Operations.md) and [Configuration](../../docs/Configuration.md). Plugins: [host plugin guide](https://github.com/moteurio/moteur-plugins/blob/main/docs/Plugins.md).
 
 ## Install
 

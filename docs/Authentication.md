@@ -31,13 +31,13 @@ Authorization: Bearer <token>
 
 **Current user:** `GET {basePath}/auth/me` (with JWT) returns `{ "user": { ... } }` including the user’s projects.
 
-### OAuth (GitHub, Google)
+### OAuth provider plugins
 
-If enabled, use the browser flow:
+OAuth routes are contributed by host plugins (GitHub, Google, Microsoft or generic OIDC), rather than bundled with the engine. For GitHub/Google, the browser flow is:
 
 - `GET {basePath}/auth/github?next=/projects` (or `/auth/google`) — sets a short-lived `moteur_oauth` cookie and redirects to the provider with a signed `state`. `next` is optional and must be a relative path.
-- The provider redirects back to `.../auth/github/callback` (or `.../auth/google/callback`). The API checks `state` against the cookie (10 minutes, same browser), then signs the person in by their verified email, creating an account with no roles the first time.
-- The API then redirects to `AUTH_REDIRECT_AFTER_LOGIN` (default `/auth/callback`) with the result in the URL fragment, so it never reaches server logs: `#token=<jwt>&next=/projects`, or `#error=state|email|inactive|failed` (bad or expired state, no verified email, account turned off, anything else).
+- The provider redirects back to `.../auth/github/callback` (or `.../auth/google/callback`). The API checks `state` against the cookie (10 minutes, same browser), then matches the stored provider identity. A new identity needs a verified email and creates an account with no roles; matching an existing account's email alone does not link it.
+- The API then redirects to the configured `AUTH_REDIRECT_AFTER_LOGIN` with the result in the URL fragment, so it never reaches server logs: `#token=<jwt>&next=/projects`, or `#error=state|email|inactive|failed` (bad or expired state, no verified email, account turned off, anything else).
 
 The Studio handles this at `/auth/callback`: point `AUTH_REDIRECT_AFTER_LOGIN` at it (e.g. `https://studio.moteur.io/auth/callback`). The `AUTH_*_REDIRECT_URI` values must reach the API **through the same origin the sign-in started on**, or the browser won't send the cookie back. In local development the Studio proxies the API, so use `http://localhost:5181/moteur-api/auth/github/callback` and `AUTH_REDIRECT_AFTER_LOGIN=http://localhost:5181/auth/callback`.
 
@@ -51,6 +51,43 @@ A provider is listed only when it is turned on and set up correctly; otherwise i
 - `JWT_SECRET` isn't set, or `AUTH_REDIRECT_AFTER_LOGIN` isn't set or isn't a URL or path.
 
 In those cases (except when turned off or not set up at all), the server logs once why, e.g. `[auth] github sign-in is hidden: AUTH_GITHUB_CLIENT_SECRET not set.`
+
+Generic OIDC uses authenticated UserInfo with a stable subject and discovery metadata matching the configured issuer. An explicitly verified provider email can onboard a new account directly. An unverified claim, username or UPN is only a suggestion: the person must verify an email through Moteur before a new account is created. Already linked provider identities can sign in without a new email claim.
+
+### Verify an address or connect an existing account
+
+After OAuth, a browser-bound pending sign-in can return to Studio's `/auth/connect` page. To create an account when the provider omitted email verification, enter an address, request a six-digit code, then verify it. The pending sign-in expires after 10 minutes; wrong-code attempts are limited to five, and resends have a cooldown and persistent budgets. Restarting the API does not reset those budgets. Email proof alone never connects a provider to an existing account.
+
+To connect an existing account, sign in using its existing method and explicitly confirm the new connection. Studio's **Account security** screen starts this flow with `link=1`, preserved in signed OAuth state. Connecting or disconnecting requires a personal sign-in from the last 10 minutes; refresh and delegated tokens cannot manufacture fresh authentication. Removing the last sign-in method is refused. Credential changes revoke existing sessions and return a replacement token without resetting the original authentication time or session deadline.
+
+Verification uses `SMTP_HOST`, `SMTP_FROM` and optional `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, shared with the engine's other mail. Without SMTP, code delivery fails instead of treating an address as verified. Verification requests need both the opaque ticket from the callback and its HttpOnly browser cookie; requests from a separate Studio origin use credentials and the configured CORS allowlist. Prefer a same-site API/Studio deployment or the development proxy so browsers can send the binding cookie.
+
+| Method | Route below `/auth`      | Purpose                                                               |
+| ------ | ------------------------ | --------------------------------------------------------------------- |
+| POST   | `/provider/pending`      | Describe a pending browser-bound sign-in                              |
+| POST   | `/provider/email`        | Send a verification code; body: `ticket`, `email`                     |
+| POST   | `/provider/verify`       | Verify and create a new account; body: `ticket`, `code`               |
+| POST   | `/provider/link`         | Confirm a provider connection; body: `ticket`, plus recent member JWT |
+| GET    | `/connections`           | List the account's connected provider IDs                             |
+| DELETE | `/connections/:provider` | Disconnect after recent personal sign-in                              |
+
+Provider installation belongs to the [host plugin guide](https://github.com/moteurio/moteur-plugins/blob/main/docs/Plugins.md). See [MCP](MCP.md) for the distinct Bearer-token connection used by hosted MCP.
+
+### Sessions and revocation
+
+JWTs contain a persisted session ID. Access-token expiry still uses `JWT_EXPIRY`; the default personal session has an absolute 24-hour lifetime. Refresh preserves its original authentication time and deadline. Delegated/agent tokens cannot refresh or outlive their parent session; revoking a parent invalidates its children. The private presence plugin also disconnects affected live sockets when sessions end.
+
+Studio's **Account security** page lists sessions and can end one or all. Signing out revokes the current session when the API is reachable, then clears the local token. Password, account email, activation and account-role changes revoke sessions. Account state is stored with private file permissions beside the users file, including per-user `auth-sessions/` files and short-lived `provider-signins.json` proofs; persist that directory across restarts. This remains a single-writer file store, not a distributed session database.
+
+The session-aware release rejects old stateless JWTs: users and CLI clients must sign in again after upgrading. Browser clients continue to use Bearer tokens; this change does not introduce an HttpOnly session/BFF transport.
+
+| Method | Route below `/auth`    | Purpose                                                    |
+| ------ | ---------------------- | ---------------------------------------------------------- |
+| GET    | `/sessions`            | List active personal and delegated sessions                |
+| DELETE | `/sessions/:sessionId` | Revoke one session and its descendants                     |
+| DELETE | `/sessions`            | Revoke all of the account's sessions                       |
+| POST   | `/logout`              | Revoke the current session                                 |
+| POST   | `/refresh`             | Renew access within the original personal-session deadline |
 
 ### Invites
 

@@ -85,7 +85,7 @@ Other modes (e.g. manual publish after approval) may be added later; the API is 
 | `admin`      | `admin`      | writer                | Setup, people, and publishing without a review. Not the raw tools.                                       |
 | `developer`  | `developer`  | admin (and so writer) | Everything an admin can do, plus JSON, API channels, API keys and webhooks.                              |
 
-Roles live on the person in `users.json` and apply to every project they belong to. An empty `roles` list still counts as `writer`. Developer is not also stored as `admin`.
+Account roles live in `users.json`. A project's `memberRoles[userId]`, when present, replaces those roles for that project. An empty role list still counts as `writer`. Developer implies admin without storing both roles. See [Authentication](Authentication.md#roles-in-a-project).
 
 - **Submit for review**: a writer, reviewer, admin, developer, or translator.
 - **Approve / Reject**: `reviewer`, `admin`, or `developer`.
@@ -174,14 +174,14 @@ API: `GET .../notifications`, `POST .../notifications/:id/read`, `POST .../notif
 
 ## Real-time (WebSocket)
 
-When the workflow is used, the Presence/WebSocket server emits to the **project room**:
+When the optional presence plugin is installed, the workflow event bridge emits to the **project room**:
 
 - `review:submitted` — payload: full Review.
 - `review:approved` — payload: full Review.
 - `review:rejected` — payload: full Review (includes `rejectionCommentId`).
 - `review:status_changed` — payload: `{ entryId, modelId, status }`.
 
-See [Presence API](Presence%20API.md).
+The Socket.IO contract belongs to `plugin-presence` in `moteur-plugins-extra`. These live updates are optional; REST review operations work without that plugin.
 
 ---
 
@@ -228,8 +228,8 @@ When `revision > publishedRevision`, the entry has **unpublished changes**. The 
 
 The public API reads `entry.json` and checks `publishedCommit` and `publishedRevision`:
 
-- If `revision == publishedRevision` (or no `publishedCommit`): serves `entry.json` directly — it's already the published content.
-- If `revision > publishedRevision` and `publishedCommit` exists: uses `git show <publishedCommit>:path/to/entry.json` to serve the frozen published content. Draft edits in the latest `entry.json` are invisible to the public API.
+- If the entry has no newer revision than its published revision, the current entry file is the public version.
+- If `revision > publishedRevision`, delivery uses the publish-time snapshot from the content index/cache or Git. If the required pointer or snapshot is unavailable, the entry is hidden instead of exposing newer edits.
 
 ### Revision history
 
@@ -263,7 +263,7 @@ The cache can be cleared at any time (`publishedCache.clear()`) with no data los
 
 ---
 
-## Summary
+## Related guides
 
 | Topic         | Summary                                                                                                                                |
 | ------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
@@ -274,3 +274,5 @@ The cache can be cleared at any time (`publishedCache.clear()`) with no data los
 | **Rejection** | Stored as a Comment on the entry; `Review.rejectionCommentId` links to it.                                                             |
 | **Guard**     | When `requireReview` is true, users without the operator role need an approved review to set `published`.                              |
 | **Revisions** | Git-native. `revision` bumps on every save; `publishedCommit` points to the live git commit.                                           |
+
+For timed publication, see [Scheduling](Scheduling.md). For safe concurrent edits and list queries, see [Content modeling](Content%20modeling.md) and [Entry queries](Entry%20queries.md).
