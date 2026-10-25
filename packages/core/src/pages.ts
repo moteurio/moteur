@@ -328,7 +328,7 @@ export async function createPage(
         throw new Error(`Page "${id}" already exists in project "${projectId}".`);
     }
 
-    triggerEvent('page.beforeCreate', { page, user, projectId });
+    await triggerEvent('page.beforeCreate', { page, user, projectId });
     await putProjectJson(projectId, pageKey(id), page);
     triggerEvent('content.saved', {
         projectId,
@@ -427,7 +427,7 @@ export async function updatePage(
     // Nothing to save: no commit, no hooks, no webhooks.
     if (sameContent(current, updated)) return current;
 
-    triggerEvent('page.beforeUpdate', { page: updated, user, projectId });
+    await triggerEvent('page.beforeUpdate', { page: updated, user, projectId });
     await putProjectJson(projectId, pageKey(id), updated);
     triggerEvent('content.saved', {
         projectId,
@@ -450,9 +450,15 @@ export async function updatePage(
         const newStatus = (updated as StaticPage | CollectionPage).status ?? 'draft';
         if (current.type === 'static' || current.type === 'collection') {
             if (currentStatus !== 'published' && newStatus === 'published') {
-                webhookDispatch('page.published', pagePayload(), { projectId, source: 'api' });
+                await webhookDispatch('page.published', pagePayload(), {
+                    projectId,
+                    source: 'api'
+                });
             } else if (currentStatus === 'published' && newStatus === 'draft') {
-                webhookDispatch('page.unpublished', pagePayload(), { projectId, source: 'api' });
+                await webhookDispatch('page.unpublished', pagePayload(), {
+                    projectId,
+                    source: 'api'
+                });
             }
         }
     } catch {
@@ -526,7 +532,7 @@ export async function deletePage(projectId: string, user: User, id: string): Pro
         throw err;
     }
 
-    triggerEvent('page.beforeDelete', { page: current, user, projectId });
+    await triggerEvent('page.beforeDelete', { page: current, user, projectId });
 
     const source = pageFilePath(projectId, id);
     const destDir = trashPagesDir(projectId);
@@ -549,7 +555,7 @@ export async function deletePage(projectId: string, user: User, id: string): Pro
 
     try {
         const slug = current.slug ? `/${current.slug}` : '/';
-        webhookDispatch(
+        await webhookDispatch(
             'page.deleted',
             {
                 pageId: current.id,

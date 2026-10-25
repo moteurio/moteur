@@ -45,7 +45,11 @@ export async function runFullScan(projectId: string, options?: ScanOptions): Pro
     for (const v of violations) {
         if (!prevIds.has(v.id)) {
             try {
-                webhookDispatch('radar.violation.created', { violation: v }, { projectId, source });
+                await webhookDispatch(
+                    'radar.violation.created',
+                    { violation: v },
+                    { projectId, source }
+                );
             } catch {
                 // never fail scan on webhook
             }
@@ -54,7 +58,7 @@ export async function runFullScan(projectId: string, options?: ScanOptions): Pro
     for (const v of previous?.violations ?? []) {
         if (!newIds.has(v.id)) {
             try {
-                webhookDispatch(
+                await webhookDispatch(
                     'radar.violation.resolved',
                     { violation: { ...v, resolvedAt: now } },
                     { projectId, source }
@@ -141,7 +145,11 @@ export async function runEntryScan(
     for (const v of entryViolations) {
         if (!prevForEntry.has(v.id)) {
             try {
-                webhookDispatch('radar.violation.created', { violation: v }, { projectId, source });
+                await webhookDispatch(
+                    'radar.violation.created',
+                    { violation: v },
+                    { projectId, source }
+                );
             } catch {
                 // ignore
             }
@@ -150,7 +158,7 @@ export async function runEntryScan(
     for (const v of previous?.violations ?? []) {
         if (v.entrySlug === entryId && !newForEntry.has(v.id)) {
             try {
-                webhookDispatch(
+                await webhookDispatch(
                     'radar.violation.resolved',
                     { violation: { ...v, resolvedAt: now } },
                     { projectId, source }

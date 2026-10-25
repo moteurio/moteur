@@ -223,7 +223,7 @@ export async function createSchedule(
 
     try {
         if (input.resourceType === 'entry') {
-            webhookDispatch(
+            await webhookDispatch(
                 'entry.scheduled',
                 {
                     scheduleId: id,
@@ -235,7 +235,7 @@ export async function createSchedule(
                 { projectId, source: 'api' }
             );
         } else {
-            webhookDispatch(
+            await webhookDispatch(
                 'page.scheduled',
                 {
                     scheduleId: id,
@@ -293,7 +293,7 @@ export async function cancelSchedule(
 
     try {
         if (schedule.resourceType === 'entry') {
-            webhookDispatch(
+            await webhookDispatch(
                 'entry.unscheduled',
                 {
                     scheduleId,
@@ -304,7 +304,7 @@ export async function cancelSchedule(
                 { projectId, source: 'api' }
             );
         } else {
-            webhookDispatch(
+            await webhookDispatch(
                 'page.unscheduled',
                 { scheduleId, pageId: schedule.resourceId, action: schedule.action },
                 { projectId, source: 'api' }

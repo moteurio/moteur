@@ -112,7 +112,7 @@ export async function submitForReview(
             // never break on emit failure
         }
         try {
-            webhookDispatch(
+            await webhookDispatch(
                 'review.submitted',
                 {
                     reviewId: review.id,
@@ -228,7 +228,7 @@ export async function approveReview(
                 // never break on emit failure
             }
             try {
-                webhookDispatch(
+                await webhookDispatch(
                     'review.approved',
                     {
                         reviewId: updated.id,
@@ -288,7 +288,7 @@ export async function approveReview(
                 // never break on emit failure
             }
             try {
-                webhookDispatch(
+                await webhookDispatch(
                     'review.approved',
                     {
                         reviewId: updated.id,
@@ -409,7 +409,7 @@ export async function rejectReview(
                 // never break on emit failure
             }
             try {
-                webhookDispatch(
+                await webhookDispatch(
                     'review.rejected',
                     {
                         reviewId: updated.id,
@@ -467,7 +467,7 @@ export async function rejectReview(
                 // never break on emit failure
             }
             try {
-                webhookDispatch(
+                await webhookDispatch(
                     'review.rejected',
                     {
                         reviewId: updated.id,

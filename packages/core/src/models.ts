@@ -77,7 +77,7 @@ export async function createModelSchema(
     }
     await checkCountRoom(projectId, 'models', () => countOf(projectId, 'models'));
 
-    triggerEvent('model.beforeCreate', { model: schema, user, projectId });
+    await triggerEvent('model.beforeCreate', { model: schema, user, projectId });
 
     schema.fields = schema.fields || {};
     await putProjectJson(projectId, modelKey(schema.id), schema);
@@ -126,7 +126,7 @@ export async function updateModelSchema(
     const current = await getModelSchema(user, projectId, schemaId);
     const updated = { ...current, ...patch };
 
-    triggerEvent('model.beforeUpdate', { model: updated, user, projectId });
+    await triggerEvent('model.beforeUpdate', { model: updated, user, projectId });
     await putProjectJson(projectId, modelKey(schemaId), updated);
     triggerEvent('content.saved', {
         projectId,
@@ -145,7 +145,7 @@ export async function deleteModelSchema(
 ): Promise<void> {
     const current = await getModelSchema(user, projectId, schemaId);
 
-    triggerEvent('model.beforeDelete', { model: current, user, projectId });
+    await triggerEvent('model.beforeDelete', { model: current, user, projectId });
 
     const entryIds = await listProjectKeys(projectId, entryListPrefix(schemaId));
     const paths = [modelKey(schemaId), ...entryIds.map(eid => entryKey(schemaId, eid))];

@@ -156,6 +156,23 @@ describe('createMoteurAdminClient', () => {
         expect(capturedRequests[0].url).toBe('/projects/my-project/models/posts/entries');
     });
 
+    it('sends an authoring version when saving an entry conditionally', async () => {
+        const client = createMoteurAdminClient({ baseURL: 'https://api.example.com' });
+        await client.entries.update(
+            'my-project',
+            'posts',
+            'e1',
+            { data: { title: 'New' } },
+            { version: 'opaque-version' }
+        );
+        expect(capturedRequests[0]).toMatchObject({
+            method: 'PATCH',
+            url: '/projects/my-project/models/posts/entries/e1',
+            headers: { 'If-Match': '"opaque-version"' },
+            data: { data: { title: 'New' } }
+        });
+    });
+
     it('entries.create calls POST with body', async () => {
         const client = createMoteurAdminClient({ baseURL: 'https://api.example.com' });
         await client.entries.create('p1', 'posts', { title: 'Hello' });

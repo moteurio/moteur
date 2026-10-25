@@ -39,8 +39,11 @@ import {
     type EntryQueryResult
 } from './contentIndex/index.js';
 import { readPublishedSnapshots } from './contentIndex/entryFiles.js';
+import { requiresPublishedSnapshot } from './contentIndex/publishedView.js';
 import { checkCountRoom } from './planLimits.js';
 import { countOf } from './projectCounts.js';
+import { withProjectWriteLock } from './utils/projectWriteLock.js';
+import { entryVersion } from './utils/entryVersion.js';
 
 /** How an entry is named in commit messages: its slug when it is a plain string, else its id. */
 function commitRef(entry: Entry, entryId: string): string {
@@ -68,10 +71,14 @@ export async function queryEntriesForProject(
     modelId: string,
     query: EntryQuery = {}
 ): Promise<EntryQueryResult> {
+    if (!isValidId(projectId) || !isValidId(modelId))
+        throw Object.assign(new Error('Invalid project or model ID'), { status: 400 });
     return (await getContentIndex()).queryEntries(projectId, modelId, query);
 }
 
 export type EntryServiceOptions = {
+    /** Reject a stale read rather than overwriting changes made while it was being edited. */
+    expectedVersion?: string;
     source?: 'api' | 'studio' | 'scheduler';
     /** Set by restoreEntryAtRevision: `data` and helper marks replace the entry's instead of merging. */
     restoredFrom?: string;
@@ -130,7 +137,7 @@ export async function getEntryForProject(
     modelId: string,
     entryId: string
 ): Promise<Entry | null> {
-    if (!entryId || !isValidId(entryId)) return null;
+    if (!entryId || !isValidId(entryId) || !isValidId(modelId)) return null;
     const entry = await getProjectJson<Entry>(projectId, entryKey(modelId, entryId));
     return entry ?? null;
 }
@@ -160,7 +167,7 @@ export async function getEntry(
     modelId: string,
     entryId: string
 ): Promise<Entry> {
-    if (!entryId || !isValidId(entryId)) {
+    if (!entryId || !isValidId(entryId) || !isValidId(modelId)) {
         throw new Error(`Invalid entry ID: ${entryId}`);
     }
 
@@ -176,6 +183,18 @@ export async function getEntry(
 }
 
 export async function createEntry(
+    user: User,
+    projectId: string,
+    modelId: string,
+    entry: Entry,
+    options?: EntryServiceOptions
+): Promise<Entry> {
+    return withProjectWriteLock(projectId, () =>
+        createEntryUnlocked(user, projectId, modelId, entry, options)
+    );
+}
+
+async function createEntryUnlocked(
     user: User,
     projectId: string,
     modelId: string,
@@ -226,9 +245,9 @@ export async function createEntry(
     }
     await checkCountRoom(projectId, 'entries', () => countOf(projectId, 'entries'));
 
-    triggerEvent('entry.beforeCreate', { entry, user, modelId, projectId });
+    await triggerEvent('entry.beforeCreate', { entry, user, modelId, projectId });
     await putProjectJson(projectId, entryKey(modelId, entry.id), entry);
-    triggerEvent('content.saved', {
+    await triggerEvent('content.saved', {
         projectId,
         paths: [entryKey(modelId, entry.id)],
         message: `Create ${modelId}/${commitRef(entry, entry.id)} — ${user.name ?? user.id}`,
@@ -242,7 +261,7 @@ export async function createEntry(
         // never fail the operation
     }
     try {
-        webhookDispatch(
+        await webhookDispatch(
             'entry.created',
             {
                 entryId: entry.id,
@@ -268,11 +287,32 @@ export async function updateEntry(
     patch: Partial<Entry>,
     options?: EntryServiceOptions
 ): Promise<Entry> {
-    if (!entryId || !isValidId(entryId)) {
+    return withProjectWriteLock(projectId, () =>
+        updateEntryUnlocked(user, projectId, modelId, entryId, patch, options)
+    );
+}
+
+async function updateEntryUnlocked(
+    user: User,
+    projectId: string,
+    modelId: string,
+    entryId: string,
+    patch: Partial<Entry>,
+    options?: EntryServiceOptions
+): Promise<Entry> {
+    if (!entryId || !isValidId(entryId) || !isValidId(modelId)) {
         throw new Error(`Invalid entry ID: ${entryId}`);
     }
 
     const current = await getEntry(user, projectId, modelId, entryId);
+    if (options?.expectedVersion && options.expectedVersion !== entryVersion(current)) {
+        throw Object.assign(new Error('This entry changed. Reload it before saving again.'), {
+            status: 409,
+            code: 'ENTRY_CONFLICT'
+        });
+    }
+    // The precondition is consumed once; a save followed by publish uses the new version.
+    options = options ? { ...options, expectedVersion: undefined } : options;
     const prevStatus = (current.status ?? 'draft') as string;
     const wantsPublish = patch.status === 'published' && prevStatus !== 'published';
     assertCanEdit(user);
@@ -371,9 +411,9 @@ export async function updateEntry(
     // Nothing to save: no commit, no hooks, no webhooks.
     if (sameContent(current, updated)) return current;
 
-    triggerEvent('entry.beforeUpdate', { entry: updated, user, modelId, projectId });
+    await triggerEvent('entry.beforeUpdate', { entry: updated, user, modelId, projectId });
     await putProjectJson(projectId, entryKey(modelId, entryId), updated);
-    triggerEvent('content.saved', {
+    await triggerEvent('content.saved', {
         projectId,
         paths: [entryKey(modelId, entryId)],
         message: restoredFrom
@@ -399,9 +439,9 @@ export async function updateEntry(
         updatedBy: user.id
     };
     try {
-        webhookDispatch('entry.updated', payloadEntry, { projectId, source });
+        await webhookDispatch('entry.updated', payloadEntry, { projectId, source });
         if (prevStatus === 'published' && newStatus === 'unpublished') {
-            webhookDispatch('entry.unpublished', payloadEntry, { projectId, source });
+            await webhookDispatch('entry.unpublished', payloadEntry, { projectId, source });
         }
     } catch {
         // never fail the operation
@@ -416,10 +456,22 @@ export async function deleteEntry(
     entryId: string,
     options?: EntryServiceOptions
 ): Promise<void> {
+    return withProjectWriteLock(projectId, () =>
+        deleteEntryUnlocked(user, projectId, modelId, entryId, options)
+    );
+}
+
+async function deleteEntryUnlocked(
+    user: User,
+    projectId: string,
+    modelId: string,
+    entryId: string,
+    options?: EntryServiceOptions
+): Promise<void> {
     const entry = await getEntry(user, projectId, modelId, entryId);
     assertCanWrite(user);
 
-    triggerEvent('entry.beforeDelete', { entry, user, modelId, projectId });
+    await triggerEvent('entry.beforeDelete', { entry, user, modelId, projectId });
 
     const trashDir = trashEntryDir(projectId, modelId, entryId);
     fs.mkdirSync(trashDir, { recursive: true });
@@ -428,7 +480,7 @@ export async function deleteEntry(
     fs.renameSync(entryFilePath(projectId, modelId, entryId), dest);
     await (await getContentIndex()).entryRemoved(projectId, modelId, entryId);
 
-    triggerEvent('content.deleted', {
+    await triggerEvent('content.deleted', {
         projectId,
         paths: [entryKey(modelId, entryId)],
         message: `Delete ${modelId}/${commitRef(entry, entryId)} — ${user.name ?? user.id}`,
@@ -437,7 +489,7 @@ export async function deleteEntry(
     triggerEvent('entry.afterDelete', { entry, user, modelId, projectId });
 
     try {
-        webhookDispatch(
+        await webhookDispatch(
             'entry.deleted',
             {
                 entryId,
@@ -473,7 +525,19 @@ export async function publishEntry(
     entryId: string,
     options?: EntryServiceOptions
 ): Promise<Entry> {
-    if (!entryId || !isValidId(entryId)) {
+    return withProjectWriteLock(projectId, () =>
+        publishEntryUnlocked(user, projectId, modelId, entryId, options)
+    );
+}
+
+async function publishEntryUnlocked(
+    user: User,
+    projectId: string,
+    modelId: string,
+    entryId: string,
+    options?: EntryServiceOptions
+): Promise<Entry> {
+    if (!entryId || !isValidId(entryId) || !isValidId(modelId)) {
         throw new Error(`Invalid entry ID: ${entryId}`);
     }
 
@@ -612,7 +676,7 @@ export async function publishEntry(
         }
     } else {
         // No git: still fire the regular event so other hooks (activity, etc.) run
-        triggerEvent('content.saved', {
+        await triggerEvent('content.saved', {
             projectId,
             paths: [entryKey(modelId, entryId)],
             message: `Publish ${modelId}/${commitRef(entry, entryId)} — ${user.name ?? user.id}`,
@@ -624,7 +688,7 @@ export async function publishEntry(
 
     const source = options?.source ?? 'api';
     try {
-        webhookDispatch(
+        await webhookDispatch(
             'entry.published',
             {
                 entryId,
@@ -706,6 +770,19 @@ export async function restoreEntryAtRevision(
     revisionId: string,
     options?: EntryServiceOptions
 ): Promise<Restored<Entry>> {
+    return withProjectWriteLock(projectId, () =>
+        restoreEntryAtRevisionUnlocked(user, projectId, modelId, entryId, revisionId, options)
+    );
+}
+
+async function restoreEntryAtRevisionUnlocked(
+    user: User,
+    projectId: string,
+    modelId: string,
+    entryId: string,
+    revisionId: string,
+    options?: EntryServiceOptions
+): Promise<Restored<Entry>> {
     const current = await getEntry(user, projectId, modelId, entryId);
     const snapshot = getEntryAtRevision(projectId, modelId, entryId, revisionId);
     if (!snapshot) throw new Error('Revision not found');
@@ -738,19 +815,19 @@ export async function getPublishedEntryForProject(
     modelId: string,
     entryId: string
 ): Promise<Entry | null> {
-    if (!entryId || !isValidId(entryId)) return null;
+    if (!entryId || !isValidId(entryId) || !isValidId(modelId)) return null;
     const entry = await getProjectJson<Entry>(projectId, entryKey(modelId, entryId));
     if (!entry) return null;
 
     const commit = publishedSnapshotCommit(entry);
-    if (!commit) return entry;
+    if (!commit) return requiresPublishedSnapshot(entry) ? null : entry;
     const indexed = await (
         await getContentIndex()
     ).getPublishedSnapshot(projectId, modelId, entryId, commit);
     if (indexed) return indexed;
     const snapshots = await readPublishedSnapshots(projectId, [{ modelId, entryId, commit }]);
-    // Unreadable snapshot (e.g. history rewritten): serve the entry file.
-    return snapshots.get(`${commit}:${entryKey(modelId, entryId)}`) ?? entry;
+    // Never expose newer edits when the published version cannot be recovered.
+    return snapshots.get(`${commit}:${entryKey(modelId, entryId)}`) ?? null;
 }
 
 /**

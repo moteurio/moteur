@@ -150,7 +150,11 @@ export async function createStructure(
     await checkCountRoom(project, 'structures', () => countOf(project, 'structures'));
 
     const u = user ?? systemUser();
-    triggerEvent('structure.beforeCreate', { structure: schema, user: u, projectId: project });
+    await triggerEvent('structure.beforeCreate', {
+        structure: schema,
+        user: u,
+        projectId: project
+    });
     await putProjectJson(project, structureKey(schema.type), schema);
     triggerEvent('content.saved', {
         projectId: project,
@@ -191,7 +195,11 @@ export async function updateStructure(
     }
 
     const u = user ?? systemUser();
-    triggerEvent('structure.beforeUpdate', { structure: updated, user: u, projectId: project });
+    await triggerEvent('structure.beforeUpdate', {
+        structure: updated,
+        user: u,
+        projectId: project
+    });
     await putProjectJson(project, structureKey(id), updated);
     triggerEvent('content.saved', {
         projectId: project,
@@ -217,7 +225,11 @@ export async function deleteStructure(project: string, id: string, user?: User):
     }
 
     const u = user ?? systemUser();
-    triggerEvent('structure.beforeDelete', { structure: current, user: u, projectId: project });
+    await triggerEvent('structure.beforeDelete', {
+        structure: current,
+        user: u,
+        projectId: project
+    });
 
     const base = baseProjectsDir();
     const source = path.join(base, project, 'structures', id, 'structure.json');
