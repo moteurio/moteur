@@ -103,7 +103,9 @@ export class MoteurApiError extends Error {
     }
 }
 
-export function createRequestClient(config: MoteurClientConfig): AxiosInstance {
+export type MoteurClientConfigWithPreview = MoteurClientConfig & { previewToken?: string };
+
+export function createRequestClient(config: MoteurClientConfigWithPreview): AxiosInstance {
     const baseURL = trimSlash(config.baseURL);
     const timeout = config.timeout === undefined ? DEFAULT_REQUEST_TIMEOUT_MS : config.timeout;
 
@@ -121,6 +123,10 @@ export function createRequestClient(config: MoteurClientConfig): AxiosInstance {
             req.headers.Authorization = `Bearer ${auth.token}`;
         } else if (auth.type === 'apiKey') {
             req.headers['x-api-key'] = auth.apiKey;
+        }
+        const preview = config.previewToken?.trim();
+        if (preview) {
+            req.headers['x-preview-token'] = preview;
         }
         return req;
     });

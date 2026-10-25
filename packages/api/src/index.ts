@@ -125,7 +125,13 @@ app.use(
     cors({
         origin: getCorsOrigin(),
         methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-        allowedHeaders: ['Content-Type', 'Authorization', 'x-api-key', 'If-Match'],
+        allowedHeaders: [
+            'Content-Type',
+            'Authorization',
+            'x-api-key',
+            'x-preview-token',
+            'If-Match'
+        ],
         credentials: true,
         exposedHeaders: ['X-Total-Count', 'Retry-After']
     })

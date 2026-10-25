@@ -32,7 +32,8 @@ export function createMoteurPublicClient(config: MoteurPublicClientConfig) {
     const client = createMoteurClientInternal({
         baseURL: config.baseURL,
         auth: { type: 'apiKey', apiKey: auth.apiKey, projectId },
-        timeout: config.timeout
+        timeout: config.timeout,
+        previewToken: config.previewToken
     });
 
     const collectionsRead = publicCollectionsReadApi(client);
@@ -51,7 +52,14 @@ export function createMoteurPublicClient(config: MoteurPublicClientConfig) {
         channel: (collectionId: string) =>
             createPublicCollectionChannel(client, projectId, collectionId),
         site,
-        radar
+        radar,
+        /** Clone this client with a preview token (draft / latest view on collection reads). */
+        withPreview(previewToken: string) {
+            return createMoteurPublicClient({
+                ...config,
+                previewToken
+            });
+        }
     };
 }
 

@@ -59,7 +59,7 @@ async function respondCollectionOpenApi(req: Request, res: Response): Promise<vo
         res.status(400).json({ error: 'Missing projectId or collectionId' });
         return;
     }
-    if (rejectIfApiKeyCollectionForbidden(req, res, collectionId)) return;
+    if (rejectIfCollectionAccessForbidden(req, res, collectionId)) return;
     const doc = await loadCollectionOpenApiDocument(projectId, collectionId);
     if (!doc) {
         res.status(404).json({ error: 'Collection not found' });
@@ -80,11 +80,30 @@ function parseLocaleQuery(req: Request): string | undefined {
     return s || undefined;
 }
 
-function getStatusFilter(resource: ApiCollectionResource, apiKeyOnly: boolean): EntryStatus[] {
+/** Published-only snapshot when using a bare API key without preview or JWT. */
+function isPublishedOnlyDelivery(req: Request): boolean {
+    if (req.user) return false;
+    if (req.previewAuth) return false;
+    return Boolean(req.apiKeyAuth);
+}
+
+function getStatusFilter(
+    resource: ApiCollectionResource,
+    apiKeyOnly: boolean,
+    previewAuth?: boolean
+): EntryStatus[] {
     if (apiKeyOnly) return ['published'];
     const status = resource.filters?.status;
-    if (status == null) return ['published'];
+    if (status == null) {
+        if (previewAuth) return ['draft', 'in_review', 'published'];
+        return ['published'];
+    }
     return Array.isArray(status) ? status : [status];
+}
+
+function usePublishedEntryView(req: Request, statuses: EntryStatus[]): boolean {
+    if (req.previewAuth) return false;
+    return statuses.length === 1 && statuses[0] === 'published';
 }
 
 function findResource(
@@ -116,6 +135,32 @@ function rejectIfApiKeyCollectionForbidden(
         code: 'API_KEY_COLLECTION_NOT_ALLOWED'
     });
     return true;
+}
+
+function rejectIfPreviewCollectionMismatch(
+    req: Request,
+    res: Response,
+    collectionId: string
+): boolean {
+    if (!req.previewAuth) return false;
+    const scoped = req.previewCollectionId;
+    if (!scoped || scoped === collectionId) return false;
+    res.status(403).json({
+        error: 'Preview token is not valid for this collection',
+        code: 'PREVIEW_COLLECTION_MISMATCH'
+    });
+    return true;
+}
+
+function rejectIfCollectionAccessForbidden(
+    req: Request,
+    res: Response,
+    collectionId: string
+): boolean {
+    return (
+        rejectIfApiKeyCollectionForbidden(req, res, collectionId) ||
+        rejectIfPreviewCollectionMismatch(req, res, collectionId)
+    );
 }
 
 // GET /projects/:projectId/collections
@@ -151,7 +196,7 @@ router.get('/:collectionId', async (req: Request, res: Response) => {
     const { projectId, collectionId } = req.params as Record<string, string>;
     if (!projectId || !collectionId)
         return void res.status(400).json({ error: 'Missing projectId or collectionId' });
-    if (rejectIfApiKeyCollectionForbidden(req, res, collectionId)) return;
+    if (rejectIfCollectionAccessForbidden(req, res, collectionId)) return;
     try {
         const collection = await getCollection(projectId, collectionId);
         if (!collection) return void res.status(404).json({ error: 'Collection not found' });
@@ -214,15 +259,15 @@ router.get('/:collectionId/pages', async (req: Request, res: Response) => {
     const { projectId, collectionId } = req.params as Record<string, string>;
     if (!projectId || !collectionId)
         return void res.status(400).json({ error: 'Missing projectId or collectionId' });
-    if (rejectIfApiKeyCollectionForbidden(req, res, collectionId)) return;
+    if (rejectIfCollectionAccessForbidden(req, res, collectionId)) return;
     try {
         const collection = await getCollection(projectId, collectionId);
         if (!collection) return void res.status(404).json({ error: 'Collection not found' });
         const pageResource = collection.resources.find(r => r.resourceType === 'page');
         if (!pageResource)
             return void res.status(404).json({ error: 'Collection does not expose pages' });
-        const apiKeyOnly = !req.user && Boolean(req.apiKeyAuth);
-        const statuses = getStatusFilter(pageResource, apiKeyOnly);
+        const apiKeyOnly = isPublishedOnlyDelivery(req);
+        const statuses = getStatusFilter(pageResource, apiKeyOnly, req.previewAuth);
         let pages = await listPages(projectId, {
             templateId: pageResource.resourceId === 'pages' ? undefined : pageResource.resourceId
         });
@@ -247,7 +292,7 @@ router.get('/:collectionId/pages/by-slug/:slug', async (req: Request, res: Respo
     const { projectId, collectionId, slug } = req.params as Record<string, string>;
     if (!projectId || !collectionId || slug === undefined)
         return void res.status(400).json({ error: 'Missing projectId, collectionId or slug' });
-    if (rejectIfApiKeyCollectionForbidden(req, res, collectionId)) return;
+    if (rejectIfCollectionAccessForbidden(req, res, collectionId)) return;
     try {
         const collection = await getCollection(projectId, collectionId);
         if (!collection) return void res.status(404).json({ error: 'Collection not found' });
@@ -256,8 +301,8 @@ router.get('/:collectionId/pages/by-slug/:slug', async (req: Request, res: Respo
             return void res.status(404).json({ error: 'Collection does not expose pages' });
         const page = await getPageBySlug(projectId, slug);
         if (!page) return void res.status(404).json({ error: 'Page not found' });
-        const apiKeyOnly = !req.user && Boolean(req.apiKeyAuth);
-        const statuses = getStatusFilter(pageResource, apiKeyOnly);
+        const apiKeyOnly = isPublishedOnlyDelivery(req);
+        const statuses = getStatusFilter(pageResource, apiKeyOnly, req.previewAuth);
         if (!('status' in page) || !statuses.includes((page as any).status))
             return void res.status(404).json({ error: 'Page not found' });
         if (queryFlag(req.query.resolveAssets) && 'templateId' in page) {
@@ -276,7 +321,7 @@ router.get('/:collectionId/pages/:id', async (req: Request, res: Response) => {
     const { projectId, collectionId, id } = req.params as Record<string, string>;
     if (!projectId || !collectionId || !id)
         return void res.status(400).json({ error: 'Missing projectId, collectionId or id' });
-    if (rejectIfApiKeyCollectionForbidden(req, res, collectionId)) return;
+    if (rejectIfCollectionAccessForbidden(req, res, collectionId)) return;
     try {
         const collection = await getCollection(projectId, collectionId);
         if (!collection) return void res.status(404).json({ error: 'Collection not found' });
@@ -284,8 +329,8 @@ router.get('/:collectionId/pages/:id', async (req: Request, res: Response) => {
         if (!pageResource)
             return void res.status(404).json({ error: 'Collection does not expose pages' });
         const page = await getPage(projectId, id);
-        const apiKeyOnly = !req.user && Boolean(req.apiKeyAuth);
-        const statuses = getStatusFilter(pageResource, apiKeyOnly);
+        const apiKeyOnly = isPublishedOnlyDelivery(req);
+        const statuses = getStatusFilter(pageResource, apiKeyOnly, req.previewAuth);
         if (!('status' in page) || !statuses.includes((page as any).status))
             return void res.status(404).json({ error: 'Page not found' });
         if (queryFlag(req.query.resolveAssets) && 'templateId' in page) {
@@ -304,7 +349,7 @@ router.get('/:collectionId/:resourceId/entries', async (req: Request, res: Respo
     const { projectId, collectionId, resourceId } = req.params as Record<string, string>;
     if (!projectId || !collectionId || !resourceId)
         return void res.status(400).json({ error: 'Missing path parameters' });
-    if (rejectIfApiKeyCollectionForbidden(req, res, collectionId)) return;
+    if (rejectIfCollectionAccessForbidden(req, res, collectionId)) return;
     try {
         const collection = await getCollection(projectId, collectionId);
         if (!collection) return void res.status(404).json({ error: 'Collection not found' });
@@ -313,9 +358,9 @@ router.get('/:collectionId/:resourceId/entries', async (req: Request, res: Respo
             collection.resources.find(r => r.resourceType === 'model' && r.resourceId === 'models');
         if (!resource || resource.resourceType !== 'model')
             return void res.status(404).json({ error: 'Resource not found in collection' });
-        const apiKeyOnly = !req.user && Boolean(req.apiKeyAuth);
-        const statuses = getStatusFilter(resource, apiKeyOnly);
-        const usePublished = statuses.length === 1 && statuses[0] === 'published';
+        const apiKeyOnly = isPublishedOnlyDelivery(req);
+        const statuses = getStatusFilter(resource, apiKeyOnly, req.previewAuth);
+        const usePublished = usePublishedEntryView(req, statuses);
         let parsed: EntryQuery;
         try {
             parsed = parseEntryQuery(req, { allowStatus: false });
@@ -387,7 +432,7 @@ router.get('/:collectionId/:resourceId/entries/:id', async (req: Request, res: R
     const { projectId, collectionId, resourceId, id } = req.params as Record<string, string>;
     if (!projectId || !collectionId || !resourceId || !id)
         return void res.status(400).json({ error: 'Missing path parameters' });
-    if (rejectIfApiKeyCollectionForbidden(req, res, collectionId)) return;
+    if (rejectIfCollectionAccessForbidden(req, res, collectionId)) return;
     try {
         const collection = await getCollection(projectId, collectionId);
         if (!collection) return void res.status(404).json({ error: 'Collection not found' });
@@ -396,9 +441,9 @@ router.get('/:collectionId/:resourceId/entries/:id', async (req: Request, res: R
             collection.resources.find(r => r.resourceType === 'model' && r.resourceId === 'models');
         if (!resource || resource.resourceType !== 'model')
             return void res.status(404).json({ error: 'Resource not found in collection' });
-        const apiKeyOnly = !req.user && Boolean(req.apiKeyAuth);
-        const statuses = getStatusFilter(resource, apiKeyOnly);
-        const usePublished = statuses.length === 1 && statuses[0] === 'published';
+        const apiKeyOnly = isPublishedOnlyDelivery(req);
+        const statuses = getStatusFilter(resource, apiKeyOnly, req.previewAuth);
+        const usePublished = usePublishedEntryView(req, statuses);
         const entry = usePublished
             ? await getPublishedEntryForProject(projectId, resourceId, id)
             : await getEntryForProject(projectId, resourceId, id);
@@ -454,7 +499,7 @@ router.get('/:collectionId/layouts', async (req: Request, res: Response) => {
     const { projectId, collectionId } = req.params as Record<string, string>;
     if (!projectId || !collectionId)
         return void res.status(400).json({ error: 'Missing projectId or collectionId' });
-    if (rejectIfApiKeyCollectionForbidden(req, res, collectionId)) return;
+    if (rejectIfCollectionAccessForbidden(req, res, collectionId)) return;
     try {
         const collection = await getCollection(projectId, collectionId);
         if (!collection) return void res.status(404).json({ error: 'Collection not found' });
@@ -485,7 +530,7 @@ router.get('/:collectionId/layouts/:id', async (req: Request, res: Response) => 
     const { projectId, collectionId, id } = req.params as Record<string, string>;
     if (!projectId || !collectionId || !id)
         return void res.status(400).json({ error: 'Missing path parameters' });
-    if (rejectIfApiKeyCollectionForbidden(req, res, collectionId)) return;
+    if (rejectIfCollectionAccessForbidden(req, res, collectionId)) return;
     try {
         const collection = await getCollection(projectId, collectionId);
         if (!collection) return void res.status(404).json({ error: 'Collection not found' });
@@ -507,7 +552,7 @@ router.get('/:collectionId/forms', async (req: Request, res: Response) => {
     const { projectId, collectionId } = req.params as Record<string, string>;
     if (!projectId || !collectionId)
         return void res.status(400).json({ error: 'Missing projectId or collectionId' });
-    if (rejectIfApiKeyCollectionForbidden(req, res, collectionId)) return;
+    if (rejectIfCollectionAccessForbidden(req, res, collectionId)) return;
     try {
         const collection = await getCollection(projectId, collectionId);
         if (!collection) return void res.status(404).json({ error: 'Collection not found' });
@@ -538,7 +583,7 @@ router.get('/:collectionId/forms/:id', async (req: Request, res: Response) => {
     const { projectId, collectionId, id } = req.params as Record<string, string>;
     if (!projectId || !collectionId || !id)
         return void res.status(400).json({ error: 'Missing path parameters' });
-    if (rejectIfApiKeyCollectionForbidden(req, res, collectionId)) return;
+    if (rejectIfCollectionAccessForbidden(req, res, collectionId)) return;
     try {
         const collection = await getCollection(projectId, collectionId);
         if (!collection) return void res.status(404).json({ error: 'Collection not found' });
@@ -579,7 +624,7 @@ router.get('/:collectionId/menus', async (req: Request, res: Response) => {
     const { projectId, collectionId } = req.params as Record<string, string>;
     if (!projectId || !collectionId)
         return void res.status(400).json({ error: 'Missing projectId or collectionId' });
-    if (rejectIfApiKeyCollectionForbidden(req, res, collectionId)) return;
+    if (rejectIfCollectionAccessForbidden(req, res, collectionId)) return;
     try {
         const collection = await getCollection(projectId, collectionId);
         if (!collection) return void res.status(404).json({ error: 'Collection not found' });
@@ -602,7 +647,7 @@ router.get('/:collectionId/menus/:handle', async (req: Request, res: Response) =
     const { projectId, collectionId, handle } = req.params as Record<string, string>;
     if (!projectId || !collectionId || !handle)
         return void res.status(400).json({ error: 'Missing path parameters' });
-    if (rejectIfApiKeyCollectionForbidden(req, res, collectionId)) return;
+    if (rejectIfCollectionAccessForbidden(req, res, collectionId)) return;
     try {
         const collection = await getCollection(projectId, collectionId);
         if (!collection) return void res.status(404).json({ error: 'Collection not found' });
