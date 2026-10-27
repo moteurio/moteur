@@ -27,8 +27,11 @@ type WithRoles =
 type WithMemberRoles =
     { memberRoles?: Record<string, readonly string[]> | null } | null | undefined;
 
-/** Roles the person who creates a project gets on it: they run it and pay for it. */
-export const PROJECT_CREATOR_ROLES: readonly RoleSlug[] = ['admin', 'billing'];
+/**
+ * Roles the person who creates a project gets on it: they run it, pay for it, and connect its
+ * site (often alone, on day one). They can hand any of these to someone else later.
+ */
+export const PROJECT_CREATOR_ROLES: readonly RoleSlug[] = ['admin', 'billing', 'developer'];
 
 function storedRoles(user: WithRoles): string[] {
     return Array.isArray(user?.roles) ? user.roles.filter(r => typeof r === 'string') : [];

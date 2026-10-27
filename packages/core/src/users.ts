@@ -36,8 +36,10 @@ export function listUsers(): User[] {
     return getCachedUsers();
 }
 
+/** Addresses are compared without case: Alice@Corp.com and alice@corp.com are one person. */
 export function getUserByEmail(email: string): User | undefined {
-    return getCachedUsers().find(u => u.email === email);
+    const wanted = email.trim().toLowerCase();
+    return getCachedUsers().find(u => u.email?.toLowerCase() === wanted);
 }
 
 export function getUserById(id: string): User | undefined {
@@ -118,7 +120,7 @@ export async function createUser(user: User, performedBy?: User): Promise<User> 
 
 async function createUserUnlocked(user: User, performedBy?: User): Promise<User> {
     const users = getCachedUsers();
-    if (users.some(u => u.email === user.email)) {
+    if (users.some(u => u.email?.toLowerCase() === user.email.trim().toLowerCase())) {
         throw new Error('User with this email already exists');
     }
     if (

@@ -24,6 +24,7 @@ describe('provider identity', () => {
         sessionRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'moteur-auth-sessions-'));
         vi.stubEnv('AUTH_SESSIONS_FILE', path.join(sessionRoot, 'sessions.json'));
         vi.stubEnv('JWT_SECRET', 'provider-identity-test');
+        vi.stubEnv('MOTEUR_SIGNUP', 'open');
         state.users = [
             {
                 id: 'victim',

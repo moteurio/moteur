@@ -10,6 +10,15 @@ function isEmailConfigured(): boolean {
     return !!(process.env.SMTP_HOST && process.env.SMTP_FROM);
 }
 
+/** A code by email, within the same small budget as verification mail: never a mail cannon. */
+export function sendCodeEmail(message: {
+    to: string[];
+    subject: string;
+    text: string;
+}): Promise<void> {
+    return verificationMailBudget.run(() => sendEmail(message));
+}
+
 /** Verification must fail visibly if delivery is unavailable; never silently mark mail verified. */
 export async function sendVerificationEmail(email: string, code: string): Promise<void> {
     return verificationMailBudget.run(() => deliverVerificationEmail(email, code));
@@ -41,44 +50,6 @@ async function deliverVerificationEmail(email: string, code: string): Promise<vo
         subject: 'Verify your Moteur email',
         text: `Your Moteur verification code is ${code}. It expires with your sign-in in 10 minutes. If you did not request this, ignore this email.`
     });
-}
-
-/**
- * Sends a welcome/onboarding email to a new user. Non-blocking and fail-safe.
- * Uses same SMTP config as sendReviewEmail. If not configured, skips without throwing.
- */
-export async function sendWelcomeEmail(user: User): Promise<void> {
-    if (!user?.email) return;
-    if (!isEmailConfigured()) return;
-
-    const name = user.name || user.email.split('@')[0] || 'there';
-    const subject = 'Welcome to Moteur';
-    const body = `Hi ${name},\n\nWelcome to Moteur! Your account is ready. You can sign in and explore your demo project.\n\nIf you have any questions, reach out to your team.\n\n— The Moteur team`;
-
-    try {
-        const nodemailer = await import('nodemailer').catch(() => null);
-        if (!nodemailer?.default) return;
-
-        const port = parseInt(process.env.SMTP_PORT || '587', 10);
-        const transporter = nodemailer.default.createTransport({
-            host: process.env.SMTP_HOST,
-            port: isNaN(port) ? 587 : port,
-            secure: port === 465,
-            ...(process.env.SMTP_USER && process.env.SMTP_PASS
-                ? { auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS } }
-                : {})
-        });
-
-        const from = process.env.SMTP_FROM ?? '';
-        await transporter.sendMail({
-            from,
-            to: user.email,
-            subject,
-            text: body
-        });
-    } catch {
-        // Fail silently for welcome email
-    }
 }
 
 function getSubject(type: ReviewEmailType, projectLabel: string): string {
@@ -195,6 +166,10 @@ export async function sendEmail(message: {
         host: process.env.SMTP_HOST,
         port: isNaN(port) ? 587 : port,
         secure: port === 465,
+        // A slow mail server must not hold requests open.
+        connectionTimeout: 10_000,
+        greetingTimeout: 10_000,
+        socketTimeout: 20_000,
         ...(process.env.SMTP_USER && process.env.SMTP_PASS
             ? { auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS } }
             : {})

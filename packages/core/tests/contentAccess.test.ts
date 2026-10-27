@@ -56,8 +56,8 @@ describe('project roles', () => {
         expect(inProject(ada, {})).toBe(ada);
     });
 
-    it('gives a creator admin and billing on top of their Studio roles, dropping unknown ones', () => {
-        expect(creatorRoles({ roles: ['user'] })).toEqual(['admin', 'billing']);
+    it('gives a creator admin, billing and developer on top of their Studio roles, dropping unknown ones', () => {
+        expect(creatorRoles({ roles: ['user'] })).toEqual(['admin', 'billing', 'developer']);
         expect(creatorRoles({ roles: ['developer', 'admin'] })).toEqual([
             'developer',
             'admin',
