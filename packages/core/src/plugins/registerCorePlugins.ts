@@ -13,7 +13,13 @@ export interface CorePluginModule {
     init(ctx: PluginContext): void | Promise<void>;
 }
 
-const CORE_PLUGIN_IDS = ['activity-log', 'audit', 'validation', 'auto-assign-user'] as const;
+const CORE_PLUGIN_IDS = [
+    'activity-log',
+    'audit',
+    'validation',
+    'auto-assign-user',
+    'site-channel'
+] as const;
 
 const CORE_PLUGIN_ENTRIES: Record<
     (typeof CORE_PLUGIN_IDS)[number],
@@ -22,7 +28,8 @@ const CORE_PLUGIN_ENTRIES: Record<
     'activity-log': () => import('./core/activityLogPlugin.js'),
     audit: () => import('./core/auditLogger.js'),
     validation: () => import('./core/validation.js'),
-    'auto-assign-user': () => import('./core/autoAssignUser.js')
+    'auto-assign-user': () => import('./core/autoAssignUser.js'),
+    'site-channel': () => import('./core/siteChannel.js')
 };
 
 function warnContributesMismatch(

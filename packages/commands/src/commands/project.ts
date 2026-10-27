@@ -4,7 +4,7 @@ import path from 'path';
 import { group, id, project, type ArgSpec } from '../spec.js';
 import { crud } from '../kit.js';
 import { localized } from '../format.js';
-import { loadConfig, saveConfig } from '../config.js';
+import { loadConfig, onProjectKey, saveConfig } from '../config.js';
 import { describeProject } from '../describe.js';
 
 const P = '/projects/{project}';
@@ -600,11 +600,22 @@ export const types = group('types', [
         ],
         run: async ctx => {
             const client = await ctx.client();
+            // With a project key: its channel's types, unless another is named.
+            let channel = ctx.args.channel ? String(ctx.args.channel) : undefined;
+            if (!channel && (await onProjectKey())) {
+                const key = await client.get<{ channel?: string; channels: string[] }>('/keys/me');
+                channel = key.channel;
+                if (!channel)
+                    throw new Error(
+                        `This key reads several channels (${key.channels.join(', ')}): name one with --channel.`
+                    );
+            }
+            const project = encodeURIComponent(await ctx.project());
             const text = await client.request<string>({
                 method: 'GET',
-                url: ctx.args.channel
-                    ? `/projects/${encodeURIComponent(await ctx.project())}/channels/${encodeURIComponent(String(ctx.args.channel))}/types`
-                    : `/projects/${encodeURIComponent(await ctx.project())}/types`,
+                url: channel
+                    ? `/projects/${project}/channels/${encodeURIComponent(channel)}/types`
+                    : `/projects/${project}/types`,
                 responseType: 'text'
             });
             const out = ctx.args.out ? String(ctx.args.out) : undefined;
@@ -629,7 +640,7 @@ export const types = group('types', [
         readOnly: true,
         examples: [
             'moteur types --out src/moteur.ts',
-            'moteur types --channel site --out src/moteur.ts --check'
+            'MOTEUR_API_KEY=… moteur types --out src/moteur.ts --check'
         ]
     }
 ]);

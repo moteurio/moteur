@@ -12,7 +12,8 @@ export type {
     TwoFactorRequired,
     ApiError
 } from './types.js';
-export { DEFAULT_REQUEST_TIMEOUT_MS } from './types.js';
+export { DEFAULT_REQUEST_TIMEOUT_MS, DEFAULT_API_URL } from './types.js';
+export type { KeyInfo } from './types.js';
 export type { MoteurClient } from './client.js';
 export type { ProjectClient } from './admin/forProject.js';
 export type { MoteurAdminClient } from './admin/adminClient.js';

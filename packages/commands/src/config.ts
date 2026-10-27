@@ -52,6 +52,12 @@ export async function loadConfig(): Promise<CliConfig> {
     };
 }
 
+/** Whether commands run with a project key (MOTEUR_API_KEY) rather than a sign-in. */
+export async function onProjectKey(): Promise<boolean> {
+    const config = await loadConfig();
+    return !config.token && Boolean(config.apiKey);
+}
+
 export async function saveConfig(config: CliConfig): Promise<void> {
     if (await isWebSessionMode()) {
         throw new Error(WEB_SESSION_MESSAGE);

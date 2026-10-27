@@ -48,6 +48,7 @@ import activityGlobalRoute from './activity/index.js';
 import operatorRoute from './operator/index.js';
 import operatorAuthRoute from './operator/auth.js';
 import invitesRoute from './invites/index.js';
+import keysRoute from './keys/index.js';
 import { mcpRouter } from './mcp/index.js';
 import { commandsRouter } from './commands/index.js';
 import { createMcpOAuth } from './mcp/oauth.js';
@@ -252,6 +253,7 @@ app.use(basePath + '/activity', activityGlobalRoute);
 app.use(basePath + '/operator/auth', operatorAuthRoute);
 app.use(basePath + '/operator', operatorRoute);
 app.use(basePath + '/invites', invitesRoute);
+app.use(basePath + '/keys', keysRoute);
 app.use(basePath + '/commands', commandsRouter);
 // MCP for remote AI clients; its tools call this API itself. MOTEUR_MCP=off leaves it out.
 if (process.env.MOTEUR_MCP?.trim().toLowerCase() !== 'off') {

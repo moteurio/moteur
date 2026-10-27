@@ -576,7 +576,8 @@ export async function buildSite(timeline: Timeline, ctx: SiteContext): Promise<v
 
     timeline.at(127, 'channels', async () => {
         const { createChannel, listChannels } = await import('@moteurio/core/channels.js');
-        if ((await listChannels(JOURNAL_ID)).length > 0) return;
+        // A new project already has its "site" channel: look for the Journal's own.
+        if ((await listChannels(JOURNAL_ID)).some(c => c.id === 'public')) return;
         await createChannel(JOURNAL_ID, user(team.theo.id), {
             id: 'public',
             label: 'Site public',

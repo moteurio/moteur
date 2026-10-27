@@ -1,7 +1,7 @@
 import crypto, { randomUUID } from 'crypto';
 import type { ProjectApiKeyEntry } from '@moteurio/types/Project.js';
 import { User } from '@moteurio/types/User.js';
-import { getProject, getProjectById, updateProject } from './projects.js';
+import { getProject, getProjectById, loadProjects, updateProject } from './projects.js';
 import { validateAllowedHostPatterns } from './apiKeyAllowedHosts.js';
 import { listChannels } from './channels.js';
 
@@ -104,6 +104,42 @@ export async function verifyProjectApiKey(
     };
 }
 
+/** Each key's project, by the key's hash. Made on first use, again when keys change. */
+let keyOwners: Map<string, string> | null = null;
+let keyOwnersAt = 0;
+/** An unknown key reads every project again at most this often (keys made elsewhere). */
+const KEY_OWNERS_REFRESH_MS = 30_000;
+
+function readKeyOwners(): Map<string, string> {
+    const owners = new Map<string, string>();
+    for (const project of loadProjects())
+        for (const key of project.apiKeys ?? []) owners.set(key.hash, project.id);
+    keyOwnersAt = Date.now();
+    return owners;
+}
+
+/** After a key is made, rotated or revoked. */
+function forgetKeyOwners(): void {
+    keyOwners = null;
+}
+
+/**
+ * The project a key belongs to, or null: what lets a site give its key alone. The key is then
+ * verified in that project as usual (`verifyProjectApiKey`).
+ */
+export function findProjectForApiKey(rawKey: string): string | null {
+    const key = typeof rawKey === 'string' ? rawKey.trim() : '';
+    if (!key.startsWith(KEY_PREFIX)) return null;
+    const hash = hashKey(key);
+    keyOwners ??= readKeyOwners();
+    let owner = keyOwners.get(hash);
+    if (!owner && Date.now() - keyOwnersAt > KEY_OWNERS_REFRESH_MS) {
+        keyOwners = readKeyOwners();
+        owner = keyOwners.get(hash);
+    }
+    return owner ?? null;
+}
+
 export async function verifyKey(projectId: string, rawKey: string): Promise<boolean> {
     const r = await verifyProjectApiKey(projectId, rawKey);
     return r.ok;
@@ -201,6 +237,7 @@ export async function createKey(
     };
     keys.push(entry);
     await updateProject(user, projectId, { apiKeys: keys });
+    forgetKeyOwners();
     return { rawKey, prefix, meta: toMeta(entry) };
 }
 
@@ -244,6 +281,7 @@ export async function rotateKey(
     const copy = [...keys];
     copy[idx] = next;
     await updateProject(user, projectId, { apiKeys: copy });
+    forgetKeyOwners();
     return { rawKey, prefix, meta: toMeta(next) };
 }
 
@@ -255,6 +293,7 @@ export async function revokeKey(projectId: string, user: User, keyId: string): P
     await updateProject(user, projectId, {
         apiKeys: next.length > 0 ? next : null
     } as Parameters<typeof updateProject>[2]);
+    forgetKeyOwners();
 }
 
 export type PatchProjectApiKeyInput = {

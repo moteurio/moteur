@@ -22,6 +22,7 @@ import { openapi as activityGlobalSpec } from '../activity/index.js';
 import { openapi as operatorSpec } from '../operator/index.js';
 import { openapi as operatorAuthSpec } from '../operator/auth.js';
 import { openapi as invitesSpec } from '../invites/index.js';
+import { openapi as keysSpec } from '../keys/index.js';
 import { openapi as mcpSpec } from '../mcp/index.js';
 import { openapi as commandsSpec } from '../commands/index.js';
 import { openapi as usageSpec } from '../studio/usage.js';
@@ -257,6 +258,7 @@ export async function bootstrapApi(options?: {
             { owner: 'operator-core', paths: operatorSpec as OpenAPIV3.PathsObject },
             { owner: 'operator-auth', paths: operatorAuthSpec as OpenAPIV3.PathsObject },
             { owner: 'invites-core', paths: invitesSpec as OpenAPIV3.PathsObject },
+            { owner: 'keys-core', paths: keysSpec as OpenAPIV3.PathsObject },
             { owner: 'mcp-core', paths: mcpSpec as OpenAPIV3.PathsObject },
             { owner: 'commands-core', paths: commandsSpec as OpenAPIV3.PathsObject },
             { owner: 'models-core', paths: modelsSpecs.paths as OpenAPIV3.PathsObject },

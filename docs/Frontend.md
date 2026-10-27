@@ -4,9 +4,9 @@ Moteur separates **authoring** (Studio + JWT) from **delivery** (your site + pro
 
 ## Mental model
 
-1. Configure a **channel** in Studio with the models, fields, and statuses you want public.
-2. Create a **read-only API key** for that channel.
-3. In your app, fetch with `createMoteurPublicClient` and render **one template per block type**.
+1. Every project starts with a **`site` channel**: its published pages, every model, menus, forms and layouts. Change what it gives, or add channels for other apps, in Studio (Setup › API channels).
+2. Make a **read-only key** for it: **Make a key for it** on the channel.
+3. In your app, `createMoteurPublicClient({ apiKey })` (or `createMoteur()` in Astro, which reads `MOTEUR_API_KEY`). The key says its project and channel. Render **one template per block type**.
 4. For **draft preview**, mint a **preview token** (JWT, server-side) and pass it as `x-preview-token` or `?preview=` alongside the API key.
 
 Never put member JWTs in browser bundles. See [Pages and navigation](Pages%20and%20navigation.md).
@@ -18,7 +18,7 @@ Never put member JWTs in browser bundles. See [Pages and navigation](Pages%20and
 | `@moteurio/client`  | [moteur](https://github.com/moteurio/moteur)                   | Public + admin HTTP client; `t`, block registry, preview session helpers |
 | `@moteurio/react`   | [moteur-frontend](https://github.com/moteurio/moteur-frontend) | `MoteurProvider`, `Blocks`, `usePreview`                                 |
 | `@moteurio/vue`     | moteur-frontend                                                | `createMoteurPlugin`, `MoteurBlocks.vue`, composables                    |
-| `@moteurio/astro`   | moteur-frontend                                                | `createMoteur()`, `Blocks.astro`                                         |
+| `@moteurio/astro`   | moteur-frontend                                                | `createMoteur()`, content loaders, typed `defineBlocks`, `Blocks.astro`  |
 | `@moteurio/vanilla` | moteur-frontend                                                | ESM helpers + block registry                                             |
 | `moteurio/php`      | [moteur-starters](https://github.com/moteurio/moteur-starters) | Guzzle client, preview middleware (Composer)                             |
 
@@ -52,6 +52,10 @@ The types come from the channel's schema, so the site's read-only key is enough:
 ```bash
 MOTEUR_API_KEY=… moteur types --channel site --out src/moteur.ts --check
 ```
+
+## Pages and their addresses
+
+A delivered page has `path`, its address in the language read (`?locale=`, otherwise the default language), and `paths`, its address in each language. A route needs nothing else: `getStaticPaths` is one read, and `paths` gives the `hreflang` alternates.
 
 ## The schema of a channel
 
