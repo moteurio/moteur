@@ -15,7 +15,7 @@ Use a **four-part, zero-padded** string for humans and for **lexicographic sorti
 
 Examples: `2026.03.27.001`, `2026.03.27.002`.
 
-Git tags for per-package releases can mirror this, e.g. `core@2026.03.27.001`, or you may use the npm form below for tag text—**pick one convention per repo and document it in [RELEASING.md](RELEASING.md)**.
+The whole line is tagged once, `moteur@<npm version>` (see [RELEASING.md](RELEASING.md)); packages have no tags of their own.
 
 ## `package.json` / npm (semver constraint)
 

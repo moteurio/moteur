@@ -67,13 +67,15 @@ Publish order is deterministic:
 
 The workflow stops on first failure.
 
-## Secondary path (fallback)
+## Emergency publish
 
-Per-package tag workflows still exist (for manual/emergency publishes):
+There are no per-package tag workflows: they published from `packages/<pkg>` and shipped `workspace:*`. To stage one package by hand, from a clean checkout of the release tag:
 
-- `types@*`, `plugin-sdk@*`, `core@*`, `api@*`, `client@*`, `cli@*`
+```bash
+node scripts/stage-publish.mjs @moteurio/<pkg>
+```
 
-Do not run fallback tag workflows in parallel with the orchestrator.
+then approve it on npmjs.com. Do not run it while the orchestrator is running.
 
 ## Preflight checks
 
