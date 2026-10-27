@@ -315,6 +315,8 @@ describe('comments', () => {
                 resourceId: 'article__e1',
                 body: 'Original'
             });
+            // Not in the same millisecond, so the edit's time differs.
+            await new Promise(r => setTimeout(r, 2));
             const updated = await editComment(projectId, author, c.id, 'Updated text');
             expect(updated.body).toBe('Updated text');
             expect(updated.updatedAt).not.toBe(c.updatedAt);
