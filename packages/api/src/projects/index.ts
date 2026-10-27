@@ -25,6 +25,7 @@ import pageOutputsRouter, { openapi as pageOutputsSpec } from './pageOutputs.js'
 import radarRouter, { openapi as radarSpec } from './radar/index.js';
 import branchesRouter, { openapi as branchesSpec } from './branches/index.js';
 import gitLogRouter, { openapi as gitLogSpec } from './gitLog.js';
+import typesRouter, { openapi as typesSpec } from './types.js';
 import aiAuditRouter, { openapi as aiAuditSpec } from './ai-audit/index.js';
 import { optionalAuth, apiKeyAuth, requireCollectionOrProjectAccess } from '../middlewares/auth.js';
 
@@ -88,6 +89,7 @@ router.use('/:projectId/notifications', notificationsRouter);
 router.use('/:projectId/radar', radarRouter);
 router.use('/:projectId/branches', branchesRouter);
 router.use('/:projectId/git', gitLogRouter);
+router.use('/:projectId/types', typesRouter);
 router.use('/:projectId/ai-audit', aiAuditRouter);
 
 export const projectsSpecs = {
@@ -124,6 +126,7 @@ export const projectsSpecs = {
         radarSpec,
         branchesSpec,
         gitLogSpec,
+        typesSpec,
         aiAuditSpec
     ),
     schemas: {

@@ -1,4 +1,6 @@
 /** Projects, and who and what can reach them: people, invites, keys, channels, webhooks, branches. */
+import fs from 'fs';
+import path from 'path';
 import { group, id, project, type ArgSpec } from '../spec.js';
 import { crud } from '../kit.js';
 import { localized } from '../format.js';
@@ -531,5 +533,40 @@ export const branches = group('branches', [
             (r as { pushed?: boolean })?.pushed
                 ? 'Pushed.'
                 : 'The push failed: check that the server can write to the Git address.'
+    }
+]);
+
+/** The content as TypeScript types: `moteur types --out src/moteur.ts`. */
+export const types = group('types', [
+    {
+        name: '',
+        summary: 'TypeScript types of the content (models, templates, blocks, structures)',
+        description:
+            "Each type takes a locale mode: 'all' as stored, or 'one' for content read with ?locale=. Make them again after changing a schema.",
+        args: [
+            project,
+            {
+                name: 'out',
+                description: 'Write them to this file instead of printing them',
+                in: 'none',
+                local: true
+            }
+        ],
+        run: async ctx => {
+            const client = await ctx.client();
+            const text = await client.request<string>({
+                method: 'GET',
+                url: `/projects/${encodeURIComponent(await ctx.project())}/types`,
+                responseType: 'text'
+            });
+            if (!ctx.args.out) return text;
+            if (!ctx.local) throw new Error('Files can’t be written here: leave out out.');
+            fs.mkdirSync(path.dirname(String(ctx.args.out)), { recursive: true });
+            fs.writeFileSync(String(ctx.args.out), text);
+            return `Wrote ${ctx.args.out}.`;
+        },
+        covers: [`GET ${P}/types`],
+        readOnly: true,
+        examples: ['moteur types --out src/moteur.ts']
     }
 ]);
