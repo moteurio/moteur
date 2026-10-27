@@ -75,7 +75,7 @@ export const studioRateLimiter = rateLimit({
 });
 
 /**
- * Rate limiter for public API (collections, pages, templates).
+ * Rate limiter for public API (channels, pages, templates).
  * Key: projectId so limits are per project. Set API_RATE_LIMIT_PUBLIC_MAX to limit (default 1000/15min).
  */
 export const publicRateLimiter = rateLimit({

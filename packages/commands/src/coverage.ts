@@ -45,27 +45,24 @@ export const SKIPPED: Record<string, string> = {
     'GET /projects/{x}/presence/debug': 'presence debugging, for developers of the Studio',
     'DELETE /projects/{x}/presence/screen/{x}': 'presence debugging, for developers of the Studio',
     'POST /studio/assets/migrate-provider': 'deprecated: moteur media-settings move-videos',
-    'GET /projects/{x}/collections/{x}/forms':
+    'GET /projects/{x}/channels/{x}/forms': 'what a frontend reads through a channel (moteur api)',
+    'GET /projects/{x}/channels/{x}/forms/{x}':
         'what a frontend reads through a channel (moteur api)',
-    'GET /projects/{x}/collections/{x}/forms/{x}':
+    'GET /projects/{x}/channels/{x}/layouts':
         'what a frontend reads through a channel (moteur api)',
-    'GET /projects/{x}/collections/{x}/layouts':
+    'GET /projects/{x}/channels/{x}/layouts/{x}':
         'what a frontend reads through a channel (moteur api)',
-    'GET /projects/{x}/collections/{x}/layouts/{x}':
+    'GET /projects/{x}/channels/{x}/menus': 'what a frontend reads through a channel (moteur api)',
+    'GET /projects/{x}/channels/{x}/menus/{x}':
         'what a frontend reads through a channel (moteur api)',
-    'GET /projects/{x}/collections/{x}/menus':
+    'GET /projects/{x}/channels/{x}/pages': 'what a frontend reads through a channel (moteur api)',
+    'GET /projects/{x}/channels/{x}/pages/by-slug/{x}':
         'what a frontend reads through a channel (moteur api)',
-    'GET /projects/{x}/collections/{x}/menus/{x}':
+    'GET /projects/{x}/channels/{x}/pages/{x}':
         'what a frontend reads through a channel (moteur api)',
-    'GET /projects/{x}/collections/{x}/pages':
+    'GET /projects/{x}/channels/{x}/{x}/entries':
         'what a frontend reads through a channel (moteur api)',
-    'GET /projects/{x}/collections/{x}/pages/by-slug/{x}':
-        'what a frontend reads through a channel (moteur api)',
-    'GET /projects/{x}/collections/{x}/pages/{x}':
-        'what a frontend reads through a channel (moteur api)',
-    'GET /projects/{x}/collections/{x}/{x}/entries':
-        'what a frontend reads through a channel (moteur api)',
-    'GET /projects/{x}/collections/{x}/{x}/entries/{x}':
+    'GET /projects/{x}/channels/{x}/{x}/entries/{x}':
         'what a frontend reads through a channel (moteur api)'
 };
 

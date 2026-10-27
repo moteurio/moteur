@@ -55,12 +55,12 @@ if [[ ! -f "$NEXT/package.json" ]]; then
   exit 1
 fi
 
-echo "== create API key (project demo, collection public)"
+echo "== create API key (project demo, channel public)"
 KEY_OUT="$ROOT/.demo-public-api-key.txt"
 pnpm exec tsx --tsconfig "$ROOT/tsconfig.server-dev.json" "$ROOT/scripts/create-demo-api-key.ts" \
   --api-url "$API_URL" \
   --project demo \
-  --collection public \
+  --channel public \
   --email "louise@moteur-journal.test" \
   --password "$DEMO_PW" \
   | tee "$KEY_OUT"
@@ -73,7 +73,7 @@ cat > "$ENV_LOCAL" <<EOF
 MOTEUR_API_URL=$API_URL
 MOTEUR_API_KEY=${RAW_KEY:-REPLACE_ME}
 MOTEUR_PROJECT_ID=demo
-MOTEUR_COLLECTION_ID=public
+MOTEUR_CHANNEL=public
 EOF
 echo "== wrote $ENV_LOCAL"
 

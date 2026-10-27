@@ -12,17 +12,17 @@ router.post('/', requireProjectAccess, async (req: Request, res: Response) => {
     if (!projectId) return void res.status(400).json({ error: 'Missing projectId' });
     try {
         const body = req.body ?? {};
-        const { ttlSeconds, entryId, pageId, collectionId } = body as {
+        const { ttlSeconds, entryId, pageId, channelId } = body as {
             ttlSeconds?: number;
             entryId?: string;
             pageId?: string;
-            collectionId?: string;
+            channelId?: string;
         };
         const { rawToken, token } = await createPreviewToken(projectId, req.user!, {
             ...(ttlSeconds !== undefined ? { ttlSeconds } : {}),
             ...(entryId ? { entryId } : {}),
             ...(pageId ? { pageId } : {}),
-            ...(collectionId ? { collectionId } : {})
+            ...(channelId ? { channelId } : {})
         });
         return void res.status(201).json({
             ...token,
@@ -38,7 +38,7 @@ export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
     '/projects/{projectId}/preview-tokens': {
         post: {
             tags: ['Preview'],
-            summary: 'Create a short-lived preview token for public collection reads',
+            summary: 'Create a short-lived preview token for public channel reads',
             security: [{ bearerAuth: [] }],
             parameters: [
                 { name: 'projectId', in: 'path', required: true, schema: { type: 'string' } }
@@ -52,7 +52,7 @@ export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
                                 ttlSeconds: { type: 'integer', minimum: 60, maximum: 3600 },
                                 entryId: { type: 'string' },
                                 pageId: { type: 'string' },
-                                collectionId: { type: 'string' }
+                                channelId: { type: 'string' }
                             }
                         }
                     }

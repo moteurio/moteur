@@ -16,10 +16,9 @@ describe('public forms', () => {
         const forms = publicFormsApi(client as unknown as MoteurClient, 'demo');
         client.get.mockResolvedValueOnce({ id: 'contact' });
         await forms.get('site', 'contact', { locale: 'fr' });
-        expect(client.get).toHaveBeenLastCalledWith(
-            '/projects/demo/collections/site/forms/contact',
-            { locale: 'fr' }
-        );
+        expect(client.get).toHaveBeenLastCalledWith('/projects/demo/channels/site/forms/contact', {
+            locale: 'fr'
+        });
         client.get.mockResolvedValueOnce({ token: '17.sig' });
         expect(await forms.token('contact')).toBe('17.sig');
         expect(client.get).toHaveBeenLastCalledWith('/projects/demo/forms/contact/token');

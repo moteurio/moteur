@@ -150,7 +150,7 @@ A new account records how it was made and the site page that brought them (`sign
 
 ## Project API keys (read-only)
 
-Each project may have **several API keys**. Any one of them can authenticate reads via the **Public API** — collections and page outputs (sitemap, navigation, urls, breadcrumb) — subject to that key’s **restrictions** (`allowedHosts`, optional **channel allowlist**, optional **site-wide** access). Key auth is **read-only**: GET requests only; POST/PATCH/DELETE with only an API key return 403.
+Each project may have **several API keys**. Any one of them can authenticate reads via the **Public API** — channels and page outputs (sitemap, navigation, urls, breadcrumb) — subject to that key’s **restrictions** (`allowedHosts`, optional **channel allowlist**, optional **site-wide** access). Key auth is **read-only**: GET requests only; POST/PATCH/DELETE with only an API key return 403.
 
 **Browsers:** prefer a backend or edge that holds the key. If the key is used from client-side JavaScript, configure **allowed hosts** on the key (see below) and align **`CORS_ORIGINS`** on the API server with the same origins.
 
@@ -168,12 +168,12 @@ You can bind each key to one or more **hostname patterns** stored as `allowedHos
 - **`undefined` or `[]`:** No host check (default). Keys work from browsers, curl, and server-side clients as today.
 - **Non-empty list:** After the key hash is validated, the request must include **`Origin`** or **`Referer`** parseable as a URL whose **hostname** matches at least one pattern. Otherwise the API returns **403** with `code: "API_KEY_HOST_NOT_ALLOWED"`. Patterns are **exact hosts** (e.g. `www.example.com`) or a **single** leading wildcard segment (`*.my-project.vercel.com` matches `foo.my-project.vercel.com` but not `a.b.my-project.vercel.com`). **Rotation preserves** restriction fields.
 
-**Channel allowlist (optional):** If a key defines `allowedCollectionIds`, it may only read those API collections (channels). `GET .../collections` returns only allowed items. Keys with a non-empty allowlist **cannot** use sitemap, navigation, urls or breadcrumb unless **`allowSiteWideReads`** is true for that key.
+**Channel allowlist (optional):** If a key defines `allowedChannelIds`, it may only read those channels. `GET .../channels` returns only allowed items. Keys with a non-empty allowlist **cannot** use sitemap, navigation, urls or breadcrumb unless **`allowSiteWideReads`** is true for that key.
 
 Configure with JWT:
 
 - **List:** `GET {basePath}/projects/:projectId/api-keys` — array of metadata per key (never raw secrets).
-- **Update:** `PATCH {basePath}/projects/:projectId/api-keys/:keyId` — body may include `allowedHosts`, `label`, `allowedCollectionIds` (`null` clears channel restriction), `allowSiteWideReads`.
+- **Update:** `PATCH {basePath}/projects/:projectId/api-keys/:keyId` — body may include `allowedHosts`, `label`, `allowedChannelIds` (`null` clears channel restriction), `allowSiteWideReads`.
 
 **Limitations:** `Origin`/`Referer` can be set by any HTTP client; this mitigates casual abuse and wrong-site embedding but does not replace keeping the key secret. For server-to-server reads with a restricted key, use **JWT** instead or leave `allowedHosts` empty.
 
@@ -181,20 +181,20 @@ Configure with JWT:
 
 The key is created and rotated with **JWT** and **project access**. The raw key is returned **only once** when you generate or rotate it; store it securely (e.g. env var, secrets manager). These routes live under **`/projects/:projectId/...`**. See [REST API](REST%20API.md).
 
-- **Create:** `POST {basePath}/projects/:projectId/api-keys` — optional body `{ label?, expiresAt?, allowedCollectionIds?, allowSiteWideReads? }`. Returns metadata plus `rawKey` once.
+- **Create:** `POST {basePath}/projects/:projectId/api-keys` — optional body `{ label?, expiresAt?, allowedChannelIds?, allowSiteWideReads? }`. Returns metadata plus `rawKey` once.
 - **Rotate:** `POST {basePath}/projects/:projectId/api-keys/:keyId/rotate` — new secret; preserves restrictions. A key with an expiry keeps the same lifetime, counted from the rotation.
 - **Revoke:** `DELETE {basePath}/projects/:projectId/api-keys/:keyId` — removes that key (**204**).
 
 **Expiry:** keys never expire unless `expiresAt` (a future ISO date-time) is set on create or `PATCH`; `null` removes it. After that time, requests with the key get **401** `{ "error": "API key expired", "code": "API_KEY_EXPIRED" }`. Listing keys returns `expiresAt` and `expired`.
 
-See [Public API and Collections](Public%20API%20and%20Collections.md) for using the key with collections.
+See [Public API and Channels](Public%20API%20and%20Channels.md) for using the key with channels.
 
 ### JavaScript SDK (`@moteurio/client`)
 
 | Factory                        | Auth                                                                        | Use case                                                                                                                                                                                                                                                                                                                      |
 | ------------------------------ | --------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **`createMoteurAdminClient`**  | Bearer JWT (optional `apiKey` for mixed tooling, but not the primary story) | Full API: projects, **`/models/.../entries`**, project-scoped resources (pages, templates, **navigations** documents, assets, …), per-project **`/projects/:id/activity`**, **`client.instance`** (deployment maintenance on the server), blueprints; optional global **`GET /activity`** (cross-project, operator-oriented). |
-| **`createMoteurPublicClient`** | **`x-api-key`** + required **`projectId`**                                  | Read-only: collection list/get, **`channel(collectionId)`** (entries/pages/forms/layouts as exposed by the collection), **`site`** (sitemap, navigation tree, urls, breadcrumb).                                                                                                                                              |
+| **`createMoteurPublicClient`** | **`x-api-key`** + required **`projectId`**                                  | Read-only: channel list/get, **`channel(channelId)`** (entries/pages/forms/layouts as exposed by the channel), **`site`** (sitemap, navigation tree, urls, breadcrumb).                                                                                                                                                       |
 
 Details and examples: [packages/client/README.md](../packages/client/README.md).
 
@@ -205,7 +205,7 @@ Details and examples: [packages/client/README.md](../packages/client/README.md).
 | Auth method             | Applies to                                                                                                                                                                      | Middleware                                                                      |
 | ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
 | **JWT** (Bearer token)  | All routes by default (Studio, project CRUD, global studio routes)                                                                                                              | `requireAuth`, `requireProjectAccess`, `requireProjectAdmin`, `requireOperator` |
-| **API Key** (read-only) | Collections, page outputs                                                                                                                                                       | `optionalAuth` + `apiKeyAuth` + `requireCollectionOrProjectAccess`              |
+| **API Key** (read-only) | Channels, page outputs                                                                                                                                                          | `optionalAuth` + `apiKeyAuth` + `requireChannelOrProjectAccess`                 |
 | **None** (intentional)  | `POST /auth/login`, `GET /auth/providers`, form submissions (`POST .../forms/:formId/submit`), inbound webhooks (`POST /webhooks/mux`, `/webhooks/vimeo`), static asset serving | Rate limiting or signature verification                                         |
 
 ### Roles in a project

@@ -22,9 +22,9 @@ npm install @moteurio/client
 
 The server **does not** treat “any request + API key” like “any request + JWT”.
 
-- **JWT** means an identified user with **project access** (and possibly operator rights). That unlocks **writes**, **draft content**, direct **model/entry** APIs, project settings, **creating** collections and API keys, assets, webhooks, etc.
-- **Project API key** is **read-only** (GET only). It is allowed only on routes designed for public consumption: **collection metadata**, **reads through a collection (the channel)**, **page outputs** (sitemap, navigation tree, urls, breadcrumb). Radar reads drafts, so it takes a member's sign-in (`projects.radar` on the admin client).  
-  What you can read **depends on how the collection is configured** (which models, fields, statuses, reference depth).
+- **JWT** means an identified user with **project access** (and possibly operator rights). That unlocks **writes**, **draft content**, direct **model/entry** APIs, project settings, **creating** channels and API keys, assets, webhooks, etc.
+- **Project API key** is **read-only** (GET only). It is allowed only on routes designed for public consumption: **channel metadata**, **reads through a channel (the channel)**, **page outputs** (sitemap, navigation tree, urls, breadcrumb). Radar reads drafts, so it takes a member's sign-in (`projects.radar` on the admin client).  
+  What you can read **depends on how the channel is configured** (which models, fields, statuses, reference depth).
 
 So: **one generic client with an API key would lie**—many methods would always return 401/403. Splitting factories matches reality and keeps frontend code honest.
 
@@ -37,7 +37,7 @@ Use this for **CLIs**, **internal dashboards**, **automation**, **Moteur Studio�
 ### What you can do (that the public client cannot)
 
 - Create/update/delete **projects**, **models**, **entries** (all statuses, workflow actions), **pages**, **templates**, **assets**, etc.
-- Manage **collection definitions** (what a future public “channel” will expose) via `collections` on the admin client.
+- Manage **channel definitions** (what a future public “channel” will expose) via `channels` on the admin client.
 - **Create, rotate, or revoke** project API keys (`forProject(...).apiKeys.create()`, `.rotate(keyId)`, …) after you are logged in.
 - Use **branches**, **comments**, **reviews**, **webhooks**, **submissions**, and other **project-scoped** HTTP resources.
 - Call **`client.instance`** for **deployment-wide maintenance** (usage counters, blueprint seeding, asset migration)—separate from editing a single project’s content; usually requires an **operator**-capable user (see below).
@@ -90,9 +90,9 @@ await p.entries.create('posts', { title: 'Draft', slug: 'draft' });
 const { pages } = await p.pages.list();
 const { page } = await p.pages.getBySlug('about');
 
-// Collection definitions (shape of a future public channel—not the same as public channel reads)
-const { collections } = await p.collections.list();
-await p.collections.create({
+// Channel definitions (shape of a future public channel—not the same as public channel reads)
+const { channels } = await p.channels.list();
+await p.channels.create({
     label: 'Website',
     resources: [
         { resourceType: 'model', resourceId: 'posts', filters: { status: ['published'] } },
@@ -166,7 +166,7 @@ Framework-agnostic utilities exported from the same package:
 | `createPreviewSession({ search, cookie })`         | Read `?preview=` / cookie for tokens |
 | `createMoteurPublicClient(...).withPreview(token)` | Send `x-preview-token` on reads      |
 
-Mint tokens with a **JWT** (`forProject(id).previewTokens.create({ entryId, collectionId })`). See [Frontend.md](https://github.com/moteurio/moteur/blob/main/docs/Frontend.md).
+Mint tokens with a **JWT** (`forProject(id).previewTokens.create({ entryId, channelId })`). See [Frontend.md](https://github.com/moteurio/moteur/blob/main/docs/Frontend.md).
 
 Framework adapters (`@moteurio/react`, `@moteurio/vue`, `@moteurio/astro`, `@moteurio/vanilla`) live in the **[moteur-frontend](https://github.com/moteurio/moteur-frontend)** repo — not in this monorepo and not in moteur-plugins.
 
@@ -176,21 +176,21 @@ Framework adapters (`@moteurio/react`, `@moteurio/vue`, `@moteurio/astro`, `@mot
 
 Use this when you only have the **project API key** and you **read** data for rendering (Next.js, Astro, Nuxt BFF, edge function, cron job, etc.).
 
-### Collections and channels (mental model)
+### Channels and channels (mental model)
 
 1. A **collection** is a **named bundle of resources** an operator configured in Moteur (which models, which pages, field allowlists, status filters, reference resolution depth).
-2. The **API key** is allowed to hit **collection-scoped URLs**—that’s your **channel**: same project, same key, but `collectionId` picks **which** slice of content applies.
-3. Listing `client.collections.list()` returns those definitions (ids, labels, resources). Reading `client.channel('website').entries.list('posts')` returns **entries as shaped by that collection** (not the raw admin entry API).
+2. The **API key** is allowed to hit **channel-scoped URLs**—that’s your **channel**: same project, same key, but `channelId` picks **which** slice of content applies.
+3. Listing `client.channels.list()` returns those definitions (ids, labels, resources). Reading `client.channel('website').entries.list('posts')` returns **entries as shaped by that channel** (not the raw admin entry API).
 
-So: **channel = collection id + typed helpers** in the SDK; on the wire it is `/projects/:projectId/collections/:collectionId/...`.
+So: **channel = channel id + typed helpers** in the SDK; on the wire it is `/projects/:projectId/channels/:channelId/...`.
 
 ### What’s on the public client
 
-| Property                    | Purpose                                                                                                                                                          |
-| --------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **`collections`**           | `list()` / `get(id)` — metadata about configured collections.                                                                                                    |
-| **`channel(collectionId)`** | `pages`, `entries`, `layouts`, `forms`, `menus` — **GET** reads allowed by that collection’s config. `schema()`: what it delivers, described.                    |
-| **`site`**                  | Page **outputs**: `sitemapXml`, `sitemapJson`, `navigation` (published **tree**), `urls`, `breadcrumb` (each takes `locale`), `resolve(path)` and `redirects()`. |
+| Property                 | Purpose                                                                                                                                                          |
+| ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **`channels`**           | `list()` / `get(id)` — metadata about configured channels.                                                                                                       |
+| **`channel(channelId)`** | `pages`, `entries`, `layouts`, `forms`, `menus` — **GET** reads allowed by that channel’s config. `schema()`: what it delivers, described.                       |
+| **`site`**               | Page **outputs**: `sitemapXml`, `sitemapJson`, `navigation` (published **tree**), `urls`, `breadcrumb` (each takes `locale`), `resolve(path)` and `redirects()`. |
 
 ### Typed answers, in one language
 
@@ -217,7 +217,7 @@ await fr.site.urls(); // site outputs follow the client's language too
 
 ### Menus vs `site.navigation`
 
-- **`channel(id).menus.get('main')`** → HTTP `GET /projects/:id/collections/:collectionId/menus/main` — a menu editors build in Studio (Setup › Menus), with item URLs resolved. The collection must give that menu.
+- **`channel(id).menus.get('main')`** → HTTP `GET /projects/:id/channels/:channelId/menus/main` — a menu editors build in Studio (Setup › Menus), with item URLs resolved. The channel must give that menu.
 - **`site.navigation()`** → HTTP `GET /projects/:id/navigation` — the tree **computed from the page tree** (`navInclude` pages).
 - **Admin** `forProject().navigations` → CRUD on the menu documents themselves (JWT).
 
@@ -236,9 +236,9 @@ const client = createMoteurPublicClient({
 });
 
 // Discover channels (optional)
-const { collections } = await client.collections.list();
+const { channels } = await client.channels.list();
 
-// `website` must match a collection id you created in Studio / admin API
+// `website` must match a channel id you created in Studio / admin API
 const posts = await client.channel('website').entries.list('posts', {
     resolveUrl: true // adds resolved URL when the API supports it
 });
@@ -277,7 +277,7 @@ const crumb = await client.site.breadcrumb({ pageId: 'page-id', entryId: 'option
 
 ### Security notes (public)
 
-- **Default:** keep the key on a **server**, **serverless function**, or **edge** that calls Moteur (BFF pattern). The key is read-only, but anyone who steals it can still read everything the collection exposes.
+- **Default:** keep the key on a **server**, **serverless function**, or **edge** that calls Moteur (BFF pattern). The key is read-only, but anyone who steals it can still read everything the channel exposes.
 - **Browser / SPA only when constrained:** embedding the key in frontend JavaScript is acceptable **only if** you also use the server’s **allowed hosts** feature: with JWT, `PATCH /projects/:projectId/api-keys/:keyId` (body `allowedHosts`) sets hostname patterns; then `x-api-key` requests must send a matching **`Origin`** or **`Referer`**, and callers without those headers (typical Node/curl) get **403**—use **JWT** for those. Align **`CORS_ORIGINS`** on the API with your site origins. Header checks are not cryptographic; they complement, not replace, keeping the key secret.
 - Send the key only in the **`x-api-key`** header (see [Authentication](https://github.com/moteurio/moteur/blob/main/docs/Authentication.md)).
 
@@ -287,11 +287,11 @@ const crumb = await client.site.breadcrumb({ pageId: 'page-id', entryId: 'option
 
 Same domain objects, **different URLs and rules**:
 
-|                       | Admin (`createMoteurAdminClient`)                                                                               | Public (`createMoteurPublicClient`)                                                            |
-| --------------------- | --------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
-| **Entries**           | `entries.list(projectId, modelId)` or `forProject().entries.list(modelId)` → `/projects/.../models/.../entries` | `channel(collectionId).entries.list(resourceId)` → `/projects/.../collections/.../.../entries` |
-| **Statuses / fields** | Full CRUD; filters you pass in the request                                                                      | Determined by the **collection** (API key often sees **published** only)                       |
-| **With API key only** | **Not supported** for direct model entries                                                                      | **Supported** through **channels**                                                             |
+|                       | Admin (`createMoteurAdminClient`)                                                                               | Public (`createMoteurPublicClient`)                                                      |
+| --------------------- | --------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| **Entries**           | `entries.list(projectId, modelId)` or `forProject().entries.list(modelId)` → `/projects/.../models/.../entries` | `channel(channelId).entries.list(resourceId)` → `/projects/.../channels/.../.../entries` |
+| **Statuses / fields** | Full CRUD; filters you pass in the request                                                                      | Determined by the **collection** (API key often sees **published** only)                 |
+| **With API key only** | **Not supported** for direct model entries                                                                      | **Supported** through **channels**                                                       |
 
 ---
 

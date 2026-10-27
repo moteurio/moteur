@@ -8,7 +8,7 @@ import * as Blocks from './blocks.js';
 import * as Comments from './comments.js';
 import * as Reviews from './reviews.js';
 import * as Notifications from './notifications.js';
-import * as ApiCollections from './apiCollections.js';
+import * as Channels from './channels.js';
 import * as Navigations from './navigations.js';
 import * as ProjectApiKey from './projectApiKey.js';
 import * as Assets from './assets/assetService.js';
@@ -133,12 +133,12 @@ export const Moteur: MoteurAPI = {
         markRead: Notifications.markRead,
         markAllRead: Notifications.markAllRead
     },
-    collections: {
-        list: ApiCollections.listCollections,
-        get: ApiCollections.getCollection,
-        create: ApiCollections.createCollection,
-        update: ApiCollections.updateCollection,
-        delete: ApiCollections.deleteCollection
+    channels: {
+        list: Channels.listChannels,
+        get: Channels.getChannel,
+        create: Channels.createChannel,
+        update: Channels.updateChannel,
+        delete: Channels.deleteChannel
     },
     navigations: {
         list: Navigations.listNavigations,

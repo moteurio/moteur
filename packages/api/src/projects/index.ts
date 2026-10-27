@@ -28,13 +28,13 @@ import gitLogRouter, { openapi as gitLogSpec } from './gitLog.js';
 import typesRouter, { openapi as typesSpec } from './types.js';
 import importsRouter, { openapi as importsSpec, schemas as importsSchemas } from './imports.js';
 import aiAuditRouter, { openapi as aiAuditSpec } from './ai-audit/index.js';
-import { optionalAuth, apiKeyAuth, requireCollectionOrProjectAccess } from '../middlewares/auth.js';
+import { optionalAuth, apiKeyAuth, requireChannelOrProjectAccess } from '../middlewares/auth.js';
 
 import templatesRouter, { openapi as templatesSpec } from '../studio/templates/index.js';
 import pagesStudioRouter, { openapi as pagesStudioSpec } from '../studio/pages/index.js';
 import structuresRouter, { openapi as structuresSpec } from '../studio/structures/index.js';
 import layoutsRouter, { openapi as layoutsSpec } from '../studio/layouts/index.js';
-import { openapi as collectionsStudioSpec } from '../studio/collections/index.js';
+import { openapi as channelsStudioSpec } from '../studio/channels/index.js';
 import apiKeysRouter, { openapi as apiKeysSpec } from '../studio/apiKeys/index.js';
 import previewTokensRouter, {
     openapi as previewTokensSpec
@@ -48,7 +48,7 @@ import webhooksRouter, { openapi as webhooksSpec } from '../studio/webhooks/inde
 import schedulesRouter, { openapi as schedulesSpec } from '../studio/schedules/index.js';
 import formsStudioRouter, { openapi as formsStudioSpec } from '../studio/forms/index.js';
 import blocksStudioRouter, { openapi as blocksStudioSpec } from '../studio/blocks.js';
-import collectionsPublicRouter, { openapi as collectionsPublicSpec } from './collections/public.js';
+import channelsPublicRouter, { openapi as channelsPublicSpec } from './channels/public.js';
 
 const router: Router = Router();
 
@@ -76,12 +76,12 @@ router.use('/:projectId/webhooks', webhooksRouter);
 router.use('/:projectId/schedules', schedulesRouter);
 router.use('/:projectId/blocks', blocksStudioRouter);
 router.use(
-    '/:projectId/collections',
+    '/:projectId/channels',
     optionalAuth,
     apiKeyAuth,
     previewTokenAuth,
-    requireCollectionOrProjectAccess,
-    collectionsPublicRouter
+    requireChannelOrProjectAccess,
+    channelsPublicRouter
 );
 router.use('/:projectId/activity', activityRouter);
 router.use('/:projectId/comments', commentsRouter);
@@ -113,7 +113,7 @@ export const projectsSpecs = {
         pagesStudioSpec,
         structuresSpec,
         layoutsSpec,
-        collectionsStudioSpec,
+        channelsStudioSpec,
         apiKeysSpec,
         previewTokensSpec,
         assetsSpec,
@@ -124,7 +124,7 @@ export const projectsSpecs = {
         schedulesSpec,
         formsStudioSpec,
         blocksStudioSpec,
-        collectionsPublicSpec,
+        channelsPublicSpec,
         radarSpec,
         branchesSpec,
         gitLogSpec,

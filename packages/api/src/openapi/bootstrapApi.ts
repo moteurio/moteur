@@ -1,5 +1,5 @@
 /**
- * Shared bootstrap: plugin registration, OpenAPI path collection, merged spec.
+ * Shared bootstrap: plugin registration, OpenAPI path channel, merged spec.
  * Used by the HTTP server and by `scripts/export-openapi.ts`.
  */
 import type { OpenAPIV3 } from 'openapi-types';

@@ -1,10 +1,10 @@
 # REST API Reference
 
-This document describes the **HTTP API** for integrating with Moteur: authenticate, manage projects and content (JWT + project-scoped routes), or read published content for your frontend (public collections). All paths are relative to the API base path (e.g. empty or `/api` via `API_BASE_PATH`). **Project-scoped routes** (webhooks, forms, pages, navigations, collections, API keys, assets, templates, layouts, structures, blocks, schedules) live under `/projects/:projectId/...`. Global **studio** routes (request usage counters, blueprint seed, asset migration between providers) use the `/studio/` prefix. For interactive docs, use **Scalar** at `{API_BASE_PATH}/docs` when the server is running; for the OpenAPI spec, see [OpenAPI](#-openapi) below. Authentication uses JWT (Bearer token) for all routes by default, or **project API key** for read-only access to collections and page outputs (see [Authentication](Authentication.md)).
+This document describes the **HTTP API** for integrating with Moteur: authenticate, manage projects and content (JWT + project-scoped routes), or read published content for your frontend (public channels). All paths are relative to the API base path (e.g. empty or `/api` via `API_BASE_PATH`). **Project-scoped routes** (webhooks, forms, pages, navigations, channels, API keys, assets, templates, layouts, structures, blocks, schedules) live under `/projects/:projectId/...`. Global **studio** routes (request usage counters, blueprint seed, asset migration between providers) use the `/studio/` prefix. For interactive docs, use **Scalar** at `{API_BASE_PATH}/docs` when the server is running; for the OpenAPI spec, see [OpenAPI](#-openapi) below. Authentication uses JWT (Bearer token) for all routes by default, or **project API key** for read-only access to channels and page outputs (see [Authentication](Authentication.md)).
 
 **Response convention:** List endpoints return a wrapper object `{ resourceName: T[] }` or a bare array where noted. Single-resource endpoints return `{ resourceName: T }` or `{ token, user }` for auth. Errors return `{ error: string }`.
 
-**Project API keys:** For collections and page outputs send one secret in the `x-api-key` header only (query parameters are not accepted — they leak in logs and referrers). Key auth is **read-only** (GET only); non-GET requests with only an API key return 403. JWT and API key can coexist; JWT takes precedence. Each key may have **`allowedHosts`**, an optional **collection allowlist**, and optional **site-wide** access; see [Authentication](Authentication.md). All other endpoints require JWT.
+**Project API keys:** For channels and page outputs send one secret in the `x-api-key` header only (query parameters are not accepted — they leak in logs and referrers). Key auth is **read-only** (GET only); non-GET requests with only an API key return 403. JWT and API key can coexist; JWT takes precedence. Each key may have **`allowedHosts`**, an optional **channel allowlist**, and optional **site-wide** access; see [Authentication](Authentication.md). All other endpoints require JWT.
 
 **Webhooks (no auth):** `POST /webhooks/mux` and `POST /webhooks/vimeo` are mounted at the application level (no JWT). Signature verification uses **per-project** secrets: `project.videoProviders.mux.webhookSecret` and `project.videoProviders.vimeo.webhookSecret` in each project’s config. The server tries each project that has a non-empty secret until one verifies; there is no separate global “instance” signing secret for these routes. Invalid signatures receive **400**. Register the same URLs in the Mux/Vimeo dashboard for each environment. Processing is asynchronous after responding **200**.
 
@@ -81,41 +81,41 @@ For entries, **`resourceId`** is `modelId__entryId`. Global events have `project
 
 ---
 
-## 📦 Collections (Public API)
+## 📦 Channels (Public API)
 
-Named views of project data for external consumers. Authenticate with **project API key** (header `x-api-key` only) or JWT. Default status filter is **published** when using API key only; with JWT the collection’s status filter is respected.
+Named views of project data for external consumers. Authenticate with **project API key** (header `x-api-key` only) or JWT. Default status filter is **published** when using API key only; with JWT the channel’s status filter is respected.
 
-| Method | Endpoint                                                                 | Description                                                                                            |
-| ------ | ------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------ |
-| GET    | `/projects/:projectId/collections`                                       | List collections. Returns array of collections.                                                        |
-| GET    | `/projects/:projectId/collections/:collectionId`                         | Get one collection.                                                                                    |
-| GET    | `/projects/:projectId/collections/:collectionId/:resourceId/entries`     | List entries for a model resource. Pipeline: status filter → reference resolution → field selection.   |
-| GET    | `/projects/:projectId/collections/:collectionId/:resourceId/entries/:id` | One entry. Same pipeline.                                                                              |
-| GET    | `/projects/:projectId/collections/:collectionId/pages`                   | List pages (filtered by collection page resource).                                                     |
-| GET    | `/projects/:projectId/collections/:collectionId/pages/:id`               | One page by id.                                                                                        |
-| GET    | `/projects/:projectId/collections/:collectionId/pages/by-slug/:slug`     | One page by slug.                                                                                      |
-| GET    | `/projects/:projectId/collections/:collectionId/layouts`                 | Layouts the collection gives (`/layouts/:id` for one).                                                 |
-| GET    | `/projects/:projectId/collections/:collectionId/forms`                   | Active forms the collection gives, public shape: no actions or recipients (`/forms/:id` for one).      |
-| GET    | `/projects/:projectId/collections/:collectionId/menus`                   | Menus the collection gives, item URLs resolved (`ResolvedNavigation[]`).                               |
-| GET    | `/projects/:projectId/collections/:collectionId/menus/:handle`           | One menu by handle (e.g. `main`, `footer`). 404 if the collection doesn’t give it.                     |
-| GET    | `/projects/:projectId/collections/:collectionId/openapi`                 | OpenAPI 3 for this channel only (concrete paths and `entry.data` shapes). Same auth as collection GET. |
-| GET    | `/projects/:projectId/collections/:collectionId/openapi.json`            | Same document as `/openapi`.                                                                           |
+| Method | Endpoint                                                           | Description                                                                                          |
+| ------ | ------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------- |
+| GET    | `/projects/:projectId/channels`                                    | List channels. Returns array of channels.                                                            |
+| GET    | `/projects/:projectId/channels/:channelId`                         | Get one channel.                                                                                     |
+| GET    | `/projects/:projectId/channels/:channelId/:resourceId/entries`     | List entries for a model resource. Pipeline: status filter → reference resolution → field selection. |
+| GET    | `/projects/:projectId/channels/:channelId/:resourceId/entries/:id` | One entry. Same pipeline.                                                                            |
+| GET    | `/projects/:projectId/channels/:channelId/pages`                   | List pages (filtered by collection page resource).                                                   |
+| GET    | `/projects/:projectId/channels/:channelId/pages/:id`               | One page by id.                                                                                      |
+| GET    | `/projects/:projectId/channels/:channelId/pages/by-slug/:slug`     | One page by slug.                                                                                    |
+| GET    | `/projects/:projectId/channels/:channelId/layouts`                 | Layouts the channel gives (`/layouts/:id` for one).                                                  |
+| GET    | `/projects/:projectId/channels/:channelId/forms`                   | Active forms the channel gives, public shape: no actions or recipients (`/forms/:id` for one).       |
+| GET    | `/projects/:projectId/channels/:channelId/menus`                   | Menus the channel gives, item URLs resolved (`ResolvedNavigation[]`).                                |
+| GET    | `/projects/:projectId/channels/:channelId/menus/:handle`           | One menu by handle (e.g. `main`, `footer`). 404 if the channel doesn’t give it.                      |
+| GET    | `/projects/:projectId/channels/:channelId/openapi`                 | OpenAPI 3 for this channel only (concrete paths and `entry.data` shapes). Same auth as channel GET.  |
+| GET    | `/projects/:projectId/channels/:channelId/openapi.json`            | Same document as `/openapi`.                                                                         |
 
-**Everything a site reads goes through a collection.** Project routes such as `/pages`, `/templates`, `/navigations` and `/forms/:formId` are Studio routes and require a JWT. The only key-less endpoint is form submission.
+**Everything a site reads goes through a channel.** Project routes such as `/pages`, `/templates`, `/navigations` and `/forms/:formId` are Studio routes and require a JWT. The only key-less endpoint is form submission.
 
 **Menus:** a `menu` resource with `resourceId: "menus"` gives every menu; any other `resourceId` is one menu handle (add one row per menu). An item `label` is text or one value per language; `?locale=` returns that language. Missing page/asset references don’t fail the request — the item’s `url` is absent.
 
-**Field selection:** Collection resources can define `fields: string[]`; only those top-level field names are returned. Omit or empty = all fields.
+**Field selection:** Channel resources can define `fields: string[]`; only those top-level field names are returned. Omit or empty = all fields.
 
 **Status filter:** Per resource, `filters.status` (default `['published']`). With API key only, only published content is returned.
 
 **Reference resolution:** Per resource, `resolve: 0 | 1 | 2` controls how deep reference-like values (`{ id, type }`) in entry data are expanded.
 
-**Entry URL resolution:** Add `?resolveUrl=1` to entry list or get-one endpoints (collections or project models) to include a computed **`resolvedUrl`** on each entry when a collection page is bound to that model and has a URL pattern. Never stored.
+**Entry URL resolution:** Add `?resolveUrl=1` to entry list or get-one endpoints (channels or project models) to include a computed **`resolvedUrl`** on each entry when a collection page is bound to that model and has a URL pattern. Never stored.
 
-**Asset URL resolution:** Add `?resolveAssets=1` on collection entry and page reads where supported to inline resolved asset URLs in the payload.
+**Asset URL resolution:** Add `?resolveAssets=1` on channel entry and page reads where supported to inline resolved asset URLs in the payload.
 
-**Per-channel OpenAPI:** See [Public API and Collections — §5](Public%20API%20and%20Collections.md#5-per-collection-api-reference-auto-generated).
+**Per-channel OpenAPI:** See [Public API and Channels — §5](Public%20API%20and%20Channels.md#5-per-channel-api-reference-auto-generated).
 
 ---
 
@@ -139,7 +139,7 @@ Every address exists once per project language: `urls` and `sitemap.json` rows c
 
 ## 🗒 Public — Form submission
 
-Form submission is the one endpoint with no auth (rate limited only), since website visitors submit forms. Sites read the form definition through a collection that gives forms.
+Form submission is the one endpoint with no auth (rate limited only), since website visitors submit forms. Sites read the form definition through a channel that gives forms.
 
 | Method | Endpoint                                    | Description                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | ------ | ------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -352,29 +352,29 @@ JWT + **operator** role only. Returns current request counts in two buckets: **s
 
 JWT + project access. Multiple keys per project. Raw secret is returned only on create/rotate.
 
-| Method | Endpoint                                      | Description                                                                                                                                   |
-| ------ | --------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
-| GET    | `/projects/:projectId/api-keys`               | List key metadata (id, prefix, createdAt, expiresAt, expired, allowedHosts, allowlist, allowSiteWideReads). Never hash or raw secret.         |
-| POST   | `/projects/:projectId/api-keys`               | Create key. Optional body: `label`, `expiresAt`, `allowedCollectionIds`, `allowSiteWideReads`. Returns metadata + `rawKey` once.              |
-| POST   | `/projects/:projectId/api-keys/:keyId/rotate` | Rotate that key. New `rawKey` once; restrictions and lifetime preserved.                                                                      |
-| DELETE | `/projects/:projectId/api-keys/:keyId`        | Revoke. 204.                                                                                                                                  |
-| PATCH  | `/projects/:projectId/api-keys/:keyId`        | Update `allowedHosts`, `label`, `expiresAt` (`null` = never expires), `allowedCollectionIds` (`null` clears allowlist), `allowSiteWideReads`. |
+| Method | Endpoint                                      | Description                                                                                                                                |
+| ------ | --------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| GET    | `/projects/:projectId/api-keys`               | List key metadata (id, prefix, createdAt, expiresAt, expired, allowedHosts, allowlist, allowSiteWideReads). Never hash or raw secret.      |
+| POST   | `/projects/:projectId/api-keys`               | Create key. Optional body: `label`, `expiresAt`, `allowedChannelIds`, `allowSiteWideReads`. Returns metadata + `rawKey` once.              |
+| POST   | `/projects/:projectId/api-keys/:keyId/rotate` | Rotate that key. New `rawKey` once; restrictions and lifetime preserved.                                                                   |
+| DELETE | `/projects/:projectId/api-keys/:keyId`        | Revoke. 204.                                                                                                                               |
+| PATCH  | `/projects/:projectId/api-keys/:keyId`        | Update `allowedHosts`, `label`, `expiresAt` (`null` = never expires), `allowedChannelIds` (`null` clears allowlist), `allowSiteWideReads`. |
 
 Expired keys get **401** with `code: "API_KEY_EXPIRED"`.
 
 ---
 
-## 📦 Collections
+## 📦 Channels
 
-JWT + project access. CRUD for API collections (define which models/pages and field/status/resolve options are exposed).
+JWT + project access. CRUD for API channels (define which models/pages and field/status/resolve options are exposed).
 
-| Method | Endpoint                               | Description                                          |
-| ------ | -------------------------------------- | ---------------------------------------------------- |
-| GET    | `/projects/:projectId/collections`     | List collections.                                    |
-| GET    | `/projects/:projectId/collections/:id` | Get one.                                             |
-| POST   | `/projects/:projectId/collections`     | Create. Body: `{ label, description?, resources? }`. |
-| PATCH  | `/projects/:projectId/collections/:id` | Update.                                              |
-| DELETE | `/projects/:projectId/collections/:id` | Hard delete. 204.                                    |
+| Method | Endpoint                            | Description                                          |
+| ------ | ----------------------------------- | ---------------------------------------------------- |
+| GET    | `/projects/:projectId/channels`     | List channels.                                       |
+| GET    | `/projects/:projectId/channels/:id` | Get one.                                             |
+| POST   | `/projects/:projectId/channels`     | Create. Body: `{ label, description?, resources? }`. |
+| PATCH  | `/projects/:projectId/channels/:id` | Update.                                              |
+| DELETE | `/projects/:projectId/channels/:id` | Hard delete. 204.                                    |
 
 ---
 
@@ -479,7 +479,7 @@ Set **`MOTEUR_FAIL_ON_OPENAPI_COLLISION=1`** to fail bootstrap when merged plugi
 
 ## 🛡 Request logging, rate limiting, and security
 
-**Classification:** Every request is classified as **studio** or **public** (or neither). **Studio** = any path under `/studio/`. **Public** = what sites call: `/projects/:projectId/collections/*`, page outputs (`sitemap.xml`, `sitemap.json`, `navigation`, `urls`, `breadcrumb`, `resolve`, and reading `redirects`), and form submissions (`/projects/:projectId/forms/:formId/submit`). Counts are stored in two separate places so limits can differ (e.g. high limit on studio routes, per-project limit on public).
+**Classification:** Every request is classified as **studio** or **public** (or neither). **Studio** = any path under `/studio/`. **Public** = what sites call: `/projects/:projectId/channels/*`, page outputs (`sitemap.xml`, `sitemap.json`, `navigation`, `urls`, `breadcrumb`, `resolve`, and reading `redirects`), and form submissions (`/projects/:projectId/forms/:formId/submit`). Counts are stored in two separate places so limits can differ (e.g. high limit on studio routes, per-project limit on public).
 
 **Audit log:** If `API_REQUEST_LOG_FILE` (absolute path) or `API_REQUEST_LOG_DIR` is set, each classified request is appended as a JSON line (timestamp, type, projectId, method, path, statusCode, durationMs). **API key and Authorization header are never logged.** Use log rotation (e.g. logrotate) and retain logs as needed for audit or billing disputes.
 

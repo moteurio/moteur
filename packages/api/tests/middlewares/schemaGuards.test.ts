@@ -10,7 +10,7 @@ import structures from '../../src/studio/structures/index.js';
 import templates from '../../src/studio/templates/index.js';
 import layouts from '../../src/studio/layouts/index.js';
 import forms from '../../src/studio/forms/index.js';
-import channels from '../../src/projects/collections/public.js';
+import channels from '../../src/projects/channels/public.js';
 
 type Layer = {
     route?: { path: string; methods: Record<string, boolean>; stack: { handle: unknown }[] };

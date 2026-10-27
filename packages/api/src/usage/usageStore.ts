@@ -1,6 +1,6 @@
 /**
  * API request counts in two buckets: studio (operator/back-office) and public (API key /
- * collections, per project). Kept by the engine's metering, per calendar month (UTC), so they
+ * channels, per project). Kept by the engine's metering, per calendar month (UTC), so they
  * survive restarts once the server uses the file store (see `src/index.ts`).
  */
 import {

@@ -1,6 +1,6 @@
 export * from './Activity.js';
 export * from './AiAudit.js';
-export * from './ApiCollection.js';
+export * from './Channel.js';
 export * from './Asset.js';
 export * from './VariantDefinition.js';
 export * from './Audit.js';

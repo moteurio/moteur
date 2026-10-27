@@ -31,7 +31,7 @@ export type EntryListOptions<S extends SchemaShape = UntypedSchema> = EntryReadO
 };
 
 /**
- * What a collection (channel) delivers: pages, entries, menus, forms and layouts. Typed by the
+ * What a channel delivers: pages, entries, menus, forms and layouts. Typed by the
  * project's schema (`S`); answers are in one language (`'one'`) when the call names one, or
  * when the client was made for one (`client.locale('fr')`).
  */
@@ -92,20 +92,20 @@ function query(
 }
 
 /**
- * Public collection channel. Paths match `GET` routes in
- * `packages/api/src/projects/collections/public.ts`.
+ * A public channel. Paths match `GET` routes in
+ * `packages/api/src/projects/channels/public.ts`.
  */
-export function createPublicCollectionChannel<
+export function createPublicChannel<
     S extends SchemaShape = UntypedSchema,
     D extends LocaleMode = 'all'
 >(
     client: MoteurClient,
     projectId: string,
-    collectionId: string,
+    channelId: string,
     locale?: string
 ): PublicChannel<S, D> {
     const enc = encodeURIComponent;
-    const root = `/projects/${enc(projectId)}/collections/${enc(collectionId)}`;
+    const root = `/projects/${enc(projectId)}/channels/${enc(channelId)}`;
     // Typed by PublicChannel; the HTTP call itself doesn't know the schema.
     const get = (url: string, options?: EntryListOptions) =>
         client.get<never>(url, query(options, locale));

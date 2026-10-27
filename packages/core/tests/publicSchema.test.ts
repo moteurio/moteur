@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-vi.mock('../src/apiCollections.js', () => ({ getCollection: vi.fn() }));
+vi.mock('../src/channels.js', () => ({ getChannel: vi.fn() }));
 vi.mock('../src/models.js', () => ({ getModelSchemaForProject: vi.fn() }));
 vi.mock('../src/templates.js', () => ({ listTemplates: vi.fn() }));
 vi.mock('../src/blocks.js', () => ({ listBlocks: vi.fn() }));
@@ -15,14 +15,14 @@ vi.mock('../src/utils/projectStorage.js', () => ({
     listProjectKeys: vi.fn(async () => ['rival'])
 }));
 
-import { getCollection } from '../src/apiCollections.js';
+import { getChannel } from '../src/channels.js';
 import { getModelSchemaForProject } from '../src/models.js';
 import { listTemplates } from '../src/templates.js';
 import { listBlocks } from '../src/blocks.js';
 import { listStructures } from '../src/structures.js';
 import { channelSchema, schemaTypes } from '../src/publicSchema.js';
 
-const collection = (resources: unknown[]) =>
+const channel = (resources: unknown[]) =>
     ({ id: 'site', projectId: 'moteur-io', label: 'Site', resources }) as never;
 
 const rival = {
@@ -102,10 +102,8 @@ describe('a channel’s public schema', () => {
     });
 
     it('describes models with only the fields the channel gives, and only public options', async () => {
-        vi.mocked(getCollection).mockResolvedValue(
-            collection([
-                { resourceType: 'model', resourceId: 'rival', fields: ['name', 'pricing'] }
-            ])
+        vi.mocked(getChannel).mockResolvedValue(
+            channel([{ resourceType: 'model', resourceId: 'rival', fields: ['name', 'pricing'] }])
         );
         const s = (await channelSchema('moteur-io', 'site'))!;
         expect(s.locales).toEqual(['en', 'fr']);
@@ -126,8 +124,8 @@ describe('a channel’s public schema', () => {
     });
 
     it('describes the templates of its pages, and the blocks and structures they use', async () => {
-        vi.mocked(getCollection).mockResolvedValue(
-            collection([{ resourceType: 'page', resourceId: 'page' }])
+        vi.mocked(getChannel).mockResolvedValue(
+            channel([{ resourceType: 'page', resourceId: 'page' }])
         );
         const s = (await channelSchema('moteur-io', 'site'))!;
         expect(Object.keys(s.templates)).toEqual(['page']);
@@ -140,8 +138,8 @@ describe('a channel’s public schema', () => {
     });
 
     it('gives every template for every page, and a version that follows the schemas', async () => {
-        vi.mocked(getCollection).mockResolvedValue(
-            collection([{ resourceType: 'page', resourceId: 'pages' }])
+        vi.mocked(getChannel).mockResolvedValue(
+            channel([{ resourceType: 'page', resourceId: 'pages' }])
         );
         const before = (await channelSchema('moteur-io', 'site'))!;
         expect(Object.keys(before.templates)).toEqual(['legal', 'page']);
@@ -155,13 +153,13 @@ describe('a channel’s public schema', () => {
     });
 
     it('is null for a channel that does not exist', async () => {
-        vi.mocked(getCollection).mockResolvedValue(null);
+        vi.mocked(getChannel).mockResolvedValue(null);
         expect(await channelSchema('moteur-io', 'nope')).toBeNull();
     });
 
     it('makes the same kind of types as the project’s schemas', async () => {
-        vi.mocked(getCollection).mockResolvedValue(
-            collection([
+        vi.mocked(getChannel).mockResolvedValue(
+            channel([
                 { resourceType: 'model', resourceId: 'models' },
                 { resourceType: 'page', resourceId: 'page' }
             ])

@@ -1,22 +1,22 @@
 import type { OpenAPIV3 } from 'openapi-types';
-import type { ApiCollection, ApiCollectionResource } from '@moteurio/types/ApiCollection.js';
+import type { Channel, ChannelResource } from '@moteurio/types/Channel.js';
 import type { ModelSchema } from '@moteurio/types/Model.js';
 import { entryQueryParameters } from '../utils/entryQuery.js';
 import { resolveAssetsParameter, resolveUrlParameter } from '../utils/queryFlag.js';
 import { openApiEntryDataSchema, plainText } from './modelFieldOpenApi.js';
 
-export type BuildCollectionOpenApiInput = {
+export type BuildChannelOpenApiInput = {
     projectId: string;
-    collection: ApiCollection;
-    /** Model schemas keyed by model id (only models referenced by the collection need to be present). */
+    channel: Channel;
+    /** Model schemas keyed by model id (only models referenced by the channel need to be present). */
     modelsById: Map<string, ModelSchema | null>;
-    /** Every menu handle in the project, used when the collection gives every menu. */
+    /** Every menu handle in the project, used when the channel gives every menu. */
     menuHandles?: string[];
     serverUrl: string;
 };
 
-function collectionBasePath(projectId: string, collectionId: string): string {
-    return `/projects/${projectId}/collections/${collectionId}`;
+function channelBasePath(projectId: string, channelId: string): string {
+    return `/projects/${projectId}/channels/${channelId}`;
 }
 
 function localeParameters(): OpenAPIV3.ParameterObject[] {
@@ -89,9 +89,9 @@ const LAYOUTS_TAG = 'layouts';
 const FORMS_TAG = 'forms';
 const MENUS_TAG = 'menus';
 
-/** Handles the collection gives, or undefined when it gives no menu. */
-function exposedMenuHandles(collection: ApiCollection, all: string[] = []): string[] | undefined {
-    const rows = collection.resources.filter(r => r.resourceType === 'menu');
+/** Handles the channel gives, or undefined when it gives no menu. */
+function exposedMenuHandles(channel: Channel, all: string[] = []): string[] | undefined {
+    const rows = channel.resources.filter(r => r.resourceType === 'menu');
     if (rows.length === 0) return undefined;
     if (rows.some(r => r.resourceId === 'menus')) return [...all].sort();
     return rows.map(r => r.resourceId);
@@ -133,8 +133,8 @@ const menuSchemas: Record<string, OpenAPIV3.SchemaObject> = {
 
 function modelResourcePaths(
     projectId: string,
-    collectionId: string,
-    resource: ApiCollectionResource,
+    channelId: string,
+    resource: ChannelResource,
     model: ModelSchema,
     schemas: Record<string, OpenAPIV3.SchemaObject>
 ): OpenAPIV3.PathsObject {
@@ -163,7 +163,7 @@ function modelResourcePaths(
         }
     };
 
-    const base = `${collectionBasePath(projectId, collectionId)}/${modelId}/entries`;
+    const base = `${channelBasePath(projectId, channelId)}/${modelId}/entries`;
     const params: OpenAPIV3.ParameterObject[] = publicEntryQueryParameters();
 
     return {
@@ -216,44 +216,43 @@ function modelResourcePaths(
     };
 }
 
-function hasPageResource(collection: ApiCollection): ApiCollectionResource | undefined {
-    return collection.resources.find(r => r.resourceType === 'page');
+function hasPageResource(channel: Channel): ChannelResource | undefined {
+    return channel.resources.find(r => r.resourceType === 'page');
 }
 
-function hasLayoutResource(collection: ApiCollection): ApiCollectionResource | undefined {
-    return collection.resources.find(r => r.resourceType === 'layout');
+function hasLayoutResource(channel: Channel): ChannelResource | undefined {
+    return channel.resources.find(r => r.resourceType === 'layout');
 }
 
-function hasFormResource(collection: ApiCollection): ApiCollectionResource | undefined {
-    return collection.resources.find(r => r.resourceType === 'form');
+function hasFormResource(channel: Channel): ChannelResource | undefined {
+    return channel.resources.find(r => r.resourceType === 'form');
 }
 
 /**
- * Build an OpenAPI 3 document describing only the read routes exposed by one API collection.
+ * Build an OpenAPI 3 document describing only the read routes exposed by one channel.
  * Intended for frontend developers (API key auth, published content).
  */
-export function buildCollectionOpenApi(input: BuildCollectionOpenApiInput): OpenAPIV3.Document {
-    const { projectId, collection, modelsById, menuHandles, serverUrl } = input;
-    const collectionId = collection.id;
-    const tag = plainText(collection.label, collectionId);
-    const channelDescription = plainText(collection.description, tag);
+export function buildChannelOpenApi(input: BuildChannelOpenApiInput): OpenAPIV3.Document {
+    const { projectId, channel, modelsById, menuHandles, serverUrl } = input;
+    const channelId = channel.id;
+    const tag = plainText(channel.label, channelId);
+    const channelDescription = plainText(channel.description, tag);
 
     const paths: OpenAPIV3.PathsObject = {};
     const schemas: Record<string, OpenAPIV3.SchemaObject> = {};
 
-    const metaPath = collectionBasePath(projectId, collectionId);
+    const metaPath = channelBasePath(projectId, channelId);
     paths[metaPath] = {
         get: {
-            summary: 'Collection metadata',
+            summary: 'Channel metadata',
             tags: [CHANNEL_TAG],
             security: [{ ApiKeyAuth: [] }],
             responses: {
                 '200': {
-                    description:
-                        'Collection definition (resources, field allowlists, resolve depth)',
+                    description: 'Channel definition (resources, field allowlists, resolve depth)',
                     content: {
                         'application/json': {
-                            schema: { $ref: '#/components/schemas/ApiCollectionMeta' }
+                            schema: { $ref: '#/components/schemas/ChannelMeta' }
                         }
                     }
                 },
@@ -262,7 +261,7 @@ export function buildCollectionOpenApi(input: BuildCollectionOpenApiInput): Open
         }
     };
 
-    schemas.ApiCollectionMeta = {
+    schemas.ChannelMeta = {
         type: 'object',
         required: ['id', 'projectId', 'label', 'resources'],
         properties: {
@@ -289,18 +288,18 @@ export function buildCollectionOpenApi(input: BuildCollectionOpenApiInput): Open
     };
 
     const documentedModels = new Map<string, string>();
-    const documentModel = (resource: ApiCollectionResource, model: ModelSchema) => {
-        Object.assign(paths, modelResourcePaths(projectId, collectionId, resource, model, schemas));
+    const documentModel = (resource: ChannelResource, model: ModelSchema) => {
+        Object.assign(paths, modelResourcePaths(projectId, channelId, resource, model, schemas));
         documentedModels.set(resource.resourceId, labelText(model.label, resource.resourceId));
     };
 
     // Explicit model rows win over "every model" for their own model (fields, resolve depth).
-    for (const resource of collection.resources) {
+    for (const resource of channel.resources) {
         if (resource.resourceType !== 'model' || resource.resourceId === 'models') continue;
         const model = modelsById.get(resource.resourceId);
         if (model) documentModel(resource, model);
     }
-    const everyModel = collection.resources.find(
+    const everyModel = channel.resources.find(
         r => r.resourceType === 'model' && r.resourceId === 'models'
     );
     if (everyModel) {
@@ -313,7 +312,7 @@ export function buildCollectionOpenApi(input: BuildCollectionOpenApiInput): Open
         }
     }
 
-    const pageResource = hasPageResource(collection);
+    const pageResource = hasPageResource(channel);
     if (pageResource) {
         const pagesBase = `${metaPath}/pages`;
         paths[pagesBase] = {
@@ -382,7 +381,7 @@ export function buildCollectionOpenApi(input: BuildCollectionOpenApiInput): Open
         };
     }
 
-    if (hasLayoutResource(collection)) {
+    if (hasLayoutResource(channel)) {
         const layoutsBase = `${metaPath}/layouts`;
         paths[layoutsBase] = {
             get: {
@@ -427,7 +426,7 @@ export function buildCollectionOpenApi(input: BuildCollectionOpenApiInput): Open
         };
     }
 
-    if (hasFormResource(collection)) {
+    if (hasFormResource(channel)) {
         const formsBase = `${metaPath}/forms`;
         paths[formsBase] = {
             get: {
@@ -436,7 +435,7 @@ export function buildCollectionOpenApi(input: BuildCollectionOpenApiInput): Open
                 security: [{ ApiKeyAuth: [] }],
                 responses: {
                     '200': {
-                        description: 'Form schemas exposed by this collection',
+                        description: 'Form schemas exposed by this channel',
                         content: {
                             'application/json': {
                                 schema: {
@@ -472,7 +471,7 @@ export function buildCollectionOpenApi(input: BuildCollectionOpenApiInput): Open
         };
     }
 
-    const handles = exposedMenuHandles(collection, menuHandles);
+    const handles = exposedMenuHandles(channel, menuHandles);
     if (handles) {
         Object.assign(schemas, menuSchemas);
         const menusBase = `${metaPath}/menus`;
@@ -531,14 +530,14 @@ export function buildCollectionOpenApi(input: BuildCollectionOpenApiInput): Open
         openapi: '3.0.3',
         info: {
             title: `${tag} — Public API`,
-            version: collection.updatedAt || '1.0.0',
+            version: channel.updatedAt || '1.0.0',
             description: [
-                `Read-only HTTP API for collection **${collectionId}** on project **${projectId}**.`,
+                `Read-only HTTP API for channel **${channelId}** on project **${projectId}**.`,
                 '',
-                'Authenticate with header **`x-api-key`** (project API key allowed to read this collection).',
+                'Authenticate with header **`x-api-key`** (project API key allowed to read this channel).',
                 'Only **GET** is supported with API keys; responses use **published** entries unless you use JWT (Studio).',
                 '',
-                'Paths and `entry.data` shapes reflect this collection’s resource list, field allowlists, and reference `resolve` depth.',
+                'Paths and `entry.data` shapes reflect this channel’s resource list, field allowlists, and reference `resolve` depth.',
                 '',
                 `OpenAPI JSON: \`${metaPath}/openapi\``
             ].join('\n')
@@ -556,11 +555,11 @@ export function buildCollectionOpenApi(input: BuildCollectionOpenApiInput): Open
                 'x-displayName': label,
                 'x-moteur-kind': 'model'
             })),
-            ...(hasPageResource(collection) ? [{ name: PAGES_TAG, 'x-displayName': 'Pages' }] : []),
-            ...(hasLayoutResource(collection)
+            ...(hasPageResource(channel) ? [{ name: PAGES_TAG, 'x-displayName': 'Pages' }] : []),
+            ...(hasLayoutResource(channel)
                 ? [{ name: LAYOUTS_TAG, 'x-displayName': 'Layouts' }]
                 : []),
-            ...(hasFormResource(collection) ? [{ name: FORMS_TAG, 'x-displayName': 'Forms' }] : []),
+            ...(hasFormResource(channel) ? [{ name: FORMS_TAG, 'x-displayName': 'Forms' }] : []),
             ...(handles ? [{ name: MENUS_TAG, 'x-displayName': 'Menus' }] : [])
         ] as OpenAPIV3.TagObject[],
         paths,
@@ -571,7 +570,7 @@ export function buildCollectionOpenApi(input: BuildCollectionOpenApiInput): Open
                     in: 'header',
                     name: 'x-api-key',
                     description:
-                        'Project read-only API key (collection allowlist must include this channel).'
+                        'Project read-only API key (channel allowlist must include this channel).'
                 }
             },
             schemas

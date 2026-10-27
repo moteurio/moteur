@@ -35,12 +35,17 @@ function toMeta(entry: PreviewTokenEntry): PreviewTokenMeta {
         expiresAt: entry.expiresAt,
         ...(entry.entryId ? { entryId: entry.entryId } : {}),
         ...(entry.pageId ? { pageId: entry.pageId } : {}),
-        ...(entry.collectionId ? { collectionId: entry.collectionId } : {})
+        ...(entry.channelId ? { channelId: entry.channelId } : {})
     };
 }
 
 async function loadTokens(projectId: string): Promise<PreviewTokenEntry[]> {
-    return (await getProjectJson<PreviewTokenEntry[]>(projectId, STORAGE_KEY)) ?? [];
+    const list = (await getProjectJson<PreviewTokenEntry[]>(projectId, STORAGE_KEY)) ?? [];
+    // Channels were called collections: a token made before is still limited to its channel.
+    return list.map(e => {
+        const { collectionId, ...rest } = e as PreviewTokenEntry & { collectionId?: string };
+        return collectionId && !rest.channelId ? { ...rest, channelId: collectionId } : rest;
+    });
 }
 
 async function saveTokens(projectId: string, list: PreviewTokenEntry[]): Promise<void> {
@@ -58,7 +63,7 @@ export type VerifyPreviewTokenResult =
           tokenId: string;
           entryId?: string;
           pageId?: string;
-          collectionId?: string;
+          channelId?: string;
       };
 
 export async function verifyPreviewToken(
@@ -77,7 +82,7 @@ export async function verifyPreviewToken(
         tokenId: matched.id,
         ...(matched.entryId ? { entryId: matched.entryId } : {}),
         ...(matched.pageId ? { pageId: matched.pageId } : {}),
-        ...(matched.collectionId ? { collectionId: matched.collectionId } : {})
+        ...(matched.channelId ? { channelId: matched.channelId } : {})
     };
 }
 
@@ -102,7 +107,7 @@ export async function createPreviewToken(
         createdBy: user.id,
         ...(input.entryId ? { entryId: input.entryId } : {}),
         ...(input.pageId ? { pageId: input.pageId } : {}),
-        ...(input.collectionId ? { collectionId: input.collectionId } : {})
+        ...(input.channelId ? { channelId: input.channelId } : {})
     };
     let list = pruneExpired(await loadTokens(projectId));
     if (list.length >= MAX_ACTIVE_TOKENS) {

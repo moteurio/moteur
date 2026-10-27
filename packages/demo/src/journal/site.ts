@@ -450,7 +450,7 @@ function submissions(): Array<{
     return out;
 }
 
-/** Pages, navigation, forms and submissions, layout, API collections and webhooks. */
+/** Pages, navigation, forms and submissions, layout, channels and webhooks. */
 export async function buildSite(timeline: Timeline, ctx: SiteContext): Promise<void> {
     const pageIds = new Map<string, string>();
     const templateFields = new Map(templates.map(tp => [tp.id, tp.fields]));
@@ -574,11 +574,10 @@ export async function buildSite(timeline: Timeline, ctx: SiteContext): Promise<v
         });
     }
 
-    timeline.at(127, 'api collections', async () => {
-        const { createCollection, listCollections } =
-            await import('@moteurio/core/apiCollections.js');
-        if ((await listCollections(JOURNAL_ID)).length > 0) return;
-        await createCollection(JOURNAL_ID, user(team.theo.id), {
+    timeline.at(127, 'channels', async () => {
+        const { createChannel, listChannels } = await import('@moteurio/core/channels.js');
+        if ((await listChannels(JOURNAL_ID)).length > 0) return;
+        await createChannel(JOURNAL_ID, user(team.theo.id), {
             id: 'public',
             label: 'Site public',
             description: 'Everything the public site reads.',
@@ -590,7 +589,7 @@ export async function buildSite(timeline: Timeline, ctx: SiteContext): Promise<v
                 { resourceType: 'menu', resourceId: 'menus' }
             ]
         });
-        await createCollection(JOURNAL_ID, user(team.theo.id), {
+        await createChannel(JOURNAL_ID, user(team.theo.id), {
             id: 'catalogue',
             label: 'Catalogue (application mobile)',
             description: 'Robots and series only, for the catalogue app.',

@@ -8,7 +8,7 @@ import { projectImportsApi } from '../project/imports.js';
 import { projectTemplatesApi } from '../project/templates.js';
 import { projectLayoutsApi } from '../project/layouts.js';
 import { projectStructuresApi } from '../project/structures.js';
-import { projectCollectionsApi } from '../project/collections.js';
+import { projectChannelsApi } from '../project/channels.js';
 import { projectFormsApi } from '../project/forms.js';
 import { projectSubmissionsApi } from '../project/submissions.js';
 import { projectNavigationsApi } from '../project/navigations.js';
@@ -42,7 +42,7 @@ export function createMoteurAdminClient(config: MoteurClientConfig) {
         templates: projectTemplatesApi(client),
         layouts: projectLayoutsApi(client),
         structures: projectStructuresApi(client),
-        collections: projectCollectionsApi(client),
+        channels: projectChannelsApi(client),
         forms: projectFormsApi(client),
         submissions: projectSubmissionsApi(client),
         navigations: projectNavigationsApi(client),

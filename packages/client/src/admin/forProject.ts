@@ -8,7 +8,7 @@ import { projectPagesApi } from '../project/pages.js';
 import { projectTemplatesApi } from '../project/templates.js';
 import { projectLayoutsApi } from '../project/layouts.js';
 import { projectStructuresApi } from '../project/structures.js';
-import { projectCollectionsApi } from '../project/collections.js';
+import { projectChannelsApi } from '../project/channels.js';
 import { projectFormsApi } from '../project/forms.js';
 import { projectSubmissionsApi } from '../project/submissions.js';
 import { projectNavigationsApi } from '../project/navigations.js';
@@ -41,7 +41,7 @@ export function createProjectClient(client: MoteurClient, projectId: string) {
     const templates = projectTemplatesApi(client);
     const layouts = projectLayoutsApi(client);
     const structures = projectStructuresApi(client);
-    const collections = projectCollectionsApi(client);
+    const channels = projectChannelsApi(client);
     const forms = projectFormsApi(client);
     const submissions = projectSubmissionsApi(client);
     const navigations = projectNavigationsApi(client);
@@ -180,13 +180,13 @@ export function createProjectClient(client: MoteurClient, projectId: string) {
             delete: (structureId: string) => structures.delete(pid, structureId)
         },
 
-        collections: {
-            list: () => collections.list(pid),
-            get: (collectionId: string) => collections.get(pid, collectionId),
-            create: (body: Record<string, unknown>) => collections.create(pid, body),
-            update: (collectionId: string, body: Record<string, unknown>) =>
-                collections.update(pid, collectionId, body),
-            delete: (collectionId: string) => collections.delete(pid, collectionId)
+        channels: {
+            list: () => channels.list(pid),
+            get: (channelId: string) => channels.get(pid, channelId),
+            create: (body: Record<string, unknown>) => channels.create(pid, body),
+            update: (channelId: string, body: Record<string, unknown>) =>
+                channels.update(pid, channelId, body),
+            delete: (channelId: string) => channels.delete(pid, channelId)
         },
 
         forms: {

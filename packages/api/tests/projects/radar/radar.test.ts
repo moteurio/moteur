@@ -10,7 +10,7 @@ vi.mock('@moteurio/core/projectApiKey.js', () => ({
     verifyProjectApiKey: vi.fn(async () => ({
         ok: true,
         keyId: 'k1',
-        policy: { collectionWhitelist: null, allowSiteWideReads: true }
+        policy: { channelAllowlist: null, allowSiteWideReads: true }
     }))
 }));
 

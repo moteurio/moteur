@@ -1,5 +1,5 @@
 /**
- * Create a read-only API key for the Journal demo (project demo, collection public).
+ * Create a read-only API key for the Journal demo (project demo, channel public).
  *
  * Usage (API must be running):
  *   pnpm exec tsx --tsconfig tsconfig.server-dev.json scripts/create-demo-api-key.ts \
@@ -20,7 +20,7 @@ function arg(name: string, fallback?: string): string {
 
 const apiUrl = arg('api-url', 'http://localhost:3000').replace(/\/$/, '');
 const projectId = arg('project', 'demo');
-const collectionId = arg('collection', 'public');
+const channelId = arg('collection', 'public');
 const email = arg('email', 'louise@moteur-journal.test');
 const password = arg('password', 'demo123');
 const label = arg('label', 'Local starter');
@@ -34,7 +34,7 @@ async function main() {
     });
     const created = await client.forProject(projectId).apiKeys.create({
         label,
-        allowedCollectionIds: [collectionId],
+        allowedChannelIds: [channelId],
         allowSiteWideReads: true
     });
     const rawKey = created.rawKey;
@@ -46,7 +46,7 @@ async function main() {
     }
     console.log(`MOTEUR_API_URL=${apiUrl}`);
     console.log(`MOTEUR_PROJECT_ID=${projectId}`);
-    console.log(`MOTEUR_COLLECTION_ID=${collectionId}`);
+    console.log(`MOTEUR_CHANNEL=${channelId}`);
     console.log(`MOTEUR_API_KEY=${rawKey}`);
 }
 

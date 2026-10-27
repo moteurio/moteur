@@ -24,7 +24,7 @@ export function requestClassifier(req: Request, res: Response, next: NextFunctio
     // submissions, the one key-less endpoint.
     const projectsMatch =
         path.match(
-            /\/projects\/([^/]+)\/(?:collections|sitemap\.xml|sitemap\.json|navigation|urls|breadcrumb|resolve)(?:\/|$)/
+            /\/projects\/([^/]+)\/(?:channels|sitemap\.xml|sitemap\.json|navigation|urls|breadcrumb|resolve)(?:\/|$)/
         ) ??
         // Reading the redirects is what a site does; changing them is the Studio's work.
         (req.method === 'GET' ? path.match(/\/projects\/([^/]+)\/redirects\/?$/) : null) ??

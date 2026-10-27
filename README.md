@@ -2,7 +2,7 @@
 
 **Moteur** is a framework-agnostic content engine for structured, multilingual content. Published packages use a **calendar release line**; see [VERSIONING.md](VERSIONING.md). Use it as a **headless CMS**: define models and pages, edit content in **Moteur Studio** (on the web, or in your terminal with [`moteur-studio`](https://github.com/moteurio/moteur-studio-cli)), from scripts with the [`moteur` CLI](packages/cli/README.md), from AI agents with the [MCP server](packages/mcp/README.md), or any other API client, and consume data via the **REST API** and **[`@moteurio/client`](packages/client/README.md)** from your frontend, backend, or static site generator.
 
-- **Content API** — Collections, pages, entries, navigations, sitemaps; read-only **project API key** for frontends and SSG.
+- **Content API** — Channels, pages, entries, navigations, sitemaps; read-only **project API key** for frontends and SSG.
 - **Admin API** — Full CRUD with JWT; manage projects, models, entries, templates, blueprints, webhooks.
 - **Moteur Studio** — Web UI to create and manage projects, content types, pages, and entries.
 - **Starters** — Official starters for Next.js, Astro, Eleventy, and more in the `moteur-starters` monorepo (see [Starters](docs/Starters.md)).
@@ -83,9 +83,9 @@ Data is stored locally under `data/` by default, so this setup is enough for loc
 
 The top-level unit. Everything in Moteur is scoped to a **project**: models, entries, layouts, structures, templates, and pages live inside a project. Projects can be created from a **project blueprint** (optional) to apply initial models, layouts, and structures.
 
-### Collections (Public API)
+### Channels (Public API)
 
-A **Collection** is a named, configured view of project data for your frontend or SSG. Projects can have multiple independently restricted **API keys**. Collections define which models and pages that key can read, with optional field selection, status filters, and reference resolution. Key auth is **read-only** (GET only). See [Public API and Collections](docs/Public%20API%20and%20Collections.md) for setup, [REST API](docs/REST%20API.md) for endpoints, and [`@moteurio/client`](packages/client/README.md) for TypeScript/JavaScript over HTTP.
+A **Channel** is a named, configured view of project data for your frontend or SSG. Projects can have multiple independently restricted **API keys**. Channels define which models and pages that key can read, with optional field selection, status filters, and reference resolution. Key auth is **read-only** (GET only). See [Public API and Channels](docs/Public%20API%20and%20Channels.md) for setup, [REST API](docs/REST%20API.md) for endpoints, and [`@moteurio/client`](packages/client/README.md) for TypeScript/JavaScript over HTTP.
 
 ### Blueprints
 
@@ -121,7 +121,7 @@ The tree drives **sitemap**, **navigation**, **breadcrumbs**, and URL resolution
 
 ### Navigations
 
-Named, ordered menus (e.g. Header, Footer). Each has a **handle** (e.g. `header`) used in the public API. Items can link to pages (resolved at read time), custom URLs, assets, or act as dropdown parents. Sites read them through a channel that gives menus: `GET /projects/:projectId/collections/:collectionId/menus` and `.../menus/:handle`.
+Named, ordered menus (e.g. Header, Footer). Each has a **handle** (e.g. `header`) used in the public API. Items can link to pages (resolved at read time), custom URLs, assets, or act as dropdown parents. Sites read them through a channel that gives menus: `GET /projects/:projectId/channels/:channelId/menus` and `.../menus/:handle`.
 
 ### Webhooks
 
@@ -138,7 +138,7 @@ Atomic data types in models, structures, blocks, and templates: `core/text`, `co
 
 ### Users & access
 
-Users have credentials and roles (e.g. admin). Access is project-based. The API uses **JWT** for admin and **project API key** for read-only collection access.
+Users have credentials and roles (e.g. admin). Access is project-based. The API uses **JWT** for admin and **project API key** for read-only channel access.
 
 ---
 
@@ -146,7 +146,7 @@ Users have credentials and roles (e.g. admin). Access is project-based. The API 
 
 ### REST API (HTTP)
 
-- **Public (read-only)** — Use your **project API key** (header `x-api-key` only) to read collections, pages, navigations, sitemaps. See [Public API and Collections](docs/Public%20API%20and%20Collections.md).
+- **Public (read-only)** — Use your **project API key** (header `x-api-key` only) to read channels, pages, navigations, sitemaps. See [Public API and Channels](docs/Public%20API%20and%20Channels.md).
 - **Admin** — Use **JWT** (Bearer token) for full CRUD: projects, models, entries, templates, blueprints, webhooks, etc. See [REST API](docs/REST%20API.md).
 
 When the server is running:
@@ -186,7 +186,7 @@ Start with the [documentation index](docs/README.md) for the complete guide list
 | ------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------- |
 | Define content and languages               | [Content modeling](docs/Content%20modeling.md), [Fields](docs/Fields.md), [Blocks](docs/Blocks.md)                                     |
 | Build a site tree and menus                | [Pages and navigation](docs/Pages%20and%20navigation.md)                                                                               |
-| Deliver content to an application          | [Public API and Collections](docs/Public%20API%20and%20Collections.md), [HTTP client](packages/client/README.md)                       |
+| Deliver content to an application          | [Public API and Channels](docs/Public%20API%20and%20Channels.md), [HTTP client](packages/client/README.md)                             |
 | List, filter and find missing translations | [Entry queries](docs/Entry%20queries.md)                                                                                               |
 | Manage files and image delivery            | [Media](docs/Media.md), [Images](docs/Images.md)                                                                                       |
 | Collect visitor input                      | [Forms](docs/Forms.md)                                                                                                                 |
@@ -207,7 +207,7 @@ The running host serves Scalar at `{API_BASE_PATH}/docs` and JSON at `{API_BASE_
 1. **Configuration** — Set up field types, block definitions, and (optionally) seed blueprints.
 2. **Schema** — Create models, structures, and page templates (from scratch or blueprints).
 3. **Content** — Create entries, pages, and layouts (in Studio or via API/CLI).
-4. **Consume** — Use the Public API (collections, pages, navigations) in your frontend or SSG.
+4. **Consume** — Use the Public API (channels, pages, navigations) in your frontend or SSG.
 
 ### Seeds
 
@@ -221,7 +221,7 @@ Core field types (e.g. `core/text`, `core/rich-text`, `core/image`) and block ty
 
 ## Features (summary)
 
-Flat-file JSON storage, custom blocks and fields, full multilingual support, blueprints and seeds, **Moteur Studio** admin UI, REST API (JWT + project API key), **API Collections** for headless/SSG, request logging and rate limiting, webhooks, CLI, no database required, extensible (fields, blocks, validators).
+Flat-file JSON storage, custom blocks and fields, full multilingual support, blueprints and seeds, **Moteur Studio** admin UI, REST API (JWT + project API key), **API Channels** for headless/SSG, request logging and rate limiting, webhooks, CLI, no database required, extensible (fields, blocks, validators).
 
 ---
 

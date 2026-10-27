@@ -15,7 +15,7 @@ import type {
     PublicSchema,
     PublicStructure
 } from '@moteurio/types/PublicSchema.js';
-import { getCollection } from './apiCollections.js';
+import { getChannel } from './channels.js';
 import { getModelSchemaForProject } from './models.js';
 import { listTemplates } from './templates.js';
 import { listBlocks } from './blocks.js';
@@ -166,17 +166,17 @@ async function allModels(projectId: string): Promise<ModelSchema[]> {
 /** The schema of what a channel delivers, or null when there's no such channel. */
 export async function channelSchema(
     projectId: string,
-    collectionId: string
+    channelId: string
 ): Promise<PublicSchema | null> {
-    const collection = await getCollection(projectId, collectionId);
-    if (!collection) return null;
+    const channel = await getChannel(projectId, channelId);
+    if (!channel) return null;
     const project = await getProjectById(projectId);
     const defaultLocale = project?.defaultLocale || 'en';
 
     // Models, with only the fields the channel gives.
     const models: PublicSchema['models'] = {};
     let everyModel: ModelSchema[] | undefined;
-    for (const r of collection.resources) {
+    for (const r of channel.resources) {
         if (r.resourceType !== 'model') continue;
         const schemas =
             r.resourceId === 'models'
@@ -203,7 +203,7 @@ export async function channelSchema(
 
     // Templates of the pages it gives: every one, or those named.
     const templates: PublicSchema['templates'] = {};
-    const pageResources = collection.resources.filter(r => r.resourceType === 'page');
+    const pageResources = channel.resources.filter(r => r.resourceType === 'page');
     if (pageResources.length) {
         const every = pageResources.some(r => r.resourceId === 'pages');
         const named = new Set(pageResources.map(r => r.resourceId));
@@ -275,7 +275,7 @@ export async function channelSchema(
         Object.fromEntries(Object.entries(r).sort(([a], [b]) => a.localeCompare(b)));
     const body = {
         projectId,
-        collectionId,
+        channelId,
         defaultLocale,
         locales: [...new Set([defaultLocale, ...(project?.supportedLocales ?? [])])],
         models: sorted(models),

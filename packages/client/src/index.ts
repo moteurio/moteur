@@ -51,7 +51,7 @@ export type {
     ReadOptions,
     EntryReadOptions,
     EntryListOptions
-} from './public/collectionChannel.js';
+} from './public/channel.js';
 export type {
     PublicSchema,
     PublicModel,

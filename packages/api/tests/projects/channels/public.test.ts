@@ -2,9 +2,9 @@ import request from 'supertest';
 import express from 'express';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-vi.mock('@moteurio/core/apiCollections.js', () => ({
-    listCollections: vi.fn(),
-    getCollection: vi.fn()
+vi.mock('@moteurio/core/channels.js', () => ({
+    listChannels: vi.fn(),
+    getChannel: vi.fn()
 }));
 vi.mock('@moteurio/core/projectApiKey.js', () => ({
     verifyProjectApiKey: vi.fn()
@@ -37,7 +37,7 @@ vi.mock('@moteurio/core/projects.js', () => ({
     getProjectById: vi.fn(async () => ({ defaultLocale: 'fr' }))
 }));
 
-import { listCollections, getCollection } from '@moteurio/core/apiCollections.js';
+import { listChannels, getChannel } from '@moteurio/core/channels.js';
 import { verifyProjectApiKey } from '@moteurio/core/projectApiKey.js';
 import { verifyPreviewToken } from '@moteurio/core/previewTokens.js';
 import { previewTokenAuth } from '../../../src/middlewares/previewToken.js';
@@ -55,17 +55,17 @@ import {
 } from '@moteurio/core/navigations.js';
 import { getProjectById } from '@moteurio/core/projects.js';
 import { channelSchema } from '@moteurio/core/publicSchema.js';
-import collectionsPublicRouter from '../../../src/projects/collections/public.js';
+import channelsPublicRouter from '../../../src/projects/channels/public.js';
 import {
     optionalAuth,
     apiKeyAuth,
-    requireCollectionOrProjectAccess
+    requireChannelOrProjectAccess
 } from '../../../src/middlewares/auth.js';
 
 const app = express();
 app.use(express.json());
 app.use(
-    '/projects/:projectId/collections',
+    '/projects/:projectId/channels',
     (req, _res, next) => {
         req.params = { ...req.params, projectId: req.params.projectId };
         next();
@@ -73,14 +73,14 @@ app.use(
     optionalAuth,
     apiKeyAuth,
     previewTokenAuth,
-    requireCollectionOrProjectAccess,
-    collectionsPublicRouter
+    requireChannelOrProjectAccess,
+    channelsPublicRouter
 );
 
-describe('GET /projects/:projectId/collections (public API)', () => {
+describe('GET /projects/:projectId/channels (public API)', () => {
     const fullPolicy = {
         keyId: 'k1',
-        policy: { collectionWhitelist: null as string[] | null, allowSiteWideReads: true }
+        policy: { channelAllowlist: null as string[] | null, allowSiteWideReads: true }
     };
 
     beforeEach(() => {
@@ -89,23 +89,21 @@ describe('GET /projects/:projectId/collections (public API)', () => {
     });
 
     it('returns 401 when no API key and no JWT', async () => {
-        const res = await request(app).get('/projects/demo/collections');
+        const res = await request(app).get('/projects/demo/channels');
         expect(res.status).toBe(401);
         expect(res.body.error).toMatch(/API key or JWT required/i);
     });
 
     it('returns 401 when API key is invalid', async () => {
         vi.mocked(verifyProjectApiKey).mockResolvedValue({ ok: false });
-        const res = await request(app)
-            .get('/projects/demo/collections')
-            .set('x-api-key', 'invalid');
+        const res = await request(app).get('/projects/demo/channels').set('x-api-key', 'invalid');
         expect(res.status).toBe(401);
         expect(res.body.error).toMatch(/Invalid API key/i);
     });
 
     it('returns 200 and list when API key is valid', async () => {
         vi.mocked(verifyProjectApiKey).mockResolvedValue({ ok: true, ...fullPolicy });
-        vi.mocked(listCollections).mockResolvedValue([
+        vi.mocked(listChannels).mockResolvedValue([
             {
                 id: 'c1',
                 projectId: 'demo',
@@ -115,9 +113,7 @@ describe('GET /projects/:projectId/collections (public API)', () => {
                 updatedAt: ''
             }
         ]);
-        const res = await request(app)
-            .get('/projects/demo/collections')
-            .set('x-api-key', 'valid-key');
+        const res = await request(app).get('/projects/demo/channels').set('x-api-key', 'valid-key');
         expect(res.status).toBe(200);
         expect(res.body).toHaveLength(1);
         expect(res.body[0].label).toBe('Blog');
@@ -130,9 +126,7 @@ describe('GET /projects/:projectId/collections (public API)', () => {
             ...fullPolicy,
             allowedHosts: ['example.com']
         });
-        const res = await request(app)
-            .get('/projects/demo/collections')
-            .set('x-api-key', 'valid-key');
+        const res = await request(app).get('/projects/demo/channels').set('x-api-key', 'valid-key');
         expect(res.status).toBe(403);
         expect(res.body.code).toBe('API_KEY_HOST_NOT_ALLOWED');
     });
@@ -143,7 +137,7 @@ describe('GET /projects/:projectId/collections (public API)', () => {
             ...fullPolicy,
             allowedHosts: ['*.my-project.vercel.com']
         });
-        vi.mocked(listCollections).mockResolvedValue([
+        vi.mocked(listChannels).mockResolvedValue([
             {
                 id: 'c1',
                 projectId: 'demo',
@@ -154,7 +148,7 @@ describe('GET /projects/:projectId/collections (public API)', () => {
             }
         ]);
         const res = await request(app)
-            .get('/projects/demo/collections')
+            .get('/projects/demo/channels')
             .set('x-api-key', 'valid-key')
             .set('Origin', 'https://foo.my-project.vercel.com');
         expect(res.status).toBe(200);
@@ -163,7 +157,7 @@ describe('GET /projects/:projectId/collections (public API)', () => {
     it('returns 401 for non-GET with API key only (handler requires JWT)', async () => {
         vi.mocked(verifyProjectApiKey).mockResolvedValue({ ok: true, ...fullPolicy });
         const res = await request(app)
-            .post('/projects/demo/collections')
+            .post('/projects/demo/channels')
             .set('x-api-key', 'valid-key')
             .send({ label: 'x' });
         expect(res.status).toBe(401);
@@ -171,26 +165,26 @@ describe('GET /projects/:projectId/collections (public API)', () => {
     });
 });
 
-describe('GET /projects/:projectId/collections/:collectionId', () => {
+describe('GET /projects/:projectId/channels/:channelId', () => {
     beforeEach(() => {
         vi.clearAllMocks();
         vi.mocked(verifyProjectApiKey).mockResolvedValue({
             ok: true,
             keyId: 'k1',
-            policy: { collectionWhitelist: null, allowSiteWideReads: true }
+            policy: { channelAllowlist: null, allowSiteWideReads: true }
         });
     });
 
-    it('returns 404 when collection not found', async () => {
-        vi.mocked(getCollection).mockResolvedValue(null);
+    it('returns 404 when channel not found', async () => {
+        vi.mocked(getChannel).mockResolvedValue(null);
         const res = await request(app)
-            .get('/projects/demo/collections/nonexistent')
+            .get('/projects/demo/channels/nonexistent')
             .set('x-api-key', 'key');
         expect(res.status).toBe(404);
         expect(res.body.error).toMatch(/not found/i);
     });
 
-    it('returns 200 and collection when found', async () => {
+    it('returns 200 and channel when found', async () => {
         const col = {
             id: 'c1',
             projectId: 'demo',
@@ -199,18 +193,18 @@ describe('GET /projects/:projectId/collections/:collectionId', () => {
             createdAt: '',
             updatedAt: ''
         };
-        vi.mocked(getCollection).mockResolvedValue(col);
-        const res = await request(app).get('/projects/demo/collections/c1').set('x-api-key', 'key');
+        vi.mocked(getChannel).mockResolvedValue(col);
+        const res = await request(app).get('/projects/demo/channels/c1').set('x-api-key', 'key');
         expect(res.status).toBe(200);
         expect(res.body.label).toBe('API');
         expect(res.body.publicApi).toMatchObject({
-            openApiJson: '/projects/demo/collections/c1/openapi'
+            openApiJson: '/projects/demo/channels/c1/openapi'
         });
     });
 });
 
-describe('GET /projects/:projectId/collections/:collectionId/:resourceId/entries', () => {
-    const collection = {
+describe('GET /projects/:projectId/channels/:channelId/:resourceId/entries', () => {
+    const channel = {
         id: 'c1',
         projectId: 'demo',
         label: 'API',
@@ -225,9 +219,9 @@ describe('GET /projects/:projectId/collections/:collectionId/:resourceId/entries
         vi.mocked(verifyProjectApiKey).mockResolvedValue({
             ok: true,
             keyId: 'k1',
-            policy: { collectionWhitelist: null, allowSiteWideReads: true }
+            policy: { channelAllowlist: null, allowSiteWideReads: true }
         });
-        vi.mocked(getCollection).mockResolvedValue(collection);
+        vi.mocked(getChannel).mockResolvedValue(channel);
         vi.mocked(queryEntriesForProject).mockResolvedValue({
             items: [
                 { id: 'a', type: 'articles', status: 'published', data: {} },
@@ -239,7 +233,7 @@ describe('GET /projects/:projectId/collections/:collectionId/:resourceId/entries
 
     it('lists published versions, unpaged by default, with the total in X-Total-Count', async () => {
         const res = await request(app)
-            .get('/projects/demo/collections/c1/articles/entries')
+            .get('/projects/demo/channels/c1/articles/entries')
             .set('x-api-key', 'key');
         expect(res.status).toBe(200);
         expect(res.body.map((e: { id: string }) => e.id)).toEqual(['a', 'b']);
@@ -256,9 +250,7 @@ describe('GET /projects/:projectId/collections/:collectionId/:resourceId/entries
 
     it('passes limit, offset and sort to the content index', async () => {
         const res = await request(app)
-            .get(
-                '/projects/demo/collections/c1/articles/entries?limit=2&offset=4&sort=-publishedAt'
-            )
+            .get('/projects/demo/channels/c1/articles/entries?limit=2&offset=4&sort=-publishedAt')
             .set('x-api-key', 'key');
         expect(res.status).toBe(200);
         expect(queryEntriesForProject).toHaveBeenCalledWith('demo', 'articles', {
@@ -270,9 +262,9 @@ describe('GET /projects/:projectId/collections/:collectionId/:resourceId/entries
         });
     });
 
-    it('ignores a status parameter: the collection decides which statuses are public', async () => {
+    it('ignores a status parameter: the channel decides which statuses are public', async () => {
         await request(app)
-            .get('/projects/demo/collections/c1/articles/entries?status=draft')
+            .get('/projects/demo/channels/c1/articles/entries?status=draft')
             .set('x-api-key', 'key');
         expect(vi.mocked(queryEntriesForProject).mock.calls[0][2]).toMatchObject({
             status: ['published']
@@ -282,7 +274,7 @@ describe('GET /projects/:projectId/collections/:collectionId/:resourceId/entries
     it('uses latest view and draft statuses when a valid preview token is sent', async () => {
         vi.mocked(verifyPreviewToken).mockResolvedValue({ ok: true, tokenId: 'pt1' });
         await request(app)
-            .get('/projects/demo/collections/c1/articles/entries')
+            .get('/projects/demo/channels/c1/articles/entries')
             .set('x-api-key', 'key')
             .set('x-preview-token', 'mpv_testtoken');
         expect(verifyPreviewToken).toHaveBeenCalledWith('demo', 'mpv_testtoken');
@@ -320,7 +312,7 @@ describe('GET /projects/:projectId/collections/:collectionId/:resourceId/entries
                   }
         );
         const res = await request(app)
-            .get('/projects/demo/collections/c1/articles/entries')
+            .get('/projects/demo/channels/c1/articles/entries')
             .set('x-api-key', 'key')
             .set('x-preview-token', 'mpv_testtoken');
         expect(res.status).toBe(200);
@@ -335,7 +327,7 @@ describe('GET /projects/:projectId/collections/:collectionId/:resourceId/entries
         vi.mocked(verifyPreviewToken).mockResolvedValue({ ok: true, tokenId: 'pt1', entryId: 'n' });
         vi.mocked(getPublishedEntryForProject).mockResolvedValue(null);
         const other = await request(app)
-            .get('/projects/demo/collections/c1/articles/entries/a')
+            .get('/projects/demo/channels/c1/articles/entries/a')
             .set('x-api-key', 'key')
             .set('x-preview-token', 'mpv_testtoken');
         expect(other.status).toBe(404);
@@ -348,7 +340,7 @@ describe('GET /projects/:projectId/collections/:collectionId/:resourceId/entries
             data: {}
         });
         const own = await request(app)
-            .get('/projects/demo/collections/c1/articles/entries/n')
+            .get('/projects/demo/channels/c1/articles/entries/n')
             .set('x-api-key', 'key')
             .set('x-preview-token', 'mpv_testtoken');
         expect(own.status).toBe(200);
@@ -363,7 +355,7 @@ describe('GET /projects/:projectId/collections/:collectionId/:resourceId/entries
         ['sort=title', /sort/]
     ])('rejects %s with 400', async (qs, message) => {
         const res = await request(app)
-            .get(`/projects/demo/collections/c1/articles/entries?${qs}`)
+            .get(`/projects/demo/channels/c1/articles/entries?${qs}`)
             .set('x-api-key', 'key');
         expect(res.status).toBe(400);
         expect(res.body.error).toMatch(message);
@@ -371,18 +363,18 @@ describe('GET /projects/:projectId/collections/:collectionId/:resourceId/entries
     });
 });
 
-describe('GET /projects/:projectId/collections/:collectionId/openapi.json', () => {
+describe('GET /projects/:projectId/channels/:channelId/openapi.json', () => {
     beforeEach(() => {
         vi.clearAllMocks();
         vi.mocked(verifyProjectApiKey).mockResolvedValue({
             ok: true,
             keyId: 'k1',
-            policy: { collectionWhitelist: null, allowSiteWideReads: true }
+            policy: { channelAllowlist: null, allowSiteWideReads: true }
         });
     });
 
-    it('returns OpenAPI document for the collection', async () => {
-        vi.mocked(getCollection).mockResolvedValue({
+    it('returns OpenAPI document for the channel', async () => {
+        vi.mocked(getChannel).mockResolvedValue({
             id: 'public',
             projectId: 'demo',
             label: 'Public',
@@ -396,15 +388,15 @@ describe('GET /projects/:projectId/collections/:collectionId/openapi.json', () =
             fields: { title: { type: 'core/text', label: 'Title' } }
         });
         const res = await request(app)
-            .get('/projects/demo/collections/public/openapi')
+            .get('/projects/demo/channels/public/openapi')
             .set('x-api-key', 'key');
         expect(res.status).toBe(200);
         expect(res.body.openapi).toBe('3.0.3');
-        expect(res.body.paths).toHaveProperty('/projects/demo/collections/public/articles/entries');
+        expect(res.body.paths).toHaveProperty('/projects/demo/channels/public/articles/entries');
     });
 
-    it('documents every project model when the collection exposes "every model"', async () => {
-        vi.mocked(getCollection).mockResolvedValue({
+    it('documents every project model when the channel exposes "every model"', async () => {
+        vi.mocked(getChannel).mockResolvedValue({
             id: 'public',
             projectId: 'demo',
             label: 'Public',
@@ -419,16 +411,16 @@ describe('GET /projects/:projectId/collections/:collectionId/openapi.json', () =
             fields: { title: { type: 'core/text', label: 'Title' } }
         }));
         const res = await request(app)
-            .get('/projects/demo/collections/public/openapi')
+            .get('/projects/demo/channels/public/openapi')
             .set('x-api-key', 'key');
         expect(res.status).toBe(200);
         expect(res.headers['cache-control']).toBe('no-store');
-        expect(res.body.paths).toHaveProperty('/projects/demo/collections/public/issue/entries');
-        expect(res.body.paths).toHaveProperty('/projects/demo/collections/public/author/entries');
+        expect(res.body.paths).toHaveProperty('/projects/demo/channels/public/issue/entries');
+        expect(res.body.paths).toHaveProperty('/projects/demo/channels/public/author/entries');
     });
 
-    it('documents menus with the project handles when the collection gives every menu', async () => {
-        vi.mocked(getCollection).mockResolvedValue({
+    it('documents menus with the project handles when the channel gives every menu', async () => {
+        vi.mocked(getChannel).mockResolvedValue({
             id: 'public',
             projectId: 'demo',
             label: 'Public',
@@ -441,10 +433,10 @@ describe('GET /projects/:projectId/collections/:collectionId/openapi.json', () =
             { handle: 'footer' }
         ] as any);
         const res = await request(app)
-            .get('/projects/demo/collections/public/openapi')
+            .get('/projects/demo/channels/public/openapi')
             .set('x-api-key', 'key');
         expect(res.status).toBe(200);
-        const one = res.body.paths['/projects/demo/collections/public/menus/{handle}'];
+        const one = res.body.paths['/projects/demo/channels/public/menus/{handle}'];
         expect(one.get.parameters[0].schema.enum).toEqual(['footer', 'main']);
         expect(res.body.components.schemas).toHaveProperty('Menu');
     });
@@ -459,13 +451,13 @@ function channelWith(resources: Array<{ resourceType: any; resourceId: string }>
     return { id: 'c1', projectId: 'demo', label: 'API', resources, createdAt: '', updatedAt: '' };
 }
 
-describe('GET /projects/:projectId/collections/:collectionId/menus', () => {
+describe('GET /projects/:projectId/channels/:channelId/menus', () => {
     beforeEach(() => {
         vi.clearAllMocks();
         vi.mocked(verifyProjectApiKey).mockResolvedValue({
             ok: true,
             keyId: 'k1',
-            policy: { collectionWhitelist: null, allowSiteWideReads: true }
+            policy: { channelAllowlist: null, allowSiteWideReads: true }
         });
         vi.mocked(listNavigations).mockResolvedValue(menus as any);
         vi.mocked(getNavigationByHandle).mockImplementation(
@@ -474,11 +466,11 @@ describe('GET /projects/:projectId/collections/:collectionId/menus', () => {
     });
 
     it('lists every menu, resolved, when the channel gives every menu', async () => {
-        vi.mocked(getCollection).mockResolvedValue(
+        vi.mocked(getChannel).mockResolvedValue(
             channelWith([{ resourceType: 'menu', resourceId: 'menus' }])
         );
         const res = await request(app)
-            .get('/projects/demo/collections/c1/menus')
+            .get('/projects/demo/channels/c1/menus')
             .set('x-api-key', 'k');
         expect(res.status).toBe(200);
         expect(res.body.map((m: any) => m.handle)).toEqual(['main', 'footer']);
@@ -486,32 +478,32 @@ describe('GET /projects/:projectId/collections/:collectionId/menus', () => {
     });
 
     it('lists only the handles the channel names', async () => {
-        vi.mocked(getCollection).mockResolvedValue(
+        vi.mocked(getChannel).mockResolvedValue(
             channelWith([{ resourceType: 'menu', resourceId: 'footer' }])
         );
         const res = await request(app)
-            .get('/projects/demo/collections/c1/menus')
+            .get('/projects/demo/channels/c1/menus')
             .set('x-api-key', 'k');
         expect(res.body.map((m: any) => m.handle)).toEqual(['footer']);
     });
 
     it('refuses a menu the channel does not give', async () => {
-        vi.mocked(getCollection).mockResolvedValue(
+        vi.mocked(getChannel).mockResolvedValue(
             channelWith([{ resourceType: 'menu', resourceId: 'footer' }])
         );
         const res = await request(app)
-            .get('/projects/demo/collections/c1/menus/main')
+            .get('/projects/demo/channels/c1/menus/main')
             .set('x-api-key', 'k');
         expect(res.status).toBe(404);
         expect(getNavigationByHandle).not.toHaveBeenCalled();
     });
 
     it('asks for labels in the requested language', async () => {
-        vi.mocked(getCollection).mockResolvedValue(
+        vi.mocked(getChannel).mockResolvedValue(
             channelWith([{ resourceType: 'menu', resourceId: 'menus' }])
         );
         const res = await request(app)
-            .get('/projects/demo/collections/c1/menus/main?locale=en')
+            .get('/projects/demo/channels/c1/menus/main?locale=en')
             .set('x-api-key', 'k');
         expect(res.status).toBe(200);
         expect(resolveNavigation).toHaveBeenCalledWith(
@@ -522,41 +514,41 @@ describe('GET /projects/:projectId/collections/:collectionId/menus', () => {
     });
 
     it('returns one menu by handle', async () => {
-        vi.mocked(getCollection).mockResolvedValue(
+        vi.mocked(getChannel).mockResolvedValue(
             channelWith([{ resourceType: 'menu', resourceId: 'menus' }])
         );
         const res = await request(app)
-            .get('/projects/demo/collections/c1/menus/main')
+            .get('/projects/demo/channels/c1/menus/main')
             .set('x-api-key', 'k');
         expect(res.status).toBe(200);
         expect(res.body).toMatchObject({ handle: 'main', resolved: true });
     });
 
     it('404s when the channel gives no menus', async () => {
-        vi.mocked(getCollection).mockResolvedValue(
+        vi.mocked(getChannel).mockResolvedValue(
             channelWith([{ resourceType: 'model', resourceId: 'models' }])
         );
         const res = await request(app)
-            .get('/projects/demo/collections/c1/menus')
+            .get('/projects/demo/channels/c1/menus')
             .set('x-api-key', 'k');
         expect(res.status).toBe(404);
     });
 
     it('needs a key or a session', async () => {
-        const res = await request(app).get('/projects/demo/collections/c1/menus');
+        const res = await request(app).get('/projects/demo/channels/c1/menus');
         expect(res.status).toBe(401);
     });
 });
 
-describe('GET /projects/:projectId/collections/:collectionId/forms', () => {
+describe('GET /projects/:projectId/channels/:channelId/forms', () => {
     beforeEach(() => {
         vi.clearAllMocks();
         vi.mocked(verifyProjectApiKey).mockResolvedValue({
             ok: true,
             keyId: 'k1',
-            policy: { collectionWhitelist: null, allowSiteWideReads: true }
+            policy: { channelAllowlist: null, allowSiteWideReads: true }
         });
-        vi.mocked(getCollection).mockResolvedValue(
+        vi.mocked(getChannel).mockResolvedValue(
             channelWith([{ resourceType: 'form', resourceId: 'forms' }])
         );
         vi.mocked(listProjectKeys).mockResolvedValue(['contact', 'old']);
@@ -575,7 +567,7 @@ describe('GET /projects/:projectId/collections/:collectionId/forms', () => {
 
     it('gives only active forms, without actions or recipients', async () => {
         const res = await request(app)
-            .get('/projects/demo/collections/c1/forms')
+            .get('/projects/demo/channels/c1/forms')
             .set('x-api-key', 'k');
         expect(res.status).toBe(200);
         expect(res.body.map((f: any) => f.id)).toEqual(['contact']);
@@ -584,14 +576,14 @@ describe('GET /projects/:projectId/collections/:collectionId/forms', () => {
 
     it('404s an inactive form', async () => {
         const res = await request(app)
-            .get('/projects/demo/collections/c1/forms/old')
+            .get('/projects/demo/channels/c1/forms/old')
             .set('x-api-key', 'k');
         expect(res.status).toBe(404);
     });
 });
 
 describe('page links and page relations on delivery', () => {
-    const collection = {
+    const channel = {
         id: 'site',
         projectId: 'demo',
         label: 'Site',
@@ -666,9 +658,9 @@ describe('page links and page relations on delivery', () => {
         vi.mocked(verifyProjectApiKey).mockResolvedValue({
             ok: true,
             keyId: 'k1',
-            policy: { collectionWhitelist: null, allowSiteWideReads: true }
+            policy: { channelAllowlist: null, allowSiteWideReads: true }
         });
-        vi.mocked(getCollection).mockResolvedValue(collection);
+        vi.mocked(getChannel).mockResolvedValue(channel);
         vi.mocked(getProjectById).mockResolvedValue({
             defaultLocale: 'en',
             supportedLocales: ['fr']
@@ -685,7 +677,7 @@ describe('page links and page relations on delivery', () => {
 
     it("gives page links their page's address in each language, and marks a draft target", async () => {
         const res = await request(app)
-            .get('/projects/demo/collections/site/pages/home')
+            .get('/projects/demo/channels/site/pages/home')
             .set('x-api-key', 'valid-key');
         expect(res.status).toBe(200);
         expect(res.body.fields.cta).toEqual({
@@ -706,7 +698,7 @@ describe('page links and page relations on delivery', () => {
 
     it('gives one address with ?locale, in the page list too', async () => {
         const res = await request(app)
-            .get('/projects/demo/collections/site/pages?locale=fr')
+            .get('/projects/demo/channels/site/pages?locale=fr')
             .set('x-api-key', 'valid-key');
         expect(res.status).toBe(200);
         const home = res.body.find((p: { id: string }) => p.id === 'home');
@@ -716,14 +708,14 @@ describe('page links and page relations on delivery', () => {
 
     it('brings every field down to the language with ?locale, related pages too', async () => {
         const res = await request(app)
-            .get('/projects/demo/collections/site/pages/home?locale=fr')
+            .get('/projects/demo/channels/site/pages/home?locale=fr')
             .set('x-api-key', 'valid-key');
         expect(res.status).toBe(200);
         // Only in English: the default language stands in.
         expect(res.body.fields.cta.label).toBe('See prices');
         expect(res.body.fields.related[0].fields).toEqual({ seo: { title: 'Tarifs' } });
         const pricing = await request(app)
-            .get('/projects/demo/collections/site/pages/pricing?locale=fr')
+            .get('/projects/demo/channels/site/pages/pricing?locale=fr')
             .set('x-api-key', 'valid-key');
         expect(pricing.body.fields.seo).toEqual({ title: 'Tarifs' });
     });
@@ -739,7 +731,7 @@ describe('page links and page relations on delivery', () => {
             total: 1
         } as any);
         const res = await request(app)
-            .get('/projects/demo/collections/site/articles/entries')
+            .get('/projects/demo/channels/site/articles/entries')
             .set('x-api-key', 'valid-key');
         expect(res.status).toBe(200);
         expect(res.body[0].data.next).toEqual({
@@ -750,11 +742,11 @@ describe('page links and page relations on delivery', () => {
     });
 });
 
-describe('GET /projects/:projectId/collections/:collectionId/schema and /types', () => {
+describe('GET /projects/:projectId/channels/:channelId/schema and /types', () => {
     const schema = {
         version: 'abc123',
         projectId: 'demo',
-        collectionId: 'site',
+        channelId: 'site',
         defaultLocale: 'en',
         locales: ['en'],
         models: {},
@@ -762,11 +754,11 @@ describe('GET /projects/:projectId/collections/:collectionId/schema and /types',
         blocks: {},
         structures: {}
     };
-    const key = (collectionWhitelist: string[] | null) =>
+    const key = (channelAllowlist: string[] | null) =>
         vi.mocked(verifyProjectApiKey).mockResolvedValue({
             ok: true,
             keyId: 'k1',
-            policy: { collectionWhitelist, allowSiteWideReads: true }
+            policy: { channelAllowlist, allowSiteWideReads: true }
         } as never);
 
     beforeEach(() => {
@@ -777,7 +769,7 @@ describe('GET /projects/:projectId/collections/:collectionId/schema and /types',
     it('gives the schema to the channel’s key, with its version as ETag', async () => {
         key(['site']);
         const res = await request(app)
-            .get('/projects/demo/collections/site/schema')
+            .get('/projects/demo/channels/site/schema')
             .set('x-api-key', 'k');
         expect(res.status).toBe(200);
         expect(res.body).toEqual(schema);
@@ -788,7 +780,7 @@ describe('GET /projects/:projectId/collections/:collectionId/schema and /types',
     it('answers 304 when nothing changed', async () => {
         key(['site']);
         const res = await request(app)
-            .get('/projects/demo/collections/site/schema')
+            .get('/projects/demo/channels/site/schema')
             .set('x-api-key', 'k')
             .set('If-None-Match', '"abc123"');
         expect(res.status).toBe(304);
@@ -797,7 +789,7 @@ describe('GET /projects/:projectId/collections/:collectionId/schema and /types',
     it('gives the types made from it', async () => {
         key(['site']);
         const res = await request(app)
-            .get('/projects/demo/collections/site/types')
+            .get('/projects/demo/channels/site/types')
             .set('x-api-key', 'k');
         expect(res.status).toBe(200);
         expect(res.type).toBe('text/plain');
@@ -808,13 +800,13 @@ describe('GET /projects/:projectId/collections/:collectionId/schema and /types',
     it('refuses a key for another channel, and 404s an unknown one', async () => {
         key(['blog']);
         const other = await request(app)
-            .get('/projects/demo/collections/site/schema')
+            .get('/projects/demo/channels/site/schema')
             .set('x-api-key', 'k');
         expect(other.status).toBe(403);
         key(null);
         vi.mocked(channelSchema).mockResolvedValue(null);
         const missing = await request(app)
-            .get('/projects/demo/collections/nope/types')
+            .get('/projects/demo/channels/nope/types')
             .set('x-api-key', 'k');
         expect(missing.status).toBe(404);
     });

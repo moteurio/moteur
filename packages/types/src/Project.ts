@@ -166,13 +166,13 @@ export interface ProjectApiKeyEntry {
      */
     allowedHosts?: string[];
     /**
-     * When set, this key may only read these API collection (channel) IDs.
-     * Omit the field for full access to all collections.
+     * When set, this key may only read these channel IDs.
+     * Omit the field for full access to all channels.
      */
-    allowedCollectionIds?: string[];
+    allowedChannelIds?: string[];
     /**
-     * When `allowedCollectionIds` is set, controls access to sitemap, navigation, urls, breadcrumb, radar.
-     * Defaults to false (collection-only) unless explicitly true.
+     * When `allowedChannelIds` is set, controls access to sitemap, navigation, urls, breadcrumb, radar.
+     * Defaults to false (channel-only) unless explicitly true.
      */
     allowSiteWideReads?: boolean;
 }

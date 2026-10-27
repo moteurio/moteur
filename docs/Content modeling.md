@@ -1,6 +1,6 @@
 # Content modeling
 
-Start with a project: it owns membership, languages, schemas and content. A model describes repeatable content; an entry is one instance. Pages and navigation give that content a place in a site, while a collection controls how an application can read it.
+Start with a project: it owns membership, languages, schemas and content. A model describes repeatable content; an entry is one instance. Pages and navigation give that content a place in a site, while a channel controls how an application can read it.
 
 ## Choose a schema
 
@@ -47,7 +47,7 @@ See [Fields](Fields.md) for field options and value shapes, [Blocks](Blocks.md) 
 
 The project's `defaultLocale` and `supportedLocales` define its languages. A multilingual field uses a locale-keyed value such as `{ "en": "Hello", "fr": "Bonjour" }`; a non-multilingual text field uses a plain string. Set the field's multilingual option deliberately and preserve the expected value shape when importing content. Translator access allows language changes subject to the engine's default-language restrictions.
 
-Use reference fields to relate entries instead of copying the same content into several records. Public collection configuration controls which fields are returned and how deeply references are expanded. See [Public API and Collections](Public%20API%20and%20Collections.md).
+Use reference fields to relate entries instead of copying the same content into several records. Public channel configuration controls which fields are returned and how deeply references are expanded. See [Public API and Channels](Public%20API%20and%20Channels.md).
 
 ## Saving, validating and publishing
 

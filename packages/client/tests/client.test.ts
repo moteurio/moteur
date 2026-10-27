@@ -281,23 +281,23 @@ describe('createMoteurPublicClient', () => {
         ).toThrow(MoteurClientError);
     });
 
-    it('collections.list uses project collections path', async () => {
+    it('channels.list uses project channels path', async () => {
         const client = createMoteurPublicClient({
             baseURL: 'https://api.example.com',
             auth: { type: 'apiKey', apiKey: 'k', projectId: 'my-project' }
         });
-        await client.collections.list();
+        await client.channels.list();
         expect(capturedRequests[0].method).toBe('get');
-        expect(capturedRequests[0].url).toBe('/projects/my-project/collections');
+        expect(capturedRequests[0].url).toBe('/projects/my-project/channels');
     });
 
-    it('channel(collectionId).entries.list uses collection channel path', async () => {
+    it('channel(channelId).entries.list uses the channel path', async () => {
         const client = createMoteurPublicClient({
             baseURL: 'https://api.example.com',
             auth: { type: 'apiKey', apiKey: 'k', projectId: 'p1' }
         });
         await client.channel('web').entries.list('posts');
-        expect(capturedRequests[0].url).toBe('/projects/p1/collections/web/posts/entries');
+        expect(capturedRequests[0].url).toBe('/projects/p1/channels/web/posts/entries');
     });
 
     it('locale() asks every read in its language; a call may ask another', async () => {
@@ -311,9 +311,9 @@ describe('createMoteurPublicClient', () => {
         await fr.channel('site').menus.get('header');
         await fr.site.urls();
         expect(capturedRequests.map(r => [r.url, r.params])).toEqual([
-            ['/projects/p1/collections/site/pages', { locale: 'fr', resolveAssets: '1' }],
-            ['/projects/p1/collections/site/post/entries/hello', { locale: 'en' }],
-            ['/projects/p1/collections/site/menus/header', { locale: 'fr' }],
+            ['/projects/p1/channels/site/pages', { locale: 'fr', resolveAssets: '1' }],
+            ['/projects/p1/channels/site/post/entries/hello', { locale: 'en' }],
+            ['/projects/p1/channels/site/menus/header', { locale: 'fr' }],
             ['/projects/p1/urls', { locale: 'fr' }]
         ]);
     });
@@ -325,7 +325,7 @@ describe('createMoteurPublicClient', () => {
         });
         await client.channel('site').pages.getBySlug('pricing');
         expect(capturedRequests[0]).toMatchObject({
-            url: '/projects/p1/collections/site/pages/by-slug/pricing'
+            url: '/projects/p1/channels/site/pages/by-slug/pricing'
         });
         expect(capturedRequests[0].params).toBeUndefined();
     });
@@ -336,7 +336,7 @@ describe('createMoteurPublicClient', () => {
             auth: { type: 'apiKey', apiKey: 'k', projectId: 'p1' }
         }).locale('fr');
         await fr.channel('site').schema();
-        expect(capturedRequests[0].url).toBe('/projects/p1/collections/site/schema');
+        expect(capturedRequests[0].url).toBe('/projects/p1/channels/site/schema');
         expect(capturedRequests[0].params).toBeUndefined();
     });
 

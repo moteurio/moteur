@@ -17,7 +17,7 @@ import {
 import {
     optionalAuth,
     apiKeyAuth,
-    requireCollectionOrProjectAccess,
+    requireChannelOrProjectAccess,
     requireProjectAccess,
     denyIfApiKeySiteWideBlocked
 } from '../middlewares/auth.js';
@@ -25,7 +25,7 @@ import { sendApiError } from '../utils/apiError.js';
 
 const router: Router = Router({ mergeParams: true });
 
-const pageOutputAuth = [optionalAuth, apiKeyAuth, requireCollectionOrProjectAccess];
+const pageOutputAuth = [optionalAuth, apiKeyAuth, requireChannelOrProjectAccess];
 
 type ProjectParams = { projectId: string };
 type NavigationQuery = { depth?: string; rootId?: string; locale?: string };

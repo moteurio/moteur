@@ -5,7 +5,7 @@ import { getContentIndex } from './contentIndex/index.js';
 import { COUNT_KINDS, type CountKind } from './planLimits.js';
 import { getProjectJson, hasProjectKey, listProjectKeys } from './utils/projectStorage.js';
 import {
-    API_COLLECTIONS_KEY,
+    CHANNELS_KEY,
     formKey,
     formListPrefix,
     modelKey,
@@ -40,7 +40,7 @@ export function projectModelIds(projectId: string): Promise<string[]> {
 export async function countOf(projectId: string, kind: CountKind): Promise<number> {
     switch (kind) {
         case 'channels':
-            return ((await getProjectJson<unknown[]>(projectId, API_COLLECTIONS_KEY)) ?? []).length;
+            return ((await getProjectJson<unknown[]>(projectId, CHANNELS_KEY)) ?? []).length;
         case 'models':
             return (await projectModelIds(projectId)).length;
         case 'entries': {

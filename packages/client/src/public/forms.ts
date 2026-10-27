@@ -50,14 +50,10 @@ export function publicFormsApi(client: MoteurClient, projectId: string) {
     const base = `/projects/${encodeURIComponent(projectId)}`;
     const form = (formId: string) => `${base}/forms/${encodeURIComponent(formId)}`;
     return {
-        /** A form exposed by a collection, in one language when `locale` is given. */
-        get(
-            collectionId: string,
-            formId: string,
-            options?: { locale?: string }
-        ): Promise<PublicForm> {
+        /** A form exposed by a channel, in one language when `locale` is given. */
+        get(channelId: string, formId: string, options?: { locale?: string }): Promise<PublicForm> {
             return client.get(
-                `${base}/collections/${encodeURIComponent(collectionId)}/forms/${encodeURIComponent(formId)}`,
+                `${base}/channels/${encodeURIComponent(channelId)}/forms/${encodeURIComponent(formId)}`,
                 options?.locale ? { locale: options.locale } : undefined
             );
         },

@@ -8,7 +8,7 @@ export interface PreviewTokenEntry {
     createdBy?: string;
     entryId?: string;
     pageId?: string;
-    collectionId?: string;
+    channelId?: string;
 }
 
 export type PreviewTokenCreateInput = {
@@ -16,7 +16,7 @@ export type PreviewTokenCreateInput = {
     ttlSeconds?: number;
     entryId?: string;
     pageId?: string;
-    collectionId?: string;
+    channelId?: string;
 };
 
 export type PreviewTokenCreateResult = {
@@ -31,5 +31,5 @@ export type PreviewTokenMeta = {
     expiresAt: string;
     entryId?: string;
     pageId?: string;
-    collectionId?: string;
+    channelId?: string;
 };

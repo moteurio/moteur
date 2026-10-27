@@ -297,7 +297,7 @@ const keyFields: ArgSpec[] = [
         type: 'list',
         description: 'Channels it may read',
         in: 'body',
-        key: 'allowedCollectionIds'
+        key: 'allowedChannelIds'
     },
     {
         name: 'site-wide',
@@ -368,8 +368,8 @@ export const keys = group('keys', [
 export const channels = group('channels', [
     ...crud({
         noun: 'channel',
-        base: `${P}/collections`,
-        pick: 'collections',
+        base: `${P}/channels`,
+        pick: 'channels',
         table: [
             { key: 'id', header: 'id' },
             { key: 'label', header: 'label', format: localized },
@@ -384,7 +384,7 @@ export const channels = group('channels', [
         name: 'openapi',
         summary: 'The OpenAPI document a frontend reads this channel with',
         args: [project, { ...id('Channel'), positional: 0 }],
-        http: `GET ${P}/collections/{id}/openapi`,
+        http: `GET ${P}/channels/{id}/openapi`,
         readOnly: true
     },
     {
@@ -393,7 +393,7 @@ export const channels = group('channels', [
         description:
             "Each field's type, label, description and the options that explain its value. A read-only key for the channel can read it.",
         args: [project, { ...id('Channel'), positional: 0 }],
-        http: `GET ${P}/collections/{id}/schema`,
+        http: `GET ${P}/channels/{id}/schema`,
         readOnly: true,
         examples: ['moteur channels schema site --json']
     }
@@ -603,7 +603,7 @@ export const types = group('types', [
             const text = await client.request<string>({
                 method: 'GET',
                 url: ctx.args.channel
-                    ? `/projects/${encodeURIComponent(await ctx.project())}/collections/${encodeURIComponent(String(ctx.args.channel))}/types`
+                    ? `/projects/${encodeURIComponent(await ctx.project())}/channels/${encodeURIComponent(String(ctx.args.channel))}/types`
                     : `/projects/${encodeURIComponent(await ctx.project())}/types`,
                 responseType: 'text'
             });
@@ -625,7 +625,7 @@ export const types = group('types', [
             fs.writeFileSync(out, text);
             return `Wrote ${out}.`;
         },
-        covers: [`GET ${P}/types`, `GET ${P}/collections/{collectionId}/types`],
+        covers: [`GET ${P}/types`, `GET ${P}/channels/{channelId}/types`],
         readOnly: true,
         examples: [
             'moteur types --out src/moteur.ts',

@@ -43,7 +43,7 @@ a familiar ecosystem and strong TypeScript support.
 when you publish in Moteur Studio via webhook.
 
 **Unique feature:** Preview tokens — Studio opens your site with `?preview=`; the
-starter passes `x-preview-token` on collection reads for latest/draft content.
+starter passes `x-preview-token` on channel reads for latest/draft content.
 Use `@moteurio/react` `usePreview` or server `withPreview` on the public client.
 
 ---
@@ -86,7 +86,7 @@ If you want to understand exactly how a Moteur-powered site works from first
 principles, this is the one to read.
 
 The data pipeline is a set of plain async JavaScript files in `_data/` —
-each one fetches a Moteur collection at build time and returns JSON.
+each one fetches a Moteur channel at build time and returns JSON.
 Templates are Nunjucks. The block loop is a single line. Nothing is hidden.
 
 ```bash
