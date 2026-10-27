@@ -1,3 +1,5 @@
+import { safeId } from './idUtils.js';
+
 /**
  * Storage key convention for project-scoped data.
  * All keys are relative to the project root.
@@ -22,7 +24,7 @@ export const NOTIFICATIONS_KEY = `${WORKSPACE}notifications.json`;
 export const WEBHOOK_LOG_KEY = `${WORKSPACE}webhook-log.json`;
 
 export function modelKey(modelId: string): string {
-    return `models/${modelId}/model.json`;
+    return `models/${safeId(modelId)}/model.json`;
 }
 
 export function modelListPrefix(): string {
@@ -30,15 +32,15 @@ export function modelListPrefix(): string {
 }
 
 export function entryKey(modelId: string, entryId: string): string {
-    return `models/${modelId}/entries/${entryId}/entry.json`;
+    return `models/${safeId(modelId)}/entries/${safeId(entryId)}/entry.json`;
 }
 
 export function entryListPrefix(modelId: string): string {
-    return `models/${modelId}/entries/`;
+    return `models/${safeId(modelId)}/entries/`;
 }
 
 export function layoutKey(layoutId: string): string {
-    return `layouts/${layoutId}/layout.json`;
+    return `layouts/${safeId(layoutId)}/layout.json`;
 }
 
 export function layoutListPrefix(): string {
@@ -46,7 +48,7 @@ export function layoutListPrefix(): string {
 }
 
 export function structureKey(structureId: string): string {
-    return `structures/${structureId}/structure.json`;
+    return `structures/${safeId(structureId)}/structure.json`;
 }
 
 export function structureListPrefix(): string {
@@ -54,7 +56,7 @@ export function structureListPrefix(): string {
 }
 
 export function templateKey(templateId: string): string {
-    return `templates/${templateId}.json`;
+    return `templates/${safeId(templateId)}.json`;
 }
 
 export function templateListPrefix(): string {
@@ -62,7 +64,7 @@ export function templateListPrefix(): string {
 }
 
 export function pageKey(pageId: string): string {
-    return `pages/${pageId}.json`;
+    return `pages/${safeId(pageId)}.json`;
 }
 
 export function pageListPrefix(): string {
@@ -77,7 +79,7 @@ export const WEBHOOKS_KEY = 'webhooks.json';
 export const REDIRECTS_KEY = 'redirects.json';
 
 export function formKey(formId: string): string {
-    return `forms/${formId}/form.json`;
+    return `forms/${safeId(formId)}/form.json`;
 }
 
 export function formListPrefix(): string {
@@ -87,16 +89,16 @@ export function formListPrefix(): string {
 /** User data store — gitignored. Form submissions, etc. */
 const USERDATA = 'user-data/';
 export function submissionKey(formId: string, submissionId: string): string {
-    return `${USERDATA}forms/${formId}/${submissionId}.json`;
+    return `${USERDATA}forms/${safeId(formId)}/${safeId(submissionId)}.json`;
 }
 
 export function submissionListPrefix(formId: string): string {
-    return `${USERDATA}forms/${formId}/`;
+    return `${USERDATA}forms/${safeId(formId)}/`;
 }
 
 /** Schedules live in workspace (operational, not content). */
 export function scheduleKey(scheduleId: string): string {
-    return `${WORKSPACE}schedules/${scheduleId}.json`;
+    return `${WORKSPACE}schedules/${safeId(scheduleId)}.json`;
 }
 
 export function scheduleListPrefix(): string {

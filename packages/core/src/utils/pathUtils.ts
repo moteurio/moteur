@@ -1,5 +1,6 @@
 import path from 'path';
 import { storageConfig } from '../config/storageConfig.js';
+import { safeId } from './idUtils.js';
 
 export function baseProjectsDir(): string {
     return storageConfig.projectsDir;
@@ -38,7 +39,7 @@ export function baseSubmissionsDir(projectId: string, formId: string): string {
 }
 
 export function projectDir(projectId: string): string {
-    return path.join(baseProjectsDir(), projectId);
+    return path.join(baseProjectsDir(), safeId(projectId));
 }
 
 /** Workspace store — .moteur/ (gitignored). Comments, activity, radar, reviews, schedules. */
@@ -52,24 +53,24 @@ export function userDataDir(projectId: string): string {
 }
 
 export function modelDir(projectId: string, modelId: string): string {
-    return path.join(baseModelsDir(projectId), modelId);
+    return path.join(baseModelsDir(projectId), safeId(modelId));
 }
 export function entryDir(projectId: string, modelId: string, entryId: string): string {
-    return path.join(baseEntriesDir(projectId, modelId), entryId);
+    return path.join(baseEntriesDir(projectId, modelId), safeId(entryId));
 }
 export function layoutDir(projectId: string, layoutId: string): string {
-    return path.join(baseLayoutsDir(projectId), layoutId);
+    return path.join(baseLayoutsDir(projectId), safeId(layoutId));
 }
 export function structureDir(projectId: string, structureId: string): string {
-    return path.join(baseStructuresDir(projectId), structureId);
+    return path.join(baseStructuresDir(projectId), safeId(structureId));
 }
 
 export function formDir(projectId: string, formId: string): string {
-    return path.join(baseFormsDir(projectId), formId);
+    return path.join(baseFormsDir(projectId), safeId(formId));
 }
 
 export function submissionDir(projectId: string, formId: string, submissionId: string): string {
-    return path.join(baseSubmissionsDir(projectId, formId), submissionId);
+    return path.join(baseSubmissionsDir(projectId, formId), safeId(submissionId));
 }
 
 export function projectFilePath(projectId: string): string {
@@ -97,24 +98,29 @@ export function submissionFilePath(
     formId: string,
     submissionId: string
 ): string {
-    return path.join(userDataDir(projectId), 'forms', formId, `${submissionId}.json`);
+    return path.join(
+        userDataDir(projectId),
+        'forms',
+        safeId(formId),
+        `${safeId(submissionId)}.json`
+    );
 }
 
 export function templateFilePath(projectId: string, templateId: string): string {
-    return path.join(baseTemplatesDir(projectId), `${templateId}.json`);
+    return path.join(baseTemplatesDir(projectId), `${safeId(templateId)}.json`);
 }
 
 export function pageFilePath(projectId: string, pageId: string): string {
-    return path.join(basePagesDir(projectId), `${pageId}.json`);
+    return path.join(basePagesDir(projectId), `${safeId(pageId)}.json`);
 }
 
 export function scheduleFilePath(projectId: string, scheduleId: string): string {
-    return path.join(workspaceDir(projectId), 'schedules', `${scheduleId}.json`);
+    return path.join(workspaceDir(projectId), 'schedules', `${safeId(scheduleId)}.json`);
 }
 
 /** Original asset file path: assets/original/{id}-{filename} */
 export function assetOriginalPath(projectId: string, assetId: string, filename: string): string {
-    return path.join(baseAssetsDir(projectId), 'original', `${assetId}-${filename}`);
+    return path.join(baseAssetsDir(projectId), 'original', `${safeId(assetId)}-${filename}`);
 }
 
 /** Variant path: assets/{variantKey}/{id}.{ext} */
@@ -124,30 +130,30 @@ export function assetVariantPath(
     assetId: string,
     ext: string
 ): string {
-    return path.join(baseAssetsDir(projectId), variantKey, `${assetId}.${ext}`);
+    return path.join(baseAssetsDir(projectId), variantKey, `${safeId(assetId)}.${ext}`);
 }
 
 export function baseProjectsTrashDir(): string {
     return path.join(baseProjectsDir(), '.trash', 'projects');
 }
 export function trashProjectDir(projectId: string): string {
-    return path.join(baseProjectsTrashDir(), projectId);
+    return path.join(baseProjectsTrashDir(), safeId(projectId));
 }
 export function trashModelDir(projectId: string, modelId: string): string {
-    return path.join(baseProjectsTrashDir(), projectId, 'models', modelId);
+    return path.join(baseProjectsTrashDir(), safeId(projectId), 'models', safeId(modelId));
 }
 export function trashEntryDir(projectId: string, modelId: string, entryId: string): string {
-    return path.join(trashModelDir(projectId, modelId), 'entries', entryId);
+    return path.join(trashModelDir(projectId, modelId), 'entries', safeId(entryId));
 }
 export function trashLayoutDir(projectId: string, layoutId: string): string {
-    return path.join(baseProjectsTrashDir(), projectId, 'layouts', layoutId);
+    return path.join(baseProjectsTrashDir(), safeId(projectId), 'layouts', safeId(layoutId));
 }
 export function trashStructureDir(projectId: string, structureId: string): string {
-    return path.join(baseProjectsTrashDir(), projectId, 'structures', structureId);
+    return path.join(baseProjectsTrashDir(), safeId(projectId), 'structures', safeId(structureId));
 }
 
 export function trashFormDir(projectId: string, formId: string): string {
-    return path.join(baseProjectsTrashDir(), projectId, 'forms', formId);
+    return path.join(baseProjectsTrashDir(), safeId(projectId), 'forms', safeId(formId));
 }
 
 export function trashSubmissionDir(
@@ -155,17 +161,17 @@ export function trashSubmissionDir(
     formId: string,
     submissionId: string
 ): string {
-    return path.join(trashFormDir(projectId, formId), 'submissions', submissionId);
+    return path.join(trashFormDir(projectId, formId), 'submissions', safeId(submissionId));
 }
 
 export function trashTemplatesDir(projectId: string): string {
-    return path.join(baseProjectsTrashDir(), projectId, 'templates');
+    return path.join(baseProjectsTrashDir(), safeId(projectId), 'templates');
 }
 
 export function trashPagesDir(projectId: string): string {
-    return path.join(baseProjectsTrashDir(), projectId, 'pages');
+    return path.join(baseProjectsTrashDir(), safeId(projectId), 'pages');
 }
 
 export function trashScheduleDir(projectId: string, scheduleId: string): string {
-    return path.join(baseProjectsTrashDir(), projectId, 'schedules', scheduleId);
+    return path.join(baseProjectsTrashDir(), safeId(projectId), 'schedules', safeId(scheduleId));
 }
