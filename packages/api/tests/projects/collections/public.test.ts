@@ -37,7 +37,11 @@ import { listCollections, getCollection } from '@moteurio/core/apiCollections.js
 import { verifyProjectApiKey } from '@moteurio/core/projectApiKey.js';
 import { verifyPreviewToken } from '@moteurio/core/previewTokens.js';
 import { previewTokenAuth } from '../../../src/middlewares/previewToken.js';
-import { queryEntriesForProject } from '@moteurio/core/entries.js';
+import {
+    queryEntriesForProject,
+    getEntryForProject,
+    getPublishedEntryForProject
+} from '@moteurio/core/entries.js';
 import { getModelSchemaForProject } from '@moteurio/core/models.js';
 import { getProjectJson, listProjectKeys } from '@moteurio/core/utils/projectStorage.js';
 import {
@@ -285,6 +289,65 @@ describe('GET /projects/:projectId/collections/:collectionId/:resourceId/entries
                 status: ['draft', 'in_review', 'published']
             })
         );
+    });
+
+    it('a preview link for one entry shows that entry as it is now, the rest as published', async () => {
+        vi.mocked(verifyPreviewToken).mockResolvedValue({ ok: true, tokenId: 'pt1', entryId: 'n' });
+        vi.mocked(getEntryForProject).mockResolvedValue({
+            id: 'n',
+            type: 'articles',
+            status: 'draft',
+            data: { title: 'New' }
+        });
+        vi.mocked(getPublishedEntryForProject).mockResolvedValue(null);
+        vi.mocked(queryEntriesForProject).mockImplementation(async (_p, _m, q) =>
+            q?.view === 'latest'
+                ? {
+                      items: [
+                          { id: 'a', type: 'articles', status: 'draft', data: { title: 'Secret' } },
+                          { id: 'n', type: 'articles', status: 'draft', data: { title: 'New' } }
+                      ],
+                      total: 2
+                  }
+                : {
+                      items: [{ id: 'a', type: 'articles', status: 'published', data: {} }],
+                      total: 1
+                  }
+        );
+        const res = await request(app)
+            .get('/projects/demo/collections/c1/articles/entries')
+            .set('x-api-key', 'key')
+            .set('x-preview-token', 'mpv_testtoken');
+        expect(res.status).toBe(200);
+        expect(res.body).toEqual([
+            { id: 'a', type: 'articles', status: 'published', data: {} },
+            { id: 'n', type: 'articles', status: 'draft', data: { title: 'New' } }
+        ]);
+        expect(res.headers['x-total-count']).toBe('2');
+    });
+
+    it('a preview link for one entry does not open another', async () => {
+        vi.mocked(verifyPreviewToken).mockResolvedValue({ ok: true, tokenId: 'pt1', entryId: 'n' });
+        vi.mocked(getPublishedEntryForProject).mockResolvedValue(null);
+        const other = await request(app)
+            .get('/projects/demo/collections/c1/articles/entries/a')
+            .set('x-api-key', 'key')
+            .set('x-preview-token', 'mpv_testtoken');
+        expect(other.status).toBe(404);
+        expect(getEntryForProject).not.toHaveBeenCalled();
+
+        vi.mocked(getEntryForProject).mockResolvedValue({
+            id: 'n',
+            type: 'articles',
+            status: 'draft',
+            data: {}
+        });
+        const own = await request(app)
+            .get('/projects/demo/collections/c1/articles/entries/n')
+            .set('x-api-key', 'key')
+            .set('x-preview-token', 'mpv_testtoken');
+        expect(own.status).toBe(200);
+        expect(own.body.id).toBe('n');
     });
 
     it.each([

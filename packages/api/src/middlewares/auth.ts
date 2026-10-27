@@ -243,7 +243,7 @@ export function denyIfApiKeySiteWideBlocked(req: Request, res: Response): boolea
     if (!p || p.collectionWhitelist === null) return false;
     if (p.allowSiteWideReads) return false;
     res.status(403).json({
-        error: 'This API key cannot access site-wide endpoints (sitemap, navigation, urls, breadcrumb, resolve, redirects, radar)',
+        error: 'This API key cannot access site-wide endpoints (sitemap, navigation, urls, breadcrumb, resolve, redirects)',
         code: 'API_KEY_SITE_READ_NOT_ALLOWED'
     });
     return true;

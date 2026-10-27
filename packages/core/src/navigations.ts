@@ -18,7 +18,7 @@ import { isValidId } from './utils/idUtils.js';
 import type { PageNode } from '@moteurio/types/Page.js';
 import { listPages } from './pages.js';
 import { publicPages } from './pages/publishedPages.js';
-import { buildNodeMap, resolveNodePrefix } from './pages/urlResolver.js';
+import { buildNodeMap, isShown, resolveNodePrefix } from './pages/urlResolver.js';
 import { getAsset, resolveAssetUrl } from './assets/assetService.js';
 import { dispatch as webhookDispatch } from './webhooks/webhookService.js';
 
@@ -370,7 +370,8 @@ async function resolveItemUrl(
         case 'page': {
             if (!item.pageId) return undefined;
             const node = nodeMap.get(item.pageId);
-            if (!node) return undefined;
+            // A draft page has no address on the site yet.
+            if (!node || !isShown(node)) return undefined;
             const prefix = resolveNodePrefix(item.pageId, nodeMap);
             return prefix || '/';
         }
