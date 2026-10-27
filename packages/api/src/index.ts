@@ -63,7 +63,7 @@ import { globalErrorHandler } from './middlewares/errorHandler.js';
 import { registerSocketEventBridge } from './bootstrap/socketEventBridge.js';
 import { mountResizedImages, mountStaticAssets } from './bootstrap/staticAssetsRoute.js';
 import { resumeImageCopies, resumeVideoUploads } from '@moteurio/core/assets/assetService.js';
-import { loadProjects } from '@moteurio/core/projects.js';
+import { loadProjects, moveProjectSecretsOutOfGit } from '@moteurio/core/projects.js';
 import {
     createFileMeteringStore,
     getMeteringStore,
@@ -326,6 +326,16 @@ httpServer.listen(PORT, async () => {
     }
     await startWebhookWorker();
     startSnapshotScheduler(60_000);
+    // Credentials saved in project.json before they moved to each project's secrets file.
+    try {
+        const moved = await moveProjectSecretsOutOfGit();
+        if (moved.length)
+            console.warn(
+                `[Moteur] Moved credentials out of project.json for: ${moved.join(', ')}. Earlier commits still hold them: rotate those keys.`
+            );
+    } catch (err) {
+        console.error('[Moteur] Moving credentials out of project.json failed:', err);
+    }
     // Images uploaded just before a restart still need their resized copies.
     try {
         const queued = await resumeImageCopies(loadProjects());

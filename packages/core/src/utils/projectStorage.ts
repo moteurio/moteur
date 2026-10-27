@@ -6,6 +6,16 @@ import { writeJsonAtomicAsync } from './fileUtils.js';
 import { getContentIndex, parseEntryKey } from '../contentIndex/index.js';
 import type { Entry } from '@moteurio/types/Model.js';
 import { isValidId } from './idUtils.js';
+import {
+    mergeProjectSecrets,
+    readProjectSecrets,
+    splitProjectSecrets,
+    writeProjectSecrets
+} from './projectSecrets.js';
+import type { ProjectSchema } from '@moteurio/types/Project.js';
+
+/** project.json: its credentials live apart, in the secrets file (see projectSecrets.ts). */
+const PROJECT_FILE = 'project.json';
 
 const ENCODING = 'utf-8';
 
@@ -52,7 +62,12 @@ export async function getProjectJson<T = unknown>(
 ): Promise<T | null> {
     try {
         const data = await fs.readFile(fullPath(projectId, key), ENCODING);
-        return JSON.parse(data) as T;
+        const parsed = JSON.parse(data) as T;
+        if (key !== PROJECT_FILE || !parsed) return parsed;
+        return mergeProjectSecrets(
+            parsed as Partial<ProjectSchema>,
+            readProjectSecrets(projectDir(projectId))
+        ) as T;
     } catch (err: unknown) {
         const code =
             err && typeof err === 'object' && 'code' in err
@@ -66,6 +81,13 @@ export async function getProjectJson<T = unknown>(
 export async function putProjectJson(projectId: string, key: string, data: unknown): Promise<void> {
     const fullPath_ = fullPath(projectId, key);
     await fs.mkdir(path.dirname(fullPath_), { recursive: true });
+    if (key === PROJECT_FILE && data && typeof data === 'object') {
+        // The secrets first: if the second write fails, project.json still has them.
+        const { project, secrets } = splitProjectSecrets(data as Partial<ProjectSchema>);
+        writeProjectSecrets(projectDir(projectId), secrets);
+        await writeJsonAtomicAsync(fullPath_, project);
+        return;
+    }
     await writeJsonAtomicAsync(fullPath_, data);
     await updateContentIndex(projectId, key, data);
 }

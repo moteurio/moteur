@@ -8,17 +8,20 @@ Run the API on a compatible Node.js 22+ runtime, with Git available for revision
 
 Set `DATA_ROOT` explicitly to a persistent location in deployed environments. Relative storage settings resolve from it; an absolute `PROJECTS_DIR`, `AUTH_USERS_FILE` or other configured path can place data elsewhere and must be included in backups.
 
-| Data                                | Default location relative to `DATA_ROOT`                | Backup consideration                                           |
-| ----------------------------------- | ------------------------------------------------------- | -------------------------------------------------------------- |
-| Projects and their Git repositories | `data/projects/`                                        | Include `.git` and all authoritative project files             |
-| User accounts                       | `data/users.json`                                       | Includes authentication data; not restored by a content branch |
-| Operators                           | `data/operators.json`                                   | Preserve separately from project membership                    |
-| Blueprints                          | `data/blueprints/`                                      | Include local customizations                                   |
-| Metering                            | `data/metering/`                                        | Includes persisted request/submission counts and credit ledger |
-| Workspace and submissions           | Each project's `.moteur/` and `user-data/`              | Gitignored by the content branch                               |
-| Media                               | Local asset storage and/or configured external adapters | Back up original binaries as well as metadata                  |
+| Data                                | Default location relative to `DATA_ROOT`                | Backup consideration                                                                                            |
+| ----------------------------------- | ------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| Projects and their Git repositories | `data/projects/`                                        | Include `.git` and all authoritative project files                                                              |
+| User accounts                       | `data/users.json`                                       | Includes authentication data; not restored by a content branch                                                  |
+| Operators                           | `data/operators.json`                                   | Preserve separately from project membership                                                                     |
+| Blueprints                          | `data/blueprints/`                                      | Include local customizations                                                                                    |
+| Metering                            | `data/metering/`                                        | Includes persisted request/submission counts and credit ledger                                                  |
+| Workspace and submissions           | Each project's `.moteur/` and `user-data/`              | Gitignored by the content branch                                                                                |
+| Project credentials                 | Each project's `.moteur/secrets.json`                   | Storage keys, video hosts' tokens, Shopify and Git tokens; encrypted with `MOTEUR_ENCRYPTION_KEY`, never in Git |
+| Media                               | Local asset storage and/or configured external adapters | Back up original binaries as well as metadata                                                                   |
 
-Verify actual paths in the deployment; the host can override defaults. Keep required signing/encryption keys recoverable through the host's secret manager. Copying encrypted webhook secrets without their encryption key is not a complete restore.
+Verify actual paths in the deployment; the host can override defaults. Keep required signing/encryption keys recoverable through the host's secret manager. Copying encrypted webhook secrets or `secrets.json` without their encryption key is not a complete restore.
+
+A project's credentials (storage keys, video hosts' tokens, a Shopify token, the Git token) are kept in its `.moteur/secrets.json`, not in `project.json`, which every save commits and pushes. Saving a project moves any that are still in `project.json`, and the API does it for every project at start. Earlier commits still hold those values: rotate the keys of any project that had them.
 
 Session files (`auth-sessions/`) and short-lived provider proofs (`provider-signins.json`) live beside the configured users file. Preserve the directory across restarts. After restoring older authentication state, revoke sessions or rotate signing keys before reopening traffic. See [Authentication](Authentication.md) for the upgrade requirement to sign in again.
 
