@@ -1,6 +1,6 @@
 # @moteurio/api
 
-Express **REST API** for Moteur: JWT admin routes, read-only **project API key** collections, Scalar docs, merged **OpenAPI 3**, webhooks, and in-process integration with `@moteurio/core`. Optional host plugins (e.g. **`@moteurio/plugin-ai`**, **`@moteurio/plugin-presence`**) add routes and behavior when loaded.
+Express **REST API** for Moteur: JWT admin routes, read-only **project API key** channels, Scalar docs, merged **OpenAPI 3**, webhooks, and in-process integration with `@moteurio/core`. Optional host plugins (e.g. **`@moteurio/plugin-ai`**, **`@moteurio/plugin-presence`**) add routes and behavior when loaded.
 
 Product documentation: monorepo [`docs/`](../../docs/README.md). HTTP reference: [REST API](../../docs/REST%20API.md). Hosting: [Operations](../../docs/Operations.md) and [Configuration](../../docs/Configuration.md). Plugins: [host plugin guide](https://github.com/moteurio/moteur-plugins/blob/main/docs/Plugins.md).
 
@@ -46,7 +46,7 @@ Export uses the same **`buildMergedOpenApiDocument()`** as runtime. Env (host pl
 
 Optional: set **`MOTEUR_FAIL_ON_OPENAPI_COLLISION=1`** so duplicate path/method merges fail fast at bootstrap.
 
-**Per-collection spec** (public channel, API key): `GET /projects/:projectId/collections/:collectionId/openapi` (also `.../openapi.json`). Built on each request; see [Public API and Collections](../../docs/Public%20API%20and%20Collections.md#5-per-collection-api-reference-auto-generated).
+**Per-channel spec** (public channel, API key): `GET /projects/:projectId/channels/:channelId/openapi` (also `.../openapi.json`). Built on each request; see [Public API and Channels](../../docs/Public%20API%20and%20Channels.md#5-per-channel-api-reference-auto-generated).
 
 ## Package scripts
 
@@ -60,7 +60,7 @@ Optional: set **`MOTEUR_FAIL_ON_OPENAPI_COLLISION=1`** so duplicate path/method 
 ## Auth model (summary)
 
 - **JWT** — default for Studio and CRUD (`Authorization: Bearer …`).
-- **`x-api-key`** — read-only on collections, page outputs, radar, and collection OpenAPI (GET only).
+- **`x-api-key`** — read-only on channels, page outputs, radar, and channel OpenAPI (GET only).
 - Login body field is **`username`** (email is accepted when used as username). See [Authentication](../../docs/Authentication.md).
 
 ## Publishing

@@ -9,12 +9,12 @@ import { startWebhookWorker, stopWebhookWorker } from '@moteurio/core/webhooks/w
  *
  * - API Key (x-api-key header only; query keys are not supported — they leak in logs/referrers): Used by public
  *   frontends to consume published content. Projects may have multiple keys; each may have allowedHosts, optional
- *   collection allowlists, and optional site-wide read access. Optional per-key allowedHosts restrict x-api-key to matching
+ *   channel allowlists, and optional site-wide read access. Optional per-key allowedHosts restrict x-api-key to matching
  *   Origin/Referer hostnames (exact or *.single-label prefix); see Authentication.md. Read-only (GET only). Applies to:
- *     - Collections (/projects/:projectId/collections)
+ *     - Channels (/projects/:projectId/channels)
  *     - Page outputs (/projects/:projectId/sitemap.xml, sitemap.json, navigation, urls, breadcrumb)
  *     - Radar (/projects/:projectId/radar)
- *   Middleware: optionalAuth + apiKeyAuth + requireCollectionOrProjectAccess.
+ *   Middleware: optionalAuth + apiKeyAuth + requireChannelOrProjectAccess.
  *
  * - No auth (intentional exceptions):
  *     - Health: GET /health (liveness for load balancers and orchestrators)

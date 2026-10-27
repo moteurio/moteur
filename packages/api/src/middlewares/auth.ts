@@ -167,7 +167,7 @@ export function optionalProjectAccess(req: Request, res: Response, next: NextFun
 /**
  * Recognizes project API key from header `x-api-key` only (query string keys leak via logs/referrers).
  * If a key is present: verifies against projectId (from req.params.projectId). On success sets
- * `req.apiKeyAuth`, `req.apiKeyId`, and `req.apiKeyPolicy` (collection allowlist + site-wide flag), runs
+ * `req.apiKeyAuth`, `req.apiKeyId`, and `req.apiKeyPolicy` (channel allowlist + site-wide flag), runs
  * allowed-host checks when configured, else 401/403. If no header: next() (caller may require JWT).
  */
 export function apiKeyAuth(req: Request, res: Response, next: NextFunction): void {
@@ -220,7 +220,7 @@ export function apiKeyAuth(req: Request, res: Response, next: NextFunction): voi
  * For routes that support both JWT (project access) and API key (channel/read).
  * Runs optionalAuth, then: if req.user run requireProjectAccess; else if req.apiKeyAuth next(); else 401.
  */
-export function requireCollectionOrProjectAccess(
+export function requireChannelOrProjectAccess(
     req: Request,
     res: Response,
     next: NextFunction
@@ -233,14 +233,14 @@ export function requireCollectionOrProjectAccess(
 }
 
 /**
- * When the request uses an API key scoped to specific collections and site-wide reads are off,
+ * When the request uses an API key scoped to specific channels and site-wide reads are off,
  * respond with 403. JWT requests are never blocked here.
  */
 export function denyIfApiKeySiteWideBlocked(req: Request, res: Response): boolean {
     if (req.user) return false;
     if (!req.apiKeyAuth) return false;
     const p = req.apiKeyPolicy;
-    if (!p || p.collectionWhitelist === null) return false;
+    if (!p || p.channelAllowlist === null) return false;
     if (p.allowSiteWideReads) return false;
     res.status(403).json({
         error: 'This API key cannot access site-wide endpoints (sitemap, navigation, urls, breadcrumb, resolve, redirects)',
@@ -253,7 +253,7 @@ export function denyIfApiKeySiteWideBlocked(req: Request, res: Response): boolea
  * Requires either JWT (req.user) or API key (req.apiKeyAuth).
  * If only API key and method is not GET, returns 403 (read-only).
  */
-export function requireCollectionAuth(req: Request, res: Response, next: NextFunction): void {
+export function requireChannelAuth(req: Request, res: Response, next: NextFunction): void {
     const hasUser = !!req.user;
     const hasApiKey = req.apiKeyAuth === true;
     if (!hasUser && !hasApiKey) {

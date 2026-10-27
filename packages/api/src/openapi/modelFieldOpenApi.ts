@@ -63,7 +63,7 @@ function referenceStub(description?: string): OpenAPIV3.SchemaObject {
         required: ['id', 'type'],
         description:
             description ??
-            'Entry reference. When collection `resolve` is 1 or 2, may be replaced by a nested entry object.',
+            'Entry reference. When channel `resolve` is 1 or 2, may be replaced by a nested entry object.',
         properties: {
             id: { type: 'string' },
             type: { type: 'string', description: 'Target model id' }
@@ -247,7 +247,7 @@ export function openApiEntryDataSchema(
 
     return {
         type: 'object',
-        description: `Payload for model “${modelLabel}”. Only fields exposed by this collection are listed.`,
+        description: `Payload for model “${modelLabel}”. Only fields exposed by this channel are listed.`,
         properties,
         additionalProperties: fieldAllowlist?.length ? false : true
     };

@@ -22,14 +22,14 @@ describe('requestClassifier', () => {
         expect(res.body.projectId).toBeUndefined();
     });
 
-    it('sets public and projectId for /projects/:id/collections', async () => {
-        const res = await request(app).get('/api/projects/my-blog/collections');
+    it('sets public and projectId for /projects/:id/channels', async () => {
+        const res = await request(app).get('/api/projects/my-blog/channels');
         expect(res.body.type).toBe('public');
         expect(res.body.projectId).toBe('my-blog');
     });
 
-    it('sets public and projectId for /projects/:id/collections/:cid/entries', async () => {
-        const res = await request(app).get('/api/projects/demo/collections/c1/blog/entries');
+    it('sets public and projectId for /projects/:id/channels/:cid/entries', async () => {
+        const res = await request(app).get('/api/projects/demo/channels/c1/blog/entries');
         expect(res.body.type).toBe('public');
         expect(res.body.projectId).toBe('demo');
     });
@@ -72,7 +72,7 @@ describe('requestClassifier', () => {
     });
 
     it('strips query string before matching', async () => {
-        const res = await request(app).get('/api/projects/p1/collections?foo=bar');
+        const res = await request(app).get('/api/projects/p1/channels?foo=bar');
         expect(res.body.type).toBe('public');
         expect(res.body.projectId).toBe('p1');
     });

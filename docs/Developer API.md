@@ -28,7 +28,7 @@ Every method takes a **`User`** (or derives access from one) the same way the HT
 | `layouts`         | Layout documents and blocks                                       |
 | `structures`      | Reusable structure schemas                                        |
 | `blocks`          | Block schema registry (built-ins, `data/core`, project overrides) |
-| `collections`     | API collection definitions (public channel config)                |
+| `channels`        | Channel definitions: what each site or app can read               |
 | `navigations`     | Menus and resolution                                              |
 | `projectApiKey`   | Create, rotate, verify project API keys                           |
 | `assets`          | Upload, variants, adapters, migration                             |

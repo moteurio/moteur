@@ -3,7 +3,7 @@ import type { ProjectApiKeyEntry } from '@moteurio/types/Project.js';
 import { User } from '@moteurio/types/User.js';
 import { getProject, getProjectById, updateProject } from './projects.js';
 import { validateAllowedHostPatterns } from './apiKeyAllowedHosts.js';
-import { listCollections } from './apiCollections.js';
+import { listChannels } from './channels.js';
 
 const KEY_PREFIX = 'mk_live_';
 const KEY_SECRET_LENGTH = 32;
@@ -30,18 +30,18 @@ function timingSafeEqualHash(a: string, b: string): boolean {
 
 /** Resolved access rules for middleware (after matching a key). */
 export type ApiKeyAccessPolicy = {
-    /** null = all collections allowed */
-    collectionWhitelist: string[] | null;
-    /** When collectionWhitelist is set, whether sitemap/nav/radar/urls/breadcrumb are allowed */
+    /** null = all channels allowed */
+    channelAllowlist: string[] | null;
+    /** When channelAllowlist is set, whether sitemap/nav/radar/urls/breadcrumb are allowed */
     allowSiteWideReads: boolean;
 };
 
 export function apiKeyAccessPolicy(entry: ProjectApiKeyEntry): ApiKeyAccessPolicy {
-    if (entry.allowedCollectionIds === undefined) {
-        return { collectionWhitelist: null, allowSiteWideReads: true };
+    if (entry.allowedChannelIds === undefined) {
+        return { channelAllowlist: null, allowSiteWideReads: true };
     }
     return {
-        collectionWhitelist: [...entry.allowedCollectionIds],
+        channelAllowlist: [...entry.allowedChannelIds],
         allowSiteWideReads: entry.allowSiteWideReads === true
     };
 }
@@ -117,7 +117,7 @@ export type ProjectApiKeyMeta = {
     expiresAt?: string;
     expired?: boolean;
     allowedHosts: string[];
-    allowedCollectionIds?: string[];
+    allowedChannelIds?: string[];
     allowSiteWideReads?: boolean;
 };
 
@@ -131,9 +131,7 @@ function toMeta(e: ProjectApiKeyEntry): ProjectApiKeyMeta {
             ? { expiresAt: e.expiresAt, expired: isApiKeyExpired(e) }
             : {}),
         allowedHosts: e.allowedHosts ?? [],
-        ...(e.allowedCollectionIds !== undefined
-            ? { allowedCollectionIds: e.allowedCollectionIds }
-            : {}),
+        ...(e.allowedChannelIds !== undefined ? { allowedChannelIds: e.allowedChannelIds } : {}),
         ...(e.allowSiteWideReads !== undefined ? { allowSiteWideReads: e.allowSiteWideReads } : {})
     };
 }
@@ -146,20 +144,20 @@ export async function listProjectApiKeyMeta(
     return (project.apiKeys ?? []).map(toMeta);
 }
 
-async function assertCollectionIdsExist(projectId: string, ids: string[]): Promise<void> {
+async function assertChannelIdsExist(projectId: string, ids: string[]): Promise<void> {
     if (ids.length === 0) return;
-    const collections = await listCollections(projectId);
-    const known = new Set(collections.map(c => c.id));
+    const channels = await listChannels(projectId);
+    const known = new Set(channels.map(c => c.id));
     const missing = ids.filter(id => !known.has(id));
     if (missing.length > 0) {
-        throw new Error(`Unknown collection id(s): ${missing.join(', ')}`);
+        throw new Error(`Unknown channel id(s): ${missing.join(', ')}`);
     }
 }
 
 export type CreateProjectApiKeyInput = {
     label?: string;
     expiresAt?: unknown;
-    allowedCollectionIds?: string[];
+    allowedChannelIds?: string[];
     allowSiteWideReads?: boolean;
 };
 
@@ -176,8 +174,8 @@ export async function createKey(
     if (keys.length >= MAX_PROJECT_API_KEYS) {
         throw new Error(`At most ${MAX_PROJECT_API_KEYS} API keys per project`);
     }
-    if (input.allowedCollectionIds !== undefined) {
-        await assertCollectionIdsExist(projectId, input.allowedCollectionIds);
+    if (input.allowedChannelIds !== undefined) {
+        await assertChannelIdsExist(projectId, input.allowedChannelIds);
     }
     const expiresAt = parseApiKeyExpiry(input.expiresAt);
     const rawKey = generateRawKey();
@@ -192,9 +190,9 @@ export async function createKey(
         createdAt: now,
         ...(input.label !== undefined && input.label !== '' ? { label: input.label.trim() } : {}),
         ...(expiresAt ? { expiresAt } : {}),
-        ...(input.allowedCollectionIds !== undefined
+        ...(input.allowedChannelIds !== undefined
             ? {
-                  allowedCollectionIds: [...input.allowedCollectionIds],
+                  allowedChannelIds: [...input.allowedChannelIds],
                   ...(input.allowSiteWideReads !== undefined
                       ? { allowSiteWideReads: input.allowSiteWideReads }
                       : {})
@@ -236,8 +234,8 @@ export async function rotateKey(
         ...(prev.label !== undefined ? { label: prev.label } : {}),
         ...(lifetime > 0 ? { expiresAt: new Date(now.getTime() + lifetime).toISOString() } : {}),
         ...(prev.allowedHosts !== undefined ? { allowedHosts: [...prev.allowedHosts] } : {}),
-        ...(prev.allowedCollectionIds !== undefined
-            ? { allowedCollectionIds: [...prev.allowedCollectionIds] }
+        ...(prev.allowedChannelIds !== undefined
+            ? { allowedChannelIds: [...prev.allowedChannelIds] }
             : {}),
         ...(prev.allowSiteWideReads !== undefined
             ? { allowSiteWideReads: prev.allowSiteWideReads }
@@ -263,7 +261,7 @@ export type PatchProjectApiKeyInput = {
     label?: string | null;
     expiresAt?: unknown;
     allowedHosts?: unknown;
-    allowedCollectionIds?: string[] | null;
+    allowedChannelIds?: string[] | null;
     allowSiteWideReads?: boolean;
 };
 
@@ -305,16 +303,16 @@ export async function patchKey(
         next = { ...next, allowedHosts };
     }
 
-    if (patch.allowedCollectionIds !== undefined) {
-        if (patch.allowedCollectionIds === null) {
+    if (patch.allowedChannelIds !== undefined) {
+        if (patch.allowedChannelIds === null) {
             next = { ...next };
-            delete next.allowedCollectionIds;
+            delete next.allowedChannelIds;
             delete next.allowSiteWideReads;
         } else {
-            await assertCollectionIdsExist(projectId, patch.allowedCollectionIds);
+            await assertChannelIdsExist(projectId, patch.allowedChannelIds);
             next = {
                 ...next,
-                allowedCollectionIds: [...patch.allowedCollectionIds]
+                allowedChannelIds: [...patch.allowedChannelIds]
             };
         }
     }

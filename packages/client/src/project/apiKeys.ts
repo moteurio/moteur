@@ -10,14 +10,14 @@ export type ProjectApiKeyMeta = {
     expiresAt?: string;
     expired?: boolean;
     allowedHosts: string[];
-    allowedCollectionIds?: string[];
+    allowedChannelIds?: string[];
     allowSiteWideReads?: boolean;
 };
 
 export type ProjectApiKeyCreateBody = {
     label?: string;
     expiresAt?: string | null;
-    allowedCollectionIds?: string[];
+    allowedChannelIds?: string[];
     allowSiteWideReads?: boolean;
 };
 
@@ -30,7 +30,7 @@ export type ProjectApiKeyPatchBody = {
     label?: string | null;
     expiresAt?: string | null;
     allowedHosts?: string[];
-    allowedCollectionIds?: string[] | null;
+    allowedChannelIds?: string[] | null;
     allowSiteWideReads?: boolean;
 };
 

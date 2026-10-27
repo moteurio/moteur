@@ -4,7 +4,7 @@ Project **schemas** (models, structures, templates, forms, and project-scoped bl
 
 This is separate from **entry** revisions and from **publish** snapshots on entries. See [How schema changes affect a project](#how-schema-changes-affect-a-project) below.
 
-Related: [Git integration](Git.md), [REST API](REST%20API.md), [Public API and Collections](Public%20API%20and%20Collections.md).
+Related: [Git integration](Git.md), [REST API](REST%20API.md), [Public API and Channels](Public%20API%20and%20Channels.md).
 
 ---
 
@@ -48,7 +48,7 @@ Authorization: Bearer <jwt>
 
 Response: `{ "model": { … } }` — the parsed `model.json` at that commit.
 
-There is **no** query parameter on the public collection API to “read entries using schema at revision X”. The live schema endpoints and collection OpenAPI always reflect **what is on disk now**.
+There is **no** query parameter on the public channel API to “read entries using schema at revision X”. The live schema endpoints and channel OpenAPI always reflect **what is on disk now**.
 
 ---
 
@@ -88,25 +88,25 @@ Restore writes the chosen snapshot as the **current** schema (new git commit via
 
 Think of two layers:
 
-1. **Schema (contract)** — what fields exist, types, forms, block types, collection field allowlists, generated OpenAPI.
+1. **Schema (contract)** — what fields exist, types, forms, block types, channel field allowlists, generated OpenAPI.
 2. **Content (instances)** — entry `data`, page fields, layout blocks, form submissions.
 
 Schema revisions help you **recover or inspect the contract**. Content keeps whatever was saved until someone edits it.
 
 ### Live behaviour (always “current schema”)
 
-| Area                                                 | Behaviour when you change a schema                                                                                                                                                                                        |
-| ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Studio editors**                                   | Forms and field lists follow the **current** model/template immediately. Removing a field hides it in the UI; existing JSON may still contain the old key until edited or cleaned.                                        |
-| **Validation on save**                               | Entries and pages are validated against **current** field definitions. Required fields apply on publish/review; extra keys in `data` that are no longer in the schema are generally **left in place** (not auto-deleted). |
-| **Public API / collections**                         | Responses use **current** models and field allowlists. Removed fields disappear from API output even if still stored in the entry file.                                                                                   |
-| **Collection OpenAPI** (`…/collections/:id/openapi`) | Generated from **current** project schemas. Clients codegen against today’s shapes; a breaking schema change changes the spec on the next request.                                                                        |
-| **Block / structure types**                          | Instances reference a **type id** (e.g. `core/hero`, `mysite/promo`). Changing the schema changes validation and Studio for new edits; existing block JSON may contain fields that are no longer defined until updated.   |
-| **Forms (public submit)**                            | Submit validates against the **current** form schema.                                                                                                                                                                     |
+| Area                                           | Behaviour when you change a schema                                                                                                                                                                                        |
+| ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Studio editors**                             | Forms and field lists follow the **current** model/template immediately. Removing a field hides it in the UI; existing JSON may still contain the old key until edited or cleaned.                                        |
+| **Validation on save**                         | Entries and pages are validated against **current** field definitions. Required fields apply on publish/review; extra keys in `data` that are no longer in the schema are generally **left in place** (not auto-deleted). |
+| **Public API / channels**                      | Responses use **current** models and field allowlists. Removed fields disappear from API output even if still stored in the entry file.                                                                                   |
+| **Channel OpenAPI** (`…/channels/:id/openapi`) | Generated from **current** project schemas. Clients codegen against today’s shapes; a breaking schema change changes the spec on the next request.                                                                        |
+| **Block / structure types**                    | Instances reference a **type id** (e.g. `core/hero`, `mysite/promo`). Changing the schema changes validation and Studio for new edits; existing block JSON may contain fields that are no longer defined until updated.   |
+| **Forms (public submit)**                      | Submit validates against the **current** form schema.                                                                                                                                                                     |
 
 ### What schema revisions do **not** do (today)
 
-- They do **not** pin a collection or API key to a fixed schema revision.
+- They do **not** pin a channel or API key to a fixed schema revision.
 - They do **not** freeze entry **content** — that is **[entry publish](Workflows.md)** (`publishedCommit` on the entry audit), which snapshots the entry file at publish time for the public **published** view.
 - Restore does **not** bulk-update entries, pages, or layouts to match an old schema.
 
@@ -140,7 +140,7 @@ Model file (models/…/model.json)
 | ------------------------------------------------ | ------------------------------------------------------- |
 | Link to exact schema version?                    | Yes: **commit hash** in `revisionId`, not `number`.     |
 | Link to exact entry content for the public site? | **publishedCommit** on the entry (entry revisions API). |
-| Does the headless API stay on an old schema?     | No — always current schema and collection config.       |
+| Does the headless API stay on an old schema?     | No — always current schema and channel config.          |
 
 ---
 
@@ -149,4 +149,4 @@ Model file (models/…/model.json)
 - [Git integration](Git.md) — commits, branches, workspace snapshots
 - [Workflows](Workflows.md) — publish and entry lifecycle
 - [Blocks](Blocks.md) — built-in vs project block types
-- [Public API and Collections](Public%20API%20and%20Collections.md) — channels and OpenAPI
+- [Public API and Channels](Public%20API%20and%20Channels.md) — channels and OpenAPI

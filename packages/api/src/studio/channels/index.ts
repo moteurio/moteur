@@ -2,12 +2,12 @@ import type { Request, Response } from 'express';
 import { Router } from 'express';
 import type { OpenAPIV3 } from 'openapi-types';
 import {
-    listCollections,
-    getCollection,
-    createCollection,
-    updateCollection,
-    deleteCollection
-} from '@moteurio/core/apiCollections.js';
+    listChannels,
+    getChannel,
+    createChannel,
+    updateChannel,
+    deleteChannel
+} from '@moteurio/core/channels.js';
 import { requireDeveloper } from '../../middlewares/auth.js';
 import { sendApiError, getMessage } from '../../utils/apiError.js';
 
@@ -17,7 +17,7 @@ router.get('/', requireDeveloper, async (req: Request, res: Response) => {
     const { projectId } = req.params as Record<string, string>;
     if (!projectId) return void res.status(400).json({ error: 'Missing projectId' });
     try {
-        const list = await listCollections(projectId);
+        const list = await listChannels(projectId);
         return void res.json(list);
     } catch (err: unknown) {
         return void sendApiError(res, req, err);
@@ -28,9 +28,9 @@ router.get('/:id', requireDeveloper, async (req: Request, res: Response) => {
     const { projectId, id } = req.params as Record<string, string>;
     if (!projectId || !id) return void res.status(400).json({ error: 'Missing projectId or id' });
     try {
-        const collection = await getCollection(projectId, id);
-        if (!collection) return void res.status(404).json({ error: 'Collection not found' });
-        return void res.json(collection);
+        const channel = await getChannel(projectId, id);
+        if (!channel) return void res.status(404).json({ error: 'Channel not found' });
+        return void res.json(channel);
     } catch (err: unknown) {
         return void sendApiError(res, req, err);
     }
@@ -41,13 +41,13 @@ router.post('/', requireDeveloper, async (req: Request, res: Response) => {
     if (!projectId) return void res.status(400).json({ error: 'Missing projectId' });
     try {
         const { id, label, description, resources } = req.body ?? {};
-        const collection = await createCollection(projectId, req.user!, {
+        const channel = await createChannel(projectId, req.user!, {
             id,
             label: label ?? 'Unnamed',
             description,
             resources: resources ?? []
         });
-        return void res.status(201).json(collection);
+        return void res.status(201).json(channel);
     } catch (err: unknown) {
         return void sendApiError(res, req, err);
     }
@@ -58,11 +58,11 @@ router.patch('/:id', requireDeveloper, async (req: Request, res: Response) => {
     if (!projectId || !id) return void res.status(400).json({ error: 'Missing projectId or id' });
     try {
         const patch = req.body ?? {};
-        const collection = await updateCollection(projectId, req.user!, id, patch);
-        return void res.json(collection);
+        const channel = await updateChannel(projectId, req.user!, id, patch);
+        return void res.json(channel);
     } catch (err: unknown) {
         return void res.status(getMessage(err)?.includes('not found') ? 404 : 400).json({
-            error: getMessage(err) ?? 'Failed to update collection'
+            error: getMessage(err) ?? 'Failed to update channel'
         });
     }
 });
@@ -71,11 +71,11 @@ router.delete('/:id', requireDeveloper, async (req: Request, res: Response) => {
     const { projectId, id } = req.params as Record<string, string>;
     if (!projectId || !id) return void res.status(400).json({ error: 'Missing projectId or id' });
     try {
-        await deleteCollection(projectId, req.user!, id);
+        await deleteChannel(projectId, req.user!, id);
         return void res.status(204).send();
     } catch (err: unknown) {
         return void res.status(getMessage(err)?.includes('not found') ? 404 : 400).json({
-            error: getMessage(err) ?? 'Failed to delete collection'
+            error: getMessage(err) ?? 'Failed to delete channel'
         });
     }
 });
@@ -83,27 +83,27 @@ router.delete('/:id', requireDeveloper, async (req: Request, res: Response) => {
 const collJson = {
     content: {
         'application/json': {
-            schema: { $ref: '#/components/schemas/ApiCollection' }
+            schema: { $ref: '#/components/schemas/Channel' }
         }
     }
 };
 
 export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
-    '/projects/{projectId}/collections': {
+    '/projects/{projectId}/channels': {
         get: {
-            summary: 'List collections',
-            tags: ['Collections'],
+            summary: 'List channels',
+            tags: ['Channels'],
             parameters: [
                 { name: 'projectId', in: 'path', required: true, schema: { type: 'string' } }
             ],
             responses: {
                 '200': {
-                    description: 'List of collections',
+                    description: 'List of channels',
                     content: {
                         'application/json': {
                             schema: {
                                 type: 'array',
-                                items: { $ref: '#/components/schemas/ApiCollection' }
+                                items: { $ref: '#/components/schemas/Channel' }
                             }
                         }
                     }
@@ -111,8 +111,8 @@ export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
             }
         },
         post: {
-            summary: 'Create collection',
-            tags: ['Collections'],
+            summary: 'Create channel',
+            tags: ['Channels'],
             parameters: [
                 { name: 'projectId', in: 'path', required: true, schema: { type: 'string' } }
             ],
@@ -126,7 +126,7 @@ export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
                                 description: { type: 'string' },
                                 resources: {
                                     type: 'array',
-                                    items: { $ref: '#/components/schemas/ApiCollectionResource' }
+                                    items: { $ref: '#/components/schemas/ChannelResource' }
                                 }
                             }
                         }
@@ -135,23 +135,23 @@ export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
             },
             responses: {
                 '201': {
-                    description: 'Created collection',
+                    description: 'Created channel',
                     ...collJson
                 }
             }
         }
     },
-    '/projects/{projectId}/collections/{id}': {
+    '/projects/{projectId}/channels/{id}': {
         get: {
-            summary: 'Get one collection',
-            tags: ['Collections'],
+            summary: 'Get one channel',
+            tags: ['Channels'],
             parameters: [
                 { name: 'projectId', in: 'path', required: true, schema: { type: 'string' } },
                 { name: 'id', in: 'path', required: true, schema: { type: 'string' } }
             ],
             responses: {
                 '200': {
-                    description: 'Collection',
+                    description: 'Channel',
                     ...collJson
                 },
                 '404': {
@@ -165,15 +165,15 @@ export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
             }
         },
         patch: {
-            summary: 'Update collection',
-            tags: ['Collections'],
+            summary: 'Update channel',
+            tags: ['Channels'],
             parameters: [
                 { name: 'projectId', in: 'path', required: true, schema: { type: 'string' } },
                 { name: 'id', in: 'path', required: true, schema: { type: 'string' } }
             ],
             responses: {
                 '200': {
-                    description: 'Updated collection',
+                    description: 'Updated channel',
                     ...collJson
                 },
                 '404': {
@@ -187,8 +187,8 @@ export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
             }
         },
         delete: {
-            summary: 'Delete collection',
-            tags: ['Collections'],
+            summary: 'Delete channel',
+            tags: ['Channels'],
             parameters: [
                 { name: 'projectId', in: 'path', required: true, schema: { type: 'string' } },
                 { name: 'id', in: 'path', required: true, schema: { type: 'string' } }

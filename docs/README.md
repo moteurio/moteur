@@ -4,14 +4,14 @@ These guides describe the engine in this repository: content modeling, delivery,
 
 ## Start here
 
-| Goal                                | Read                                                                                                                    |
-| ----------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
-| Understand the content system       | [Content modeling](Content%20modeling.md)                                                                               |
-| Read content from a website or SSG  | [Public API and Collections](Public%20API%20and%20Collections.md), then the [HTTP client](../packages/client/README.md) |
-| Build pages and menus               | [Pages and navigation](Pages%20and%20navigation.md)                                                                     |
-| Run or restore an API host          | [Operations](Operations.md) and [Configuration](Configuration.md)                                                       |
-| Authenticate people or applications | [Authentication](Authentication.md)                                                                                     |
-| Work from a terminal or AI client   | [CLI](CLI.md) and [MCP](MCP.md)                                                                                         |
+| Goal                                | Read                                                                                                              |
+| ----------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| Understand the content system       | [Content modeling](Content%20modeling.md)                                                                         |
+| Read content from a website or SSG  | [Public API and Channels](Public%20API%20and%20Channels.md), then the [HTTP client](../packages/client/README.md) |
+| Build pages and menus               | [Pages and navigation](Pages%20and%20navigation.md)                                                               |
+| Run or restore an API host          | [Operations](Operations.md) and [Configuration](Configuration.md)                                                 |
+| Authenticate people or applications | [Authentication](Authentication.md)                                                                               |
+| Work from a terminal or AI client   | [CLI](CLI.md) and [MCP](MCP.md)                                                                                   |
 
 ## Content and editorial work
 
@@ -34,17 +34,17 @@ These guides describe the engine in this repository: content modeling, delivery,
 
 ## Integration and tools
 
-| Guide                                                             | Covers                                                          |
-| ----------------------------------------------------------------- | --------------------------------------------------------------- |
-| [Public API and Collections](Public%20API%20and%20Collections.md) | Delivery channels, exposed resources and read-only project keys |
-| [REST API](REST%20API.md)                                         | Engine HTTP routes and OpenAPI export                           |
-| [HTTP client](../packages/client/README.md)                       | Typed JavaScript/TypeScript access over HTTP                    |
-| [Embedded core API](Developer%20API.md)                           | In-process engine access for tools and contributors             |
-| [CLI](CLI.md)                                                     | Command reference                                               |
-| [MCP](MCP.md)                                                     | Local stdio, hosted HTTP, credentials and agent restrictions    |
-| [Webhooks](Webhooks.md)                                           | Events, signing, filtering and delivery                         |
-| [Starters](Starters.md)                                           | Frontend starter repositories                                   |
-| [Frontend](Frontend.md)                                           | Delivery SDKs, preview tokens, plugin web components            |
+| Guide                                                       | Covers                                                          |
+| ----------------------------------------------------------- | --------------------------------------------------------------- |
+| [Public API and Channels](Public%20API%20and%20Channels.md) | Delivery channels, exposed resources and read-only project keys |
+| [REST API](REST%20API.md)                                   | Engine HTTP routes and OpenAPI export                           |
+| [HTTP client](../packages/client/README.md)                 | Typed JavaScript/TypeScript access over HTTP                    |
+| [Embedded core API](Developer%20API.md)                     | In-process engine access for tools and contributors             |
+| [CLI](CLI.md)                                               | Command reference                                               |
+| [MCP](MCP.md)                                               | Local stdio, hosted HTTP, credentials and agent restrictions    |
+| [Webhooks](Webhooks.md)                                     | Events, signing, filtering and delivery                         |
+| [Starters](Starters.md)                                     | Frontend starter repositories                                   |
+| [Frontend](Frontend.md)                                     | Delivery SDKs, preview tokens, plugin web components            |
 
 ## Hosting and extension boundaries
 

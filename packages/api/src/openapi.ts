@@ -219,7 +219,7 @@ const baseSchemas: OpenAPIV3.ComponentsObject['schemas'] = {
             savedBy: { type: 'string' }
         }
     },
-    ApiCollectionResource: {
+    ChannelResource: {
         type: 'object',
         required: ['resourceType', 'resourceId'],
         properties: {
@@ -254,7 +254,7 @@ const baseSchemas: OpenAPIV3.ComponentsObject['schemas'] = {
             resolve: { type: 'integer', enum: [0, 1, 2] }
         }
     },
-    ApiCollection: {
+    Channel: {
         type: 'object',
         required: ['id', 'projectId', 'label', 'resources', 'createdAt', 'updatedAt'],
         properties: {
@@ -264,7 +264,7 @@ const baseSchemas: OpenAPIV3.ComponentsObject['schemas'] = {
             description: { type: 'string' },
             resources: {
                 type: 'array',
-                items: { $ref: '#/components/schemas/ApiCollectionResource' }
+                items: { $ref: '#/components/schemas/ChannelResource' }
             },
             createdAt: { type: 'string', format: 'date-time' },
             updatedAt: { type: 'string', format: 'date-time' }
@@ -342,15 +342,15 @@ const baseSchemas: OpenAPIV3.ComponentsObject['schemas'] = {
                 description:
                     'When non-empty, x-api-key requests must use Origin/Referer matching these patterns (exact host or single leading *.)'
             },
-            allowedCollectionIds: {
+            allowedChannelIds: {
                 type: 'array',
                 items: { type: 'string' },
-                description: 'When set, key may only read these collection (channel) IDs'
+                description: 'When set, key may only read these channel IDs'
             },
             allowSiteWideReads: {
                 type: 'boolean',
                 description:
-                    'When collection whitelist is set: allow sitemap, navigation, urls, breadcrumb, radar (default false)'
+                    'When the key is limited to some channels: allow sitemap, navigation, urls, breadcrumb, radar (default false)'
             }
         }
     },
@@ -364,7 +364,7 @@ const baseSchemas: OpenAPIV3.ComponentsObject['schemas'] = {
                 nullable: true,
                 description: 'Future date-time; omit or null for a key that never expires'
             },
-            allowedCollectionIds: { type: 'array', items: { type: 'string' } },
+            allowedChannelIds: { type: 'array', items: { type: 'string' } },
             allowSiteWideReads: { type: 'boolean' }
         }
     },
@@ -379,7 +379,7 @@ const baseSchemas: OpenAPIV3.ComponentsObject['schemas'] = {
             expiresAt: { type: 'string', format: 'date-time' },
             expired: { type: 'boolean' },
             allowedHosts: { type: 'array', items: { type: 'string' } },
-            allowedCollectionIds: { type: 'array', items: { type: 'string' } },
+            allowedChannelIds: { type: 'array', items: { type: 'string' } },
             allowSiteWideReads: { type: 'boolean' },
             rawKey: { type: 'string' },
             message: { type: 'string' }
@@ -400,11 +400,11 @@ const baseSchemas: OpenAPIV3.ComponentsObject['schemas'] = {
                 items: { type: 'string' },
                 description: 'Empty array clears host restriction'
             },
-            allowedCollectionIds: {
+            allowedChannelIds: {
                 type: 'array',
                 items: { type: 'string' },
                 nullable: true,
-                description: 'Null removes collection whitelist (full collection access)'
+                description: 'Null removes the limit (every channel)'
             },
             allowSiteWideReads: { type: 'boolean' }
         }
@@ -724,7 +724,7 @@ export const baseSpec: OpenAPIV3.Document = {
                 type: 'apiKey',
                 in: 'header',
                 name: 'x-api-key',
-                description: 'Project read-only API key (collections, page outputs, radar)'
+                description: 'Project read-only API key (channels, page outputs, radar)'
             }
         },
         schemas: baseSchemas

@@ -50,13 +50,13 @@ export interface PublicStructure {
 
 /**
  * What a channel delivers, described: its models, the templates of its pages, and the blocks and
- * structures they use. Readable with the channel's key (`GET …/collections/:id/schema`).
+ * structures they use. Readable with the channel's key (`GET …/channels/:id/schema`).
  */
 export interface PublicSchema {
     /** Changes whenever anything here does (also the `ETag`). */
     version: string;
     projectId: string;
-    collectionId: string;
+    channelId: string;
     defaultLocale: string;
     locales: string[];
     /** By model id. */

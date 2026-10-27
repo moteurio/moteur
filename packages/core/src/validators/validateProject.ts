@@ -21,6 +21,8 @@ const RESERVED_PROJECT_IDS = new Set(
         'blocks',
         'blueprint',
         'blueprints',
+        'channel',
+        'channels',
         'cli',
         'collection',
         'collections',

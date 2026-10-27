@@ -1,6 +1,6 @@
 # Entry queries
 
-Authenticated entry lists read the latest authoring version. Public collections read the version allowed by that collection's delivery configuration. They share basic paging and sorting, but the richer search/filter/group features described here belong to authoring lists.
+Authenticated entry lists read the latest authoring version. Public channels read the version allowed by that channel's delivery configuration. They share basic paging and sorting, but the richer search/filter/group features described here belong to authoring lists.
 
 ## List and page
 
@@ -46,6 +46,6 @@ See [`@moteurio/client`](../packages/client/README.md) for setup and typed param
 
 The default SQLite index is a rebuildable copy of entry files. `MOTEUR_CONTENT_INDEX=files` selects scans instead. Both adapters implement authoring list semantics; SQLite avoids rereading every entry on each warm query. External edits are discovered by reconciliation, so prefer API writes when immediate index visibility matters. See [Operations](Operations.md).
 
-Search, facets, grouping and missing-translation features do not operate on the published snapshot view. Use the public collection's documented parameters for frontend delivery, and configure exposed resources, fields and reference depth in that collection. A project key is not a substitute for a member token on authoring lists. See [Public API and Collections](Public%20API%20and%20Collections.md).
+Search, facets, grouping and missing-translation features do not operate on the published snapshot view. Use the public channel's documented parameters for frontend delivery, and configure exposed resources, fields and reference depth in that channel. A project key is not a substitute for a member token on authoring lists. See [Public API and Channels](Public%20API%20and%20Channels.md).
 
 Public delivery also enforces a shared reference/byte work budget and can return 422 `READ_BUDGET_EXCEEDED`. See [Operations](Operations.md#resource-budgets).

@@ -2,12 +2,12 @@ import type { Request, Response } from 'express';
 import { Router } from 'express';
 import type { OpenAPIV3 } from 'openapi-types';
 import {
-    listCollections,
-    getCollection,
-    createCollection,
-    updateCollection,
-    deleteCollection
-} from '@moteurio/core/apiCollections.js';
+    listChannels,
+    getChannel,
+    createChannel,
+    updateChannel,
+    deleteChannel
+} from '@moteurio/core/channels.js';
 import { requireDeveloper } from '../../middlewares/auth.js';
 import {
     getEntryForProject,
@@ -56,16 +56,16 @@ import {
 } from '@moteurio/core/utils/storageKeys.js';
 import type { Layout } from '@moteurio/types/Layout.js';
 import type { FormSchema } from '@moteurio/types/Form.js';
-import type { ApiCollectionResource } from '@moteurio/types/ApiCollection.js';
+import type { ChannelResource } from '@moteurio/types/Channel.js';
 import type { Entry, EntryStatus, ModelSchema } from '@moteurio/types/Model.js';
 import { sendApiError, getMessage } from '../../utils/apiError.js';
 import type { EntryQuery } from '@moteurio/core/contentIndex/index.js';
 import { entryQueryParameters, parseEntryQuery } from '../../utils/entryQuery.js';
 import { queryFlag, resolveAssetsParameter, resolveUrlParameter } from '../../utils/queryFlag.js';
 import {
-    collectionPublicApiPaths,
-    loadCollectionOpenApiDocument
-} from '../../openapi/loadCollectionOpenApi.js';
+    channelPublicApiPaths,
+    loadChannelOpenApiDocument
+} from '../../openapi/loadChannelOpenApi.js';
 
 const router: Router = Router({ mergeParams: true });
 
@@ -89,16 +89,16 @@ router.use((req, _res, next) => {
     next();
 });
 
-async function respondCollectionOpenApi(req: Request, res: Response): Promise<void> {
-    const { projectId, collectionId } = req.params as Record<string, string>;
-    if (!projectId || !collectionId) {
-        res.status(400).json({ error: 'Missing projectId or collectionId' });
+async function respondChannelOpenApi(req: Request, res: Response): Promise<void> {
+    const { projectId, channelId } = req.params as Record<string, string>;
+    if (!projectId || !channelId) {
+        res.status(400).json({ error: 'Missing projectId or channelId' });
         return;
     }
-    if (rejectIfCollectionAccessForbidden(req, res, collectionId)) return;
-    const doc = await loadCollectionOpenApiDocument(projectId, collectionId);
+    if (rejectIfChannelAccessForbidden(req, res, channelId)) return;
+    const doc = await loadChannelOpenApiDocument(projectId, channelId);
     if (!doc) {
-        res.status(404).json({ error: 'Collection not found' });
+        res.status(404).json({ error: 'Channel not found' });
         return;
     }
     res.setHeader('Cache-Control', 'no-store');
@@ -124,7 +124,7 @@ function isPublishedOnlyDelivery(req: Request): boolean {
 }
 
 function getStatusFilter(
-    resource: ApiCollectionResource,
+    resource: ChannelResource,
     apiKeyOnly: boolean,
     previewAuth?: boolean
 ): EntryStatus[] {
@@ -141,11 +141,8 @@ function getStatusFilter(
  * The pages a link or a page relation may lead this reader to: those the channel gives (by its
  * page filter), or published pages when it gives none, with drafts too in a preview.
  */
-function pageLinkOptions(
-    collection: { resources: ApiCollectionResource[] },
-    req: Request
-): PageLinkOptions {
-    const pageResource = collection.resources.find(r => r.resourceType === 'page');
+function pageLinkOptions(channel: { resources: ChannelResource[] }, req: Request): PageLinkOptions {
+    const pageResource = channel.resources.find(r => r.resourceType === 'page');
     const statuses: string[] = pageResource
         ? getStatusFilter(pageResource, isPublishedOnlyDelivery(req), req.previewAuth)
         : req.previewAuth
@@ -168,10 +165,10 @@ type Delivery = {
 
 async function deliveryFor(
     projectId: string,
-    collection: { resources: ApiCollectionResource[] },
+    channel: { resources: ChannelResource[] },
     req: Request
 ): Promise<Delivery> {
-    const resource = collection.resources.find(r => r.resourceType === 'page');
+    const resource = channel.resources.find(r => r.resourceType === 'page');
     const links = await pageLinkContext(projectId, {
         published:
             !req.previewAuth &&
@@ -186,7 +183,7 @@ async function deliveryFor(
         projectId,
         schemas: await localeSchemas(projectId, links.schemas.blocks),
         links,
-        linkOptions: pageLinkOptions(collection, req),
+        linkOptions: pageLinkOptions(channel, req),
         choice: locale ? { locale, fallback: links.defaultLocale } : undefined,
         resolveAssets: queryFlag(req.query.resolveAssets)
     };
@@ -225,59 +222,47 @@ function usePublishedEntryView(req: Request, statuses: EntryStatus[]): boolean {
 }
 
 function findResource(
-    collection: { resources: ApiCollectionResource[] },
+    channel: { resources: ChannelResource[] },
     resourceId: string
-): ApiCollectionResource | undefined {
-    return collection.resources.find(r => r.resourceId === resourceId);
+): ChannelResource | undefined {
+    return channel.resources.find(r => r.resourceId === resourceId);
 }
 
-function filterCollectionsForApiKey<T extends { id: string }>(req: Request, list: T[]): T[] {
+function filterChannelsForApiKey<T extends { id: string }>(req: Request, list: T[]): T[] {
     if (req.user) return list;
-    const w = req.apiKeyPolicy?.collectionWhitelist;
+    const w = req.apiKeyPolicy?.channelAllowlist;
     if (w == null) return list;
     const allow = new Set(w);
     return list.filter(c => allow.has(c.id));
 }
 
-function rejectIfApiKeyCollectionForbidden(
-    req: Request,
-    res: Response,
-    collectionId: string
-): boolean {
+function rejectIfApiKeyChannelForbidden(req: Request, res: Response, channelId: string): boolean {
     if (req.user) return false;
-    const w = req.apiKeyPolicy?.collectionWhitelist;
+    const w = req.apiKeyPolicy?.channelAllowlist;
     if (w == null) return false;
-    if (w.includes(collectionId)) return false;
+    if (w.includes(channelId)) return false;
     res.status(403).json({
-        error: 'This API key cannot access this collection',
-        code: 'API_KEY_COLLECTION_NOT_ALLOWED'
+        error: 'This API key cannot access this channel',
+        code: 'API_KEY_CHANNEL_NOT_ALLOWED'
     });
     return true;
 }
 
-function rejectIfPreviewCollectionMismatch(
-    req: Request,
-    res: Response,
-    collectionId: string
-): boolean {
+function rejectIfPreviewChannelMismatch(req: Request, res: Response, channelId: string): boolean {
     if (!req.previewTokenId) return false;
-    const scoped = req.previewCollectionId;
-    if (!scoped || scoped === collectionId) return false;
+    const scoped = req.previewChannelId;
+    if (!scoped || scoped === channelId) return false;
     res.status(403).json({
-        error: 'Preview token is not valid for this collection',
-        code: 'PREVIEW_COLLECTION_MISMATCH'
+        error: 'Preview token is not valid for this channel',
+        code: 'PREVIEW_CHANNEL_MISMATCH'
     });
     return true;
 }
 
-function rejectIfCollectionAccessForbidden(
-    req: Request,
-    res: Response,
-    collectionId: string
-): boolean {
+function rejectIfChannelAccessForbidden(req: Request, res: Response, channelId: string): boolean {
     return (
-        rejectIfApiKeyCollectionForbidden(req, res, collectionId) ||
-        rejectIfPreviewCollectionMismatch(req, res, collectionId)
+        rejectIfApiKeyChannelForbidden(req, res, channelId) ||
+        rejectIfPreviewChannelMismatch(req, res, channelId)
     );
 }
 
@@ -288,7 +273,7 @@ function rejectIfCollectionAccessForbidden(
 async function withPreviewedPage(
     req: Request,
     projectId: string,
-    resource: ApiCollectionResource,
+    resource: ChannelResource,
     pages: PageNode[]
 ): Promise<PageNode[]> {
     const id = req.previewPageId;
@@ -310,7 +295,7 @@ async function withPreviewedEntry(
     req: Request,
     projectId: string,
     modelId: string,
-    resource: ApiCollectionResource,
+    resource: ChannelResource,
     query: EntryQuery,
     found: { items: Entry[]; total: number }
 ): Promise<{ items: Entry[]; total: number }> {
@@ -331,29 +316,29 @@ async function withPreviewedEntry(
     return { items, total: found.total + (published ? 0 : 1) };
 }
 
-// GET /projects/:projectId/collections
+// GET /projects/:projectId/channels
 router.get('/', async (req: Request, res: Response) => {
     const { projectId } = req.params as Record<string, string>;
     if (!projectId) return void res.status(400).json({ error: 'Missing projectId' });
     try {
-        const list = await listCollections(projectId);
-        return void res.json(filterCollectionsForApiKey(req, list));
+        const list = await listChannels(projectId);
+        return void res.json(filterChannelsForApiKey(req, list));
     } catch (err: unknown) {
         return void sendApiError(res, req, err);
     }
 });
 
-// OpenAPI spec (register before `/:collectionId` — Express 5 path matching)
-router.get('/:collectionId/openapi', async (req: Request, res: Response) => {
+// OpenAPI spec (register before `/:channelId` — Express 5 path matching)
+router.get('/:channelId/openapi', async (req: Request, res: Response) => {
     try {
-        await respondCollectionOpenApi(req, res);
+        await respondChannelOpenApi(req, res);
     } catch (err: unknown) {
         sendApiError(res, req, err);
     }
 });
-router.get('/:collectionId/openapi.json', async (req: Request, res: Response) => {
+router.get('/:channelId/openapi.json', async (req: Request, res: Response) => {
     try {
-        await respondCollectionOpenApi(req, res);
+        await respondChannelOpenApi(req, res);
     } catch (err: unknown) {
         sendApiError(res, req, err);
     }
@@ -361,10 +346,10 @@ router.get('/:collectionId/openapi.json', async (req: Request, res: Response) =>
 
 /** The channel's schema, and the types made from it: `If-None-Match` answers 304 when unchanged. */
 async function respondChannelSchema(req: Request, res: Response, as: 'json' | 'types') {
-    const { projectId, collectionId } = req.params as Record<string, string>;
-    if (rejectIfCollectionAccessForbidden(req, res, collectionId!)) return;
-    const schema = await channelSchema(projectId!, collectionId!);
-    if (!schema) return void res.status(404).json({ error: 'Collection not found' });
+    const { projectId, channelId } = req.params as Record<string, string>;
+    if (rejectIfChannelAccessForbidden(req, res, channelId!)) return;
+    const schema = await channelSchema(projectId!, channelId!);
+    if (!schema) return void res.status(404).json({ error: 'Channel not found' });
     const etag = `"${schema.version}${as === 'types' ? '-ts' : ''}"`;
     res.setHeader('ETag', etag);
     res.setHeader('Cache-Control', 'no-cache');
@@ -374,8 +359,8 @@ async function respondChannelSchema(req: Request, res: Response, as: 'json' | 't
     res.send(schemaTypes(schema));
 }
 
-// GET /projects/:projectId/collections/:collectionId/schema
-router.get('/:collectionId/schema', async (req: Request, res: Response) => {
+// GET /projects/:projectId/channels/:channelId/schema
+router.get('/:channelId/schema', async (req: Request, res: Response) => {
     try {
         await respondChannelSchema(req, res, 'json');
     } catch (err: unknown) {
@@ -383,8 +368,8 @@ router.get('/:collectionId/schema', async (req: Request, res: Response) => {
     }
 });
 
-// GET /projects/:projectId/collections/:collectionId/types
-router.get('/:collectionId/types', async (req: Request, res: Response) => {
+// GET /projects/:projectId/channels/:channelId/types
+router.get('/:channelId/types', async (req: Request, res: Response) => {
     try {
         await respondChannelSchema(req, res, 'types');
     } catch (err: unknown) {
@@ -392,18 +377,18 @@ router.get('/:collectionId/types', async (req: Request, res: Response) => {
     }
 });
 
-// GET /projects/:projectId/collections/:collectionId
-router.get('/:collectionId', async (req: Request, res: Response) => {
-    const { projectId, collectionId } = req.params as Record<string, string>;
-    if (!projectId || !collectionId)
-        return void res.status(400).json({ error: 'Missing projectId or collectionId' });
-    if (rejectIfCollectionAccessForbidden(req, res, collectionId)) return;
+// GET /projects/:projectId/channels/:channelId
+router.get('/:channelId', async (req: Request, res: Response) => {
+    const { projectId, channelId } = req.params as Record<string, string>;
+    if (!projectId || !channelId)
+        return void res.status(400).json({ error: 'Missing projectId or channelId' });
+    if (rejectIfChannelAccessForbidden(req, res, channelId)) return;
     try {
-        const collection = await getCollection(projectId, collectionId);
-        if (!collection) return void res.status(404).json({ error: 'Collection not found' });
+        const channel = await getChannel(projectId, channelId);
+        if (!channel) return void res.status(404).json({ error: 'Channel not found' });
         return void res.json({
-            ...collection,
-            publicApi: collectionPublicApiPaths(projectId, collectionId)
+            ...channel,
+            publicApi: channelPublicApiPaths(projectId, channelId)
         });
     } catch (err: unknown) {
         return void sendApiError(res, req, err);
@@ -416,57 +401,57 @@ router.post('/', requireDeveloper, async (req: Request, res: Response) => {
     if (!projectId) return void res.status(400).json({ error: 'Missing projectId' });
     try {
         const { id, label, description, resources } = req.body ?? {};
-        const collection = await createCollection(projectId, req.user!, {
+        const channel = await createChannel(projectId, req.user!, {
             id,
             label: label ?? 'Unnamed',
             description,
             resources: resources ?? []
         });
-        return void res.status(201).json(collection);
+        return void res.status(201).json(channel);
     } catch (err: unknown) {
         return void sendApiError(res, req, err);
     }
 });
-router.patch('/:collectionId', requireDeveloper, async (req: Request, res: Response) => {
-    const { projectId, collectionId } = req.params as Record<string, string>;
-    if (!projectId || !collectionId)
-        return void res.status(400).json({ error: 'Missing projectId or collectionId' });
+router.patch('/:channelId', requireDeveloper, async (req: Request, res: Response) => {
+    const { projectId, channelId } = req.params as Record<string, string>;
+    if (!projectId || !channelId)
+        return void res.status(400).json({ error: 'Missing projectId or channelId' });
     try {
         const patch = req.body ?? {};
-        const collection = await updateCollection(projectId, req.user!, collectionId, patch);
-        return void res.json(collection);
+        const channel = await updateChannel(projectId, req.user!, channelId, patch);
+        return void res.json(channel);
     } catch (err: unknown) {
         return void res.status(getMessage(err)?.includes('not found') ? 404 : 400).json({
-            error: getMessage(err) ?? 'Failed to update collection'
+            error: getMessage(err) ?? 'Failed to update channel'
         });
     }
 });
-router.delete('/:collectionId', requireDeveloper, async (req: Request, res: Response) => {
-    const { projectId, collectionId } = req.params as Record<string, string>;
-    if (!projectId || !collectionId)
-        return void res.status(400).json({ error: 'Missing projectId or collectionId' });
+router.delete('/:channelId', requireDeveloper, async (req: Request, res: Response) => {
+    const { projectId, channelId } = req.params as Record<string, string>;
+    if (!projectId || !channelId)
+        return void res.status(400).json({ error: 'Missing projectId or channelId' });
     try {
-        await deleteCollection(projectId, req.user!, collectionId);
+        await deleteChannel(projectId, req.user!, channelId);
         return void res.status(204).send();
     } catch (err: unknown) {
         return void res.status(getMessage(err)?.includes('not found') ? 404 : 400).json({
-            error: getMessage(err) ?? 'Failed to delete collection'
+            error: getMessage(err) ?? 'Failed to delete channel'
         });
     }
 });
 
-// GET /projects/:projectId/collections/:collectionId/pages
-router.get('/:collectionId/pages', async (req: Request, res: Response) => {
-    const { projectId, collectionId } = req.params as Record<string, string>;
-    if (!projectId || !collectionId)
-        return void res.status(400).json({ error: 'Missing projectId or collectionId' });
-    if (rejectIfCollectionAccessForbidden(req, res, collectionId)) return;
+// GET /projects/:projectId/channels/:channelId/pages
+router.get('/:channelId/pages', async (req: Request, res: Response) => {
+    const { projectId, channelId } = req.params as Record<string, string>;
+    if (!projectId || !channelId)
+        return void res.status(400).json({ error: 'Missing projectId or channelId' });
+    if (rejectIfChannelAccessForbidden(req, res, channelId)) return;
     try {
-        const collection = await getCollection(projectId, collectionId);
-        if (!collection) return void res.status(404).json({ error: 'Collection not found' });
-        const pageResource = collection.resources.find(r => r.resourceType === 'page');
+        const channel = await getChannel(projectId, channelId);
+        if (!channel) return void res.status(404).json({ error: 'Channel not found' });
+        const pageResource = channel.resources.find(r => r.resourceType === 'page');
         if (!pageResource)
-            return void res.status(404).json({ error: 'Collection does not expose pages' });
+            return void res.status(404).json({ error: 'Channel does not expose pages' });
         const apiKeyOnly = isPublishedOnlyDelivery(req);
         const statuses = getStatusFilter(pageResource, apiKeyOnly, req.previewAuth);
         let pages = await listPages(projectId, {
@@ -476,7 +461,7 @@ router.get('/:collectionId/pages', async (req: Request, res: Response) => {
         if (usePublishedEntryView(req, statuses)) pages = await publicPages(projectId, pages);
         pages = pages.filter(p => 'status' in p && statuses.includes((p as any).status));
         pages = await withPreviewedPage(req, projectId, pageResource, pages);
-        const delivery = await deliveryFor(projectId, collection, req);
+        const delivery = await deliveryFor(projectId, channel, req);
         pages = await Promise.all(pages.map(p => deliverPage(p, delivery)));
         return void res.json(pages);
     } catch (err: unknown) {
@@ -484,18 +469,18 @@ router.get('/:collectionId/pages', async (req: Request, res: Response) => {
     }
 });
 
-// GET /projects/:projectId/collections/:collectionId/pages/by-slug/:slug
-router.get('/:collectionId/pages/by-slug/:slug', async (req: Request, res: Response) => {
-    const { projectId, collectionId, slug } = req.params as Record<string, string>;
-    if (!projectId || !collectionId || slug === undefined)
-        return void res.status(400).json({ error: 'Missing projectId, collectionId or slug' });
-    if (rejectIfCollectionAccessForbidden(req, res, collectionId)) return;
+// GET /projects/:projectId/channels/:channelId/pages/by-slug/:slug
+router.get('/:channelId/pages/by-slug/:slug', async (req: Request, res: Response) => {
+    const { projectId, channelId, slug } = req.params as Record<string, string>;
+    if (!projectId || !channelId || slug === undefined)
+        return void res.status(400).json({ error: 'Missing projectId, channelId or slug' });
+    if (rejectIfChannelAccessForbidden(req, res, channelId)) return;
     try {
-        const collection = await getCollection(projectId, collectionId);
-        if (!collection) return void res.status(404).json({ error: 'Collection not found' });
-        const pageResource = collection.resources.find(r => r.resourceType === 'page');
+        const channel = await getChannel(projectId, channelId);
+        if (!channel) return void res.status(404).json({ error: 'Channel not found' });
+        const pageResource = channel.resources.find(r => r.resourceType === 'page');
         if (!pageResource)
-            return void res.status(404).json({ error: 'Collection does not expose pages' });
+            return void res.status(404).json({ error: 'Channel does not expose pages' });
         if (req.previewPageId) {
             const page = await getPageBySlug(projectId, slug, parseLocaleQuery(req));
             previewing(req, { pageId: page?.id });
@@ -508,26 +493,24 @@ router.get('/:collectionId/pages/by-slug/:slug', async (req: Request, res: Respo
         if (!stored) return void res.status(404).json({ error: 'Page not found' });
         if (!('status' in stored) || !statuses.includes((stored as any).status))
             return void res.status(404).json({ error: 'Page not found' });
-        return void res.json(
-            await deliverPage(stored, await deliveryFor(projectId, collection, req))
-        );
+        return void res.json(await deliverPage(stored, await deliveryFor(projectId, channel, req)));
     } catch (err: unknown) {
         return void sendApiError(res, req, err);
     }
 });
 
-// GET /projects/:projectId/collections/:collectionId/pages/:id
-router.get('/:collectionId/pages/:id', async (req: Request, res: Response) => {
-    const { projectId, collectionId, id } = req.params as Record<string, string>;
-    if (!projectId || !collectionId || !id)
-        return void res.status(400).json({ error: 'Missing projectId, collectionId or id' });
-    if (rejectIfCollectionAccessForbidden(req, res, collectionId)) return;
+// GET /projects/:projectId/channels/:channelId/pages/:id
+router.get('/:channelId/pages/:id', async (req: Request, res: Response) => {
+    const { projectId, channelId, id } = req.params as Record<string, string>;
+    if (!projectId || !channelId || !id)
+        return void res.status(400).json({ error: 'Missing projectId, channelId or id' });
+    if (rejectIfChannelAccessForbidden(req, res, channelId)) return;
     try {
-        const collection = await getCollection(projectId, collectionId);
-        if (!collection) return void res.status(404).json({ error: 'Collection not found' });
-        const pageResource = collection.resources.find(r => r.resourceType === 'page');
+        const channel = await getChannel(projectId, channelId);
+        if (!channel) return void res.status(404).json({ error: 'Channel not found' });
+        const pageResource = channel.resources.find(r => r.resourceType === 'page');
         if (!pageResource)
-            return void res.status(404).json({ error: 'Collection does not expose pages' });
+            return void res.status(404).json({ error: 'Channel does not expose pages' });
         previewing(req, { pageId: id });
         const apiKeyOnly = isPublishedOnlyDelivery(req);
         const statuses = getStatusFilter(pageResource, apiKeyOnly, req.previewAuth);
@@ -538,28 +521,26 @@ router.get('/:collectionId/pages/:id', async (req: Request, res: Response) => {
         if (!stored) return void res.status(404).json({ error: 'Page not found' });
         if (!('status' in stored) || !statuses.includes((stored as any).status))
             return void res.status(404).json({ error: 'Page not found' });
-        return void res.json(
-            await deliverPage(stored, await deliveryFor(projectId, collection, req))
-        );
+        return void res.json(await deliverPage(stored, await deliveryFor(projectId, channel, req)));
     } catch (err: unknown) {
         return void sendApiError(res, req, err);
     }
 });
 
-// GET /projects/:projectId/collections/:collectionId/:resourceId/entries
-router.get('/:collectionId/:resourceId/entries', async (req: Request, res: Response) => {
-    const { projectId, collectionId, resourceId } = req.params as Record<string, string>;
-    if (!projectId || !collectionId || !resourceId)
+// GET /projects/:projectId/channels/:channelId/:resourceId/entries
+router.get('/:channelId/:resourceId/entries', async (req: Request, res: Response) => {
+    const { projectId, channelId, resourceId } = req.params as Record<string, string>;
+    if (!projectId || !channelId || !resourceId)
         return void res.status(400).json({ error: 'Missing path parameters' });
-    if (rejectIfCollectionAccessForbidden(req, res, collectionId)) return;
+    if (rejectIfChannelAccessForbidden(req, res, channelId)) return;
     try {
-        const collection = await getCollection(projectId, collectionId);
-        if (!collection) return void res.status(404).json({ error: 'Collection not found' });
+        const channel = await getChannel(projectId, channelId);
+        if (!channel) return void res.status(404).json({ error: 'Channel not found' });
         const resource =
-            findResource(collection, resourceId) ??
-            collection.resources.find(r => r.resourceType === 'model' && r.resourceId === 'models');
+            findResource(channel, resourceId) ??
+            channel.resources.find(r => r.resourceType === 'model' && r.resourceId === 'models');
         if (!resource || resource.resourceType !== 'model')
-            return void res.status(404).json({ error: 'Resource not found in collection' });
+            return void res.status(404).json({ error: 'Resource not found in channel' });
         const apiKeyOnly = isPublishedOnlyDelivery(req);
         const statuses = getStatusFilter(resource, apiKeyOnly, req.previewAuth);
         const usePublished = usePublishedEntryView(req, statuses);
@@ -590,7 +571,7 @@ router.get('/:collectionId/:resourceId/entries', async (req: Request, res: Respo
         );
         entries.forEach(entry => readBudget.include(entry));
         const resolver: EntryResolver = readBudget.resolve;
-        const delivery = await deliveryFor(projectId, collection, req);
+        const delivery = await deliveryFor(projectId, channel, req);
         const references = referenceSchemas(delivery);
         const schema = await getModelSchemaForProject(projectId, resourceId);
         const resolved = await Promise.all(
@@ -627,20 +608,20 @@ router.get('/:collectionId/:resourceId/entries', async (req: Request, res: Respo
     }
 });
 
-// GET /projects/:projectId/collections/:collectionId/:resourceId/entries/:id
-router.get('/:collectionId/:resourceId/entries/:id', async (req: Request, res: Response) => {
-    const { projectId, collectionId, resourceId, id } = req.params as Record<string, string>;
-    if (!projectId || !collectionId || !resourceId || !id)
+// GET /projects/:projectId/channels/:channelId/:resourceId/entries/:id
+router.get('/:channelId/:resourceId/entries/:id', async (req: Request, res: Response) => {
+    const { projectId, channelId, resourceId, id } = req.params as Record<string, string>;
+    if (!projectId || !channelId || !resourceId || !id)
         return void res.status(400).json({ error: 'Missing path parameters' });
-    if (rejectIfCollectionAccessForbidden(req, res, collectionId)) return;
+    if (rejectIfChannelAccessForbidden(req, res, channelId)) return;
     try {
-        const collection = await getCollection(projectId, collectionId);
-        if (!collection) return void res.status(404).json({ error: 'Collection not found' });
+        const channel = await getChannel(projectId, channelId);
+        if (!channel) return void res.status(404).json({ error: 'Channel not found' });
         const resource =
-            findResource(collection, resourceId) ??
-            collection.resources.find(r => r.resourceType === 'model' && r.resourceId === 'models');
+            findResource(channel, resourceId) ??
+            channel.resources.find(r => r.resourceType === 'model' && r.resourceId === 'models');
         if (!resource || resource.resourceType !== 'model')
-            return void res.status(404).json({ error: 'Resource not found in collection' });
+            return void res.status(404).json({ error: 'Resource not found in channel' });
         previewing(req, { entryId: id });
         const apiKeyOnly = isPublishedOnlyDelivery(req);
         const statuses = getStatusFilter(resource, apiKeyOnly, req.previewAuth);
@@ -657,7 +638,7 @@ router.get('/:collectionId/:resourceId/entries/:id', async (req: Request, res: R
         );
         readBudget.include(entry);
         const singleResolver: EntryResolver = readBudget.resolve;
-        const delivery = await deliveryFor(projectId, collection, req);
+        const delivery = await deliveryFor(projectId, channel, req);
         const resolved = await deliverEntry(
             await resolveEntryReferences(
                 entry,
@@ -685,18 +666,18 @@ router.get('/:collectionId/:resourceId/entries/:id', async (req: Request, res: R
     }
 });
 
-// GET /projects/:projectId/collections/:collectionId/layouts
-router.get('/:collectionId/layouts', async (req: Request, res: Response) => {
-    const { projectId, collectionId } = req.params as Record<string, string>;
-    if (!projectId || !collectionId)
-        return void res.status(400).json({ error: 'Missing projectId or collectionId' });
-    if (rejectIfCollectionAccessForbidden(req, res, collectionId)) return;
+// GET /projects/:projectId/channels/:channelId/layouts
+router.get('/:channelId/layouts', async (req: Request, res: Response) => {
+    const { projectId, channelId } = req.params as Record<string, string>;
+    if (!projectId || !channelId)
+        return void res.status(400).json({ error: 'Missing projectId or channelId' });
+    if (rejectIfChannelAccessForbidden(req, res, channelId)) return;
     try {
-        const collection = await getCollection(projectId, collectionId);
-        if (!collection) return void res.status(404).json({ error: 'Collection not found' });
-        const layoutResource = collection.resources.find(r => r.resourceType === 'layout');
+        const channel = await getChannel(projectId, channelId);
+        if (!channel) return void res.status(404).json({ error: 'Channel not found' });
+        const layoutResource = channel.resources.find(r => r.resourceType === 'layout');
         if (!layoutResource)
-            return void res.status(404).json({ error: 'Collection does not expose layouts' });
+            return void res.status(404).json({ error: 'Channel does not expose layouts' });
         let layouts: Layout[];
         if (layoutResource.resourceId === 'layouts') {
             const ids = await listProjectKeys(projectId, layoutListPrefix());
@@ -716,20 +697,20 @@ router.get('/:collectionId/layouts', async (req: Request, res: Response) => {
     }
 });
 
-// GET /projects/:projectId/collections/:collectionId/layouts/:id
-router.get('/:collectionId/layouts/:id', async (req: Request, res: Response) => {
-    const { projectId, collectionId, id } = req.params as Record<string, string>;
-    if (!projectId || !collectionId || !id)
+// GET /projects/:projectId/channels/:channelId/layouts/:id
+router.get('/:channelId/layouts/:id', async (req: Request, res: Response) => {
+    const { projectId, channelId, id } = req.params as Record<string, string>;
+    if (!projectId || !channelId || !id)
         return void res.status(400).json({ error: 'Missing path parameters' });
-    if (rejectIfCollectionAccessForbidden(req, res, collectionId)) return;
+    if (rejectIfChannelAccessForbidden(req, res, channelId)) return;
     try {
-        const collection = await getCollection(projectId, collectionId);
-        if (!collection) return void res.status(404).json({ error: 'Collection not found' });
-        const layoutResource = collection.resources.find(r => r.resourceType === 'layout');
+        const channel = await getChannel(projectId, channelId);
+        if (!channel) return void res.status(404).json({ error: 'Channel not found' });
+        const layoutResource = channel.resources.find(r => r.resourceType === 'layout');
         if (!layoutResource)
-            return void res.status(404).json({ error: 'Collection does not expose layouts' });
+            return void res.status(404).json({ error: 'Channel does not expose layouts' });
         if (layoutResource.resourceId !== 'layouts' && layoutResource.resourceId !== id)
-            return void res.status(404).json({ error: 'Layout not found in collection' });
+            return void res.status(404).json({ error: 'Layout not found in channel' });
         const layout = await getProjectJson<Layout>(projectId, layoutKey(id));
         if (!layout) return void res.status(404).json({ error: 'Layout not found' });
         return void res.json(layout);
@@ -738,18 +719,18 @@ router.get('/:collectionId/layouts/:id', async (req: Request, res: Response) => 
     }
 });
 
-// GET /projects/:projectId/collections/:collectionId/forms
-router.get('/:collectionId/forms', async (req: Request, res: Response) => {
-    const { projectId, collectionId } = req.params as Record<string, string>;
-    if (!projectId || !collectionId)
-        return void res.status(400).json({ error: 'Missing projectId or collectionId' });
-    if (rejectIfCollectionAccessForbidden(req, res, collectionId)) return;
+// GET /projects/:projectId/channels/:channelId/forms
+router.get('/:channelId/forms', async (req: Request, res: Response) => {
+    const { projectId, channelId } = req.params as Record<string, string>;
+    if (!projectId || !channelId)
+        return void res.status(400).json({ error: 'Missing projectId or channelId' });
+    if (rejectIfChannelAccessForbidden(req, res, channelId)) return;
     try {
-        const collection = await getCollection(projectId, collectionId);
-        if (!collection) return void res.status(404).json({ error: 'Collection not found' });
-        const formResource = collection.resources.find(r => r.resourceType === 'form');
+        const channel = await getChannel(projectId, channelId);
+        if (!channel) return void res.status(404).json({ error: 'Channel not found' });
+        const formResource = channel.resources.find(r => r.resourceType === 'form');
         if (!formResource)
-            return void res.status(404).json({ error: 'Collection does not expose forms' });
+            return void res.status(404).json({ error: 'Channel does not expose forms' });
         let forms: FormSchema[];
         if (formResource.resourceId === 'forms') {
             const ids = await listProjectKeys(projectId, formListPrefix());
@@ -772,20 +753,20 @@ router.get('/:collectionId/forms', async (req: Request, res: Response) => {
     }
 });
 
-// GET /projects/:projectId/collections/:collectionId/forms/:id
-router.get('/:collectionId/forms/:id', async (req: Request, res: Response) => {
-    const { projectId, collectionId, id } = req.params as Record<string, string>;
-    if (!projectId || !collectionId || !id)
+// GET /projects/:projectId/channels/:channelId/forms/:id
+router.get('/:channelId/forms/:id', async (req: Request, res: Response) => {
+    const { projectId, channelId, id } = req.params as Record<string, string>;
+    if (!projectId || !channelId || !id)
         return void res.status(400).json({ error: 'Missing path parameters' });
-    if (rejectIfCollectionAccessForbidden(req, res, collectionId)) return;
+    if (rejectIfChannelAccessForbidden(req, res, channelId)) return;
     try {
-        const collection = await getCollection(projectId, collectionId);
-        if (!collection) return void res.status(404).json({ error: 'Collection not found' });
-        const formResource = collection.resources.find(r => r.resourceType === 'form');
+        const channel = await getChannel(projectId, channelId);
+        if (!channel) return void res.status(404).json({ error: 'Channel not found' });
+        const formResource = channel.resources.find(r => r.resourceType === 'form');
         if (!formResource)
-            return void res.status(404).json({ error: 'Collection does not expose forms' });
+            return void res.status(404).json({ error: 'Channel does not expose forms' });
         if (formResource.resourceId !== 'forms' && formResource.resourceId !== id)
-            return void res.status(404).json({ error: 'Form not found in collection' });
+            return void res.status(404).json({ error: 'Form not found in channel' });
         const form = await getProjectJson<FormSchema>(projectId, formKey(id));
         if (!form || form.status !== 'active')
             return void res.status(404).json({ error: 'Form not found' });
@@ -808,24 +789,24 @@ async function menuLanguage(
 }
 
 /** Menu handles the channel gives, or `null` when it gives every menu. Empty when it gives none. */
-function menuHandles(collection: { resources: ApiCollectionResource[] }): string[] | null {
-    const rows = collection.resources.filter(r => r.resourceType === 'menu');
+function menuHandles(channel: { resources: ChannelResource[] }): string[] | null {
+    const rows = channel.resources.filter(r => r.resourceType === 'menu');
     if (rows.some(r => r.resourceId === 'menus')) return null;
     return rows.map(r => r.resourceId);
 }
 
-// GET /projects/:projectId/collections/:collectionId/menus
-router.get('/:collectionId/menus', async (req: Request, res: Response) => {
-    const { projectId, collectionId } = req.params as Record<string, string>;
-    if (!projectId || !collectionId)
-        return void res.status(400).json({ error: 'Missing projectId or collectionId' });
-    if (rejectIfCollectionAccessForbidden(req, res, collectionId)) return;
+// GET /projects/:projectId/channels/:channelId/menus
+router.get('/:channelId/menus', async (req: Request, res: Response) => {
+    const { projectId, channelId } = req.params as Record<string, string>;
+    if (!projectId || !channelId)
+        return void res.status(400).json({ error: 'Missing projectId or channelId' });
+    if (rejectIfChannelAccessForbidden(req, res, channelId)) return;
     try {
-        const collection = await getCollection(projectId, collectionId);
-        if (!collection) return void res.status(404).json({ error: 'Collection not found' });
-        const handles = menuHandles(collection);
+        const channel = await getChannel(projectId, channelId);
+        if (!channel) return void res.status(404).json({ error: 'Channel not found' });
+        const handles = menuHandles(channel);
         if (handles?.length === 0)
-            return void res.status(404).json({ error: 'Collection does not expose menus' });
+            return void res.status(404).json({ error: 'Channel does not expose menus' });
         const all = await listNavigations(projectId);
         const menus = handles === null ? all : all.filter(n => handles.includes(n.handle));
         const language = await menuLanguage(projectId, req);
@@ -837,20 +818,20 @@ router.get('/:collectionId/menus', async (req: Request, res: Response) => {
     }
 });
 
-// GET /projects/:projectId/collections/:collectionId/menus/:handle
-router.get('/:collectionId/menus/:handle', async (req: Request, res: Response) => {
-    const { projectId, collectionId, handle } = req.params as Record<string, string>;
-    if (!projectId || !collectionId || !handle)
+// GET /projects/:projectId/channels/:channelId/menus/:handle
+router.get('/:channelId/menus/:handle', async (req: Request, res: Response) => {
+    const { projectId, channelId, handle } = req.params as Record<string, string>;
+    if (!projectId || !channelId || !handle)
         return void res.status(400).json({ error: 'Missing path parameters' });
-    if (rejectIfCollectionAccessForbidden(req, res, collectionId)) return;
+    if (rejectIfChannelAccessForbidden(req, res, channelId)) return;
     try {
-        const collection = await getCollection(projectId, collectionId);
-        if (!collection) return void res.status(404).json({ error: 'Collection not found' });
-        const handles = menuHandles(collection);
+        const channel = await getChannel(projectId, channelId);
+        if (!channel) return void res.status(404).json({ error: 'Channel not found' });
+        const handles = menuHandles(channel);
         if (handles?.length === 0)
-            return void res.status(404).json({ error: 'Collection does not expose menus' });
+            return void res.status(404).json({ error: 'Channel does not expose menus' });
         if (handles !== null && !handles.includes(handle))
-            return void res.status(404).json({ error: 'Menu not found in collection' });
+            return void res.status(404).json({ error: 'Menu not found in channel' });
         const nav = await getNavigationByHandle(projectId, handle);
         if (!nav) return void res.status(404).json({ error: 'Menu not found' });
         const language = await menuLanguage(projectId, req);
@@ -869,21 +850,21 @@ const jsonErrorBody = {
 };
 
 export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
-    '/projects/{projectId}/collections': {
+    '/projects/{projectId}/channels': {
         get: {
-            summary: 'List collections (API key or JWT)',
-            tags: ['Public API — Collections'],
+            summary: 'List channels (API key or JWT)',
+            tags: ['Public API — Channels'],
             parameters: [
                 { name: 'projectId', in: 'path', required: true, schema: { type: 'string' } }
             ],
             responses: {
                 '200': {
-                    description: 'List of collections',
+                    description: 'List of channels',
                     content: {
                         'application/json': {
                             schema: {
                                 type: 'array',
-                                items: { $ref: '#/components/schemas/ApiCollection' }
+                                items: { $ref: '#/components/schemas/Channel' }
                             }
                         }
                     }
@@ -891,8 +872,8 @@ export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
             }
         },
         post: {
-            summary: 'Create a collection (JWT + project access)',
-            tags: ['Public API — Collections'],
+            summary: 'Create a channel (JWT + project access)',
+            tags: ['Public API — Channels'],
             parameters: [
                 { name: 'projectId', in: 'path', required: true, schema: { type: 'string' } }
             ],
@@ -907,7 +888,7 @@ export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
                                 description: { type: 'string' },
                                 resources: {
                                     type: 'array',
-                                    items: { $ref: '#/components/schemas/ApiCollectionResource' }
+                                    items: { $ref: '#/components/schemas/ChannelResource' }
                                 }
                             }
                         }
@@ -919,27 +900,27 @@ export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
                     description: 'Created',
                     content: {
                         'application/json': {
-                            schema: { $ref: '#/components/schemas/ApiCollection' }
+                            schema: { $ref: '#/components/schemas/Channel' }
                         }
                     }
                 }
             }
         }
     },
-    '/projects/{projectId}/collections/{collectionId}': {
+    '/projects/{projectId}/channels/{channelId}': {
         get: {
-            summary: 'Get one collection',
-            tags: ['Public API — Collections'],
+            summary: 'Get one channel',
+            tags: ['Public API — Channels'],
             parameters: [
                 { name: 'projectId', in: 'path', required: true, schema: { type: 'string' } },
-                { name: 'collectionId', in: 'path', required: true, schema: { type: 'string' } }
+                { name: 'channelId', in: 'path', required: true, schema: { type: 'string' } }
             ],
             responses: {
                 '200': {
-                    description: 'Collection',
+                    description: 'Channel',
                     content: {
                         'application/json': {
-                            schema: { $ref: '#/components/schemas/ApiCollection' }
+                            schema: { $ref: '#/components/schemas/Channel' }
                         }
                     }
                 },
@@ -947,11 +928,11 @@ export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
             }
         },
         patch: {
-            summary: 'Update a collection',
-            tags: ['Public API — Collections'],
+            summary: 'Update a channel',
+            tags: ['Public API — Channels'],
             parameters: [
                 { name: 'projectId', in: 'path', required: true, schema: { type: 'string' } },
-                { name: 'collectionId', in: 'path', required: true, schema: { type: 'string' } }
+                { name: 'channelId', in: 'path', required: true, schema: { type: 'string' } }
             ],
             requestBody: {
                 content: {
@@ -962,10 +943,10 @@ export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
             },
             responses: {
                 '200': {
-                    description: 'Updated collection',
+                    description: 'Updated channel',
                     content: {
                         'application/json': {
-                            schema: { $ref: '#/components/schemas/ApiCollection' }
+                            schema: { $ref: '#/components/schemas/Channel' }
                         }
                     }
                 },
@@ -974,11 +955,11 @@ export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
             }
         },
         delete: {
-            summary: 'Delete a collection',
-            tags: ['Public API — Collections'],
+            summary: 'Delete a channel',
+            tags: ['Public API — Channels'],
             parameters: [
                 { name: 'projectId', in: 'path', required: true, schema: { type: 'string' } },
-                { name: 'collectionId', in: 'path', required: true, schema: { type: 'string' } }
+                { name: 'channelId', in: 'path', required: true, schema: { type: 'string' } }
             ],
             responses: {
                 '204': { description: 'Deleted' },
@@ -987,13 +968,13 @@ export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
             }
         }
     },
-    '/projects/{projectId}/collections/{collectionId}/{resourceId}/entries': {
+    '/projects/{projectId}/channels/{channelId}/{resourceId}/entries': {
         get: {
-            summary: 'List entries for a collection resource (model)',
-            tags: ['Public API — Collections'],
+            summary: 'List entries for a channel resource (model)',
+            tags: ['Public API — Channels'],
             parameters: [
                 { name: 'projectId', in: 'path', required: true, schema: { type: 'string' } },
-                { name: 'collectionId', in: 'path', required: true, schema: { type: 'string' } },
+                { name: 'channelId', in: 'path', required: true, schema: { type: 'string' } },
                 { name: 'resourceId', in: 'path', required: true, schema: { type: 'string' } },
                 {
                     name: 'locale',
@@ -1035,13 +1016,13 @@ export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
             }
         }
     },
-    '/projects/{projectId}/collections/{collectionId}/{resourceId}/entries/{id}': {
+    '/projects/{projectId}/channels/{channelId}/{resourceId}/entries/{id}': {
         get: {
-            summary: 'Get one entry in a collection',
-            tags: ['Public API — Collections'],
+            summary: 'Get one entry in a channel',
+            tags: ['Public API — Channels'],
             parameters: [
                 { name: 'projectId', in: 'path', required: true, schema: { type: 'string' } },
-                { name: 'collectionId', in: 'path', required: true, schema: { type: 'string' } },
+                { name: 'channelId', in: 'path', required: true, schema: { type: 'string' } },
                 { name: 'resourceId', in: 'path', required: true, schema: { type: 'string' } },
                 { name: 'id', in: 'path', required: true, schema: { type: 'string' } },
                 {
@@ -1075,15 +1056,15 @@ export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
             }
         }
     },
-    '/projects/{projectId}/collections/{collectionId}/openapi': {
+    '/projects/{projectId}/channels/{channelId}/openapi': {
         get: {
-            summary: 'OpenAPI document for this collection (frontend)',
+            summary: 'OpenAPI document for this channel (frontend)',
             description:
-                'Auto-generated spec: concrete paths, query params, and `entry.data` shapes for each model the collection exposes ("every model" expands to all project models). Also served at `/openapi.json`. Same auth as other collection reads.',
-            tags: ['Public API — Collections'],
+                'Auto-generated spec: concrete paths, query params, and `entry.data` shapes for each model the channel exposes ("every model" expands to all project models). Also served at `/openapi.json`. Same auth as other channel reads.',
+            tags: ['Public API — Channels'],
             parameters: [
                 { name: 'projectId', in: 'path', required: true, schema: { type: 'string' } },
-                { name: 'collectionId', in: 'path', required: true, schema: { type: 'string' } }
+                { name: 'channelId', in: 'path', required: true, schema: { type: 'string' } }
             ],
             responses: {
                 '200': {
@@ -1098,15 +1079,15 @@ export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
             }
         }
     },
-    '/projects/{projectId}/collections/{collectionId}/schema': {
+    '/projects/{projectId}/channels/{channelId}/schema': {
         get: {
-            summary: 'What the collection delivers, described',
+            summary: 'What the channel delivers, described',
             description:
-                "Its models (only the fields it gives), the templates of its pages, and the blocks and structures they use: each field's type, label, description and the options that explain its value. Studio's presentation and plugins' settings are left out. `version` changes with any schema (also the `ETag`). Same auth as other collection reads.",
-            tags: ['Public API — Collections'],
+                "Its models (only the fields it gives), the templates of its pages, and the blocks and structures they use: each field's type, label, description and the options that explain its value. Studio's presentation and plugins' settings are left out. `version` changes with any schema (also the `ETag`). Same auth as other channel reads.",
+            tags: ['Public API — Channels'],
             parameters: [
                 { name: 'projectId', in: 'path', required: true, schema: { type: 'string' } },
-                { name: 'collectionId', in: 'path', required: true, schema: { type: 'string' } }
+                { name: 'channelId', in: 'path', required: true, schema: { type: 'string' } }
             ],
             responses: {
                 '200': {
@@ -1118,7 +1099,7 @@ export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
                                 required: [
                                     'version',
                                     'projectId',
-                                    'collectionId',
+                                    'channelId',
                                     'defaultLocale',
                                     'locales',
                                     'models',
@@ -1129,7 +1110,7 @@ export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
                                 properties: {
                                     version: { type: 'string' },
                                     projectId: { type: 'string' },
-                                    collectionId: { type: 'string' },
+                                    channelId: { type: 'string' },
                                     defaultLocale: { type: 'string' },
                                     locales: { type: 'array', items: { type: 'string' } },
                                     models: { type: 'object', additionalProperties: true },
@@ -1146,15 +1127,15 @@ export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
             }
         }
     },
-    '/projects/{projectId}/collections/{collectionId}/types': {
+    '/projects/{projectId}/channels/{channelId}/types': {
         get: {
-            summary: 'TypeScript types of what the collection delivers',
+            summary: 'TypeScript types of what the channel delivers',
             description:
-                "Made from the collection's schema: one file with a type for each model, template, block and structure, and `MoteurSchema` for a typed client. What `moteur types --channel` writes.",
-            tags: ['Public API — Collections'],
+                "Made from the channel's schema: one file with a type for each model, template, block and structure, and `MoteurSchema` for a typed client. What `moteur types --channel` writes.",
+            tags: ['Public API — Channels'],
             parameters: [
                 { name: 'projectId', in: 'path', required: true, schema: { type: 'string' } },
-                { name: 'collectionId', in: 'path', required: true, schema: { type: 'string' } }
+                { name: 'channelId', in: 'path', required: true, schema: { type: 'string' } }
             ],
             responses: {
                 '200': {
@@ -1166,13 +1147,13 @@ export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
             }
         }
     },
-    '/projects/{projectId}/collections/{collectionId}/pages': {
+    '/projects/{projectId}/channels/{channelId}/pages': {
         get: {
-            summary: 'List pages in a collection',
-            tags: ['Public API — Collections'],
+            summary: 'List pages in a channel',
+            tags: ['Public API — Channels'],
             parameters: [
                 { name: 'projectId', in: 'path', required: true, schema: { type: 'string' } },
-                { name: 'collectionId', in: 'path', required: true, schema: { type: 'string' } }
+                { name: 'channelId', in: 'path', required: true, schema: { type: 'string' } }
             ],
             responses: {
                 '200': {
@@ -1190,13 +1171,13 @@ export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
             }
         }
     },
-    '/projects/{projectId}/collections/{collectionId}/pages/{id}': {
+    '/projects/{projectId}/channels/{channelId}/pages/{id}': {
         get: {
             summary: 'Get one page by id',
-            tags: ['Public API — Collections'],
+            tags: ['Public API — Channels'],
             parameters: [
                 { name: 'projectId', in: 'path', required: true, schema: { type: 'string' } },
-                { name: 'collectionId', in: 'path', required: true, schema: { type: 'string' } },
+                { name: 'channelId', in: 'path', required: true, schema: { type: 'string' } },
                 { name: 'id', in: 'path', required: true, schema: { type: 'string' } }
             ],
             responses: {
@@ -1212,13 +1193,13 @@ export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
             }
         }
     },
-    '/projects/{projectId}/collections/{collectionId}/pages/by-slug/{slug}': {
+    '/projects/{projectId}/channels/{channelId}/pages/by-slug/{slug}': {
         get: {
             summary: 'Get one page by slug',
-            tags: ['Public API — Collections'],
+            tags: ['Public API — Channels'],
             parameters: [
                 { name: 'projectId', in: 'path', required: true, schema: { type: 'string' } },
-                { name: 'collectionId', in: 'path', required: true, schema: { type: 'string' } },
+                { name: 'channelId', in: 'path', required: true, schema: { type: 'string' } },
                 { name: 'slug', in: 'path', required: true, schema: { type: 'string' } },
                 {
                     name: 'locale',
@@ -1241,13 +1222,13 @@ export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
             }
         }
     },
-    '/projects/{projectId}/collections/{collectionId}/layouts': {
+    '/projects/{projectId}/channels/{channelId}/layouts': {
         get: {
-            summary: 'List layouts exposed by the collection',
-            tags: ['Public API — Collections'],
+            summary: 'List layouts exposed by the channel',
+            tags: ['Public API — Channels'],
             parameters: [
                 { name: 'projectId', in: 'path', required: true, schema: { type: 'string' } },
-                { name: 'collectionId', in: 'path', required: true, schema: { type: 'string' } }
+                { name: 'channelId', in: 'path', required: true, schema: { type: 'string' } }
             ],
             responses: {
                 '200': {
@@ -1265,13 +1246,13 @@ export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
             }
         }
     },
-    '/projects/{projectId}/collections/{collectionId}/layouts/{id}': {
+    '/projects/{projectId}/channels/{channelId}/layouts/{id}': {
         get: {
             summary: 'Get one layout by id',
-            tags: ['Public API — Collections'],
+            tags: ['Public API — Channels'],
             parameters: [
                 { name: 'projectId', in: 'path', required: true, schema: { type: 'string' } },
-                { name: 'collectionId', in: 'path', required: true, schema: { type: 'string' } },
+                { name: 'channelId', in: 'path', required: true, schema: { type: 'string' } },
                 { name: 'id', in: 'path', required: true, schema: { type: 'string' } }
             ],
             responses: {
@@ -1287,13 +1268,13 @@ export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
             }
         }
     },
-    '/projects/{projectId}/collections/{collectionId}/forms': {
+    '/projects/{projectId}/channels/{channelId}/forms': {
         get: {
-            summary: 'List forms exposed by the collection',
-            tags: ['Public API — Collections'],
+            summary: 'List forms exposed by the channel',
+            tags: ['Public API — Channels'],
             parameters: [
                 { name: 'projectId', in: 'path', required: true, schema: { type: 'string' } },
-                { name: 'collectionId', in: 'path', required: true, schema: { type: 'string' } },
+                { name: 'channelId', in: 'path', required: true, schema: { type: 'string' } },
                 {
                     name: 'locale',
                     in: 'query',
@@ -1318,13 +1299,13 @@ export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
             }
         }
     },
-    '/projects/{projectId}/collections/{collectionId}/forms/{id}': {
+    '/projects/{projectId}/channels/{channelId}/forms/{id}': {
         get: {
             summary: 'Get one form by id',
-            tags: ['Public API — Collections'],
+            tags: ['Public API — Channels'],
             parameters: [
                 { name: 'projectId', in: 'path', required: true, schema: { type: 'string' } },
-                { name: 'collectionId', in: 'path', required: true, schema: { type: 'string' } },
+                { name: 'channelId', in: 'path', required: true, schema: { type: 'string' } },
                 { name: 'id', in: 'path', required: true, schema: { type: 'string' } },
                 {
                     name: 'locale',
@@ -1347,13 +1328,13 @@ export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
             }
         }
     },
-    '/projects/{projectId}/collections/{collectionId}/menus': {
+    '/projects/{projectId}/channels/{channelId}/menus': {
         get: {
-            summary: 'List menus exposed by the collection, with item URLs resolved',
-            tags: ['Public API — Collections'],
+            summary: 'List menus exposed by the channel, with item URLs resolved',
+            tags: ['Public API — Channels'],
             parameters: [
                 { name: 'projectId', in: 'path', required: true, schema: { type: 'string' } },
-                { name: 'collectionId', in: 'path', required: true, schema: { type: 'string' } },
+                { name: 'channelId', in: 'path', required: true, schema: { type: 'string' } },
                 {
                     name: 'locale',
                     in: 'query',
@@ -1378,13 +1359,13 @@ export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
             }
         }
     },
-    '/projects/{projectId}/collections/{collectionId}/menus/{handle}': {
+    '/projects/{projectId}/channels/{channelId}/menus/{handle}': {
         get: {
             summary: 'Get one menu by handle, with item URLs resolved',
-            tags: ['Public API — Collections'],
+            tags: ['Public API — Channels'],
             parameters: [
                 { name: 'projectId', in: 'path', required: true, schema: { type: 'string' } },
-                { name: 'collectionId', in: 'path', required: true, schema: { type: 'string' } },
+                { name: 'channelId', in: 'path', required: true, schema: { type: 'string' } },
                 { name: 'handle', in: 'path', required: true, schema: { type: 'string' } },
                 {
                     name: 'locale',

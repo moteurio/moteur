@@ -26,18 +26,18 @@ Everything wired by **`createMoteurAdminClient`** except the per-resource HTTP m
 
 ## `project/` — `/projects/:projectId/...` resources
 
-One file per **project-scoped** REST area (models, entries, pages, templates, collections CRUD, assets, …). Export pattern: **`projectXxxApi(client)`**.
+One file per **project-scoped** REST area (models, entries, pages, templates, channels CRUD, assets, …). Export pattern: **`projectXxxApi(client)`**.
 
 This is where **models** and **entries** live, same as pages and templates — one tree for “content under a project id”.
 
 ## `public/` — API key, read-only
 
-| File                        | Role                                                              |
-| --------------------------- | ----------------------------------------------------------------- |
-| **`createPublicClient.ts`** | `createMoteurPublicClient` factory                                |
-| **`collectionsRead.ts`**    | Collection definition list/get                                    |
-| **`collectionChannel.ts`**  | Channel reads (pages, entries, layouts, forms under a collection) |
-| **`pageOutputs.ts`**        | Sitemap, navigation tree, urls, breadcrumb                        |
-| **`radar.ts`**              | Project radar GET                                                 |
+| File                        | Role                                                           |
+| --------------------------- | -------------------------------------------------------------- |
+| **`createPublicClient.ts`** | `createMoteurPublicClient` factory                             |
+| **`channelsRead.ts`**       | Channel definition list/get                                    |
+| **`channel.ts`**            | Channel reads (pages, entries, layouts, forms under a channel) |
+| **`pageOutputs.ts`**        | Sitemap, navigation tree, urls, breadcrumb                     |
+| **`radar.ts`**              | Project radar GET                                              |
 
 No imports from `admin/` here — keeps the public bundle surface honest.

@@ -1,6 +1,6 @@
 import type { EntryStatus } from './Model.js';
 
-export type ApiCollectionResource = {
+export type ChannelResource = {
     resourceType: 'model' | 'page' | 'layout' | 'form' | 'menu';
     /**
      * modelId or 'models'; 'pages' or a templateId; layout id or 'layouts'; form id or 'forms';
@@ -15,20 +15,19 @@ export type ApiCollectionResource = {
     resolve?: 0 | 1 | 2; // reference resolution depth; default: 0
 };
 
-// API Collections are often called "Channels" in frontends.
-/** Present on `GET .../collections/:id` — relative paths (prepend API base). */
-export interface ApiCollectionPublicLinks {
+/** Present on `GET .../channels/:id` — relative paths (prepend API base). */
+export interface ChannelPublicLinks {
     openApiJson: string;
 }
 
-export interface ApiCollection {
+export interface Channel {
     id: string;
     projectId: string;
     label: string;
     description?: string;
-    resources: ApiCollectionResource[];
+    resources: ChannelResource[];
     createdAt: string;
     updatedAt: string;
-    /** Auto-generated public API doc URLs (read single-collection GET only). */
-    publicApi?: ApiCollectionPublicLinks;
+    /** Auto-generated public API doc URLs (read single-channel GET only). */
+    publicApi?: ChannelPublicLinks;
 }

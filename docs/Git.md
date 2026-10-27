@@ -8,7 +8,7 @@ Moteur stores project content on disk and uses Git for history. Workspace and us
 
 **Content** (committed on every save):
 
-- `project.json`, `models/`, `layouts/`, `pages/`, `templates/`, `structures/`, `navigations.json`, `forms/`, `api-collections.json`, `webhooks.json`, `assets.json`, etc.
+- `project.json`, `models/`, `layouts/`, `pages/`, `templates/`, `structures/`, `navigations.json`, `forms/`, `channels.json`, `webhooks.json`, `assets.json`, etc.
 
 All of these are under the project directory. Every content save or delete triggers a commit (and optional push) when the project is a Git repository.
 

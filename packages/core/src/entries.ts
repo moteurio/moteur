@@ -117,7 +117,7 @@ export function mergeEntryPatch(
 }
 
 /**
- * List entries for a project/model without user check. For internal use (e.g. collection API).
+ * List entries for a project/model without user check. For internal use (e.g. channel API).
  */
 export async function listEntriesForProject(
     projectId: string,
@@ -131,7 +131,7 @@ export async function listEntriesForProject(
 }
 
 /**
- * Get one entry by id without user check. For internal use (e.g. collection API). Returns null if not found.
+ * Get one entry by id without user check. For internal use (e.g. channel API). Returns null if not found.
  */
 export async function getEntryForProject(
     projectId: string,

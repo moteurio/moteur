@@ -31,6 +31,24 @@ import { createModelSchema } from './models.js';
 import { createLayout } from './layouts.js';
 import { createStructure } from './structures.js';
 
+/**
+ * Channels were called collections: a key saved before says `allowedCollectionIds`. Read under
+ * the new name, so its limit still applies; the next save writes it so.
+ */
+function withChannelNames(project: ProjectSchema): ProjectSchema {
+    if (!project.apiKeys?.some(k => 'allowedCollectionIds' in k)) return project;
+    return {
+        ...project,
+        apiKeys: project.apiKeys.map(k => {
+            if (!('allowedCollectionIds' in k)) return k;
+            const { allowedCollectionIds, ...rest } = k as typeof k & {
+                allowedCollectionIds?: string[];
+            };
+            return { ...rest, allowedChannelIds: rest.allowedChannelIds ?? allowedCollectionIds };
+        })
+    };
+}
+
 export function loadProjects(): ProjectSchema[] {
     const root = baseProjectsDir();
 
@@ -50,7 +68,7 @@ export function loadProjects(): ProjectSchema[] {
                     JSON.parse(raw) as ProjectSchema,
                     readProjectSecrets(path.join(root, dir))
                 );
-                return { ...schema, id: dir };
+                return { ...withChannelNames(schema), id: dir };
             } catch (err) {
                 console.error(`[Moteur] Failed to load project config for "${dir}"`, err);
                 return null;
@@ -104,6 +122,7 @@ export async function getProject(user: User, projectId: string): Promise<Project
         await putProjectJson(projectId, PROJECT_KEY, project);
     }
 
+    project = withChannelNames(project);
     assertUserCanAccessProject(user, { ...project, id: projectId });
     return { ...project, id: projectId };
 }
@@ -117,7 +136,7 @@ export async function getProjectById(projectId: string): Promise<ProjectSchema |
     if (!isExistingProjectId(projectId)) return null;
     const project = await getProjectJson<ProjectSchema>(projectId, PROJECT_KEY);
     if (!project || !project.id) return null;
-    return { ...project, id: projectId };
+    return { ...withChannelNames(project), id: projectId };
 }
 
 /** Returns ISO timestamp for audit backfill (file mtime or now). */

@@ -1,7 +1,7 @@
 import { createMoteurClientInternal } from '../client.js';
 import { MoteurClientError } from '../credentials.js';
-import { publicCollectionsReadApi } from './collectionsRead.js';
-import { createPublicCollectionChannel, type PublicChannel } from './collectionChannel.js';
+import { publicChannelsReadApi } from './channelsRead.js';
+import { createPublicChannel, type PublicChannel } from './channel.js';
 import type { LocaleMode, SchemaShape, UntypedSchema } from './schema.js';
 import { publicSiteOutputsApi } from './pageOutputs.js';
 import { publicFormsApi } from './forms.js';
@@ -15,24 +15,24 @@ export type MoteurPublicClient<
     projectId: string;
     /** The language answers come in, when the client was made for one (`locale()`). */
     language?: S['locale'];
-    collections: {
-        list(): ReturnType<ReturnType<typeof publicCollectionsReadApi>['list']>;
-        get(collectionId: string): ReturnType<ReturnType<typeof publicCollectionsReadApi>['get']>;
+    channels: {
+        list(): ReturnType<ReturnType<typeof publicChannelsReadApi>['list']>;
+        get(channelId: string): ReturnType<ReturnType<typeof publicChannelsReadApi>['get']>;
     };
-    /** What a collection delivers: pages, entries, menus, forms, layouts. */
-    channel(collectionId: string): PublicChannel<S, D>;
+    /** What a channel delivers: pages, entries, menus, forms, layouts. */
+    channel(channelId: string): PublicChannel<S, D>;
     /** The same client, answering in one language: every value in it, typed as such. */
     locale(locale: S['locale']): MoteurPublicClient<S, 'one'>;
     site: ReturnType<typeof publicSiteOutputsApi>;
     /** Show a form in the visitor's language, and send what they wrote. */
     forms: ReturnType<typeof publicFormsApi>;
-    /** Clone this client with a preview token (draft / latest view on collection reads). */
+    /** Clone this client with a preview token (draft / latest view on channel reads). */
     withPreview(previewToken: string): MoteurPublicClient<S, D>;
 };
 
 /**
  * Read-only SDK for a **project API key** (`x-api-key`) and fixed `projectId`.
- * Use `channel(collectionId)` for collection-shaped reads; `forms` to show and send forms; `site` for sitemap / navigation tree / urls / breadcrumb, in any language, and to resolve a path or list redirects.
+ * Use `channel(channelId)` for channel-shaped reads; `forms` to show and send forms; `site` for sitemap / navigation tree / urls / breadcrumb, in any language, and to resolve a path or list redirects.
  *
  * Give it the project's schema (`moteur types` writes `MoteurSchema`) and its answers are typed:
  * `createMoteurPublicClient<MoteurSchema>(…).locale('fr').channel('site').pages.list()`.
@@ -72,7 +72,7 @@ function build<S extends SchemaShape, D extends LocaleMode>(
         previewToken: config.previewToken
     });
 
-    const collectionsRead = publicCollectionsReadApi(client);
+    const channelsRead = publicChannelsReadApi(client);
 
     return {
         get baseURL() {
@@ -80,12 +80,12 @@ function build<S extends SchemaShape, D extends LocaleMode>(
         },
         projectId,
         ...(language && { language }),
-        collections: {
-            list: () => collectionsRead.list(projectId),
-            get: (collectionId: string) => collectionsRead.get(projectId, collectionId)
+        channels: {
+            list: () => channelsRead.list(projectId),
+            get: (channelId: string) => channelsRead.get(projectId, channelId)
         },
-        channel: (collectionId: string) =>
-            createPublicCollectionChannel<S, D>(client, projectId, collectionId, language),
+        channel: (channelId: string) =>
+            createPublicChannel<S, D>(client, projectId, channelId, language),
         locale: locale => build<S, 'one'>(config, locale),
         site: publicSiteOutputsApi(client, projectId, language),
         forms: publicFormsApi(client, projectId),

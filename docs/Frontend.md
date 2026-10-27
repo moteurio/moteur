@@ -4,8 +4,8 @@ Moteur separates **authoring** (Studio + JWT) from **delivery** (your site + pro
 
 ## Mental model
 
-1. Configure a **collection** (channel) in Studio with the models, fields, and statuses you want public.
-2. Create a **read-only API key** for that collection.
+1. Configure a **channel** in Studio with the models, fields, and statuses you want public.
+2. Create a **read-only API key** for that channel.
 3. In your app, fetch with `createMoteurPublicClient` and render **one template per block type**.
 4. For **draft preview**, mint a **preview token** (JWT, server-side) and pass it as `x-preview-token` or `?preview=` alongside the API key.
 
@@ -55,14 +55,14 @@ MOTEUR_API_KEY=… moteur types --channel site --out src/moteur.ts --check
 
 ## The schema of a channel
 
-`GET /projects/:projectId/collections/:collectionId/schema` describes what a channel delivers: its models (only the fields it gives), the templates of its pages, and the blocks and structures they use. For each field: its type, label and description (per language), and the options that explain its value (`required`, `multilingual`, `choices` with their labels, a relation's `model`, a block list's `allowedBlockTypes`, limits). Studio's presentation options and plugins' settings are left out. It is the same shape as the stored schemas, so it reads like them.
+`GET /projects/:projectId/channels/:channelId/schema` describes what a channel delivers: its models (only the fields it gives), the templates of its pages, and the blocks and structures they use. For each field: its type, label and description (per language), and the options that explain its value (`required`, `multilingual`, `choices` with their labels, a relation's `model`, a block list's `allowedBlockTypes`, limits). Studio's presentation options and plugins' settings are left out. It is the same shape as the stored schemas, so it reads like them.
 
 ```ts
 const schema = await moteur.channel('site').schema();
 schema.models.rival.fields.pricing; // { type: 'core/select', label: { en: 'Pricing model' }, options: { choices: […] } }
 ```
 
-`version` changes whenever a schema does, and is the `ETag`: send `If-None-Match` and an unchanged schema answers 304. `GET …/collections/:collectionId/types` is the same schema as TypeScript.
+`version` changes whenever a schema does, and is the `ETag`: send `If-None-Match` and an unchanged schema answers 304. `GET …/channels/:channelId/types` is the same schema as TypeScript.
 
 ## Preview tokens
 
@@ -70,7 +70,7 @@ schema.models.rival.fields.pricing; // { type: 'core/select', label: { en: 'Pric
 // Server route or Studio (member JWT)
 const { rawToken } = await admin.forProject('my-site').previewTokens.create({
     entryId: '…',
-    collectionId: 'website',
+    channelId: 'website',
     ttlSeconds: 1800
 });
 
@@ -81,7 +81,7 @@ const client = createMoteurPublicClient({
 }).withPreview(rawToken);
 ```
 
-Collection reads then use the **latest** entry view (drafts included per collection status filters).
+Channel reads then use the **latest** entry view (drafts included per channel status filters).
 
 A token made for one entry (`entryId`) or one page (`pageId`) shows only that one as it is now: in lists, and read by id or slug. Everything else comes back as published, so a preview link can't be used to read the project's other drafts. A token with neither shows every draft, for previewing the whole site. Draft pages never appear in navigation or menus.
 

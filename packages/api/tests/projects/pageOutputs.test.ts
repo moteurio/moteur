@@ -10,7 +10,7 @@ vi.mock('../../src/middlewares/auth.js', () => {
     return {
         optionalAuth: pass,
         apiKeyAuth: pass,
-        requireCollectionOrProjectAccess: pass,
+        requireChannelOrProjectAccess: pass,
         requireProjectAccess: pass,
         denyIfApiKeySiteWideBlocked: () => false
     };

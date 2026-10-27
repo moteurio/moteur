@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { buildCollectionOpenApi } from '../../src/openapi/buildCollectionOpenApi.js';
-import type { ApiCollection } from '@moteurio/types/ApiCollection.js';
+import { buildChannelOpenApi } from '../../src/openapi/buildChannelOpenApi.js';
+import type { Channel } from '@moteurio/types/Channel.js';
 import type { ModelSchema } from '@moteurio/types/Model.js';
 
 const issueModel: ModelSchema = {
@@ -13,9 +13,9 @@ const issueModel: ModelSchema = {
     }
 };
 
-describe('buildCollectionOpenApi', () => {
+describe('buildChannelOpenApi', () => {
     it('generates concrete paths and entry.data schemas per model resource', () => {
-        const collection: ApiCollection = {
+        const channel: Channel = {
             id: 'public',
             projectId: 'demo',
             label: 'Site public',
@@ -31,16 +31,16 @@ describe('buildCollectionOpenApi', () => {
             createdAt: '2026-01-01T00:00:00.000Z',
             updatedAt: '2026-01-02T00:00:00.000Z'
         };
-        const doc = buildCollectionOpenApi({
+        const doc = buildChannelOpenApi({
             projectId: 'demo',
-            collection,
+            channel,
             modelsById: new Map([['issue', issueModel]]),
             serverUrl: '/'
         });
 
         expect(doc.info?.title).toContain('Site public');
-        expect(doc.paths?.['/projects/demo/collections/public/issue/entries']?.get).toBeDefined();
-        expect(doc.paths?.['/projects/demo/collections/public/pages']?.get).toBeDefined();
+        expect(doc.paths?.['/projects/demo/channels/public/issue/entries']?.get).toBeDefined();
+        expect(doc.paths?.['/projects/demo/channels/public/pages']?.get).toBeDefined();
 
         const entrySchema = doc.components?.schemas?.Entry_issue as {
             properties?: { data?: { properties?: Record<string, unknown> } };
@@ -56,7 +56,7 @@ describe('buildCollectionOpenApi', () => {
             label: 'Articles',
             fields: { title: { type: 'core/text', label: 'Title' } }
         };
-        const collection: ApiCollection = {
+        const channel: Channel = {
             id: 'web',
             projectId: 'demo',
             label: 'Web',
@@ -64,22 +64,22 @@ describe('buildCollectionOpenApi', () => {
             createdAt: '',
             updatedAt: ''
         };
-        const doc = buildCollectionOpenApi({
+        const doc = buildChannelOpenApi({
             projectId: 'demo',
-            collection,
+            channel,
             modelsById: new Map([
                 ['issue', issueModel],
                 ['articles', articles]
             ]),
             serverUrl: '/'
         });
-        expect(doc.paths?.['/projects/demo/collections/web/issue/entries']?.get).toBeDefined();
-        expect(doc.paths?.['/projects/demo/collections/web/articles/entries']?.get).toBeDefined();
+        expect(doc.paths?.['/projects/demo/channels/web/issue/entries']?.get).toBeDefined();
+        expect(doc.paths?.['/projects/demo/channels/web/articles/entries']?.get).toBeDefined();
         expect(doc.tags?.map(t => t.name)).toEqual(['channel', 'articles', 'issue']);
     });
 
     it('lets an explicit model row override "every model" for that model', () => {
-        const collection: ApiCollection = {
+        const channel: Channel = {
             id: 'web',
             projectId: 'demo',
             label: 'Web',
@@ -90,9 +90,9 @@ describe('buildCollectionOpenApi', () => {
             createdAt: '',
             updatedAt: ''
         };
-        const doc = buildCollectionOpenApi({
+        const doc = buildChannelOpenApi({
             projectId: 'demo',
-            collection,
+            channel,
             modelsById: new Map([['issue', issueModel]]),
             serverUrl: '/'
         });

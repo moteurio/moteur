@@ -2378,7 +2378,7 @@ List the channels
 | -------------------- | ---------------------------------------------------------------------------- |
 | `--project <string>` | Project id (default: MOTEUR_PROJECT, .moteur.json, or `moteur projects use`) |
 
-Calls `GET /projects/{project}/collections`.
+Calls `GET /projects/{project}/channels`.
 
 ### `moteur channels get <id>`
 
@@ -2389,7 +2389,7 @@ Show one channel
 | `--project <string>` | Project id (default: MOTEUR_PROJECT, .moteur.json, or `moteur projects use`) |
 | `--id <string>`      | channel id (required)                                                        |
 
-Calls `GET /projects/{project}/collections/{id}`.
+Calls `GET /projects/{project}/channels/{id}`.
 
 ### `moteur channels create`
 
@@ -2401,7 +2401,7 @@ Create a channel from its JSON
 | `--file <string>`    | Read the JSON body from this file                                            |
 | `--data <string>`    | The JSON body, inline                                                        |
 
-Calls `POST /projects/{project}/collections`.
+Calls `POST /projects/{project}/channels`.
 
 ```bash
 moteur channels create --file=channel.json
@@ -2418,7 +2418,7 @@ Change part of a channel (JSON with the fields to change)
 | `--file <string>`    | Read the JSON body from this file                                            |
 | `--data <string>`    | The JSON body, inline                                                        |
 
-Calls `PATCH /projects/{project}/collections/{id}`.
+Calls `PATCH /projects/{project}/channels/{id}`.
 
 ### `moteur channels delete <id>`
 
@@ -2429,7 +2429,7 @@ Delete a channel Asks first (or `--yes`).
 | `--project <string>` | Project id (default: MOTEUR_PROJECT, .moteur.json, or `moteur projects use`) |
 | `--id <string>`      | channel id (required)                                                        |
 
-Calls `DELETE /projects/{project}/collections/{id}`.
+Calls `DELETE /projects/{project}/channels/{id}`.
 
 ### `moteur channels openapi <id>`
 
@@ -2440,7 +2440,7 @@ The OpenAPI document a frontend reads this channel with
 | `--project <string>` | Project id (default: MOTEUR_PROJECT, .moteur.json, or `moteur projects use`) |
 | `--id <string>`      | Channel id (required)                                                        |
 
-Calls `GET /projects/{project}/collections/{id}/openapi`.
+Calls `GET /projects/{project}/channels/{id}/openapi`.
 
 ### `moteur channels schema <id>`
 
@@ -2453,7 +2453,7 @@ Each field's type, label, description and the options that explain its value. A 
 | `--project <string>` | Project id (default: MOTEUR_PROJECT, .moteur.json, or `moteur projects use`) |
 | `--id <string>`      | Channel id (required)                                                        |
 
-Calls `GET /projects/{project}/collections/{id}/schema`.
+Calls `GET /projects/{project}/channels/{id}/schema`.
 
 ```bash
 moteur channels schema site --json

@@ -9,7 +9,7 @@ import type * as Reviews from './reviews';
 import type * as Notifications from './notifications';
 import type * as Templates from './templates';
 import type * as Pages from './pages';
-import type * as ApiCollections from './apiCollections';
+import type * as Channels from './channels';
 import type * as Navigations from './navigations';
 import type * as ProjectApiKey from './projectApiKey';
 import type * as Assets from './assets/assetService';
@@ -46,12 +46,12 @@ export interface MoteurAPI {
         markRead: typeof Notifications.markRead;
         markAllRead: typeof Notifications.markAllRead;
     };
-    collections: {
-        list: typeof ApiCollections.listCollections;
-        get: typeof ApiCollections.getCollection;
-        create: typeof ApiCollections.createCollection;
-        update: typeof ApiCollections.updateCollection;
-        delete: typeof ApiCollections.deleteCollection;
+    channels: {
+        list: typeof Channels.listChannels;
+        get: typeof Channels.getChannel;
+        create: typeof Channels.createChannel;
+        update: typeof Channels.updateChannel;
+        delete: typeof Channels.deleteChannel;
     };
     navigations: {
         list: typeof Navigations.listNavigations;

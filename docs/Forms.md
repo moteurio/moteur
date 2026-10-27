@@ -24,7 +24,7 @@ Use a member JWT to create a form with `POST /projects/:projectId/forms`:
 }
 ```
 
-Forms can be `active`, `inactive` or `archived`. Only active forms accept public submissions. Fields use the same schema system as other content. Authenticated form definitions can contain actions, notification recipients and anti-spam configuration; do not return those definitions directly to a public browser. Expose public form metadata through a collection that grants the form instead.
+Forms can be `active`, `inactive` or `archived`. Only active forms accept public submissions. Fields use the same schema system as other content. Authenticated form definitions can contain actions, notification recipients and anti-spam configuration; do not return those definitions directly to a public browser. Expose public form metadata through a channel that grants the form instead.
 
 ## In every language
 
@@ -46,7 +46,7 @@ A field's `label`, `description`, `help` and `placeholder`, and each choice's `l
 }
 ```
 
-`GET /projects/:projectId/collections/:collectionId/forms/:id?locale=fr` returns every text in that language, ready to render. `fr-CA` reads `fr`; a language nobody wrote falls back to the first one written. A field's `messages` holds your own words for each issue code, used before the engine's.
+`GET /projects/:projectId/channels/:channelId/forms/:id?locale=fr` returns every text in that language, ready to render. `fr-CA` reads `fr`; a language nobody wrote falls back to the first one written. A field's `messages` holds your own words for each issue code, used before the engine's.
 
 The public form also says what a site must show: `captcha` (its `provider` and `siteKey`, never the secret) and `timeTrap`.
 
@@ -118,7 +118,7 @@ When answers don't fit, the reply is `422` with `code: "ANSWERS_INVALID"`, an `e
 
 `createEntry` maps form fields into a model and creates a draft. `email` sends a configured message. `webhook` dispatches `form.submitted` to configured outbound webhook subscribers. Optional notifications can email recipients or confirm receipt to the submitter. Email delivery requires the host's mail configuration. See [Webhooks](Webhooks.md) for signing and delivery behavior.
 
-Member-only inbox routes live under `/projects/:projectId/forms/:formId/submissions`, including listing, export, individual reads, status updates and deletion. Listing pages through an index (`user-data/forms/:formId/_index.json`) kept up to date on every save, so it opens only the page's submissions; the index is rebuilt from the files when it is missing or out of step. Public collection readers cannot read the inbox. See the host's OpenAPI document for filters and export parameters.
+Member-only inbox routes live under `/projects/:projectId/forms/:formId/submissions`, including listing, export, individual reads, status updates and deletion. Listing pages through an index (`user-data/forms/:formId/_index.json`) kept up to date on every save, so it opens only the page's submissions; the index is rebuilt from the files when it is missing or out of step. Public channel readers cannot read the inbox. See the host's OpenAPI document for filters and export parameters.
 
 ## What plugins add
 

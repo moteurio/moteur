@@ -148,5 +148,5 @@ have `providerStatus` (`uploading`, `processing`, `ready`, `error`) and, once re
 `providerMetadata.streamUrl`, `embedUrl` and `thumbnailUrl`; their `url` is the stream once ready.
 Other files are served as uploaded at `url`.
 
-See also: [Public API and Collections](Public%20API%20and%20Collections.md), [Fields](Fields.md)
+See also: [Public API and Channels](Public%20API%20and%20Channels.md), [Fields](Fields.md)
 (`core/asset`, `core/asset-list`), [`@moteurio/client`](../packages/client/README.md).

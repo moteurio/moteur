@@ -13,7 +13,7 @@ export const DEFAULT_REQUEST_TIMEOUT_MS = 60_000;
 export interface MoteurClientConfig {
     baseURL: string;
     auth?: MoteurAuth;
-    /** Optional preview token header for public collection reads. */
+    /** Optional preview token header for public channel reads. */
     previewToken?: string;
     /**
      * Per-request timeout in milliseconds. Defaults to {@link DEFAULT_REQUEST_TIMEOUT_MS}.

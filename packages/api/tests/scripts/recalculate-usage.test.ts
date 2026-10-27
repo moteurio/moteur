@@ -29,7 +29,7 @@ describe('recalculate-usage', () => {
                     type: 'public',
                     projectId: 'blog',
                     method: 'GET',
-                    path: '/projects/blog/collections',
+                    path: '/projects/blog/channels',
                     statusCode: 200
                 }),
                 JSON.stringify({

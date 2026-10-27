@@ -4,7 +4,7 @@ export type PreviewTokenCreateBody = {
     ttlSeconds?: number;
     entryId?: string;
     pageId?: string;
-    collectionId?: string;
+    channelId?: string;
 };
 
 export type PreviewTokenCreateResponse = {
@@ -16,7 +16,7 @@ export type PreviewTokenCreateResponse = {
     message: string;
     entryId?: string;
     pageId?: string;
-    collectionId?: string;
+    channelId?: string;
 };
 
 export function projectPreviewTokensApi(client: MoteurClient) {
