@@ -25,6 +25,7 @@ import {
     keys,
     members,
     projects,
+    types,
     webhooks
 } from './commands/project.js';
 import { ai } from './commands/ai.js';
@@ -113,6 +114,7 @@ export const API_COMMANDS = [
     ...channels,
     ...webhooks,
     ...branches,
+    ...types,
     ...ai,
     ...radar,
     ...search,

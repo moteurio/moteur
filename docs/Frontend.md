@@ -26,6 +26,27 @@ Framework adapters are **not** host plugins — they are npm packages for your s
 
 Plugin **frontend companions** (`@moteurio/frontend-plugin-*`) ship web components for optional block types (oEmbed, QR, poll). Install only the plugins your site uses.
 
+## Types
+
+`moteur types --out src/moteur.ts` writes TypeScript types for the project's content: an entry type per model (`ArticleEntry`), a page type per template (`HomePage`), and a type per block (`HeroBlock`, with `AnyBlock` for all of them) and per structure (`CtaStructure`). Lists, objects, variants, links and page relations are typed all the way down. Project blocks and structures drop their namespace (`moteur-io/hero` is `HeroBlock`).
+
+Each type takes a locale mode. `'all'` (the default) is content as stored, a value per language. `'one'` is content read with `?locale=`:
+
+```ts
+import type { HomePage, AnyPage } from './moteur';
+
+const page: HomePage<'one'> = await fetch(`${api}/pages/home?locale=fr`, { headers }).then(r =>
+    r.json()
+);
+page.fields.seo?.title; // string
+
+function render(page: AnyPage<'one'>) {
+    if (page.templateId === 'home') return page.fields.blocks; // narrowed to the home template
+}
+```
+
+The types come from `GET /projects/:projectId/types`. Make them again after a schema changes, in CI for example.
+
 ## Preview tokens
 
 ```ts
