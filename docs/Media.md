@@ -14,6 +14,8 @@ curl -X POST "$MOTEUR_API_URL/projects/$PROJECT_ID/assets" \
   -F "folder=articles"
 ```
 
+Or give a public address and let the server download it: `POST /projects/:projectId/assets/import` with `{ "url": "https://…", "folder", "alt", "title", "credit", "name" }`. Only HTTPS addresses work, and private or restricted network addresses are refused, after each redirect too. The upload size limit applies. The CLI and MCP tool `media upload` take `--url` for this, or `--content` (the file in base64, with `--name`).
+
 `MOTEUR_API_URL` includes any API base path. The API upload limit is `API_UPLOAD_MAX_MB` (50 MB by default); project media rules and host plan limits can impose additional restrictions.
 
 Use `GET /projects/:projectId/assets` to list assets, `GET /assets/:id` under the same project prefix to read one, and PATCH to update supported metadata. Listing supports type, folder and search filters plus pagination. Asset metadata includes URLs and processing state; use the URLs returned by the API rather than constructing storage paths yourself.

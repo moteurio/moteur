@@ -56,6 +56,26 @@ export const pages = group('pages', [
         readOnly: true
     },
     {
+        name: 'referrers',
+        summary: 'What links to a page: entries and other pages (check before deleting it)',
+        args: [project, pageArg],
+        http: `GET ${P}/pages/{id}/referrers`,
+        pick: 'referrers',
+        table: [
+            {
+                key: 'from',
+                header: 'from',
+                format: v => {
+                    const f = v as { kind: string; id: string; label?: string };
+                    return `${f.kind} ${f.label ?? f.id}`;
+                }
+            },
+            { key: 'path', header: 'field' },
+            { key: 'via', header: 'as' }
+        ],
+        readOnly: true
+    },
+    {
         name: 'status',
         summary: 'Set a page’s state (draft, published…)',
         args: [

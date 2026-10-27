@@ -60,6 +60,20 @@ export function projectAssetsApi(client: MoteurClient) {
         get(projectId: string, id: string): Promise<Record<string, unknown>> {
             return client.get(`${base(projectId)}/${encodeURIComponent(id)}`);
         },
+        /** Adds a file from a public HTTPS address (the server downloads it). */
+        import(
+            projectId: string,
+            body: {
+                url: string;
+                name?: string;
+                folder?: string;
+                alt?: string;
+                title?: string;
+                credit?: string;
+            }
+        ): Promise<Record<string, unknown>> {
+            return client.post(`${base(projectId)}/import`, body);
+        },
         upload(projectId: string, formData: FormData): Promise<Record<string, unknown>> {
             // The instance defaults to JSON, and axios turns FormData into JSON for a JSON
             // request: say multipart, and axios (or the browser) adds the boundary.

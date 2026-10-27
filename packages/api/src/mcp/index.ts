@@ -78,10 +78,13 @@ export function mcpRouter(
         const commands = withPluginCommands(listPluginCommands({ surface: 'mcp' }));
         const server = createServer({
             ...options,
+            // The disk here is the server's: no tool reads or writes paths a caller gives.
+            local: false,
             commands,
             ...(connection ? scopedServerOptions(connection, options.project, commands) : {}),
             routes: spec ? async () => spec : false,
             session: body => ({
+                local: false,
                 client: async () => client,
                 defaultProject: async () => options.project,
                 body: async () => body

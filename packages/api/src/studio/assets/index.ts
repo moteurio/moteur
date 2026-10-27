@@ -25,6 +25,7 @@ import {
     type AssetPatch
 } from '@moteurio/core/assets/assetService.js';
 import { assetUsage } from '@moteurio/core/assets/assetUsage.js';
+import { downloadPublicFile } from '@moteurio/core/utils/publicDownload.js';
 import { PlanLimitError } from '@moteurio/core/planLimits.js';
 import { requireProjectAccess, requireProjectAdmin } from '../../middlewares/auth.js';
 import type { OpenAPIV3 } from 'openapi-types';
@@ -130,6 +131,56 @@ router.post(
                 { folder, alt, title, credit, keepLocalCopy, ...generated }
             );
 
+            return void res.status(201).json(asset);
+        } catch (err: unknown) {
+            return void uploadFailed(res, req, err);
+        }
+    }
+);
+
+const textOf = (v: unknown) => (typeof v === 'string' ? v : undefined);
+
+/**
+ * A file from a public address, added like an upload: what an assistant on the hosted MCP server
+ * uses, since it has no files of its own here. HTTPS only, never a private network address.
+ */
+router.post(
+    '/import',
+    requireProjectAccess,
+    uploadAdmission,
+    async (req: Request<ProjectParams>, res: Response) => {
+        const { projectId } = req.params as Record<string, string>;
+        const { url, name, folder, alt, title, credit } = (req.body ?? {}) as Record<
+            string,
+            unknown
+        >;
+        if (typeof url !== 'string' || !url.trim())
+            return void res.status(400).json({ error: 'Missing url' });
+        let file;
+        try {
+            file = await downloadPublicFile(url, { maxBytes: uploadMaxMb * 1024 * 1024 });
+        } catch (err: unknown) {
+            const message = getMessage(err) ?? 'The file could not be downloaded';
+            return void res
+                .status(message.includes('too large') ? 413 : 422)
+                .json({ error: message });
+        }
+        try {
+            const asset = await uploadAsset(
+                projectId!,
+                req.user!,
+                {
+                    buffer: file.buffer,
+                    originalName: typeof name === 'string' && name.trim() ? name : file.name,
+                    mimeType: file.mimeType
+                },
+                {
+                    folder: textOf(folder),
+                    alt: textOf(alt),
+                    title: textOf(title),
+                    credit: textOf(credit)
+                }
+            );
             return void res.status(201).json(asset);
         } catch (err: unknown) {
             return void uploadFailed(res, req, err);
@@ -479,6 +530,45 @@ const assetJson = {
 };
 
 export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
+    '/projects/{projectId}/assets/import': {
+        post: {
+            summary: 'Add a file from a public address',
+            description:
+                'Downloads the file and adds it like an upload. HTTPS only; private and restricted network addresses are refused, after each redirect too. Same size limit as uploads.',
+            tags: ['Studio Assets'],
+            parameters: [
+                { name: 'projectId', in: 'path', required: true, schema: { type: 'string' } }
+            ],
+            requestBody: {
+                required: true,
+                content: {
+                    'application/json': {
+                        schema: {
+                            type: 'object',
+                            required: ['url'],
+                            properties: {
+                                url: { type: 'string', format: 'uri' },
+                                name: {
+                                    type: 'string',
+                                    description: 'File name (default: from the address)'
+                                },
+                                folder: { type: 'string' },
+                                alt: { type: 'string' },
+                                title: { type: 'string' },
+                                credit: { type: 'string' }
+                            }
+                        }
+                    }
+                }
+            },
+            responses: {
+                '201': { description: 'The asset' },
+                '413': { description: 'The file is too large' },
+                '415': { description: 'A kind of file the project does not allow' },
+                '422': { description: 'The address could not be downloaded, or is not allowed' }
+            }
+        }
+    },
     '/projects/{projectId}/assets': {
         get: {
             summary: 'List assets',

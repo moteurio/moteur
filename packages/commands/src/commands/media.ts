@@ -2,7 +2,7 @@
 /** The media library and where its files live. */
 import fs from 'fs';
 import path from 'path';
-import { group, id, project, type ArgSpec } from '../spec.js';
+import { group, id, project, type ArgSpec, type RunContext } from '../spec.js';
 import { localized } from '../format.js';
 
 const P = '/projects/{project}';
@@ -27,16 +27,56 @@ const TYPES: Record<string, string> = {
     gltf: 'model/gltf+json'
 };
 
-/** A file from disk as a multipart form, with optional fields. */
-function fileForm(file: string, fields: Record<string, unknown> = {}): FormData {
-    if (!fs.existsSync(file) || !fs.statSync(file).isFile()) throw new Error(`No file at ${file}`);
-    const name = path.basename(file);
-    const type = TYPES[path.extname(name).slice(1).toLowerCase()] ?? 'application/octet-stream';
+const typeOf = (name: string) =>
+    TYPES[path.extname(name).slice(1).toLowerCase()] ?? 'application/octet-stream';
+
+/** A file as a multipart form, with optional fields. */
+function formOf(bytes: Buffer, name: string, fields: Record<string, unknown>): FormData {
     const form = new FormData();
-    form.append('file', new Blob([fs.readFileSync(file)], { type }), name);
+    form.append('file', new Blob([new Uint8Array(bytes)], { type: typeOf(name) }), name);
     for (const [k, v] of Object.entries(fields))
         if (v !== undefined) form.append(k, typeof v === 'string' ? v : JSON.stringify(v));
     return form;
+}
+
+/** A file from this machine's disk. Never on a hosted server: its disk isn't the caller's. */
+function fileForm(ctx: RunContext, file: string, fields: Record<string, unknown> = {}): FormData {
+    if (!ctx.local) throw new Error('Files on disk can’t be read here: give content or url.');
+    if (!fs.existsSync(file) || !fs.statSync(file).isFile()) throw new Error(`No file at ${file}`);
+    return formOf(fs.readFileSync(file), path.basename(file), fields);
+}
+
+/** A file given inline, in base64 (a `data:` URL works too). */
+function contentForm(
+    content: string,
+    name: string | undefined,
+    fields: Record<string, unknown> = {}
+): FormData {
+    if (!name) throw new Error('Give the file’s name (name), with its extension.');
+    const base64 = content.replace(/^data:[^,]*;base64,/, '').replace(/\s+/g, '');
+    if (!/^[A-Za-z0-9+/]*={0,2}$/.test(base64)) throw new Error('content is not base64.');
+    return formOf(Buffer.from(base64, 'base64'), path.basename(name), fields);
+}
+
+/** Where the new file comes from: this machine, inline content, or a public address. */
+const sourceArgs = (pathArg: ArgSpec): ArgSpec[] => [
+    pathArg,
+    {
+        name: 'content',
+        description: 'The file itself, in base64 (or a data: URL), with name',
+        in: 'none'
+    },
+    { name: 'name', description: 'The file’s name with its extension, for content', in: 'none' }
+];
+
+function oneSource(ctx: RunContext, pathKey: string, keys: string[]): string {
+    const given = [pathKey, ...keys].filter(k => {
+        const v = ctx.args[k];
+        return Array.isArray(v) ? v.length > 0 : v !== undefined && v !== '';
+    });
+    const usable = ctx.local ? `${pathKey}, ${keys.join(' or ')}` : keys.join(' or ');
+    if (given.length !== 1) throw new Error(`Give one of ${usable}.`);
+    return given[0]!;
 }
 
 /** `--alt "…"` for one language (--lang) or as a plain text. */
@@ -110,12 +150,17 @@ export const media = group('media', [
         summary: 'Add files to the library',
         args: [
             project,
-            {
+            ...sourceArgs({
                 name: 'files',
                 type: 'list',
-                description: 'Paths of the files',
-                required: true,
+                description: 'Paths of the files on this machine',
                 positional: 0,
+                in: 'none',
+                local: true
+            }),
+            {
+                name: 'url',
+                description: 'A public HTTPS address of the file: the server downloads it',
                 in: 'none'
             },
             { name: 'folder', description: 'Put them in this folder', in: 'none' },
@@ -124,25 +169,46 @@ export const media = group('media', [
         run: async ctx => {
             const client = await ctx.client();
             const projectId = await ctx.project();
+            const fields = {
+                folder: ctx.args.folder as string | undefined,
+                alt: ctx.args.alt as string | undefined,
+                title: ctx.args.title as string | undefined,
+                credit: ctx.args.credit as string | undefined
+            };
+            const source = oneSource(ctx, 'files', ['content', 'url']);
+            if (source === 'url')
+                return [
+                    await client.assets.import(projectId, {
+                        url: String(ctx.args.url),
+                        ...(ctx.args.name ? { name: String(ctx.args.name) } : {}),
+                        ...fields
+                    })
+                ];
+            if (source === 'content')
+                return [
+                    await client.assets.upload(
+                        projectId,
+                        contentForm(
+                            String(ctx.args.content),
+                            ctx.args.name as string | undefined,
+                            fields
+                        )
+                    )
+                ];
             const added = [];
             for (const file of ctx.args.files as string[]) {
-                const asset = await client.assets.upload(
-                    projectId,
-                    fileForm(file, {
-                        folder: ctx.args.folder,
-                        alt: ctx.args.alt,
-                        title: ctx.args.title,
-                        credit: ctx.args.credit
-                    })
-                );
+                const asset = await client.assets.upload(projectId, fileForm(ctx, file, fields));
                 ctx.say(`Added ${path.basename(file)} (${(asset as { id?: string }).id ?? ''}).`);
                 added.push(asset);
             }
             return added;
         },
-        covers: [`POST ${P}/assets`],
+        covers: [`POST ${P}/assets`, `POST ${P}/assets/import`],
         done: r => `${(r as unknown[]).length} file(s) added.`,
-        examples: ['moteur media upload photos/*.jpg --folder covers']
+        examples: [
+            'moteur media upload photos/*.jpg --folder covers',
+            'moteur media upload --url https://example.com/inbox.png --alt "The inbox"'
+        ]
     },
     {
         name: 'update',
@@ -214,21 +280,21 @@ export const media = group('media', [
         args: [
             project,
             assetArg,
-            {
+            ...sourceArgs({
                 name: 'file',
-                description: 'Path of the new file',
-                required: true,
+                description: 'Path of the new file on this machine',
                 positional: 1,
-                in: 'none'
-            }
+                in: 'none',
+                local: true
+            })
         ],
         run: async ctx => {
             const client = await ctx.client();
-            return client.assets.replace(
-                await ctx.project(),
-                String(ctx.args.id),
-                fileForm(String(ctx.args.file))
-            );
+            const form =
+                oneSource(ctx, 'file', ['content']) === 'file'
+                    ? fileForm(ctx, String(ctx.args.file))
+                    : contentForm(String(ctx.args.content), ctx.args.name as string | undefined);
+            return client.assets.replace(await ctx.project(), String(ctx.args.id), form);
         },
         covers: [`POST ${P}/assets/{id}/replace`],
         done: (_r, a) => `Replaced ${a.id}.`

@@ -35,6 +35,12 @@ Clients can also supply a member or agent JWT in an `Authorization: Bearer <toke
 
 An agent token can be created with `moteur auth agent-token <name>`. Add `?project=my-project` to choose a default project. The hosted transport accepts POST requests; GET and DELETE return 405 because it keeps no SSE stream or persistent MCP session. `MOTEUR_MCP=off` disables the hosted endpoint.
 
+## Files
+
+A hosted server runs on the API's machine, not the person's, so its tools never read or write files on disk. Tools such as `media_upload` and `submissions_export` leave out their path arguments (`files`, `file`, `out`), and refuse them if given. Instead, `media_upload` takes `content` (the file in base64, or a `data:` URL, with `name`) or `url` (a public HTTPS address the API downloads). `media_replace` takes `content`. `MOTEUR_MCP_BODY_LIMIT` (default `20mb`) is the largest request `/mcp` accepts, so the largest inline file is about three-quarters of that.
+
+The local stdio process runs on the person's machine and keeps the path arguments. Plugin commands get `ctx.local` and should not touch the disk when it is false.
+
 ## Scope and publication
 
 By default, tools act as a review-only agent for the signed-in person. History and assisted-text metadata identify the agent, and publication still needs human approval or publication. The CLI's `--allow-publish` token option lifts that agent restriction; project role and workflow checks continue to apply. An agent cannot approve its own review.
