@@ -45,6 +45,8 @@ function render(page: AnyPage<'one'>) {
 }
 ```
 
+The file also has `MoteurSchema`, for the client: `createMoteurPublicClient<MoteurSchema>(…)` (or `createMoteur<MoteurSchema>` in `@moteurio/astro`) types every answer, and `.locale('fr')` gives a client whose reads come in that language, typed `'one'`. See the [client README](../packages/client/README.md#typed-answers-in-one-language).
+
 The types come from `GET /projects/:projectId/types`. Make them again after a schema changes, in CI for example.
 
 ## Preview tokens

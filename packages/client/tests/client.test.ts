@@ -300,6 +300,47 @@ describe('createMoteurPublicClient', () => {
         expect(capturedRequests[0].url).toBe('/projects/p1/collections/web/posts/entries');
     });
 
+    it('locale() asks every read in its language; a call may ask another', async () => {
+        const fr = createMoteurPublicClient({
+            baseURL: 'https://api.example.com',
+            auth: { type: 'apiKey', apiKey: 'k', projectId: 'p1' }
+        }).locale('fr');
+        expect(fr.language).toBe('fr');
+        await fr.channel('site').pages.list({ resolveAssets: true });
+        await fr.channel('site').entries.get('post', 'hello', { locale: 'en' });
+        await fr.channel('site').menus.get('header');
+        await fr.site.urls();
+        expect(capturedRequests.map(r => [r.url, r.params])).toEqual([
+            ['/projects/p1/collections/site/pages', { locale: 'fr', resolveAssets: '1' }],
+            ['/projects/p1/collections/site/post/entries/hello', { locale: 'en' }],
+            ['/projects/p1/collections/site/menus/header', { locale: 'fr' }],
+            ['/projects/p1/urls', { locale: 'fr' }]
+        ]);
+    });
+
+    it('without a locale, reads ask for none', async () => {
+        const client = createMoteurPublicClient({
+            baseURL: 'https://api.example.com',
+            auth: { type: 'apiKey', apiKey: 'k', projectId: 'p1' }
+        });
+        await client.channel('site').pages.getBySlug('pricing');
+        expect(capturedRequests[0]).toMatchObject({
+            url: '/projects/p1/collections/site/pages/by-slug/pricing'
+        });
+        expect(capturedRequests[0].params).toBeUndefined();
+    });
+
+    it('a preview copy keeps its language', async () => {
+        const fr = createMoteurPublicClient({
+            baseURL: 'https://api.example.com',
+            auth: { type: 'apiKey', apiKey: 'k', projectId: 'p1' }
+        })
+            .locale('fr')
+            .withPreview('tok');
+        await fr.channel('site').pages.list();
+        expect(capturedRequests[0].params).toEqual({ locale: 'fr' });
+    });
+
     it('site.sitemapXml uses GET with text responseType', async () => {
         const client = createMoteurPublicClient({
             baseURL: 'https://api.example.com',

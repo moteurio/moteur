@@ -193,6 +193,29 @@ So: **channel = collection id + typed helpers** in the SDK; on the wire it is `/
 | **`site`**                  | Page **outputs**: `sitemapXml`, `sitemapJson`, `navigation` (published **tree**), `urls`, `breadcrumb` (each takes `locale`), `resolve(path)` and `redirects()`. |
 | **`radar`**                 | `get({ fullScan?, severity?, … })` — quality/readiness report for the project.                                                                                   |
 
+### Typed answers, in one language
+
+`moteur types --out src/moteur.ts` writes the project's types, `MoteurSchema` among them. Give it to the client and every read is typed: model ids are checked, entries and pages have their fields, blocks are a union you can switch on.
+
+```ts
+import { createMoteurPublicClient } from '@moteurio/client';
+import type { MoteurSchema } from './moteur';
+
+const moteur = createMoteurPublicClient<MoteurSchema>({ baseURL, auth });
+
+// As stored: a value per language ({ en, fr }).
+const post = await moteur.channel('site').entries.get('post', 'hello');
+
+// In one language: every multilingual value is a plain value, and typed as such.
+const fr = moteur.locale('fr');
+const pages = await fr.channel('site').pages.list();
+for (const page of pages) if (page.templateId === 'home') page.fields.seo?.title; // string
+
+await fr.site.urls(); // site outputs follow the client's language too
+```
+
+`locale()` sends `?locale=` with every read (a call can ask another: `{ locale: 'en' }`). A call with `locale` answers in one language even on a client without one. Without a schema, answers are typed loosely (`DeliveredEntry`, `DeliveredPage`), never `unknown`.
+
 ### Menus vs `site.navigation`
 
 - **`channel(id).menus.get('main')`** → HTTP `GET /projects/:id/collections/:collectionId/menus/main` — a menu editors build in Studio (Setup › Menus), with item URLs resolved. The collection must give that menu.
