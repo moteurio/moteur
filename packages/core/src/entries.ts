@@ -314,7 +314,15 @@ async function updateEntryUnlocked(
     // The precondition is consumed once; a save followed by publish uses the new version.
     options = options ? { ...options, expectedVersion: undefined } : options;
     const prevStatus = (current.status ?? 'draft') as string;
-    const wantsPublish = patch.status === 'published' && prevStatus !== 'published';
+    // Publishing a live entry again publishes what changed since (the Studio's "Publish
+    // changes"), and data sent along with it; with nothing new, it only confirms the status.
+    const audit = current.meta?.audit;
+    const editedSinceLive =
+        audit?.publishedRevision != null && audit.revision !== audit.publishedRevision;
+    const { status: _wanted, ...withStatus } = patch;
+    const wantsPublish =
+        patch.status === 'published' &&
+        (prevStatus !== 'published' || editedSinceLive || Object.keys(withStatus).length > 0);
     assertCanEdit(user);
     if (
         translatorOnly(user) &&
