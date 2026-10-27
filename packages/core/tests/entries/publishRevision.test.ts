@@ -77,4 +77,41 @@ describe('publishEntry revisions', () => {
             'v1'
         );
     });
+
+    // The Studio's "Publish changes" on a live entry: save, then status 'published'.
+    describe('publishing again through a status change', () => {
+        it('publishes edits made since the entry went live', async () => {
+            await updateEntry(user, projectId, 'article', 'e1', { status: 'published' });
+            await updateEntry(user, projectId, 'article', 'e1', { data: { title: 'v2' } });
+            const live = await getPublishedEntryForProject(projectId, 'article', 'e1');
+            expect(live?.data?.title).toBe('v1');
+
+            const result = await updateEntry(user, projectId, 'article', 'e1', {
+                status: 'published'
+            });
+            expect(result.meta?.audit?.publishedRevision).toBe(result.meta?.audit?.revision);
+            const republished = await getPublishedEntryForProject(projectId, 'article', 'e1');
+            expect(republished?.data?.title).toBe('v2');
+        });
+
+        it('publishes new data sent with the status in the same call', async () => {
+            await updateEntry(user, projectId, 'article', 'e1', { status: 'published' });
+            await updateEntry(user, projectId, 'article', 'e1', {
+                status: 'published',
+                data: { title: 'sent with it' }
+            });
+            const live = await getPublishedEntryForProject(projectId, 'article', 'e1');
+            expect(live?.data?.title).toBe('sent with it');
+        });
+
+        it('makes no new revision when nothing changed since publishing', async () => {
+            const first = await updateEntry(user, projectId, 'article', 'e1', {
+                status: 'published'
+            });
+            const again = await updateEntry(user, projectId, 'article', 'e1', {
+                status: 'published'
+            });
+            expect(again.meta?.audit?.revision).toBe(first.meta?.audit?.revision);
+        });
+    });
 });
