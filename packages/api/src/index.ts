@@ -78,6 +78,7 @@ import { usageLogging } from './middlewares/usageLogging.js';
 import { requestQuota } from './middlewares/requestQuota.js';
 import { studioRateLimiter, publicRateLimitGate } from './middlewares/rateLimit.js';
 import { bootstrapApi } from './openapi/bootstrapApi.js';
+import { trustProxySetting } from './utils/trustProxy.js';
 // Ensure asset storage adapters (e.g. local) are registered before any asset routes run
 import '@moteurio/core/assets/index.js';
 // Video provider config (Mux/Vimeo) is set by video-mux and video-vimeo plugins when enabled
@@ -118,6 +119,8 @@ function getCorsOrigin(): string | string[] {
 
 // Create Express app
 const app = express();
+// Behind a proxy (TRUST_PROXY=1 on Fly), each visitor's own address, for rate limits and logs.
+app.set('trust proxy', trustProxySetting(process.env.TRUST_PROXY));
 
 const basePath = process.env.API_BASE_PATH || '';
 
