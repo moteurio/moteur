@@ -197,7 +197,10 @@ async function deliverPage(page: PageNode, d: Delivery): Promise<PageNode> {
     const own = template.fields as ModelSchema['fields'];
     let fields = (await resolvePageLinks(page.fields, own, d.links, d.linkOptions)) ?? page.fields;
     if (d.choice) fields = (await localizeFields(fields, own, d.schemas, d.choice)) ?? fields;
-    const out = { ...page, fields };
+    // Where it lives, so a page is all a site's route needs.
+    const paths = d.links.urls(page.id);
+    const path = paths[d.choice?.locale ?? d.links.defaultLocale] ?? paths[d.links.defaultLocale];
+    const out = { ...page, path, paths, fields };
     return d.resolveAssets ? resolvePageAssets(d.projectId, out, template, d.schemas) : out;
 }
 

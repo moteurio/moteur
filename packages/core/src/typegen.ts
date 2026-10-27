@@ -170,6 +170,10 @@ export interface Page<F, Template extends string = string> {
     order: number;
     templateId: Template;
     status: 'draft' | 'published';
+    /** Its address: in the language read (\`?locale=\`), otherwise the default language's. */
+    path: string;
+    /** Its address in each language. */
+    paths: Record<Locale, string>;
     fields: F;
     navInclude: boolean;
     navLabel?: string;
@@ -349,8 +353,12 @@ export function generateTypes(input: TypegenInput): string {
     }
 
     const out: string[] = [PRELUDE(input)];
-    const iface = (name: string, label: string, fields: unknown) =>
-        `${doc(label, '')}export interface ${name}<M extends LocaleMode = 'all'> ${objectOf((fields as Fields | undefined) ?? {}, '')}\n`;
+    const iface = (name: string, label: string, fields: unknown) => {
+        const body = objectOf((fields as Fields | undefined) ?? {}, '');
+        // Every type takes the mode; one whose fields don't depend on it says so (no unused-parameter hint).
+        const mode = /\bM\b/.test(body) ? 'M' : '_M';
+        return `${doc(label, '')}export interface ${name}<${mode} extends LocaleMode = 'all'> ${body}\n`;
+    };
 
     if (structureNames.size) out.push('// Structures\n');
     for (const [s, name] of structureNames)
@@ -422,6 +430,8 @@ export interface MoteurContent<M extends LocaleMode = 'all'> {
  */
 export interface MoteurSchema {
     locale: Locale;
+    /** The project's own blocks are \`\${namespace}/…\`: \`defineBlocks\` names them without it. */
+    namespace: ${quote(input.projectId)};
     all: MoteurContent<'all'>;
     one: MoteurContent<'one'>;
 }
