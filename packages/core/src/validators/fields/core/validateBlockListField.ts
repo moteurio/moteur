@@ -36,6 +36,7 @@ export function validateBlockListField(
         issuePrefix: 'blockList',
         projectId: context?.projectId,
         allowHtmlIframe: context?.allowHtmlIframe === true,
-        allowHtmlEmbed: context?.allowHtmlEmbed === true
+        allowHtmlEmbed: context?.allowHtmlEmbed === true,
+        structures: context?.structures
     });
 }

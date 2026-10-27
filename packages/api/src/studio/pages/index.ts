@@ -12,6 +12,7 @@ import {
     validateAllPages
 } from '@moteurio/core/pages.js';
 import { getTemplate } from '@moteurio/core/templates.js';
+import { pageReferrers } from '@moteurio/core/contentReferences.js';
 import { resolvePageAssets } from '@moteurio/core/assets/assetResolver.js';
 import { submitForPageReview } from '@moteurio/core/reviews.js';
 import { PlanLimitError } from '@moteurio/core/planLimits.js';
@@ -79,6 +80,18 @@ router.get('/:id', requireProjectAccess, async (req: Request, res: Response) => 
             out = await resolvePageAssets(projectId, page, template);
         }
         return void res.json(out);
+    } catch (err: unknown) {
+        return void sendApiError(res, req, err);
+    }
+});
+
+/** What links to the page or relates to it: entries and other pages (shown before deleting it). */
+router.get('/:id/referrers', requireProjectAccess, async (req: Request, res: Response) => {
+    const { projectId, id } = req.params as Record<string, string>;
+    if (!projectId || !id) return void res.status(400).json({ error: 'Missing projectId or id' });
+    try {
+        await getPageWithAuth(req.user!, projectId, id);
+        return void res.json({ referrers: await pageReferrers(projectId, id) });
     } catch (err: unknown) {
         return void sendApiError(res, req, err);
     }
@@ -427,6 +440,57 @@ const pagePaths: Record<string, OpenAPIV3.PathItemObject> = {
                         }
                     }
                 }
+            }
+        }
+    },
+    '/projects/{projectId}/pages/{id}/referrers': {
+        get: {
+            summary: 'What links to a page',
+            description:
+                'The entries and other pages that link to this page (a link with a pageId) or relate to it (a relation to pages), at any depth of their fields. Deleting the page leaves those links marked missing.',
+            tags: ['Pages'],
+            responses: {
+                '200': {
+                    description: 'Each place that points at the page',
+                    content: {
+                        'application/json': {
+                            schema: {
+                                type: 'object',
+                                properties: {
+                                    referrers: {
+                                        type: 'array',
+                                        items: {
+                                            type: 'object',
+                                            required: ['from', 'path', 'via', 'to'],
+                                            properties: {
+                                                from: {
+                                                    type: 'object',
+                                                    required: ['kind', 'id'],
+                                                    properties: {
+                                                        kind: {
+                                                            type: 'string',
+                                                            enum: ['entry', 'page']
+                                                        },
+                                                        id: { type: 'string' },
+                                                        modelId: { type: 'string' },
+                                                        label: { type: 'string' }
+                                                    }
+                                                },
+                                                path: {
+                                                    type: 'string',
+                                                    example: 'body[2].data.cta'
+                                                },
+                                                via: { type: 'string', enum: ['link', 'relation'] },
+                                                to: { type: 'object' }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                '404': { description: 'Page not found' }
             }
         }
     },

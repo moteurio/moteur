@@ -36,6 +36,7 @@ import './core/text.js';
 import './core/textarea.js';
 import './core/time.js';
 import './core/url.js';
+import './core/variant.js';
 import './core/video.js';
 import './media/image.js'; // core/media-image
 import './core/image.js'; // core/image - depends on core/media-image

@@ -1,13 +1,10 @@
-import type { Entry } from '@moteurio/types/Model.js';
 import type { RadarGraph, RadarGraphEntry } from '@moteurio/types/Radar.js';
-import { getProjectJson, listProjectKeys } from '../utils/projectStorage.js';
-import { modelListPrefix, entryKey, entryListPrefix } from '../utils/storageKeys.js';
 import { getProjectById } from '../projects.js';
-import { getModelSchemaForProject } from '../models.js';
+import { projectRecords, projectReferences } from '../contentReferences.js';
 
 /**
  * Build the in-memory content graph for Radar scans.
- * Used for cross-entry rules (broken-relation, orphaned-entry).
+ * Used for cross-record rules (broken-relation, orphaned-entry, links to pages).
  */
 export async function buildRadarGraph(projectId: string): Promise<RadarGraph> {
     const project = await getProjectById(projectId);
@@ -15,78 +12,57 @@ export async function buildRadarGraph(projectId: string): Promise<RadarGraph> {
         ? [project.defaultLocale, ...(project.supportedLocales ?? [])].filter(Boolean)
         : [];
 
-    const modelIds = await listProjectKeys(projectId, modelListPrefix());
+    const { records, entries: loaded, pages } = await projectRecords(projectId);
     const entries = new Map<string, RadarGraphEntry>();
-    const models = new Map<
-        string,
-        { id: string; fields: Record<string, { type?: string; options?: Record<string, unknown> }> }
-    >();
-    const referrers = new Map<string, string[]>();
-
-    for (const modelId of modelIds) {
-        const schema = await getModelSchemaForProject(projectId, modelId);
-        if (!schema) continue;
-        models.set(modelId, {
-            id: schema.id,
-            fields: Object.fromEntries(
-                Object.entries(schema.fields ?? {}).map(([k, f]) => [
-                    k,
-                    { type: f.type, options: f.options }
-                ])
-            )
-        });
-
-        const entryIds = await listProjectKeys(projectId, entryListPrefix(modelId));
-        for (const entryId of entryIds) {
-            const key = entryKey(modelId, entryId);
-            const entry = await getProjectJson<Entry>(projectId, key);
-            if (!entry) continue;
-            const slug = entry.id;
-            entries.set(slug, {
-                slug,
-                modelId,
-                data: entry.data ?? {},
-                status: entry.status,
-                meta: entry.meta
+    const models: RadarGraph['models'] = new Map();
+    for (const { entry, schema } of loaded) {
+        if (!models.has(schema.id))
+            models.set(schema.id, {
+                id: schema.id,
+                fields: Object.fromEntries(
+                    Object.entries(schema.fields ?? {}).map(([k, f]) => [
+                        k,
+                        { type: f.type, options: f.options }
+                    ])
+                )
             });
-        }
+        entries.set(entry.id, {
+            slug: entry.id,
+            modelId: schema.id,
+            data: entry.data ?? {},
+            status: entry.status,
+            meta: entry.meta
+        });
     }
 
-    // Build referrers: for each entry, who points to it via core/relation or core/relations
-    for (const [, e] of entries) {
-        const model = models.get(e.modelId);
-        if (!model) continue;
-        for (const [fieldKey, fieldDef] of Object.entries(model.fields)) {
-            const type = fieldDef?.type;
-            const value = e.data[fieldKey];
-            if (type === 'core/relation' && value != null) {
-                const refId =
-                    typeof value === 'object' && value !== null && 'id' in value
-                        ? (value as { id: string }).id
-                        : typeof value === 'string'
-                          ? value
-                          : null;
-                if (refId && refId.trim() !== '') {
-                    const arr = referrers.get(refId) ?? [];
-                    if (!arr.includes(e.slug)) arr.push(e.slug);
-                    referrers.set(refId, arr);
-                }
-            }
-            if (type === 'core/relations' && Array.isArray(value)) {
-                for (const item of value) {
-                    const refId =
-                        typeof item === 'object' && item !== null && 'id' in item
-                            ? (item as { id: string }).id
-                            : null;
-                    if (refId && refId.trim() !== '') {
-                        const arr = referrers.get(refId) ?? [];
-                        if (!arr.includes(e.slug)) arr.push(e.slug);
-                        referrers.set(refId, arr);
-                    }
-                }
-            }
-        }
+    // Relations at any depth, stored as a plain id or as { id }.
+    const references = await projectReferences(projectId, records);
+
+    // Who points to each entry: other entries, or pages.
+    const referrers = new Map<string, string[]>();
+    for (const ref of references) {
+        if (ref.to.kind !== 'entry') continue;
+        const arr = referrers.get(ref.to.id) ?? [];
+        if (!arr.includes(ref.from.id)) arr.push(ref.from.id);
+        referrers.set(ref.to.id, arr);
     }
 
-    return { entries, models, referrers, locales };
+    return {
+        entries,
+        models,
+        referrers,
+        locales,
+        pages: new Map(
+            pages.map(p => [
+                p.id,
+                {
+                    id: p.id,
+                    label: p.label,
+                    type: p.type,
+                    ...('status' in p && { status: p.status })
+                }
+            ])
+        ),
+        references
+    };
 }

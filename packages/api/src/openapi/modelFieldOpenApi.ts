@@ -71,6 +71,25 @@ function referenceStub(description?: string): OpenAPIV3.SchemaObject {
     };
 }
 
+/** A page as a page relation delivers it. */
+function pageSummarySchema(description: string): OpenAPIV3.SchemaObject {
+    return {
+        type: 'object',
+        required: ['id', 'label', 'url'],
+        description,
+        properties: {
+            id: { type: 'string' },
+            label: { type: 'string' },
+            url: localeValueSchema({ type: 'string', description: "The page's address" }),
+            fields: {
+                type: 'object',
+                additionalProperties: true,
+                description: "The page's fields named in the relation's `fields` option"
+            }
+        }
+    };
+}
+
 /**
  * Map a model field definition to a JSON Schema fragment for `entry.data.<key>`.
  */
@@ -125,6 +144,61 @@ export function openApiSchemaForModelField(
             type: 'array',
             description: desc,
             items: openApiSchemaForModelField({ ...field, type: 'core/asset' }, resolveDepth)
+        };
+    }
+    if (
+        (type === 'core/relation' || type === 'core/relations') &&
+        field.options?.target === 'pages'
+    ) {
+        const summary = pageSummarySchema(
+            `${desc}. Pages that are gone or not live are left out (a single relation is null).`
+        );
+        return type === 'core/relations'
+            ? { type: 'array', description: desc, items: summary }
+            : { ...summary, nullable: true };
+    }
+    if (type === 'core/link') {
+        return {
+            type: 'object',
+            description: desc,
+            additionalProperties: true,
+            properties: {
+                url: localeValueSchema({
+                    type: 'string',
+                    description: "Where it goes: for a link to a page, the page's address"
+                }),
+                pageId: { type: 'string', description: 'Set when the link points at a page' },
+                missing: {
+                    type: 'boolean',
+                    description: 'True when its page is gone or not live: there is no `url`'
+                },
+                label: localeValueSchema({ type: 'string' }),
+                ariaLabel: localeValueSchema({ type: 'string' })
+            }
+        };
+    }
+    if (type === 'core/variant') {
+        const variants = (field.options?.variants ?? {}) as Record<
+            string,
+            { label?: unknown; fields?: Record<string, Field> }
+        >;
+        return {
+            description: desc,
+            oneOf: Object.entries(variants).map(([kind, variant]) => {
+                const shape = openApiEntryDataSchema(
+                    plainText(variant.label, kind),
+                    variant.fields ?? {},
+                    undefined,
+                    resolveDepth
+                );
+                return {
+                    ...shape,
+                    description: plainText(variant.label, kind),
+                    required: ['kind'],
+                    properties: { kind: { type: 'string', enum: [kind] }, ...shape.properties }
+                };
+            }),
+            discriminator: { propertyName: 'kind' }
         };
     }
     if (type === 'core/relation' || type === 'core/relations') {

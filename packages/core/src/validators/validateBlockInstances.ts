@@ -4,12 +4,15 @@ import { validateFieldValue } from './validateFieldValue.js';
 import type { Field } from '@moteurio/types/Field.js';
 import type { ValidationIssue } from '@moteurio/types/ValidationResult.js';
 import type { Block } from '@moteurio/types/Block.js';
+import type { StructureSchema } from '@moteurio/types/Structure.js';
 
 export interface ValidateBlockInstancesOptions {
     /** When set, block schemas include project-scoped definitions (data/projects/&lt;id&gt;/blocks). */
     projectId?: string;
     allowHtmlIframe?: boolean;
     allowHtmlEmbed?: boolean;
+    /** The project's structures, passed on to the blocks' fields. */
+    structures?: Record<string, StructureSchema>;
     /** Project locales for block.locales validation */
     projectLocales?: string[];
     /** If set, each block `type` must be in this list */
@@ -149,7 +152,8 @@ export function validateBlockInstances(
                 ...validateFieldValue(fieldValue, fieldDef, fieldPath, {
                     projectId: options?.projectId,
                     allowHtmlIframe: options?.allowHtmlIframe === true,
-                    allowHtmlEmbed: options?.allowHtmlEmbed === true
+                    allowHtmlEmbed: options?.allowHtmlEmbed === true,
+                    structures: options?.structures
                 })
             );
         }

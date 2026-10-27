@@ -8,6 +8,13 @@ type Page = Record<string, unknown>;
 /** The API answers with the page itself; callers get it as `{ page }`. */
 const wrap = (p: Promise<Page>): Promise<{ page: Page }> => p.then(page => ({ page }));
 
+/** One place an entry or a page points at a page. */
+export type PageReferrer = {
+    from: { kind: 'entry' | 'page'; id: string; modelId?: string; label?: string };
+    path: string;
+    via: 'link' | 'relation';
+};
+
 export type PageMove = { id: string; parentId: string | null; order: number };
 
 export function projectPagesApi(client: MoteurClient) {
@@ -44,6 +51,10 @@ export function projectPagesApi(client: MoteurClient) {
             return client
                 .post<Page[]>(`${base(projectId)}/reorder`, moves)
                 .then(pages => ({ pages }));
+        },
+        /** What links to the page or relates to it: entries and other pages, at any depth. */
+        referrers(projectId: string, pageId: string): Promise<{ referrers: PageReferrer[] }> {
+            return client.get(`${base(projectId)}/${encodeURIComponent(pageId)}/referrers`);
         },
         delete(projectId: string, pageId: string): Promise<void> {
             return client.delete(`${base(projectId)}/${encodeURIComponent(pageId)}`);

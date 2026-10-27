@@ -1,6 +1,7 @@
 import type { Field } from '@moteurio/types/Field.js';
 import type { Layout } from '@moteurio/types/Layout.js';
 import type { ValidationIssue } from '@moteurio/types/ValidationResult.js';
+import type { StructureSchema } from '@moteurio/types/Structure.js';
 import { getProjectJson } from '../utils/projectStorage.js';
 import { layoutKey } from '../utils/storageKeys.js';
 import { BlockRegistry } from '../registry/BlockRegistry.js';
@@ -26,6 +27,7 @@ export async function validateLayoutFieldValues(
         projectLocales?: string[];
         allowHtmlIframe?: boolean;
         allowHtmlEmbed?: boolean;
+        structures?: Record<string, StructureSchema>;
     }
 ): Promise<ValidationIssue[]> {
     const issues: ValidationIssue[] = [];
@@ -137,7 +139,8 @@ export async function validateLayoutFieldValues(
                     ...validateFieldValue(fieldValue, fieldDef, fieldPath, {
                         projectId,
                         allowHtmlIframe: options?.allowHtmlIframe === true,
-                        allowHtmlEmbed: options?.allowHtmlEmbed === true
+                        allowHtmlEmbed: options?.allowHtmlEmbed === true,
+                        structures: options?.structures
                     })
                 );
             }

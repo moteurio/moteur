@@ -3,6 +3,7 @@ import { ModelSchema } from '@moteurio/types/Model.js';
 import { ValidationResult } from '@moteurio/types/ValidationResult.js';
 import { validateFieldsAgainstSchema } from './validateFieldsAgainstSchema.js';
 import { validateLayoutFieldValues } from './validateLayoutFieldValues.js';
+import { listStructures } from '../structures.js';
 
 export async function validateEntry(
     projectId: string,
@@ -20,8 +21,11 @@ export async function validateEntry(
     }
 ): Promise<ValidationResult> {
     const pathPrefix = `models/${schema.id}/entries/${entry.id}.data`;
+    // Read once: structure fields at any depth look their schema up here.
+    const structures = await listStructures(projectId);
     const fieldOpts = {
         projectId,
+        structures,
         allowHtmlIframe: options?.allowHtmlIframe === true,
         allowHtmlEmbed: options?.allowHtmlEmbed === true,
         requiredAsWarning: options?.draft === true
@@ -42,7 +46,8 @@ export async function validateEntry(
         {
             projectLocales: options?.projectLocales,
             allowHtmlIframe: options?.allowHtmlIframe === true,
-            allowHtmlEmbed: options?.allowHtmlEmbed === true
+            allowHtmlEmbed: options?.allowHtmlEmbed === true,
+            structures
         }
     );
     issues.push(...layoutFieldIssues);

@@ -93,6 +93,15 @@ export async function listStructures(project?: string): Promise<Record<string, S
     return merged;
 }
 
+/** A structure from a list of them, by "name" or "namespace/name" ("cta" is "core/cta"). */
+export function findStructure(
+    registry: Record<string, StructureSchema>,
+    id: string
+): StructureSchema | undefined {
+    const type = id.replace(/\.json$/, '');
+    return registry[type] ?? registry[normalizeType(type)];
+}
+
 /** Sync: get a structure from core namespace only. Used by validators. */
 export function getStructureFromCore(id: string): StructureSchema {
     const type = id.endsWith('.json') ? id.replace(/\.json$/, '') : id;

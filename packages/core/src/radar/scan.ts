@@ -1,8 +1,12 @@
 import type { RadarViolation, RadarReport } from '@moteurio/types/Radar.js';
 import { buildRadarGraph } from './graph.js';
-import { runAllRules } from './rules/index.js';
+import { runAllRules, pageLinkViolations, PAGES_MODEL_SLUG } from './rules/index.js';
 import { loadRadarReport, saveRadarReport, computeSummary } from './storage.js';
 import { dispatch as webhookDispatch } from '../webhooks/webhookService.js';
+
+/** A violation of this entry (a page's have the `pages` model). */
+const isEntryViolation = (v: RadarViolation, entryId: string) =>
+    v.entrySlug === entryId && v.modelSlug !== PAGES_MODEL_SLUG;
 
 export interface ScanOptions {
     source?: 'studio' | 'api' | 'scheduler';
@@ -33,6 +37,9 @@ export async function runFullScan(projectId: string, options?: ScanOptions): Pro
         };
         violations.push(...runAllRules(ctx));
     }
+    // Pages are checked for their links to pages (entries are, by the rules above).
+    for (const [, page] of graph.pages ?? [])
+        violations.push(...pageLinkViolations(graph, { kind: 'page', id: page.id }));
 
     const summary = computeSummary(violations);
     const report: RadarReport = { scannedAt: now, summary, violations };
@@ -86,7 +93,7 @@ export async function runEntryScan(
     if (!entry) {
         const existing = await loadRadarReport(projectId);
         if (existing) {
-            const violations = existing.violations.filter(v => v.entrySlug !== entryId);
+            const violations = existing.violations.filter(v => !isEntryViolation(v, entryId));
             const summary = computeSummary(violations);
             const report: RadarReport = {
                 scannedAt: new Date().toISOString(),
@@ -131,7 +138,7 @@ export async function runEntryScan(
     const now = new Date().toISOString();
 
     const previous = await loadRadarReport(projectId);
-    const otherViolations = (previous?.violations ?? []).filter(v => v.entrySlug !== entryId);
+    const otherViolations = (previous?.violations ?? []).filter(v => !isEntryViolation(v, entryId));
     const violations = [...otherViolations, ...entryViolations];
     const summary = computeSummary(violations);
     const report: RadarReport = { scannedAt: now, summary, violations };
@@ -139,7 +146,7 @@ export async function runEntryScan(
 
     const source = options?.source ?? 'api';
     const prevForEntry = new Set(
-        (previous?.violations ?? []).filter(v => v.entrySlug === entryId).map(v => v.id)
+        (previous?.violations ?? []).filter(v => isEntryViolation(v, entryId)).map(v => v.id)
     );
     const newForEntry = new Set(entryViolations.map(v => v.id));
     for (const v of entryViolations) {
@@ -156,7 +163,7 @@ export async function runEntryScan(
         }
     }
     for (const v of previous?.violations ?? []) {
-        if (v.entrySlug === entryId && !newForEntry.has(v.id)) {
+        if (isEntryViolation(v, entryId) && !newForEntry.has(v.id)) {
             try {
                 await webhookDispatch(
                     'radar.violation.resolved',

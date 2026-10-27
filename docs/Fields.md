@@ -55,7 +55,7 @@ Anchors follow common Markdown slug rules (`core/foo` → `#core-foo`). If a vie
 
 **Links & contact:** [core/email](#core-email) · [core/link](#core-link) · [core/phone](#core-phone) · [core/slug](#core-slug) · [core/url](#core-url)
 
-**Structured data:** [core/json](#core-json) · [core/list](#core-list) · [core/object](#core-object) · [core/structure](#core-structure) · [core/table](#core-table) · [core/layout](#core-layout) · [core/block-list](#core-block-list)
+**Structured data:** [core/json](#core-json) · [core/list](#core-list) · [core/object](#core-object) · [core/structure](#core-structure) · [core/variant](#core-variant) · [core/table](#core-table) · [core/layout](#core-layout) · [core/block-list](#core-block-list)
 
 **Relations:** [core/categories](#core-categories) · [core/relation](#core-relation) · [core/relations](#core-relations) · [core/tags](#core-tags)
 
@@ -123,6 +123,7 @@ Studio groups types like `fieldTypes.tsx`. **core/media-image** is documented he
 | core/list       | Repeater with item schema                 |
 | core/object     | Bag of nested fields you define           |
 | core/structure  | Object validated by shared structure      |
+| core/variant    | One of several shapes, chosen by `kind`   |
 | core/table      | 2D grid + optional titles / source link   |
 | core/layout     | `layoutId` + slot payloads vs Layout file |
 | core/block-list | Freeform `Block[]`                        |
@@ -820,9 +821,11 @@ The URLs can point anywhere. To host the files in Moteur, upload them to the ass
 
 **Category:** Links & contact · **Source:** `packages/core/src/fields/core/link.ts`
 
-**What it does:** **Structured link:** URL, optional **label** and **ariaLabel**, plus behavior flags (`target`, `rel`, `download`, etc.).
+**What it does:** **Structured link:** a URL or a **page** of the project, optional **label** and **ariaLabel**, plus behavior flags (`target`, `rel`, `download`, etc.).
 
 **When to use it:** CTAs, nav items, accessible buttons-as-links. For a bare URL string, **core/url** is simpler.
+
+**Links to pages.** Store `pageId` instead of `url`. Delivery fills `url` with the page's current address: one per language (`{ "en": "/pricing", "fr": "/fr/tarifs" }`), or the string in one language with `?locale=`. Moving or renaming the page changes every link to it. When the page is gone, a folder, or not live for the reader (a draft outside preview), the link comes with `missing: true` and no `url`, so a site can show its label without a dead link. A `url` stored beside a `pageId` is ignored (a warning on save). This works at any depth: inside blocks, lists, structures and variants.
 
 | Option         | Type    | Default | Description                                  |
 | -------------- | ------- | ------- | -------------------------------------------- |
@@ -842,6 +845,20 @@ The URLs can point anywhere. To host the files in Moteur, upload them to the ass
     "url": { "en": "/pricing" },
     "label": { "en": "View pricing" },
     "ariaLabel": { "en": "Go to pricing page" }
+}
+```
+
+To a page, stored and then delivered:
+
+```json
+{ "pageId": "pricing", "label": { "en": "View pricing" } }
+```
+
+```json
+{
+    "pageId": "pricing",
+    "label": { "en": "View pricing" },
+    "url": { "en": "/pricing", "fr": "/fr/tarifs" }
 }
 ```
 
@@ -1038,11 +1055,11 @@ Declare the children under `fields` on the definition; Studio then shows them as
 
 **When to use it:** Repeatable “business cards”: address blocks, author bios, specs—define once, reference everywhere.
 
-| Option         | Type   | Default | Description                                       |
-| -------------- | ------ | ------- | ------------------------------------------------- |
-| `structure`    | text   | —       | ID of shared structure (e.g. `myApp/teamMember`). |
-| `inlineSchema` | object | —       | Full inline field map instead of id.              |
-| `ui`           | text   | —       | Studio hint.                                      |
+| Option         | Type   | Default | Description                                                                      |
+| -------------- | ------ | ------- | -------------------------------------------------------------------------------- |
+| `structure`    | text   | —       | ID of shared structure (e.g. `myApp/teamMember`): the project's or the engine's. |
+| `inlineSchema` | object | —       | Full inline field map instead of id.                                             |
+| `ui`           | text   | —       | Studio hint.                                                                     |
 
 **Value example**
 
@@ -1053,6 +1070,66 @@ Declare the children under `fields` on the definition; Studio then shows them as
         "role": { "en": "Editor" }
     }
 }
+```
+
+---
+
+## core/variant
+
+**Category:** Structured data · **Source:** `packages/core/src/fields/core/variant.ts`
+
+**What it does:** **One of several shapes**, each with its own fields, chosen by its `kind`. Stored flat: the chosen variant's fields beside its kind.
+
+**When to use it:** A value that can be different things: an exhibit that is an image, a code listing or a video; a quote or an open call; the steps of a script (in a **core/list** of variants). One field instead of a block list limited to one block.
+
+| Option       | Type    | Default       | Description                                                                       |
+| ------------ | ------- | ------------- | --------------------------------------------------------------------------------- |
+| `variants`   | object  | **required**  | The shapes by kind: `{ "<kind>": { "label", "description"?, "fields": { … } } }`. |
+| `default`    | text    | first variant | The kind a new value starts as.                                                   |
+| `allowEmpty` | boolean | `false`       | Allow no value.                                                                   |
+| `ui`         | text    | —             | Studio hint.                                                                      |
+
+A kind is lowercase letters, digits and hyphens. A variant can't have a field called `kind`. Saving checks the chosen kind's fields; fields left from another kind (after switching) are a warning. Page links, page relations and nested blocks inside a variant are resolved on delivery like anywhere else.
+
+**Field example**
+
+```json
+{
+    "type": "core/variant",
+    "label": "Exhibit",
+    "options": {
+        "variants": {
+            "image": {
+                "label": "Image",
+                "fields": {
+                    "src": {
+                        "type": "core/asset",
+                        "label": "Picture",
+                        "options": { "required": true }
+                    },
+                    "alt": {
+                        "type": "core/text",
+                        "label": "Alt text",
+                        "options": { "multilingual": true }
+                    }
+                }
+            },
+            "code": {
+                "label": "Code",
+                "fields": {
+                    "language": { "type": "core/text", "label": "Language" },
+                    "code": { "type": "core/textarea", "label": "Code" }
+                }
+            }
+        }
+    }
+}
+```
+
+**Value example**
+
+```json
+{ "kind": "image", "src": { "assetId": "a-12" }, "alt": { "en": "The inbox" } }
 ```
 
 ---
@@ -1193,16 +1270,39 @@ Declare the children under `fields` on the definition; Studio then shows them as
 
 **Category:** Relations · **Source:** `packages/core/src/fields/core/relation.ts`
 
-**What it does:** **One** link to an **entry** in another **model**—stored as an object with **id**, **label**, **model** (exact shape per API).
+**What it does:** **One** link to an **entry** in another **model**—stored as an object with **id**, **label**, **model** (exact shape per API)—or, with `target: "pages"`, to a **page**, stored as its id.
 
 **When to use it:** Author, brand, parent page—single reference.
 
-| Option       | Type    | Default      | Description                                               |
-| ------------ | ------- | ------------ | --------------------------------------------------------- |
-| `model`      | text    | **required** | Target model id.                                          |
-| `labelField` | text    | —            | Which field to show as label (default: first text field). |
-| `allowEmpty` | boolean | `false`      | Allow no selection.                                       |
-| `ui`         | text    | —            | Studio hint (`search`, `dropdown`, …).                    |
+**Relations to pages.** Delivery turns each page into `{ id, label, url, fields }`: `url` as for a link to a page (one per language, or one string with `?locale=`), and `fields` holding only the page fields named in the `fields` option, so a list of related pages doesn't carry their blocks. A page that is gone, a folder, or not live for the reader is left out (a single relation becomes `null`). This works at any depth, like page links.
+
+```json
+{
+    "type": "core/relations",
+    "label": "Keep reading",
+    "options": { "target": "pages", "fields": ["seo"] }
+}
+```
+
+```json
+[
+    {
+        "id": "forms",
+        "label": "Forms",
+        "url": "/forms",
+        "fields": { "seo": { "title": "Forms", "description": "…" } }
+    }
+]
+```
+
+| Option       | Type    | Default   | Description                                               |
+| ------------ | ------- | --------- | --------------------------------------------------------- |
+| `target`     | select  | `entries` | `entries` of a model, or `pages` of the site.             |
+| `model`      | text    | —         | Target model id (required for entries).                   |
+| `fields`     | list    | —         | For pages: page fields delivered with each (e.g. `seo`).  |
+| `labelField` | text    | —         | Which field to show as label (default: first text field). |
+| `allowEmpty` | boolean | `false`   | Allow no selection.                                       |
+| `ui`         | text    | —         | Studio hint (`search`, `dropdown`, …).                    |
 
 **Value example**
 
@@ -1222,19 +1322,21 @@ Declare the children under `fields` on the definition; Studio then shows them as
 
 **Category:** Relations · **Source:** `packages/core/src/fields/core/relations.ts`
 
-**What it does:** **Many** entry references—same reference object shape as **core/relation**, in an array.
+**What it does:** **Many** entry references—same reference object shape as **core/relation**, in an array. With `target: "pages"`, many pages, delivered as page summaries (see **core/relation**).
 
 **When to use it:** Related articles, curated lists, many-to-many through explicit picks.
 
-| Option       | Type    | Default      | Description                    |
-| ------------ | ------- | ------------ | ------------------------------ |
-| `model`      | text    | **required** | Target model id.               |
-| `labelField` | text    | —            | Label field on target entries. |
-| `allowEmpty` | boolean | `true`       | Allow empty array.             |
-| `sortable`   | boolean | `true`       | Reorder in Studio.             |
-| `minItems`   | number  | `0`          | Minimum relations.             |
-| `maxItems`   | number  | —            | Maximum relations.             |
-| `ui`         | text    | —            | Studio hint.                   |
+| Option       | Type    | Default   | Description                    |
+| ------------ | ------- | --------- | ------------------------------ |
+| `target`     | select  | `entries` | `entries` or `pages`.          |
+| `model`      | text    | —         | Target model (for entries).    |
+| `fields`     | list    | —         | For pages: fields to deliver.  |
+| `labelField` | text    | —         | Label field on target entries. |
+| `allowEmpty` | boolean | `true`    | Allow empty array.             |
+| `sortable`   | boolean | `true`    | Reorder in Studio.             |
+| `minItems`   | number  | `0`       | Minimum relations.             |
+| `maxItems`   | number  | —         | Maximum relations.             |
+| `ui`         | text    | —         | Studio hint.                   |
 
 **Value example**
 

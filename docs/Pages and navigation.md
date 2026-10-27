@@ -36,6 +36,12 @@ Every page and entry then has one address per language. `/urls` and `sitemap.jso
 
 `GET /projects/:projectId/resolve?path=/fr/a-propos` says what lives at a path, for a site's catch-all route: `{ match: "page", locale, nodeId, entryId?, alternates… }`, or `{ match: "redirect", to, status }`, or 404.
 
+## Links to pages
+
+A `core/link` field can point at a page (`pageId`) instead of a URL, and a `core/relation` or `core/relations` field can point at pages (`target: "pages"`). Delivery gives each the page's current address, in every language, so a page that moves takes its links with it. See [Fields](Fields.md#core-link).
+
+`GET /projects/:projectId/pages/:id/referrers` lists what points at a page: each entry or page, the field (`hero.cta`, `body[2].data.link`) and whether it is a link or a relation. Studio shows it before a page is deleted. A deleted page's links stay, marked `missing: true` on delivery, and Radar reports them (`broken-page-link`, or `page-link-to-draft` for a page that isn't published) until they are changed. Page problems have `modelSlug: "pages"`.
+
 ## Redirects
 
 `/projects/:projectId/redirects` lists old addresses and where they go (`from`, `to`, `status` 301 or 302, optional `note`). They are kept in `redirects.json`, in Git with the pages. A site or its host reads the list with a project key and applies it, or asks `resolve` path by path.
