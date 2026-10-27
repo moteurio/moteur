@@ -1,6 +1,6 @@
 /** Entries and the models they follow. */
 import { group, id, model, project, type ArgSpec, type Column } from '../spec.js';
-import { crud, revisions, setPairs, SET_ARG } from '../kit.js';
+import { crud, layOver, revisions, setPairs, SET_ARG } from '../kit.js';
 import { localized } from '../format.js';
 import { fillPath } from '../execute.js';
 
@@ -196,15 +196,25 @@ export const entries = group('entries', [
         run: async ctx => {
             const body = await ctx.body();
             const set = setPairs(ctx.args.set);
-            const patch = Object.keys(set).length
-                ? { ...body, data: { ...((body.data as Record<string, unknown>) ?? {}), ...set } }
-                : body;
-            if (!Object.keys(patch).length)
+            if (!Object.keys(set).length && !Object.keys(body).length)
                 throw new Error(
                     'Nothing to change: add --set field=value, or JSON with --file/--data'
                 );
             const client = await ctx.client();
-            return client.patch(fillPath(ENTRY, ctx.args, await ctx.project()), patch);
+            const url = fillPath(ENTRY, ctx.args, await ctx.project());
+            if (!Object.keys(set).length) return client.patch(url, body);
+            // The API replaces a field whole, so `title.en=…` is laid over the title the entry
+            // has now: English changes, the other languages stay.
+            type Saved = { data?: Record<string, unknown> };
+            const got = await client.get<{ entry?: Saved } & Saved>(url);
+            const now = (got.entry ?? got).data ?? {};
+            const fields = Object.fromEntries(
+                Object.entries(set).map(([key, value]) => [key, layOver(now[key], value)])
+            );
+            return client.patch(url, {
+                ...body,
+                data: { ...((body.data as Record<string, unknown>) ?? {}), ...fields }
+            });
         },
         covers: [`PATCH ${ENTRY}`],
         done: (_r, a) => `Saved ${a.model}/${a.id}.`,

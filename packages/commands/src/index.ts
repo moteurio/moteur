@@ -46,7 +46,7 @@ export * from './spec.js';
 export * from './execute.js';
 export * from './format.js';
 export * from './coverage.js';
-export { crud, revisions, setPairs, SET_ARG } from './kit.js';
+export { crud, layOver, revisions, setPairs, SET_ARG } from './kit.js';
 export {
     loadConfig,
     saveConfig,
