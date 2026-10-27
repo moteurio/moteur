@@ -4,6 +4,8 @@ import type { Field } from '@moteurio/types/Field.js';
 import type { Entry } from '@moteurio/types/Model.js';
 import type { ModelSchema } from '@moteurio/types/Model.js';
 import { getModelSchemaForProject } from './models.js';
+import { listStructures } from './structures.js';
+import { walkFields, type FieldWalkSchemas } from './fieldWalk.js';
 import { isLikelyLocaleStringMap, isPlainObject } from './validators/fieldValueUtils.js';
 
 function pickFromLocaleMap(
@@ -176,8 +178,95 @@ function isNestedEntryLike(v: unknown): v is Entry {
     );
 }
 
+/** The language a reader asked for, and the one to fall back to (the project's default). */
+export type LocaleChoice = { locale: string; fallback: string };
+
 /**
- * Resolves locales on the entry and on inlined reference entries (same shape as `resolveEntryReferences` output).
+ * What a deep locale pass reads: the blocks and structures to walk into, and each model's schema
+ * for the entries reference resolution inlined.
+ */
+export type LocaleSchemas = FieldWalkSchemas & {
+    model?: (modelId: string) => Promise<ModelSchema | null>;
+};
+
+const RELATION_TYPES = ['core/relation', 'core/relations'];
+
+/**
+ * Every multilingual value of a record down to one language, at any depth: in blocks, lists,
+ * objects, structures and variants, and in the entries its relations inlined (`depth` levels).
+ * A link's url and label always come down to one language when they are given per language.
+ */
+export async function localizeFields(
+    values: Record<string, unknown> | undefined,
+    fields: Record<string, Field> | undefined,
+    schemas: LocaleSchemas,
+    choice: LocaleChoice,
+    depth = 2
+): Promise<Record<string, unknown> | undefined> {
+    const pick = (field: Field, value: unknown) =>
+        resolveFieldValueForLocale(
+            field,
+            value,
+            choice.locale,
+            choice.fallback,
+            '',
+            schemas.blocks
+        );
+    return walkFields(values, fields, schemas, async (value, field) => {
+        if (field.type === 'core/link')
+            return pick({ ...field, options: { ...field.options, multilingual: true } }, value);
+        if (field.options?.multilingual === true || field.type === 'core/layout') {
+            const picked = pick(field, value);
+            return picked === value ? undefined : picked;
+        }
+        // Page relations come down to one language when their links are filled in (pageLinks).
+        if (RELATION_TYPES.includes(field.type)) {
+            if (field.options?.target === 'pages') return value;
+            const inner = (item: unknown) =>
+                isNestedEntryLike(item) ? localizeEntry(item, schemas, choice, depth - 1) : item;
+            return Array.isArray(value) ? Promise.all(value.map(inner)) : inner(value);
+        }
+        return undefined;
+    });
+}
+
+/** An entry's data down to one language, by its model's schema (see localizeFields). */
+export async function localizeEntry(
+    entry: Entry,
+    schemas: LocaleSchemas,
+    choice: LocaleChoice,
+    depth = 2
+): Promise<Entry> {
+    if (depth <= 0 || !schemas.model) return entry;
+    const schema = await schemas.model(entry.type);
+    if (!schema) return entry;
+    const data = await localizeFields(entry.data, schema.fields, schemas, choice, depth);
+    return { ...entry, data: data ?? entry.data };
+}
+
+/** The blocks, structures and model schemas of a project, for localizeFields. */
+export async function localeSchemas(
+    projectId: string,
+    blockRegistry: Record<string, BlockSchema>
+): Promise<LocaleSchemas> {
+    const models = new Map<string, Promise<ModelSchema | null>>();
+    return {
+        blocks: blockRegistry,
+        structures: await listStructures(projectId),
+        model: id => {
+            let found = models.get(id);
+            if (!found) {
+                found = getModelSchemaForProject(projectId, id).catch(() => null);
+                models.set(id, found);
+            }
+            return found;
+        }
+    };
+}
+
+/**
+ * Resolves locales on the entry and on inlined reference entries (same shape as `resolveEntryReferences` output),
+ * at any depth of its fields.
  */
 export async function resolveEntryDataForLocaleDeep(
     entry: Entry,
@@ -187,45 +276,10 @@ export async function resolveEntryDataForLocaleDeep(
     blockRegistry: Record<string, BlockSchema>,
     depth = 2
 ): Promise<Entry> {
-    if (depth <= 0) return entry;
-    const schema = await getModelSchemaForProject(projectId, entry.type);
-    if (!schema) return entry;
-    let e = resolveEntryDataForLocale(
+    return localizeEntry(
         entry,
-        schema,
-        locale,
-        fallbackLocale,
-        projectId,
-        blockRegistry
+        await localeSchemas(projectId, blockRegistry),
+        { locale, fallback: fallbackLocale },
+        depth
     );
-    if (!e.data) return e;
-    const data: Record<string, unknown> = { ...e.data };
-    for (const [key, val] of Object.entries(data)) {
-        if (isNestedEntryLike(val)) {
-            data[key] = await resolveEntryDataForLocaleDeep(
-                val,
-                projectId,
-                locale,
-                fallbackLocale,
-                blockRegistry,
-                depth - 1
-            );
-        } else if (Array.isArray(val)) {
-            data[key] = await Promise.all(
-                val.map(async item =>
-                    isNestedEntryLike(item)
-                        ? resolveEntryDataForLocaleDeep(
-                              item,
-                              projectId,
-                              locale,
-                              fallbackLocale,
-                              blockRegistry,
-                              depth - 1
-                          )
-                        : item
-                )
-            );
-        }
-    }
-    return { ...e, data };
 }

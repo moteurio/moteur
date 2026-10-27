@@ -44,7 +44,10 @@ export function validateStructureField(
     let schemaFields: Record<string, any> | undefined;
     if (structureId) {
         try {
-            const sharedSchema = structures.getStructureFromCore(structureId);
+            const sharedSchema = context?.structures
+                ? structures.findStructure(context.structures, structureId)
+                : structures.getStructureFromCore(structureId);
+            if (!sharedSchema) throw new Error(`Structure "${structureId}" not found`);
             schemaFields = sharedSchema.fields;
         } catch (_error) {
             issues.push({

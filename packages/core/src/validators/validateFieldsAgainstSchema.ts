@@ -1,6 +1,7 @@
 import { validateFieldValue } from './validateFieldValue.js';
 import { ValidationIssue } from '@moteurio/types/ValidationResult.js';
 import type { Field, FieldValidationContext } from '@moteurio/types/Field.js';
+import type { StructureSchema } from '@moteurio/types/Structure.js';
 
 export function isFieldRequired(fieldSchema: Field): boolean {
     return fieldSchema.required === true || fieldSchema.options?.required === true;
@@ -15,6 +16,8 @@ export interface ValidateFieldsAgainstSchemaOptions {
     projectId?: string;
     allowHtmlIframe?: boolean;
     allowHtmlEmbed?: boolean;
+    /** The project's structures, so core/structure fields find them (see FieldValidationContext). */
+    structures?: Record<string, StructureSchema>;
     /**
      * Report missing required fields as warnings (drafts may be incomplete; they are enforced
      * when the entry goes to review or live).
@@ -28,7 +31,8 @@ function fieldValidationContext(
     return {
         projectId: options?.projectId,
         allowHtmlIframe: options?.allowHtmlIframe === true,
-        allowHtmlEmbed: options?.allowHtmlEmbed === true
+        allowHtmlEmbed: options?.allowHtmlEmbed === true,
+        structures: options?.structures
     };
 }
 

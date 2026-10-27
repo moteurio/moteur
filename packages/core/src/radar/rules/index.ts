@@ -15,6 +15,7 @@ import { thinBody } from './thin-body.js';
 import { missingExcerpt } from './missing-excerpt.js';
 import { missingCover } from './missing-cover.js';
 import { aiBadgeUnreviewed } from './ai-badge-unreviewed.js';
+import { pageLinks } from './page-links.js';
 
 const BASE_RULES: RuleEvaluator[] = [
     requiredFieldEmpty,
@@ -32,7 +33,8 @@ const BASE_RULES: RuleEvaluator[] = [
     thinBody,
     missingExcerpt,
     missingCover,
-    aiBadgeUnreviewed
+    aiBadgeUnreviewed,
+    pageLinks
 ];
 
 export function runAllRules(
@@ -60,4 +62,5 @@ export {
     emptyBody,
     draftStale
 };
-export { orphanedEntry, thinBody, missingExcerpt, missingCover, aiBadgeUnreviewed };
+export { orphanedEntry, thinBody, missingExcerpt, missingCover, aiBadgeUnreviewed, pageLinks };
+export { pageLinkViolations, PAGES_MODEL_SLUG } from './page-links.js';

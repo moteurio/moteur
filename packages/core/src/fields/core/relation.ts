@@ -2,12 +2,13 @@ import fieldRegistry from '../../registry/FieldRegistry.js';
 import { validateRelationField } from '../../validators/fields/core/validateRelationField.js';
 
 /**
- * Reference to a single entry in another model. Stored as { id, label, model }.
+ * Reference to a single entry in another model, or to a page with `target: "pages"`. Stored as
+ * the id (or { id, … }); delivery turns a page into { id, label, url, fields }.
  */
 fieldRegistry.register({
     type: 'core/relation',
     label: 'Relation',
-    description: 'A reference to a single entry in another model.',
+    description: 'A reference to a single entry in another model, or to a page.',
     storeDirect: true,
     validate: validateRelationField,
     fields: {
@@ -19,11 +20,29 @@ fieldRegistry.register({
         }
     },
     optionsSchema: {
+        target: {
+            type: 'core/select',
+            label: 'Points at',
+            description: 'Entries of a model (the default), or pages of the site.',
+            options: [
+                { value: 'entries', label: 'Entries' },
+                { value: 'pages', label: 'Pages' }
+            ],
+            default: 'entries',
+            required: false
+        },
         model: {
             type: 'core/text',
             label: 'Model',
-            description: 'The model ID to reference (required).',
-            required: true
+            description: 'The model ID to reference (required unless it points at pages).',
+            required: false
+        },
+        fields: {
+            type: 'core/list',
+            label: 'Page fields',
+            description:
+                'For pages: the fields of each page delivered with it (e.g. ["seo"]). Its id, label and address always are.',
+            required: false
         },
         labelField: {
             type: 'core/text',

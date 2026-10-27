@@ -1,4 +1,5 @@
 import { ValidationIssue } from './ValidationResult.js';
+import type { StructureSchema } from './Structure.js';
 
 /** Optional context passed through field validators (e.g. project-scoped block schemas). */
 export interface FieldValidationContext {
@@ -7,6 +8,11 @@ export interface FieldValidationContext {
     allowHtmlIframe?: boolean;
     /** From project.allowHtmlEmbed; only true allows embed/object/param in core/html validation. */
     allowHtmlEmbed?: boolean;
+    /**
+     * The project's structures, read before validating (validators are sync). Without it,
+     * core/structure fields only find the engine's own structures.
+     */
+    structures?: Record<string, StructureSchema>;
 }
 
 export interface Field {

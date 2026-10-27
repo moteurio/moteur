@@ -6,6 +6,12 @@ import type { TemplateSchema } from '@moteurio/types/Template.js';
 import type { Field } from '@moteurio/types/Field.js';
 import { getAsset } from './assetService.js';
 import { RESIZE_RATIOS } from './resize.js';
+import {
+    fieldWalkSchemas,
+    walkFields,
+    type FieldVisitor,
+    type FieldWalkSchemas
+} from '../fieldWalk.js';
 
 /** A field's own alt and caption override the asset's; either may be one per language. */
 export type AssetFieldValue = { assetId: string; alt?: AssetText; caption?: AssetText };
@@ -76,60 +82,55 @@ export async function resolveAssetList(
     return out;
 }
 
-function getFieldType(field: Field): string {
-    return (field as any).type ?? 'core/text';
-}
+/** Pictures in asset fields, at any depth (in blocks, lists, structures, variants). */
+const assetVisitor =
+    (projectId: string): FieldVisitor =>
+    async (value, field) => {
+        if (field.type === 'core/asset')
+            return (
+                (await resolveAsset(
+                    projectId,
+                    value as AssetFieldValue | null | undefined,
+                    field.options
+                )) ?? null
+            );
+        if (field.type === 'core/asset-list')
+            return resolveAssetList(
+                projectId,
+                value as (AssetFieldValue | null | undefined)[] | null | undefined,
+                field.options
+            );
+        return undefined;
+    };
 
 export async function resolveEntryAssets(
     projectId: string,
     entry: Entry,
-    modelSchema: ModelSchema
+    modelSchema: ModelSchema,
+    schemas?: FieldWalkSchemas
 ): Promise<Entry> {
     if (!entry.data || !modelSchema.fields) return entry;
-    const data: Record<string, any> = {};
-    for (const [key, value] of Object.entries(entry.data)) {
-        const field = modelSchema.fields[key];
-        const type = field ? getFieldType(field) : '';
-        if (type === 'core/asset') {
-            data[key] = await resolveAsset(projectId, value, field.options);
-            continue;
-        }
-        if (type === 'core/asset-list') {
-            data[key] = await resolveAssetList(projectId, value, field.options);
-            continue;
-        }
-        data[key] = value;
-    }
-    return { ...entry, data };
+    const data = await walkFields(
+        entry.data,
+        modelSchema.fields,
+        schemas ?? (await fieldWalkSchemas(projectId)),
+        assetVisitor(projectId)
+    );
+    return { ...entry, data: data ?? entry.data };
 }
 
 export async function resolvePageAssets(
     projectId: string,
     page: StaticPage | CollectionPage,
-    templateSchema: TemplateSchema
+    templateSchema: TemplateSchema,
+    schemas?: FieldWalkSchemas
 ): Promise<StaticPage | CollectionPage> {
     if (!page.fields || !templateSchema.fields) return page;
-    const fields: Record<string, any> = {};
-    for (const [key, value] of Object.entries(page.fields)) {
-        const field = templateSchema.fields[key];
-        const type = field ? getFieldType(field) : '';
-        if (type === 'core/asset') {
-            fields[key] = await resolveAsset(
-                projectId,
-                value as AssetFieldValue | null | undefined,
-                field.options
-            );
-            continue;
-        }
-        if (type === 'core/asset-list') {
-            fields[key] = await resolveAssetList(
-                projectId,
-                value as (AssetFieldValue | null | undefined)[] | null | undefined,
-                field.options
-            );
-            continue;
-        }
-        fields[key] = value;
-    }
-    return { ...page, fields };
+    const fields = await walkFields(
+        page.fields,
+        templateSchema.fields as Record<string, Field>,
+        schemas ?? (await fieldWalkSchemas(projectId)),
+        assetVisitor(projectId)
+    );
+    return { ...page, fields } as StaticPage | CollectionPage;
 }

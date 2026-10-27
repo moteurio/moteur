@@ -2,12 +2,13 @@ import fieldRegistry from '../../registry/FieldRegistry.js';
 import { validateRelationsField } from '../../validators/fields/core/validateRelationsField.js';
 
 /**
- * References to multiple entries in another model. Stored as array of { id, label, model }.
+ * References to multiple entries in another model, or to pages with `target: "pages"`. Stored
+ * as an array of ids (or { id, … }); delivery turns pages into { id, label, url, fields }.
  */
 fieldRegistry.register({
     type: 'core/relations',
     label: 'Relations',
-    description: 'References to multiple entries in another model. Stored as array.',
+    description: 'References to multiple entries in another model, or to pages. Stored as array.',
     storeDirect: true,
     validate: validateRelationsField,
     fields: {
@@ -23,11 +24,29 @@ fieldRegistry.register({
         }
     },
     optionsSchema: {
+        target: {
+            type: 'core/select',
+            label: 'Points at',
+            description: 'Entries of a model (the default), or pages of the site.',
+            options: [
+                { value: 'entries', label: 'Entries' },
+                { value: 'pages', label: 'Pages' }
+            ],
+            default: 'entries',
+            required: false
+        },
         model: {
             type: 'core/text',
             label: 'Model',
-            description: 'The model ID to reference (required).',
-            required: true
+            description: 'The model ID to reference (required unless it points at pages).',
+            required: false
+        },
+        fields: {
+            type: 'core/list',
+            label: 'Page fields',
+            description:
+                'For pages: the fields of each page delivered with it (e.g. ["seo"]). Its id, label and address always are.',
+            required: false
         },
         labelField: {
             type: 'core/text',

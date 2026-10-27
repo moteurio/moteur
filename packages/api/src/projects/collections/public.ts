@@ -17,14 +17,28 @@ import {
 import { listPages, getPage, getPageBySlug, resolveEntryUrl } from '@moteurio/core/pages.js';
 import type { PageNode } from '@moteurio/types/Page.js';
 import { selectFields, selectFieldsFromList } from '@moteurio/core/fieldSelection.js';
-import { resolveEntryReferences, type EntryResolver } from '@moteurio/core/referenceResolution.js';
+import {
+    resolveEntryReferences,
+    type EntryResolver,
+    type ReferenceSchemas
+} from '@moteurio/core/referenceResolution.js';
 import { EntryReadBudget } from '../../utils/entryReadBudget.js';
 import { resolveEntryAssets, resolvePageAssets } from '@moteurio/core/assets/assetResolver.js';
 import { getModelSchemaForProject } from '@moteurio/core/models.js';
 import { getProjectById } from '@moteurio/core/projects.js';
-import { listBlocks } from '@moteurio/core/blocks.js';
-import { resolveEntryDataForLocaleDeep } from '@moteurio/core/entryLocaleResolution.js';
-import { getTemplate } from '@moteurio/core/templates.js';
+import {
+    localeSchemas,
+    localizeEntry,
+    localizeFields,
+    type LocaleChoice,
+    type LocaleSchemas
+} from '@moteurio/core/entryLocaleResolution.js';
+import {
+    pageLinkContext,
+    resolvePageLinks,
+    type PageLinkContext,
+    type PageLinkOptions
+} from '@moteurio/core/pageLinks.js';
 import {
     listNavigations,
     getNavigationByHandle,
@@ -41,7 +55,7 @@ import {
 import type { Layout } from '@moteurio/types/Layout.js';
 import type { FormSchema } from '@moteurio/types/Form.js';
 import type { ApiCollectionResource } from '@moteurio/types/ApiCollection.js';
-import type { EntryStatus } from '@moteurio/types/Model.js';
+import type { Entry, EntryStatus, ModelSchema } from '@moteurio/types/Model.js';
 import { sendApiError, getMessage } from '../../utils/apiError.js';
 import type { EntryQuery } from '@moteurio/core/contentIndex/index.js';
 import { entryQueryParameters, parseEntryQuery } from '../../utils/entryQuery.js';
@@ -100,6 +114,79 @@ function getStatusFilter(
     }
     return Array.isArray(status) ? status : [status];
 }
+
+/**
+ * The pages a link or a page relation may lead this reader to: those the channel gives (by its
+ * page filter), or published pages when it gives none, with drafts too in a preview.
+ */
+function pageLinkOptions(
+    collection: { resources: ApiCollectionResource[] },
+    req: Request
+): PageLinkOptions {
+    const pageResource = collection.resources.find(r => r.resourceType === 'page');
+    const statuses: string[] = pageResource
+        ? getStatusFilter(pageResource, isPublishedOnlyDelivery(req), req.previewAuth)
+        : req.previewAuth
+          ? ['draft', 'published']
+          : ['published'];
+    return { isLive: page => statuses.includes(page.status), locale: parseLocaleQuery(req) };
+}
+
+/** What one delivery reads once and shares across its items. */
+type Delivery = {
+    projectId: string;
+    /** Blocks, structures and model schemas, to walk into fields at any depth. */
+    schemas: LocaleSchemas;
+    links: PageLinkContext;
+    linkOptions: PageLinkOptions;
+    /** `?locale=`: every multilingual value comes down to this language. */
+    choice?: LocaleChoice;
+    resolveAssets: boolean;
+};
+
+async function deliveryFor(
+    projectId: string,
+    collection: { resources: ApiCollectionResource[] },
+    req: Request
+): Promise<Delivery> {
+    const links = await pageLinkContext(projectId);
+    const locale = parseLocaleQuery(req);
+    return {
+        projectId,
+        schemas: await localeSchemas(projectId, links.schemas.blocks),
+        links,
+        linkOptions: pageLinkOptions(collection, req),
+        choice: locale ? { locale, fallback: links.defaultLocale } : undefined,
+        resolveAssets: queryFlag(req.query.resolveAssets)
+    };
+}
+
+/** A page as delivered: links and page relations filled in, then one language, then pictures. */
+async function deliverPage(page: PageNode, d: Delivery): Promise<PageNode> {
+    if (page.type === 'folder') return page;
+    const template = d.links.templates?.get(page.templateId);
+    if (!template) return page;
+    const own = template.fields as ModelSchema['fields'];
+    let fields = (await resolvePageLinks(page.fields, own, d.links, d.linkOptions)) ?? page.fields;
+    if (d.choice) fields = (await localizeFields(fields, own, d.schemas, d.choice)) ?? fields;
+    const out = { ...page, fields };
+    return d.resolveAssets ? resolvePageAssets(d.projectId, out, template, d.schemas) : out;
+}
+
+/** An entry as delivered, after its references are inlined: links, one language, pictures. */
+async function deliverEntry(entry: Entry, schema: ModelSchema | null, d: Delivery): Promise<Entry> {
+    if (!schema) return entry;
+    const data = await resolvePageLinks(entry.data, schema.fields, d.links, d.linkOptions);
+    let out: Entry = { ...entry, data: data ?? entry.data };
+    if (d.choice) out = await localizeEntry(out, d.schemas, d.choice);
+    return d.resolveAssets ? resolveEntryAssets(d.projectId, out, schema, d.schemas) : out;
+}
+
+/** Relations resolve by the model's schema, wherever they sit and however they are stored. */
+const referenceSchemas = (d: Delivery): ReferenceSchemas => ({
+    model: d.schemas.model!,
+    walk: d.schemas
+});
 
 function usePublishedEntryView(req: Request, statuses: EntryStatus[]): boolean {
     if (req.previewAuth) return false;
@@ -272,15 +359,8 @@ router.get('/:collectionId/pages', async (req: Request, res: Response) => {
             templateId: pageResource.resourceId === 'pages' ? undefined : pageResource.resourceId
         });
         pages = pages.filter(p => 'status' in p && statuses.includes((p as any).status));
-        if (queryFlag(req.query.resolveAssets)) {
-            pages = await Promise.all(
-                pages.map(async p => {
-                    if (p.type === 'folder' || !('templateId' in p)) return p;
-                    const template = await getTemplate(projectId, (p as any).templateId);
-                    return resolvePageAssets(projectId, p as any, template) as Promise<PageNode>;
-                })
-            );
-        }
+        const delivery = await deliveryFor(projectId, collection, req);
+        pages = await Promise.all(pages.map(p => deliverPage(p, delivery)));
         return void res.json(pages);
     } catch (err: unknown) {
         return void sendApiError(res, req, err);
@@ -299,18 +379,15 @@ router.get('/:collectionId/pages/by-slug/:slug', async (req: Request, res: Respo
         const pageResource = collection.resources.find(r => r.resourceType === 'page');
         if (!pageResource)
             return void res.status(404).json({ error: 'Collection does not expose pages' });
-        const page = await getPageBySlug(projectId, slug, parseLocaleQuery(req));
-        if (!page) return void res.status(404).json({ error: 'Page not found' });
+        const stored = await getPageBySlug(projectId, slug, parseLocaleQuery(req));
+        if (!stored) return void res.status(404).json({ error: 'Page not found' });
         const apiKeyOnly = isPublishedOnlyDelivery(req);
         const statuses = getStatusFilter(pageResource, apiKeyOnly, req.previewAuth);
-        if (!('status' in page) || !statuses.includes((page as any).status))
+        if (!('status' in stored) || !statuses.includes((stored as any).status))
             return void res.status(404).json({ error: 'Page not found' });
-        if (queryFlag(req.query.resolveAssets) && 'templateId' in page) {
-            const template = await getTemplate(projectId, (page as any).templateId);
-            const resolved = await resolvePageAssets(projectId, page as any, template);
-            return void res.json(resolved);
-        }
-        return void res.json(page);
+        return void res.json(
+            await deliverPage(stored, await deliveryFor(projectId, collection, req))
+        );
     } catch (err: unknown) {
         return void sendApiError(res, req, err);
     }
@@ -328,17 +405,14 @@ router.get('/:collectionId/pages/:id', async (req: Request, res: Response) => {
         const pageResource = collection.resources.find(r => r.resourceType === 'page');
         if (!pageResource)
             return void res.status(404).json({ error: 'Collection does not expose pages' });
-        const page = await getPage(projectId, id);
+        const stored = await getPage(projectId, id);
         const apiKeyOnly = isPublishedOnlyDelivery(req);
         const statuses = getStatusFilter(pageResource, apiKeyOnly, req.previewAuth);
-        if (!('status' in page) || !statuses.includes((page as any).status))
+        if (!('status' in stored) || !statuses.includes((stored as any).status))
             return void res.status(404).json({ error: 'Page not found' });
-        if (queryFlag(req.query.resolveAssets) && 'templateId' in page) {
-            const template = await getTemplate(projectId, (page as any).templateId);
-            const resolved = await resolvePageAssets(projectId, page as any, template);
-            return void res.json(resolved);
-        }
-        return void res.json(page);
+        return void res.json(
+            await deliverPage(stored, await deliveryFor(projectId, collection, req))
+        );
     } catch (err: unknown) {
         return void sendApiError(res, req, err);
     }
@@ -380,38 +454,28 @@ router.get('/:collectionId/:resourceId/entries', async (req: Request, res: Respo
         );
         entries.forEach(entry => readBudget.include(entry));
         const resolver: EntryResolver = readBudget.resolve;
-        let resolved = await Promise.all(
-            entries.map(e =>
-                resolveEntryReferences(
-                    e,
-                    projectId,
-                    resourceId,
-                    depth,
-                    new Set(),
-                    statuses,
-                    resolver
+        const delivery = await deliveryFor(projectId, collection, req);
+        const references = referenceSchemas(delivery);
+        const schema = await getModelSchemaForProject(projectId, resourceId);
+        const resolved = await Promise.all(
+            entries.map(async e =>
+                deliverEntry(
+                    await resolveEntryReferences(
+                        e,
+                        projectId,
+                        resourceId,
+                        depth,
+                        new Set(),
+                        statuses,
+                        resolver,
+                        references
+                    ),
+                    schema,
+                    delivery
                 )
             )
         );
-        const locale = parseLocaleQuery(req);
-        if (locale) {
-            const project = await getProjectById(projectId);
-            const fallback = project?.defaultLocale ?? 'en';
-            const blockRegistry = listBlocks(projectId);
-            resolved = await Promise.all(
-                resolved.map(e =>
-                    resolveEntryDataForLocaleDeep(e, projectId, locale, fallback, blockRegistry)
-                )
-            );
-        }
-        if (queryFlag(req.query.resolveAssets)) {
-            const schema = await getModelSchemaForProject(projectId, resourceId);
-            if (schema) {
-                resolved = await Promise.all(
-                    resolved.map(e => resolveEntryAssets(projectId, e, schema))
-                );
-            }
-        }
+        const locale = delivery.choice?.locale;
         let projected = selectFieldsFromList(resolved, fields);
         if (queryFlag(req.query.resolveUrl)) {
             projected = await Promise.all(
@@ -456,32 +520,22 @@ router.get('/:collectionId/:resourceId/entries/:id', async (req: Request, res: R
         );
         readBudget.include(entry);
         const singleResolver: EntryResolver = readBudget.resolve;
-        let resolved = await resolveEntryReferences(
-            entry,
-            projectId,
-            resourceId,
-            depth,
-            new Set(),
-            statuses,
-            singleResolver
-        );
-        const localeOne = parseLocaleQuery(req);
-        if (localeOne) {
-            const project = await getProjectById(projectId);
-            const fallback = project?.defaultLocale ?? 'en';
-            const blockRegistry = listBlocks(projectId);
-            resolved = await resolveEntryDataForLocaleDeep(
-                resolved,
+        const delivery = await deliveryFor(projectId, collection, req);
+        const resolved = await deliverEntry(
+            await resolveEntryReferences(
+                entry,
                 projectId,
-                localeOne,
-                fallback,
-                blockRegistry
-            );
-        }
-        if (queryFlag(req.query.resolveAssets)) {
-            const schema = await getModelSchemaForProject(projectId, resourceId);
-            if (schema) resolved = await resolveEntryAssets(projectId, resolved, schema);
-        }
+                resourceId,
+                depth,
+                new Set(),
+                statuses,
+                singleResolver,
+                referenceSchemas(delivery)
+            ),
+            await getModelSchemaForProject(projectId, resourceId),
+            delivery
+        );
+        const localeOne = delivery.choice?.locale;
         const fields = resource.fields && resource.fields.length > 0 ? resource.fields : undefined;
         let projected = selectFields(resolved, fields);
         if (queryFlag(req.query.resolveUrl)) {

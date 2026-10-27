@@ -5,14 +5,22 @@ fieldRegistry.register({
     type: 'core/link',
     label: 'Link',
     description:
-        'A structured hyperlink with label, accessibility options, and visual customization.',
+        'A structured hyperlink, to a URL or a page of the project, with label, accessibility options, and visual customization.',
     validate: validateLinkField,
     resolveValue: false,
     fields: {
         url: {
             type: 'core/text',
             label: 'URL',
-            required: true
+            description: 'Where the link goes, unless it points at a page.',
+            required: false
+        },
+        pageId: {
+            type: 'core/text',
+            label: 'Page',
+            description:
+                "A page of the project. Delivery fills `url` with the page's address in each language.",
+            required: false
         },
         label: {
             type: 'core/text',

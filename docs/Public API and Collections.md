@@ -147,7 +147,10 @@ x-api-key: mk_live_xxxxxxxx...
 **Query params (entries and pages):**
 
 - **`?resolveUrl=1`** on entry list/get — adds computed `resolvedUrl` when a collection page defines a URL pattern for that model.
-- **`?resolveAssets=1`** on entry/page reads — inlines each media field's asset (`_resolved`, with `url` and, for images, `resizeUrl`), and `cropUrl` for fields set to crop. Sizes, crops and `srcset`: see [Images](Images.md).
+- **`?resolveAssets=1`** on entry/page reads — inlines each media field's asset (`_resolved`, with `url` and, for images, `resizeUrl`), and `cropUrl` for fields set to crop, at any depth (blocks, lists, structures, variants). Sizes, crops and `srcset`: see [Images](Images.md).
+- **`?locale=`** on entry/page reads — every multilingual value comes down to that language, at any depth, falling back to the project's default language. Link labels, the fields of a page relation and the entries a relation inlined come down too.
+- **Relations to entries** are inlined up to the collection resource's `resolve` depth, wherever they sit and whether they are stored as a plain id (as Studio keeps them) or as `{ id }`. Entries the reader can't see keep their id.
+- **Links to pages and page relations** are always filled in, on entries and pages, at any depth (blocks, lists, structures, variants): a `core/link` with a `pageId` gets the page's `url`, and a relation with `target: "pages"` becomes `{ id, label, url, fields }`. With **`?locale=`** each address is the one in that language; without, one per language. A page the reader can't see (gone, a folder, a draft outside preview, or outside the collection's page filter) leaves the link with `missing: true` and drops it from relations. See [Fields](Fields.md#core-link).
 - Entry lists also support **`limit`**, **`offset`**, and **`sort`** (`id`, `createdAt`, `updatedAt`, `publishedAt`, prefix `-` for descending).
 
 ---

@@ -1,3 +1,5 @@
+import type { ContentReference } from './References.js';
+
 /**
  * Moteur Radar — content health and static analysis.
  * Violations are advisory only (never block save/publish in V1).
@@ -22,7 +24,9 @@ export interface RadarViolation {
     id: string;
     ruleId: string;
     severity: RadarSeverity;
+    /** The entry's id, or the page's when `modelSlug` is `pages`. */
     entrySlug: string;
+    /** The entry's model, or `pages` for a page. */
     modelSlug: string;
     fieldPath?: string;
     locale?: string;
@@ -65,4 +69,8 @@ export interface RadarGraph {
     /** entry slug -> list of entry slugs that reference it (for orphan detection) */
     referrers: Map<string, string[]>;
     locales: string[];
+    /** The project's pages, by id (for links to pages). */
+    pages?: Map<string, { id: string; label: string; type: string; status?: string }>;
+    /** Every link and relation in entries and pages, at any depth. */
+    references?: ContentReference[];
 }

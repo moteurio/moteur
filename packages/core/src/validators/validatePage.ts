@@ -2,6 +2,7 @@ import type { TemplateSchema } from '@moteurio/types/Template.js';
 import { ValidationResult } from '@moteurio/types/ValidationResult.js';
 import { validateFieldsAgainstSchema } from './validateFieldsAgainstSchema.js';
 import { validateLayoutFieldValues } from './validateLayoutFieldValues.js';
+import { listStructures } from '../structures.js';
 import type { Field } from '@moteurio/types/Field.js';
 
 export async function validatePage(
@@ -17,8 +18,11 @@ export async function validatePage(
     }
 ): Promise<ValidationResult> {
     const pathPrefix = `pages/${page.id}.fields`;
+    // Read once: structure fields at any depth look their schema up here.
+    const structures = await listStructures(projectId);
     const fieldOpts = {
         projectId,
+        structures,
         allowHtmlIframe: options?.allowHtmlIframe === true,
         allowHtmlEmbed: options?.allowHtmlEmbed === true,
         requiredAsWarning: options?.draft === true
@@ -39,7 +43,8 @@ export async function validatePage(
         {
             projectLocales: options?.projectLocales,
             allowHtmlIframe: options?.allowHtmlIframe === true,
-            allowHtmlEmbed: options?.allowHtmlEmbed === true
+            allowHtmlEmbed: options?.allowHtmlEmbed === true,
+            structures
         }
     );
     issues.push(...layoutFieldIssues);

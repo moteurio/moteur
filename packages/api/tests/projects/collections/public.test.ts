@@ -21,7 +21,7 @@ vi.mock('@moteurio/core/models.js', () => ({
     getModelSchemaForProject: vi.fn()
 }));
 vi.mock('@moteurio/core/utils/projectStorage.js', () => ({
-    listProjectKeys: vi.fn(),
+    listProjectKeys: vi.fn(async () => [] as string[]),
     getProjectJson: vi.fn()
 }));
 vi.mock('@moteurio/core/navigations.js', () => ({
@@ -45,6 +45,7 @@ import {
     getNavigationByHandle,
     resolveNavigation
 } from '@moteurio/core/navigations.js';
+import { getProjectById } from '@moteurio/core/projects.js';
 import collectionsPublicRouter from '../../../src/projects/collections/public.js';
 import {
     optionalAuth,
@@ -518,5 +519,165 @@ describe('GET /projects/:projectId/collections/:collectionId/forms', () => {
             .get('/projects/demo/collections/c1/forms/old')
             .set('x-api-key', 'k');
         expect(res.status).toBe(404);
+    });
+});
+
+describe('page links and page relations on delivery', () => {
+    const collection = {
+        id: 'site',
+        projectId: 'demo',
+        label: 'Site',
+        resources: [
+            { resourceType: 'page' as const, resourceId: 'pages' },
+            { resourceType: 'model' as const, resourceId: 'articles' }
+        ],
+        createdAt: '',
+        updatedAt: ''
+    };
+    const node = (id: string, slug: string, extra: Record<string, unknown> = {}) => ({
+        id,
+        projectId: 'demo',
+        type: 'static',
+        label: id,
+        slug,
+        parentId: null,
+        order: 0,
+        navInclude: true,
+        sitemapInclude: true,
+        templateId: 'page',
+        status: 'published',
+        fields: {},
+        createdAt: '',
+        updatedAt: '',
+        ...extra
+    });
+    const stored: Record<string, unknown> = {
+        'pages/home.json': node('home', '', {
+            label: 'Home',
+            fields: {
+                cta: { pageId: 'pricing', label: { en: 'See prices' } },
+                more: { pageId: 'soon' },
+                related: ['pricing', 'soon']
+            }
+        }),
+        'pages/pricing.json': node('pricing', 'pricing', {
+            label: 'Pricing',
+            slugs: { fr: 'tarifs' },
+            fields: { seo: { title: { en: 'Pricing', fr: 'Tarifs' } } }
+        }),
+        'pages/soon.json': node('soon', 'soon', { status: 'draft' }),
+        'templates/page.json': {
+            id: 'page',
+            label: 'Page',
+            fields: {
+                cta: { type: 'core/link', label: 'Call to action' },
+                more: { type: 'core/link', label: 'More' },
+                related: {
+                    type: 'core/relations',
+                    label: 'Related',
+                    options: { target: 'pages', fields: ['seo'] }
+                },
+                seo: {
+                    type: 'core/object',
+                    label: 'SEO',
+                    fields: {
+                        title: {
+                            type: 'core/text',
+                            label: 'Title',
+                            options: { multilingual: true }
+                        }
+                    }
+                }
+            }
+        }
+    };
+
+    beforeEach(() => {
+        vi.clearAllMocks();
+        vi.mocked(verifyPreviewToken).mockResolvedValue({ ok: false });
+        vi.mocked(verifyProjectApiKey).mockResolvedValue({
+            ok: true,
+            keyId: 'k1',
+            policy: { collectionWhitelist: null, allowSiteWideReads: true }
+        });
+        vi.mocked(getCollection).mockResolvedValue(collection);
+        vi.mocked(getProjectById).mockResolvedValue({
+            defaultLocale: 'en',
+            supportedLocales: ['fr']
+        } as any);
+        vi.mocked(listProjectKeys).mockImplementation(async (_p, prefix) =>
+            Object.keys(stored)
+                .filter(k => k.startsWith(prefix))
+                .map(k => k.slice(prefix.length))
+        );
+        vi.mocked(getProjectJson).mockImplementation(
+            async (_p, key) => (stored[key] as any) ?? null
+        );
+    });
+
+    it("gives page links their page's address in each language, and marks a draft target", async () => {
+        const res = await request(app)
+            .get('/projects/demo/collections/site/pages/home')
+            .set('x-api-key', 'valid-key');
+        expect(res.status).toBe(200);
+        expect(res.body.fields.cta).toEqual({
+            pageId: 'pricing',
+            label: { en: 'See prices' },
+            url: { en: '/pricing', fr: '/fr/tarifs' }
+        });
+        expect(res.body.fields.more).toEqual({ pageId: 'soon', missing: true });
+        expect(res.body.fields.related).toEqual([
+            {
+                id: 'pricing',
+                label: 'Pricing',
+                url: { en: '/pricing', fr: '/fr/tarifs' },
+                fields: { seo: { title: { en: 'Pricing', fr: 'Tarifs' } } }
+            }
+        ]);
+    });
+
+    it('gives one address with ?locale, in the page list too', async () => {
+        const res = await request(app)
+            .get('/projects/demo/collections/site/pages?locale=fr')
+            .set('x-api-key', 'valid-key');
+        expect(res.status).toBe(200);
+        const home = res.body.find((p: { id: string }) => p.id === 'home');
+        expect(home.fields.cta.url).toBe('/fr/tarifs');
+        expect(home.fields.related[0].url).toBe('/fr/tarifs');
+    });
+
+    it('brings every field down to the language with ?locale, related pages too', async () => {
+        const res = await request(app)
+            .get('/projects/demo/collections/site/pages/home?locale=fr')
+            .set('x-api-key', 'valid-key');
+        expect(res.status).toBe(200);
+        // Only in English: the default language stands in.
+        expect(res.body.fields.cta.label).toBe('See prices');
+        expect(res.body.fields.related[0].fields).toEqual({ seo: { title: 'Tarifs' } });
+        const pricing = await request(app)
+            .get('/projects/demo/collections/site/pages/pricing?locale=fr')
+            .set('x-api-key', 'valid-key');
+        expect(pricing.body.fields.seo).toEqual({ title: 'Tarifs' });
+    });
+
+    it('resolves page links in entries, by their model', async () => {
+        vi.mocked(getModelSchemaForProject).mockResolvedValue({
+            id: 'articles',
+            label: 'Articles',
+            fields: { next: { type: 'core/relation', label: 'Next', options: { target: 'pages' } } }
+        } as any);
+        vi.mocked(queryEntriesForProject).mockResolvedValue({
+            items: [{ id: 'a', type: 'articles', status: 'published', data: { next: 'pricing' } }],
+            total: 1
+        } as any);
+        const res = await request(app)
+            .get('/projects/demo/collections/site/articles/entries')
+            .set('x-api-key', 'valid-key');
+        expect(res.status).toBe(200);
+        expect(res.body[0].data.next).toEqual({
+            id: 'pricing',
+            label: 'Pricing',
+            url: { en: '/pricing', fr: '/fr/tarifs' }
+        });
     });
 });

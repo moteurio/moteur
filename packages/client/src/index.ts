@@ -37,7 +37,7 @@ export type {
     MediaSettingsUpdate,
     StorageSettings
 } from './project/mediaSettings.js';
-export type { PageMove } from './project/pages.js';
+export type { PageMove, PageReferrer } from './project/pages.js';
 export type { RedirectInput } from './project/redirects.js';
 export type { GitStatus, GitTokenInfo } from './admin/projects.js';
 export type { ResolvedPath } from './public/pageOutputs.js';
