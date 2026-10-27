@@ -4,6 +4,7 @@ import { projectDir } from './utils/pathUtils.js';
 import { readSecretsFile, updateSecretsSection } from './utils/secretsFile.js';
 import { encryptSecret, decryptSecret } from './webhooks/secretEncryption.js';
 import { postWebhook } from './webhooks/outboundHttp.js';
+import { screenWithPlugins } from './plugins/formExtensions.js';
 
 /**
  * What keeps bots out of a form besides the honeypot: a signed token that says when the form was
@@ -194,7 +195,12 @@ export type SubmissionProof = {
 
 export type Screening = Pick<
     FormSubmissionMeta,
-    'spamReason' | 'fillSeconds' | 'recaptchaScore' | 'captchaUnchecked'
+    | 'spamReason'
+    | 'fillSeconds'
+    | 'recaptchaScore'
+    | 'captchaUnchecked'
+    | 'screenedBy'
+    | 'screenNote'
 >;
 
 /**
@@ -207,7 +213,9 @@ export async function screenSubmission(
     form: FormSchema,
     proof: SubmissionProof,
     locale?: string,
-    now = Date.now()
+    now = Date.now(),
+    /** The checked answers and what came with them, for the plugins' spam checks. */
+    letter?: { data: Record<string, unknown>; meta: FormSubmissionMeta }
 ): Promise<Screening> {
     if (proof.honeypotTriggered && form.honeypot !== false) return { spamReason: 'honeypot' };
 
@@ -220,15 +228,27 @@ export async function screenSubmission(
     if (age === undefined && trap?.required) return { spamReason: 'no_token' };
 
     const check = await checkCaptcha(projectId, form, proof.captcha, proof.ip);
-    if (!check) return out;
-    if (check.outcome === 'failed')
+    if (check?.outcome === 'failed')
         throw Object.assign(new Error(captchaMessage(locale)), {
             statusCode: 400,
             code: 'CAPTCHA_FAILED',
             reason: check.reason
         });
-    if (check.outcome === 'low_score')
+    if (check?.outcome === 'low_score')
         return { ...out, recaptchaScore: check.score, spamReason: 'captcha_score' };
-    if (check.outcome === 'unchecked') return { ...out, captchaUnchecked: true };
-    return { ...out, ...(check.score !== undefined && { recaptchaScore: check.score }) };
+    if (check?.outcome === 'unchecked') out.captchaUnchecked = true;
+    if (check?.outcome === 'passed' && check.score !== undefined) out.recaptchaScore = check.score;
+
+    // Last, the plugins' own checks (Akismet…), on answers that already fit the form.
+    if (letter) {
+        const verdict = await screenWithPlugins({ projectId, form, ...letter });
+        if (verdict)
+            return {
+                ...out,
+                spamReason: 'screen',
+                screenedBy: verdict.by,
+                ...(verdict.note && { screenNote: verdict.note.slice(0, 200) })
+            };
+    }
+    return out;
 }

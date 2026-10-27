@@ -1,5 +1,6 @@
 import type { FormField, FormIssue, FormIssueCode, FormSchema } from '@moteurio/types/Form.js';
 import { issueMessage } from './formText.js';
+import { getFormFieldCheck } from './plugins/formExtensions.js';
 
 export { answersMessage, fieldLabel } from './formText.js';
 
@@ -181,6 +182,20 @@ export function checkAnswers(
                 continue;
             }
             data[id] = many ? picked : picked[0];
+            continue;
+        }
+
+        // A plugin's field type: its own check, which may take lists and objects.
+        const plugin = getFormFieldCheck(field.type);
+        if (plugin) {
+            let checked;
+            try {
+                checked = plugin.check(raw, field);
+            } catch {
+                checked = { issue: { code: 'invalid' as const } };
+            }
+            if ('issue' in checked) refuse(id, checked.issue);
+            else data[id] = checked.value;
             continue;
         }
 

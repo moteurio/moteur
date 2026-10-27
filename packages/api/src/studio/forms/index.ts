@@ -11,6 +11,7 @@ import {
     deleteForm
 } from '@moteurio/core/forms.js';
 import { createSubmission } from '@moteurio/core/formSubmissions.js';
+import { listFormActions } from '@moteurio/core/plugins/formExtensions.js';
 import { CAPTCHA_FIELDS, issueFormToken, sentCaptcha } from '@moteurio/core/formGuard.js';
 import { submissionSource } from '@moteurio/core/submissionSource.js';
 import type { FormSubmissionMeta } from '@moteurio/types/Form.js';
@@ -44,6 +45,11 @@ router.get('/', requireProjectAccess, async (req: Request, res: Response) => {
     } catch (err: unknown) {
         return void sendApiError(res, req, err);
     }
+});
+
+// The actions plugins add (a sheet, a CRM…), with the settings each asks of a form.
+router.get('/actions', requireProjectAccess, (_req: Request, res: Response) => {
+    res.json({ actions: listFormActions() });
 });
 
 router.get('/:formId', requireProjectAccess, async (req: Request, res: Response) => {
@@ -311,6 +317,18 @@ const formsOpenapi: Record<string, OpenAPIV3.PathItemObject> = {
                 '404': { description: 'No such form, or it is not active' },
                 '429': { description: 'Too many requests for this form' }
             }
+        }
+    },
+    '/projects/{projectId}/forms/actions': {
+        get: {
+            summary: 'The actions plugins add to forms',
+            description:
+                "Each with its `type` (put it in a form's `actions` with a `config`), a label, and the `settings` it asks for. Empty when no plugin adds any.",
+            tags: ['Forms'],
+            parameters: [
+                { name: 'projectId', in: 'path', required: true, schema: { type: 'string' } }
+            ],
+            responses: { '200': { description: '`{ actions }`' } }
         }
     },
     '/projects/{projectId}/forms': {

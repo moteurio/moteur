@@ -87,7 +87,14 @@ export type FormActionWebhook = {
     type: 'webhook';
 };
 
-export type FormAction = FormActionCreateEntry | FormActionEmail | FormActionWebhook;
+/** An action a plugin adds (`sheets:append`), with this form's settings for it. */
+export type FormActionPlugin = {
+    type: `${string}:${string}`;
+    config?: Record<string, unknown>;
+};
+
+export type FormAction =
+    FormActionCreateEntry | FormActionEmail | FormActionWebhook | FormActionPlugin;
 
 export interface FormNotifications {
     /** Email(s) to notify when a submission arrives */
@@ -145,17 +152,25 @@ export interface FormSubmissionMeta {
     fillSeconds?: number;
     /** The captcha provider couldn't be reached: kept, but not checked. */
     captchaUnchecked?: boolean;
+    /** The plugin check that judged it spam, and what it said. */
+    screenedBy?: string;
+    screenNote?: string;
+    /** The plugin holding its actions (double opt-in…), while `held`. */
+    heldBy?: string;
 }
 
-export type FormSpamReason = 'honeypot' | 'too_fast' | 'no_token' | 'captcha_score';
+export type FormSpamReason = 'honeypot' | 'too_fast' | 'no_token' | 'captcha_score' | 'screen';
 
-export type FormSubmissionStatus = 'received' | 'processed' | 'spam';
+/** `held`: kept, its actions waiting for a plugin to release it (a confirmed email…). */
+export type FormSubmissionStatus = 'received' | 'processed' | 'spam' | 'held';
 
 export interface FormActionResult {
     type: string;
     status: 'success' | 'failed';
     error?: string;
     entryId?: string;
+    /** What a plugin's action says it did: "Row 42 added to Leads". */
+    detail?: string;
 }
 
 export interface FormSubmission {

@@ -22,6 +22,7 @@ import { recordRequest, submissionCount } from './metering.js';
 import { assertSubmissionRoom } from './planLimits.js';
 import { answersMessage, checkAnswers } from './formAnswers.js';
 import { screenSubmission, type SubmissionProof } from './formGuard.js';
+import { holdWithPlugins, runFormAction } from './plugins/formExtensions.js';
 import type { SubmissionRow } from './utils/submissionIndex.js';
 
 /** Form actions are the engine's own work, done for whoever sent the form. */
@@ -274,7 +275,10 @@ export async function createSubmission(
             issues: answers.issues
         });
     }
-    const screening = await screenSubmission(projectId, form, proof, meta.locale);
+    const screening = await screenSubmission(projectId, form, proof, meta.locale, Date.now(), {
+        data: answers.data,
+        meta
+    });
     const spam = Boolean(screening.spamReason);
     if (!spam) assertSubmissionRoom(projectId, submissionCount(projectId));
 
@@ -303,11 +307,44 @@ export async function createSubmission(
     if (spam) return submission;
     recordRequest('submission', projectId);
 
+    // A plugin may keep its actions waiting (double opt-in): nothing runs, not even the notice.
+    const heldBy = await holdWithPlugins(projectId, form, submission);
+    if (heldBy) {
+        const held: FormSubmission = {
+            ...submission,
+            status: 'held',
+            metadata: { ...submission.metadata, heldBy }
+        };
+        await UserDataStore.saveSubmission(projectId, formId, held);
+        return held;
+    }
+
     void processSubmission(projectId, formId, submission).catch(() => {
         // fire-and-forget; never throw
     });
 
     return submission;
+}
+
+/**
+ * Let a held letter go on: its actions, notice and confirmation run now. For the plugin that held
+ * it (a confirmed email…); no user check. Throws when it isn't held.
+ */
+export async function releaseSubmission(
+    projectId: string,
+    formId: string,
+    submissionId: string
+): Promise<FormSubmission> {
+    if (!isValidId(submissionId)) throw new Error(`Invalid submission ID: "${submissionId}"`);
+    const current = await UserDataStore.getSubmission(projectId, formId, submissionId);
+    if (!current) throw Object.assign(new Error('Submission not found'), { status: 404 });
+    if (current.status !== 'held')
+        throw Object.assign(new Error('This submission is not held.'), { status: 409 });
+    const { heldBy: _heldBy, ...metadata } = current.metadata;
+    const released: FormSubmission = { ...current, status: 'received', metadata };
+    await UserDataStore.saveSubmission(projectId, formId, released);
+    await processSubmission(projectId, formId, released);
+    return (await UserDataStore.getSubmission(projectId, formId, submissionId)) ?? released;
 }
 
 /**
@@ -374,6 +411,16 @@ async function processSubmission(
                     error: err instanceof Error ? err.message : String(err)
                 });
             }
+        } else if (action.type.includes(':')) {
+            // A plugin's action: its outcome is kept, a failure never stops the others.
+            const outcome = await runFormAction(
+                action.type,
+                projectId,
+                form,
+                submission,
+                'config' in action ? action.config : undefined
+            );
+            actionResults.push({ type: action.type, ...outcome });
         } else if (action.type === 'webhook') {
             try {
                 await webhookDispatch(

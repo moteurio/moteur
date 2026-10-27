@@ -17,6 +17,12 @@ import type {
     MediaVariantPreset
 } from './extensions.js';
 import type { PluginCommandSpec } from '@moteurio/types/PluginCommand.js';
+import type {
+    PluginFormAction,
+    PluginFormField,
+    PluginSubmissionHold,
+    PluginSubmissionScreen
+} from '@moteurio/types/FormPlugin.js';
 
 export type HostPluginScope = 'global' | 'project';
 
@@ -44,6 +50,14 @@ export type PluginInitContext = {
     registerGitCommitHook: (hook: GitCommitHook) => void;
     registerGitProvider: (id: string) => void;
     registerOutboundWebhookEvent: (event: string) => void;
+    /** An action forms can run when a letter arrives (`sheets:append`), with the settings it asks. */
+    registerFormAction: (action: PluginFormAction) => void;
+    /** The server-side check for a plugin field type's answers in forms. */
+    registerFormField: (field: PluginFormField) => void;
+    /** A spam check after the honeypot, the time trap and the captcha. */
+    registerSubmissionScreen: (screen: PluginSubmissionScreen) => void;
+    /** Keeps a letter's actions waiting (status `held`) until the plugin releases it. */
+    registerSubmissionHold: (hold: PluginSubmissionHold) => void;
     /** Who decides each project's monthly AI credits (null: unlimited); null restores the default. */
     setCreditAllowance: (allowance: ((projectId: string) => number | null) | null) => void;
     /**
@@ -131,6 +145,19 @@ export function definePlugin(plugin: HostPluginModule): HostPluginModule {
     return plugin;
 }
 
+export type {
+    FormActionContext,
+    FormActionOutcome,
+    FormActionSetting,
+    FormFieldCheck,
+    PluginFormAction,
+    PluginFormField,
+    PluginSubmissionHold,
+    PluginSubmissionScreen,
+    SubmissionHoldContext,
+    SubmissionScreenContext,
+    SubmissionScreenVerdict
+} from '@moteurio/types/FormPlugin.js';
 export type {
     GitCommitHook,
     GitCommitHookPayload,
