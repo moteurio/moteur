@@ -9,7 +9,7 @@ import {
     deleteProjectBlock
 } from '@moteurio/core/blocks.js';
 import type { OpenAPIV3 } from 'openapi-types';
-import { requireProjectAccess } from '../middlewares/auth.js';
+import { requireProjectAccess, requireProjectAdmin } from '../middlewares/auth.js';
 import { stripVariantHintsFromBlockSchema } from '../utils/stripBlockSchema.js';
 import { getMessage, sendApiError } from '../utils/apiError.js';
 import { PlanLimitError } from '@moteurio/core/planLimits.js';
@@ -62,7 +62,7 @@ router.get('/:slug', requireProjectAccess, (req: Request, res: Response) => {
     }
 });
 
-router.post('/', requireProjectAccess, (req: Request, res: Response) => {
+router.post('/', requireProjectAdmin, (req: Request, res: Response) => {
     const projectId = (req.params as Record<string, string>).projectId as string;
     try {
         const body = req.body as BlockSchema;
@@ -80,7 +80,7 @@ router.post('/', requireProjectAccess, (req: Request, res: Response) => {
     }
 });
 
-router.put('/:slug', requireProjectAccess, (req: Request, res: Response) => {
+router.put('/:slug', requireProjectAdmin, (req: Request, res: Response) => {
     const projectId = (req.params as Record<string, string>).projectId as string;
     const slug = (req.params as Record<string, string>).slug as string;
     try {
@@ -99,7 +99,7 @@ router.put('/:slug', requireProjectAccess, (req: Request, res: Response) => {
     }
 });
 
-router.patch('/:slug', requireProjectAccess, (req: Request, res: Response) => {
+router.patch('/:slug', requireProjectAdmin, (req: Request, res: Response) => {
     const projectId = (req.params as Record<string, string>).projectId as string;
     const slug = (req.params as Record<string, string>).slug as string;
     try {
@@ -116,7 +116,7 @@ router.patch('/:slug', requireProjectAccess, (req: Request, res: Response) => {
     }
 });
 
-router.delete('/:slug', requireProjectAccess, (req: Request, res: Response) => {
+router.delete('/:slug', requireProjectAdmin, (req: Request, res: Response) => {
     const projectId = (req.params as Record<string, string>).projectId as string;
     const slug = (req.params as Record<string, string>).slug as string;
     try {

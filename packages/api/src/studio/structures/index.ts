@@ -8,7 +8,7 @@ import {
     deleteStructure
 } from '@moteurio/core/structures.js';
 import { getBlueprint } from '@moteurio/core/blueprints.js';
-import { requireProjectAccess } from '../../middlewares/auth.js';
+import { requireProjectAccess, requireProjectAdmin } from '../../middlewares/auth.js';
 import type { StructureSchema } from '@moteurio/types/Structure.js';
 import type { OpenAPIV3 } from 'openapi-types';
 import { sendApiError } from '../../utils/apiError.js';
@@ -42,7 +42,7 @@ router.get('/:id', requireProjectAccess, async (req: Request, res: Response) => 
     }
 });
 
-router.post('/', requireProjectAccess, async (req: Request, res: Response) => {
+router.post('/', requireProjectAdmin, async (req: Request, res: Response) => {
     const { projectId } = req.params as Record<string, string>;
     if (!projectId) return void res.status(400).json({ error: 'Missing projectId' });
     try {
@@ -73,7 +73,7 @@ router.post('/', requireProjectAccess, async (req: Request, res: Response) => {
     }
 });
 
-router.patch('/:id', requireProjectAccess, async (req: Request, res: Response) => {
+router.patch('/:id', requireProjectAdmin, async (req: Request, res: Response) => {
     const { projectId, id } = req.params as Record<string, string>;
     if (!projectId || !id) return void res.status(400).json({ error: 'Missing projectId or id' });
     try {
@@ -84,7 +84,7 @@ router.patch('/:id', requireProjectAccess, async (req: Request, res: Response) =
     }
 });
 
-router.delete('/:id', requireProjectAccess, async (req: Request, res: Response) => {
+router.delete('/:id', requireProjectAdmin, async (req: Request, res: Response) => {
     const { projectId, id } = req.params as Record<string, string>;
     if (!projectId || !id) return void res.status(400).json({ error: 'Missing projectId or id' });
     try {
