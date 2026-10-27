@@ -120,22 +120,39 @@ export async function exportCollection(
     submissions.forEach(s => {
         if (s.data && typeof s.data === 'object') Object.keys(s.data).forEach(k => keys.add(k));
     });
-    const headers = ['id', 'status', 'receivedAt', ...Array.from(keys).sort()];
+    // Where each letter came from: the page, the referrer and the campaign, when any letter has one.
+    const sourceColumns = (
+        [
+            ['page', s => s.metadata?.page],
+            ['referrer', s => s.metadata?.referrer],
+            ['utm_source', s => s.metadata?.campaign?.source],
+            ['utm_medium', s => s.metadata?.campaign?.medium],
+            ['utm_campaign', s => s.metadata?.campaign?.campaign],
+            ['utm_term', s => s.metadata?.campaign?.term],
+            ['utm_content', s => s.metadata?.campaign?.content]
+        ] as [string, (s: FormSubmission) => string | undefined][]
+    ).filter(([, read]) => submissions.some(s => read(s)));
+    const fieldKeys = Array.from(keys).sort();
+    const headers = ['id', 'status', 'receivedAt', ...fieldKeys, ...sourceColumns.map(([h]) => h)];
     function escapeCsvCell(val: unknown): string {
         if (val == null) return '';
-        const s = String(val);
+        // Several choices, or an address's parts, as one readable cell.
+        let s = Array.isArray(val)
+            ? val.join(', ')
+            : typeof val === 'object'
+              ? Object.values(val as Record<string, unknown>)
+                    .filter(v => v != null && v !== '')
+                    .join(', ')
+              : String(val);
+        // A visitor's answer must never run as a spreadsheet formula.
+        if (/^[=+\-@\t\r]/.test(s)) s = `'${s}`;
         if (/[",\n\r]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
         return s;
     }
     const rows = submissions.map(s => {
-        const row: unknown[] = [
-            s.id,
-            s.status ?? '',
-            (s.metadata as { submittedAt?: string } | undefined)?.submittedAt ?? ''
-        ];
-        headers
-            .slice(3)
-            .forEach(h => row.push((s.data && (s.data as Record<string, unknown>)[h]) ?? ''));
+        const row: unknown[] = [s.id, s.status ?? '', s.metadata?.submittedAt ?? ''];
+        fieldKeys.forEach(h => row.push((s.data && (s.data as Record<string, unknown>)[h]) ?? ''));
+        sourceColumns.forEach(([, read]) => row.push(read(s) ?? ''));
         return row.map(escapeCsvCell);
     });
     const csv = [headers.map(escapeCsvCell).join(','), ...rows.map(r => r.join(','))].join('\n');

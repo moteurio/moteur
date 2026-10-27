@@ -83,4 +83,24 @@ describe('public form submit', () => {
             issues
         });
     });
+
+    it('notes the page, the referrer and the campaign, not as answers', async () => {
+        (getFormForProject as any).mockResolvedValue({ id: 'contact', status: 'active' });
+        (createSubmission as any).mockResolvedValue({ id: 's2' });
+        await request(app).post('/projects/demo/forms/contact/submit').type('form').send({
+            name: 'Lise',
+            _page: 'https://journal.example/contact?utm_source=newsletter',
+            _referrer: 'https://www.google.com/'
+        });
+        expect(createSubmission).toHaveBeenCalledWith(
+            'demo',
+            'contact',
+            { name: 'Lise' },
+            expect.objectContaining({
+                page: 'https://journal.example/contact?utm_source=newsletter',
+                referrer: 'https://www.google.com/',
+                campaign: { source: 'newsletter' }
+            })
+        );
+    });
 });

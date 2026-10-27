@@ -44,6 +44,10 @@ Content-Type: application/json
 
 An accepted request returns `success`, `submissionId` and a localized message, with an optional configured `redirectUrl`. A successful receipt does not mean every action has completed: processing runs after storage and records individual `actionResults`. Honeypot catches are treated as spam and skip actions. The plan's monthly submission limit applies. The form type has a `recaptcha` setting, but the engine doesn't check it yet.
 
+## Where a letter came from
+
+Each submission keeps the page it was sent from, where the visitor came from before, and the campaign in the page's `utm_*` parameters (`metadata.page`, `metadata.referrer`, `metadata.campaign`: source, medium, campaign, term and content). A site sends them as `_page` (`location.href`) and `_referrer` (`document.referrer`), as the Studio's snippet does. Without `_page`, the browser's Referer header is used, which a cross-site post usually cuts to the site's origin. Only http(s) addresses are kept, without their fragment or credentials. The Inbox shows them, and the CSV export adds `page`, `referrer` and `utm_*` columns when any letter has them. The export also prefixes an answer starting with `=`, `+`, `-` or `@` with a quote, so a spreadsheet never runs it as a formula.
+
 ## What the server checks
 
 The browser's checks can be skipped, so the server checks every answer again against the form's fields before anything is stored:
