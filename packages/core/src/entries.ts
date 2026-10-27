@@ -6,6 +6,7 @@ import { Entry, type EntryStatus } from '@moteurio/types/Model.js';
 import {
     assertCanEdit,
     assertCanWrite,
+    assertNotReviewOnly,
     contentForbidden,
     translationOnlyChange,
     translatorOnly
@@ -356,6 +357,9 @@ async function updateEntryUnlocked(
         return publishEntry(user, projectId, modelId, entryId, options);
     }
 
+    if (patch.status && patch.status !== 'published' && current.status === 'published')
+        assertNotReviewOnly(user, 'take content offline');
+
     if (patch.status === 'published') {
         const project = await getProject(user, projectId);
         if (needsApproval(user, project)) {
@@ -491,6 +495,7 @@ async function deleteEntryUnlocked(
 ): Promise<void> {
     const entry = await getEntry(user, projectId, modelId, entryId);
     assertCanWrite(user);
+    assertNotReviewOnly(user, 'delete content');
 
     await triggerEvent('entry.beforeDelete', { entry, user, modelId, projectId });
 

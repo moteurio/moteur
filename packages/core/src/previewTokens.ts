@@ -7,6 +7,7 @@ import type {
 } from '@moteurio/types/PreviewToken.js';
 import type { User } from '@moteurio/types/User.js';
 import { getProject } from './projects.js';
+import { assertCanEdit } from './contentAccess.js';
 import { getProjectJson, putProjectJson } from './utils/projectStorage.js';
 
 const TOKEN_PREFIX = 'mpv_';
@@ -85,6 +86,8 @@ export async function createPreviewToken(
     user: User,
     input: PreviewTokenCreateInput = {}
 ): Promise<PreviewTokenCreateResult> {
+    // A preview link shows drafts: for the people who write them.
+    assertCanEdit(user);
     await getProject(user, projectId);
     const ttl = Math.min(MAX_TTL_SEC, Math.max(60, input.ttlSeconds ?? DEFAULT_TTL_SEC));
     const now = Date.now();

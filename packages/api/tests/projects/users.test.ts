@@ -182,6 +182,27 @@ describe('PATCH /projects/:projectId/users/:userId', () => {
         expect(updateProject).not.toHaveBeenCalled();
     });
 
+    it('gives developer and billing only through someone who has them, and drops unknown roles', async () => {
+        // admin1 is admin and billing here, not developer.
+        const dev = await request(app)
+            .patch('/projects/p1/users/admin1')
+            .send({ roles: ['admin', 'billing', 'developer'] });
+        expect(dev.status).toBe(403);
+        expect(dev.body.error).toMatch(/developer/);
+
+        const bill = await request(app)
+            .patch('/projects/p1/users/target')
+            .send({ roles: ['writer', 'billing', 'owner'] });
+        expect(bill.status).toBe(200);
+        expect(bill.body.user.roles).toEqual(['writer', 'billing']);
+
+        authCtx.project.memberRoles = { admin1: ['admin'], target: ['writer', 'billing'] };
+        const take = await request(app)
+            .patch('/projects/p1/users/target')
+            .send({ roles: ['writer'] });
+        expect(take.status).toBe(403);
+    });
+
     it('keeps at least one admin', async () => {
         const res = await request(app)
             .patch('/projects/p1/users/admin1')

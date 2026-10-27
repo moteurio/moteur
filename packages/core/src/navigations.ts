@@ -9,6 +9,8 @@ import type { Field } from '@moteurio/types/Field.js';
 import type { User } from '@moteurio/types/User.js';
 import { getProject } from './projects.js';
 import { assertUserCanAccessProject } from './utils/access.js';
+import { assertCanWrite, assertNotReviewOnly } from './contentAccess.js';
+import { withProjectWriteLock } from './utils/projectWriteLock.js';
 import { getProjectJson, putProjectJson } from './utils/projectStorage.js';
 import { NAVIGATIONS_KEY } from './utils/storageKeys.js';
 import { triggerEvent } from './utils/eventBus.js';
@@ -194,13 +196,14 @@ export interface CreateNavigationData {
     items?: NavItem[];
 }
 
-export async function createNavigation(
+async function createNavigationUnlocked(
     projectId: string,
     user: User,
     data: CreateNavigationData
 ): Promise<Navigation> {
     const project = await getProject(user, projectId);
     assertUserCanAccessProject(user, project);
+    assertCanWrite(user);
 
     const handle = data.handle.trim().toLowerCase();
     if (!isHandleUrlSafe(handle)) {
@@ -260,7 +263,7 @@ export interface UpdateNavigationPatch {
     items?: NavItem[];
 }
 
-export async function updateNavigation(
+async function updateNavigationUnlocked(
     projectId: string,
     user: User,
     id: string,
@@ -268,6 +271,9 @@ export async function updateNavigation(
 ): Promise<Navigation> {
     const project = await getProject(user, projectId);
     assertUserCanAccessProject(user, project);
+    assertCanWrite(user);
+    // Menus are live as saved.
+    assertNotReviewOnly(user, 'change live menus');
     const list = await loadNavigations(projectId);
     const idx = list.findIndex(n => n.id === id);
     if (idx === -1) throw new Error(`Navigation "${id}" not found.`);
@@ -331,9 +337,12 @@ export async function updateNavigation(
     return updated;
 }
 
-export async function deleteNavigation(projectId: string, user: User, id: string): Promise<void> {
+async function deleteNavigationUnlocked(projectId: string, user: User, id: string): Promise<void> {
     const project = await getProject(user, projectId);
     assertUserCanAccessProject(user, project);
+    assertCanWrite(user);
+    // Menus are live as saved.
+    assertNotReviewOnly(user, 'change live menus');
     const list = await loadNavigations(projectId);
     const filtered = list.filter(n => n.id !== id);
     if (filtered.length === list.length) throw new Error(`Navigation "${id}" not found.`);
@@ -418,4 +427,17 @@ export async function resolveNavigation(
         ...rest,
         items
     };
+}
+
+/** One menu change at a time per project: menus share one file. */
+export function createNavigation(...args: Parameters<typeof createNavigationUnlocked>) {
+    return withProjectWriteLock(args[0], () => createNavigationUnlocked(...args));
+}
+
+export function updateNavigation(...args: Parameters<typeof updateNavigationUnlocked>) {
+    return withProjectWriteLock(args[0], () => updateNavigationUnlocked(...args));
+}
+
+export function deleteNavigation(...args: Parameters<typeof deleteNavigationUnlocked>) {
+    return withProjectWriteLock(args[0], () => deleteNavigationUnlocked(...args));
 }

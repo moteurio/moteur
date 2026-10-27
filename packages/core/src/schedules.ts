@@ -151,6 +151,11 @@ export async function createSchedule(
         throw err;
     }
 
+    if (input.action === 'unpublish' && user.agent?.reviewOnly)
+        throw Object.assign(new Error("An agent can't take content offline: a person does that."), {
+            statusCode: 403
+        });
+
     // The same rule as publishing now: with reviews required, an approved review first (admins
     // can always publish, so they can always schedule a publish).
     if (input.action === 'publish') {

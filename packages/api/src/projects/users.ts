@@ -1,7 +1,7 @@
 import type { Request, Response } from 'express';
 import { Router } from 'express';
 import type { OpenAPIV3 } from 'openapi-types';
-import { hasRole, normalizeStoredRoles } from '@moteurio/types';
+import { hasRole, normalizeStoredRoles, ROLE_SLUGS } from '@moteurio/types';
 import { requireProjectAccess } from '../middlewares/auth.js';
 import { getProjectUsers, type OperatorUserPatch } from '@moteurio/core/users.js';
 import { getProject, updateProject } from '@moteurio/core/projects.js';
@@ -76,8 +76,14 @@ router.patch(
         }
 
         const body = (req.body ?? {}) as Record<string, unknown>;
+        // Only the roles Moteur knows are kept.
         const roles = Array.isArray(body.roles)
-            ? normalizeStoredRoles(body.roles.filter((r): r is string => typeof r === 'string'))
+            ? normalizeStoredRoles(
+                  body.roles.filter(
+                      (r): r is string =>
+                          typeof r === 'string' && (ROLE_SLUGS as readonly string[]).includes(r)
+                  )
+              )
             : undefined;
         const patch: OperatorUserPatch = {};
         if (typeof body.name === 'string') patch.name = body.name;
@@ -105,6 +111,20 @@ router.patch(
 
         try {
             let project = await getProject(account!, projectId);
+            // Developer (keys, webhooks, channels) and Billing (plans, payment) are given or taken
+            // only by someone who has them: Admin implies neither.
+            if (roles) {
+                const target = getProjectUsers(projectId, project).find(u => u.id === userId)!;
+                const before = new Set(target.roles ?? []);
+                const after = new Set(roles);
+                for (const role of ['developer', 'billing'] as const) {
+                    if (before.has(role) !== after.has(role) && !hasRole(actor, role)) {
+                        return void res.status(403).json({
+                            error: `Only someone with the ${role} role can give or take it.`
+                        });
+                    }
+                }
+            }
             const memberRoles = roles ? { ...project.memberRoles, [userId]: roles } : undefined;
             if (
                 memberRoles &&

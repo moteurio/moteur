@@ -10,6 +10,7 @@ import type {
 import type { Entry } from '@moteurio/types/Model.js';
 import { User } from '@moteurio/types/User.js';
 import { isValidId } from './utils/idUtils.js';
+import { assertCanReadSubmissions, assertNotReviewOnly } from './contentAccess.js';
 import { systemActor } from './utils/systemActor.js';
 import { getForm, getFormForProject } from './forms.js';
 import { createEntry } from './entries.js';
@@ -127,6 +128,7 @@ export async function querySubmissions(
     formId: string,
     options?: ListSubmissionsOptions
 ): Promise<SubmissionsPage> {
+    assertCanReadSubmissions(user);
     await getForm(user, projectId, formId);
     purgeNowAndThen(projectId, formId);
 
@@ -201,6 +203,7 @@ export async function getSubmission(
     if (!isValidId(submissionId)) {
         throw new Error(`Invalid submission ID: "${submissionId}"`);
     }
+    assertCanReadSubmissions(user);
 
     await getForm(user, projectId, formId);
 
@@ -219,6 +222,7 @@ export async function deleteSubmission(
     formId: string,
     submissionId: string
 ): Promise<void> {
+    assertNotReviewOnly(user, 'delete form submissions');
     const submission = await getSubmission(user, projectId, formId, submissionId);
 
     try {
