@@ -17,6 +17,20 @@ import type { PageNode } from '@moteurio/types/Page.js';
 import { listPages } from './pages.js';
 import { buildNodeMap, resolveNodePrefix } from './pages/urlResolver.js';
 import { getAsset, resolveAssetUrl } from './assets/assetService.js';
+import { dispatch as webhookDispatch } from './webhooks/webhookService.js';
+
+/** Menus are part of the live site: say so to webhooks (a deploy hook rebuilds). Never throws. */
+async function menuChanged(projectId: string, nav: Navigation, user: User): Promise<void> {
+    try {
+        await webhookDispatch(
+            'navigation.updated',
+            { navigationId: nav.id, handle: nav.handle, updatedBy: user.id },
+            { projectId, source: 'api' }
+        );
+    } catch {
+        // never fail the operation
+    }
+}
 
 const HANDLE_REGEX = /^[a-z0-9][a-z0-9-]*[a-z0-9]$|^[a-z0-9]$/;
 const DEFAULT_MAX_DEPTH = 3;
@@ -233,6 +247,7 @@ export async function createNavigation(
         message: `Create navigation ${nav.handle} — ${user.name ?? user.id}`,
         user
     });
+    await menuChanged(projectId, nav, user);
     return nav;
 }
 
@@ -312,6 +327,7 @@ export async function updateNavigation(
         message: `Update navigation ${id} — ${user.name ?? user.id}`,
         user
     });
+    await menuChanged(projectId, updated, user);
     return updated;
 }
 
@@ -328,6 +344,8 @@ export async function deleteNavigation(projectId: string, user: User, id: string
         message: `Delete navigation ${id} — ${user.name ?? user.id}`,
         user
     });
+    const removed = list.find(n => n.id === id);
+    if (removed) await menuChanged(projectId, removed, user);
 }
 
 /** Resolve a single item's URL; never throws — returns undefined on missing refs. */

@@ -17,30 +17,33 @@ Webhooks notify your HTTPS endpoint when content events occur in a project (entr
 
 ## Event types
 
-| Event                   | Description                    |
-| ----------------------- | ------------------------------ |
-| `entry.created`         | Entry created.                 |
-| `entry.updated`         | Entry updated.                 |
-| `entry.published`       | Entry status set to published. |
-| `entry.unpublished`     | Entry unpublished.             |
-| `entry.deleted`         | Entry deleted.                 |
-| `entry.scheduled`       | Publish/unpublish scheduled.   |
-| `entry.unscheduled`     | Schedule cancelled.            |
-| `entry.schedule.failed` | Scheduled action failed.       |
-| `asset.created`         | Asset created.                 |
-| `asset.updated`         | Asset updated.                 |
-| `asset.deleted`         | Asset deleted.                 |
-| `page.published`        | Page published.                |
-| `page.unpublished`      | Page unpublished.              |
-| `page.deleted`          | Page deleted.                  |
-| `page.scheduled`        | Page schedule set.             |
-| `page.unscheduled`      | Page schedule cancelled.       |
-| `page.schedule.failed`  | Page schedule failed.          |
-| `review.submitted`      | Entry submitted for review.    |
-| `review.approved`       | Review approved.               |
-| `review.rejected`       | Review rejected.               |
-| `comment.created`       | Comment created on an entry.   |
-| `form.submitted`        | Form submission received.      |
+| Event                   | Description                     |
+| ----------------------- | ------------------------------- |
+| `entry.created`         | Entry created.                  |
+| `entry.updated`         | Entry updated.                  |
+| `entry.published`       | Entry status set to published.  |
+| `entry.unpublished`     | Entry unpublished.              |
+| `entry.deleted`         | Entry deleted.                  |
+| `entry.scheduled`       | Publish/unpublish scheduled.    |
+| `entry.unscheduled`     | Schedule cancelled.             |
+| `entry.schedule.failed` | Scheduled action failed.        |
+| `asset.created`         | Asset created.                  |
+| `asset.updated`         | Asset updated.                  |
+| `asset.deleted`         | Asset deleted.                  |
+| `page.published`        | Page published.                 |
+| `page.updated`          | A live page saved, or moved.    |
+| `page.unpublished`      | Page unpublished.               |
+| `page.deleted`          | Page deleted.                   |
+| `page.scheduled`        | Page schedule set.              |
+| `page.unscheduled`      | Page schedule cancelled.        |
+| `page.schedule.failed`  | Page schedule failed.           |
+| `review.submitted`      | Entry submitted for review.     |
+| `review.approved`       | Review approved.                |
+| `review.rejected`       | Review rejected.                |
+| `comment.created`       | Comment created on an entry.    |
+| `form.submitted`        | Form submission received.       |
+| `navigation.updated`    | A menu created, saved, deleted. |
+| `redirects.updated`     | The redirects changed.          |
 
 When registering a webhook you can pass an **events** array; if empty, the webhook receives **all** events. You can further narrow with **filters** (e.g. only when `modelId === 'article'`).
 
@@ -138,6 +141,14 @@ When creating or updating a webhook you can set **filters** so it only receives 
 
 ---
 
+## Deploy hooks
+
+A static site rebuilds on its host. Make a webhook a deploy hook with `kind: "deploy"` (Studio: Setup › Webhooks › Rebuild the site) and give it the host's build hook address: Vercel (Settings › Git › Deploy Hooks), Netlify (Site configuration › Build hooks), Cloudflare Pages and others take a POST.
+
+- Without `events`, it listens to what goes live: entries and pages published, unpublished or deleted, a live page saved or moved, files changed or deleted, menus and redirects.
+- Changes close together start one build. The first change waits `batchSeconds` (0 to 600, default 30); changes until that call goes out join it. A change after it went out starts the next build.
+- It is signed and retried like any webhook, and the wait survives a restart.
+
 ## Retries
 
 Failed deliveries (non-2xx or timeout) are retried at: **30 s**, **5 min**, **30 min**, **2 hr**. After 5 attempts, the delivery is marked failed. You can **retry** a failed delivery from the API or Studio (Project → Webhooks → delivery log).
@@ -148,7 +159,7 @@ The persisted delivery log is also the retry outbox. On startup and periodic swe
 
 ## Registering a webhook
 
-- **REST API:** `POST {basePath}/projects/:projectId/webhooks` with JWT. Body: `{ name, url, secret?, events?, filters?, headers?, enabled? }`. URL must be HTTPS (or HTTP localhost in development). Secret is optional (one is generated if omitted); it is returned only in the create response.
+- **REST API:** `POST {basePath}/projects/:projectId/webhooks` with JWT. Body: `{ name, url, secret?, events?, filters?, headers?, enabled?, kind?, batchSeconds? }`. URL must be HTTPS (or HTTP localhost in development). Secret is optional (one is generated if omitted); it is returned only in the create response.
 - **`@moteurio/client`:** use the admin client’s project-scoped webhooks methods (see [client README](../packages/client/README.md)).
 - **Embedded `@moteurio/core`:** `Moteur.webhooks.create(projectId, user, { … })` and related methods—see [Embedded core API](Developer%20API.md).
 - **Studio:** Project → Webhooks → add endpoint, set URL, events, and optional filters.

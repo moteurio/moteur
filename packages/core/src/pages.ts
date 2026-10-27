@@ -552,7 +552,13 @@ export async function updatePage(
                     projectId,
                     source: 'api'
                 });
+            } else if (currentStatus === 'published' && newStatus === 'published') {
+                // Pages are live as saved: the site changed.
+                await webhookDispatch('page.updated', pagePayload(), { projectId, source: 'api' });
             }
+        } else if (addressChanged) {
+            // A folder that moves moves the pages in it.
+            await webhookDispatch('page.updated', pagePayload(), { projectId, source: 'api' });
         }
     } catch {
         // never fail the operation
@@ -750,6 +756,28 @@ export async function reorderPages(
         });
     }
     if (before) await redirectMoved(projectId, user, before);
+    // The navigation follows the tree: a moved live page (or folder) changes the site.
+    for (const node of updatedNodes) {
+        const was = nodeMap.get(node.id)!;
+        const moved =
+            (was.parentId ?? null) !== (node.parentId ?? null) || was.order !== node.order;
+        const live = node.type === 'folder' || (node as StaticPage).status === 'published';
+        if (!moved || !live) continue;
+        try {
+            await webhookDispatch(
+                'page.updated',
+                {
+                    pageId: node.id,
+                    title: node.label,
+                    url: node.slug ? `/${node.slug}` : '/',
+                    updatedBy: user.id
+                },
+                { projectId, source: 'api' }
+            );
+        } catch {
+            // never fail the operation
+        }
+    }
     return updatedNodes;
 }
 
