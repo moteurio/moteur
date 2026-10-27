@@ -12,6 +12,12 @@ import { triggerEvent } from './utils/eventBus.js';
 import { validateProject } from './validators/validateProject.js';
 import { getProjectJson, putProjectJson } from './utils/projectStorage.js';
 import { PROJECT_KEY } from './utils/storageKeys.js';
+import {
+    mergeProjectSecrets,
+    readProjectSecrets,
+    splitProjectSecrets
+} from './utils/projectSecrets.js';
+import { systemActor } from './utils/systemActor.js';
 import { ensureWorkspace } from './utils/workspaceStore.js';
 import { getContentIndex } from './contentIndex/index.js';
 import { ensureUserData } from './utils/userDataStore.js';
@@ -40,7 +46,10 @@ export function loadProjects(): ProjectSchema[] {
             const configPath = path.join(root, dir, 'project.json');
             try {
                 const raw = fs.readFileSync(configPath, 'utf-8');
-                const schema = JSON.parse(raw) as ProjectSchema;
+                const schema = mergeProjectSecrets(
+                    JSON.parse(raw) as ProjectSchema,
+                    readProjectSecrets(path.join(root, dir))
+                );
                 return { ...schema, id: dir };
             } catch (err) {
                 console.error(`[Moteur] Failed to load project config for "${dir}"`, err);
@@ -420,4 +429,35 @@ export async function copyProjectForNewUser(
     await addProjectToUser(userId, newProjectId);
 
     return { ...updated, id: newProjectId };
+}
+
+/**
+ * Projects saved before credentials moved out of project.json still have them there: save each
+ * such project once, so they go to the secrets file and the commit removes them from project.json.
+ * Earlier commits still hold them: rotate those keys. Returns the projects moved.
+ */
+export async function moveProjectSecretsOutOfGit(): Promise<string[]> {
+    const moved: string[] = [];
+    const root = baseProjectsDir();
+    if (!fs.existsSync(root)) return moved;
+    for (const dir of fs.readdirSync(root)) {
+        const file = path.join(root, dir, 'project.json');
+        if (!fs.existsSync(file)) continue;
+        try {
+            const raw = JSON.parse(fs.readFileSync(file, 'utf-8')) as ProjectSchema;
+            if (!Object.keys(splitProjectSecrets(raw).secrets).length) continue;
+            const project = await getProjectJson<ProjectSchema>(dir, PROJECT_KEY);
+            await putProjectJson(dir, PROJECT_KEY, project);
+            triggerEvent('content.saved', {
+                projectId: dir,
+                paths: [PROJECT_KEY],
+                message: 'Move credentials out of project.json',
+                user: systemActor('moteur', 'Moteur')
+            });
+            moved.push(dir);
+        } catch (err) {
+            console.error(`[Moteur] Could not move credentials out of "${dir}":`, err);
+        }
+    }
+    return moved;
 }
