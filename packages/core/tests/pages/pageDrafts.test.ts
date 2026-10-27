@@ -73,6 +73,34 @@ describe('page drafts', () => {
         ).rejects.toThrow('Publishing needs every required field');
     });
 
+    it('refuses a page created live by someone who needs a review', async () => {
+        const dir = path.join(tempDir, 'data', 'projects', projectId);
+        await fs.writeFile(
+            path.join(dir, 'project.json'),
+            JSON.stringify({
+                id: projectId,
+                label: 'P',
+                defaultLocale: 'en',
+                users: ['u1', 'w1'],
+                workflow: { enabled: true, requireReview: true }
+            })
+        );
+        const writer = { ...user, id: 'w1', roles: [] };
+        const live = {
+            type: 'static',
+            label: 'About',
+            slug: 'about',
+            templateId: 'landing',
+            status: 'published',
+            fields: { headline: 'About us' }
+        } as never;
+        await expect(createPage(projectId, writer, live)).rejects.toMatchObject({
+            statusCode: 403
+        });
+        const page = (await createPage(projectId, user, live)) as StaticPage;
+        expect(page.status).toBe('published');
+    });
+
     describe('moving pages', () => {
         const folder = (label: string, slug: string, parentId: string | null = null) =>
             createPage(projectId, user, { type: 'folder', label, slug, parentId } as never);

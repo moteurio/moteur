@@ -353,6 +353,9 @@ export async function createPage(
     const project = await getProject(user, projectId);
     assertUserCanAccessProject(user, project);
     assertCanWrite(user);
+    // A new page has no review yet: someone who needs one creates it as a draft.
+    if ((data as StaticPage).status === 'published' && needsApproval(user, project))
+        throw contentForbidden(approvalMessage(user, project));
 
     const id = randomUUID();
     const parentId = data.parentId ?? null;

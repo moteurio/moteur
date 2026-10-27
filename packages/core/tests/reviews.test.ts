@@ -7,7 +7,12 @@ import type { User } from '@moteurio/types/User.js';
 import { initRepo, addAndCommit, getRepoLog } from '../src/git/gitService.js';
 import { getProjectJson, putProjectJson } from '../src/utils/projectStorage.js';
 import { entryKey, modelKey } from '../src/utils/storageKeys.js';
-import { getPublishedEntryForProject, publishEntry, updateEntry } from '../src/entries.js';
+import {
+    createEntry,
+    getPublishedEntryForProject,
+    publishEntry,
+    updateEntry
+} from '../src/entries.js';
 import { approveReview, submitForReview } from '../src/reviews.js';
 import { actingUser } from '../src/auth.js';
 import { onEvent } from '../src/utils/eventBus.js';
@@ -68,6 +73,29 @@ describe('review workflow', () => {
     });
 
     const commitMessages = () => getRepoLog(projDir).map(c => c.message);
+
+    it('a writer cannot create an entry already published; an admin publishes it for real', async () => {
+        const live: Entry = {
+            id: 'e2',
+            type: 'article',
+            status: 'published',
+            data: { title: 'x' }
+        };
+        await expect(createEntry(editor, projectId, 'article', live)).rejects.toMatchObject({
+            statusCode: 403
+        });
+        const agent: User = { ...admin, agent: { name: 'Claude', reviewOnly: true } } as User;
+        await expect(
+            createEntry(agent, projectId, 'article', { ...live, id: 'e3' })
+        ).rejects.toMatchObject({ statusCode: 403 });
+        expect(await getProjectJson(projectId, entryKey('article', 'e2'))).toBeNull();
+
+        const made = await createEntry(admin, projectId, 'article', { ...live, id: 'e4' });
+        expect(made.status).toBe('published');
+        expect((await getPublishedEntryForProject(projectId, 'article', 'e4'))?.data?.title).toBe(
+            'x'
+        );
+    });
 
     it('approving publishes the reviewed version, so the public API serves it', async () => {
         await publishEntry(admin, projectId, 'article', 'e1');
