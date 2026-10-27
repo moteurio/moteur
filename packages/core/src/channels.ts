@@ -7,6 +7,7 @@ import { CHANNELS_KEY, LEGACY_CHANNELS_KEY } from './utils/storageKeys.js';
 import { triggerEvent } from './utils/eventBus.js';
 import { isValidId } from './utils/idUtils.js';
 import { assertCountRoom } from './planLimits.js';
+import { systemActor } from './utils/systemActor.js';
 
 async function loadChannels(projectId: string): Promise<Channel[]> {
     const list = await getProjectJson<Channel[]>(projectId, CHANNELS_KEY);
@@ -16,6 +17,12 @@ async function loadChannels(projectId: string): Promise<Channel[]> {
     if (!legacy) return [];
     await putProjectJson(projectId, CHANNELS_KEY, legacy);
     await deleteProjectKey(projectId, LEGACY_CHANNELS_KEY);
+    triggerEvent('content.saved', {
+        projectId,
+        paths: [CHANNELS_KEY, LEGACY_CHANNELS_KEY],
+        message: 'Rename api-collections.json to channels.json',
+        user: systemActor('_moteur', 'Moteur')
+    });
     return legacy;
 }
 

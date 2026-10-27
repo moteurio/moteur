@@ -8,6 +8,7 @@ import { CHANNELS_KEY, LEGACY_CHANNELS_KEY } from '../src/utils/storageKeys.js';
 import { listChannels } from '../src/channels.js';
 import { verifyProjectApiKey } from '../src/projectApiKey.js';
 import { verifyPreviewToken } from '../src/previewTokens.js';
+import { onEvent } from '../src/utils/eventBus.js';
 
 const projectId = 'old-names';
 const sha = (s: string) => crypto.createHash('sha256').update(s, 'utf8').digest('hex');
@@ -63,10 +64,16 @@ describe('a project saved before channels had their name', () => {
     });
 
     it('keeps its channels, moved to the new file', async () => {
+        const saved: { paths: string[] }[] = [];
+        onEvent('content.saved', (p: { paths: string[] }) => void saved.push(p));
         expect((await listChannels(projectId)).map(c => c.id)).toEqual(['site']);
         expect(await hasProjectKey(projectId, CHANNELS_KEY)).toBe(true);
         expect(await hasProjectKey(projectId, LEGACY_CHANNELS_KEY)).toBe(false);
         expect((await listChannels(projectId)).map(c => c.id)).toEqual(['site']);
+        // Once, both files, so the project's Git records the move.
+        expect(saved).toEqual([
+            expect.objectContaining({ paths: [CHANNELS_KEY, LEGACY_CHANNELS_KEY] })
+        ]);
     });
 
     it('keeps a key limited to its channels', async () => {
