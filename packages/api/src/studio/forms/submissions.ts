@@ -18,7 +18,7 @@ type FormSubmissionsParams = { projectId: string; formId: string };
 type SubmissionParams = { projectId: string; formId: string; submissionId: string };
 type SubmissionsListQuery = { status?: string; limit?: string; offset?: string; unread?: string };
 
-const SUBMISSION_STATUSES: FormSubmissionStatus[] = ['received', 'processed', 'spam'];
+const SUBMISSION_STATUSES: FormSubmissionStatus[] = ['received', 'processed', 'spam', 'held'];
 
 function isFormSubmissionStatus(s: string): s is FormSubmissionStatus {
     return (SUBMISSION_STATUSES as readonly string[]).includes(s);

@@ -17,6 +17,7 @@ import { formKey, formListPrefix } from './utils/storageKeys.js';
 import { checkCountRoom } from './planLimits.js';
 import { countOf } from './projectCounts.js';
 import { captchaSecret, hasStoredCaptchaSecret, setCaptchaSecret } from './formGuard.js';
+import { getFormAction } from './plugins/formExtensions.js';
 
 /**
  * A captcha's secret key is written with the form but never kept in it (forms are in Git): it
@@ -179,8 +180,25 @@ export function checkForm(form: Partial<FormSchema>): void {
     if (form.actions !== undefined) {
         if (!Array.isArray(form.actions)) bad('"actions" must be a list.');
         form.actions.forEach((action, i) => {
+            // A plugin's action (`sheets:append`): one this server has, with settings it accepts.
+            if (action && typeof action.type === 'string' && action.type.includes(':')) {
+                const plugin = getFormAction(action.type);
+                if (!plugin)
+                    bad(`action ${i + 1}: no plugin on this server provides "${action.type}".`);
+                const config = 'config' in action ? action.config : undefined;
+                if (
+                    config !== undefined &&
+                    (!config || typeof config !== 'object' || Array.isArray(config))
+                )
+                    bad(`action ${i + 1}: "config" must be an object.`);
+                const problem = plugin!.check?.((config ?? {}) as Record<string, unknown>);
+                if (problem) bad(`action ${i + 1} (${plugin!.label}): ${problem}`);
+                return;
+            }
             if (!action || !FORM_ACTION_TYPES.includes(action.type))
-                bad(`action ${i + 1} must be one of ${FORM_ACTION_TYPES.join(', ')}.`);
+                bad(
+                    `action ${i + 1} must be one of ${FORM_ACTION_TYPES.join(', ')}, or a plugin's.`
+                );
             if (
                 action.type === 'createEntry' &&
                 (typeof action.modelId !== 'string' || !action.modelId)

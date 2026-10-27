@@ -39,6 +39,12 @@ import {
     registerGitProvider as registerGitProviderCore
 } from './gitHooks.js';
 import { registerOutboundWebhookEvent as registerOutboundWebhookEventCore } from './outboundEvents.js';
+import {
+    registerFormAction,
+    registerFormField,
+    registerSubmissionHold,
+    registerSubmissionScreen
+} from './formExtensions.js';
 
 const globalScopePluginIds = new Set<string>();
 
@@ -99,7 +105,11 @@ export function createPluginContext(): PluginContext {
         registerModelTemplate: schema => registerModelTemplateCore(schema),
         registerGitCommitHook: hook => registerGitCommitHookCore(hook),
         registerGitProvider: id => registerGitProviderCore(id),
-        registerOutboundWebhookEvent: event => registerOutboundWebhookEventCore(event)
+        registerOutboundWebhookEvent: event => registerOutboundWebhookEventCore(event),
+        registerFormAction: action => registerFormAction(action),
+        registerFormField: field => registerFormField(field),
+        registerSubmissionScreen: screen => registerSubmissionScreen(screen),
+        registerSubmissionHold: hold => registerSubmissionHold(hold)
     };
 }
 
@@ -222,6 +232,22 @@ export function wrapPluginContext(
         registerOutboundWebhookEvent: event => {
             collector.addOutboundWebhookEvent(event);
             ctx.registerOutboundWebhookEvent(event);
+        },
+        registerFormAction: action => {
+            collector.addFormExtension('actions', action.type);
+            registerFormAction(action, pluginId);
+        },
+        registerFormField: field => {
+            collector.addFormExtension('fields', field.type);
+            registerFormField(field, pluginId);
+        },
+        registerSubmissionScreen: screen => {
+            collector.addFormExtension('screens', screen.id);
+            registerSubmissionScreen(screen, pluginId);
+        },
+        registerSubmissionHold: hold => {
+            collector.addFormExtension('holds', hold.id);
+            registerSubmissionHold(hold, pluginId);
         }
     };
 }

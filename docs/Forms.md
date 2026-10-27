@@ -120,4 +120,13 @@ When answers don't fit, the reply is `422` with `code: "ANSWERS_INVALID"`, an `e
 
 Member-only inbox routes live under `/projects/:projectId/forms/:formId/submissions`, including listing, export, individual reads, status updates and deletion. Listing pages through an index (`user-data/forms/:formId/_index.json`) kept up to date on every save, so it opens only the page's submissions; the index is rebuilt from the files when it is missing or out of step. Public collection readers cannot read the inbox. See the host's OpenAPI document for filters and export parameters.
 
+## What plugins add
+
+A plugin can give forms four things. Each runs on the server, and none can stop a letter from being kept.
+
+- **Actions** (`registerFormAction`). A form lists them like its own, with the plugin's `type` and this form's `config`: `{ "type": "sheets:append", "config": { "sheet": "Leads" } }`. The type is always `plugin:name`, so it never clashes with the engine's. The action says which settings it asks for, and can check them when the form is saved: a form that names an action no plugin on this server provides is refused. It runs after the engine's own actions, gets 15 seconds, and what it says (`detail`, or the error) is kept in the letter's `actionResults`. A failing action never stops the others. `GET /projects/:projectId/forms/actions` lists the actions this server's plugins add, for the Studio.
+- **Field checks** (`registerFormField`). A field type a plugin registered (`geo/location`) gets the plugin's check for visitors' answers: it returns the value to keep, or an issue like the engine's own. Lists and objects are allowed when the check accepts them.
+- **Spam checks** (`registerSubmissionScreen`). After the honeypot, the time trap and the captcha, on answers that already fit the form. The first that says spam wins: the letter is kept as spam with `spamReason: "screen"`, `screenedBy` and the check's `screenNote`. A check that fails or takes longer than 3 seconds is skipped.
+- **Holds** (`registerSubmissionHold`). A hold can keep a letter's actions waiting, for a double opt-in for example. The letter is kept with status `held` and `heldBy`, and nothing runs (not even the team's notice) until the plugin calls `releaseSubmission` from `@moteurio/core/host.js`. A hold that fails or is slow lets the letter through.
+
 Submission data lives under the project's gitignored `user-data/` store. Back it up separately from the content branch and define retention appropriate to the information your form collects. See [Operations](Operations.md) and [Git](Git.md).

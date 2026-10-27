@@ -12,6 +12,7 @@ export * from './Blueprint.js';
 export * from './Field.js';
 
 export * from './Form.js';
+export * from './FormPlugin.js';
 export * from './Layout.js';
 export * from './Model.js';
 export * from './Navigation.js';

@@ -10,4 +10,4 @@ Hooks not yet on `PluginInitContext`. Manifests may still declare them on `contr
 | Schedule job kinds                       | `schedules.jobKinds`   |                                                             |
 | Named validators                         | `validation.hooks`     | `onEvent` `*.before*` is the current escape hatch           |
 
-Shipped: `registerCommand` / `registerMcpTool`, media variant presets / transforms / generators, `registerModelTemplate`, `registerGitCommitHook` / `registerGitProvider`, `registerOutboundWebhookEvent`.
+Shipped: `registerCommand` / `registerMcpTool`, media variant presets / transforms / generators, `registerModelTemplate`, `registerGitCommitHook` / `registerGitProvider`, `registerOutboundWebhookEvent`, the form hooks (`registerFormAction`, `registerFormField`, `registerSubmissionScreen`, `registerSubmissionHold`).

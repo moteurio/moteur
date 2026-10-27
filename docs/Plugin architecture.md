@@ -36,27 +36,28 @@ Authors set `categories` and optional `contributes`. During `init()`, the engine
 
 ## Contribution catalog (shipped today)
 
-| Field                                                     | How it is registered                                                               |
-| --------------------------------------------------------- | ---------------------------------------------------------------------------------- |
-| `api.mounts`, `api.openApi`, `api.routePaths`             | `getRoutes()`                                                                      |
-| `auth.providers`                                          | `getAuthProviders()`                                                               |
-| `webhooks.inbound`                                        | Declare inbound paths (often `/webhooks/…`)                                        |
-| `schemas.blocks` / `structures` / `blueprints` / `fields` | `ctx.register*Schema`                                                              |
-| `adapters.storage` / `adapters.video`                     | `registerStorageAdapterFactory` / `registerVideoProviderFactory`                   |
-| `video.activeProvider`                                    | `setVideoProvidersConfig`                                                          |
-| `search.backend`                                          | Declarative (no core registry)                                                     |
-| `extensions.aiProviders`                                  | `registerAIProvider` on `@moteurio/plugin-ai`                                      |
-| `planLimits.*`                                            | `setCreditAllowance`, `set*Limit`, `set*Quota`                                     |
-| `events.subscribes`                                       | `ctx.onEvent`                                                                      |
-| `server.attach`                                           | `attachServer`                                                                     |
-| `platform.onlinePresence`                                 | `setOnlineUserIdsProvider` from `@moteurio/core/host.js`                           |
-| `studio` / `studioUi`                                     | Manifest hints + Studio companion `register*`                                      |
-| `frontend`                                                | Manifest hints + opt-in site package (`contributes.frontend`)                      |
-| `commands.cli` / `commands.mcp` / `mcp.tools`             | `registerCommand` / `registerMcpTool`                                              |
-| `media.variants` / `transforms` / `generators`            | `registerMediaVariantPreset` / `registerMediaTransform` / `registerMediaGenerator` |
-| `schemas.models`                                          | `registerModelTemplate`                                                            |
-| `git.commitHooks` / `git.providers`                       | `registerGitCommitHook` / `registerGitProvider`                                    |
-| `webhooks.outboundEvents`                                 | `registerOutboundWebhookEvent` (added to the allowed event list)                   |
+| Field                                                     | How it is registered                                                                                                                    |
+| --------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| `api.mounts`, `api.openApi`, `api.routePaths`             | `getRoutes()`                                                                                                                           |
+| `auth.providers`                                          | `getAuthProviders()`                                                                                                                    |
+| `webhooks.inbound`                                        | Declare inbound paths (often `/webhooks/…`)                                                                                             |
+| `schemas.blocks` / `structures` / `blueprints` / `fields` | `ctx.register*Schema`                                                                                                                   |
+| `adapters.storage` / `adapters.video`                     | `registerStorageAdapterFactory` / `registerVideoProviderFactory`                                                                        |
+| `video.activeProvider`                                    | `setVideoProvidersConfig`                                                                                                               |
+| `search.backend`                                          | Declarative (no core registry)                                                                                                          |
+| `extensions.aiProviders`                                  | `registerAIProvider` on `@moteurio/plugin-ai`                                                                                           |
+| `planLimits.*`                                            | `setCreditAllowance`, `set*Limit`, `set*Quota`                                                                                          |
+| `events.subscribes`                                       | `ctx.onEvent`                                                                                                                           |
+| `server.attach`                                           | `attachServer`                                                                                                                          |
+| `platform.onlinePresence`                                 | `setOnlineUserIdsProvider` from `@moteurio/core/host.js`                                                                                |
+| `studio` / `studioUi`                                     | Manifest hints + Studio companion `register*`                                                                                           |
+| `frontend`                                                | Manifest hints + opt-in site package (`contributes.frontend`)                                                                           |
+| `commands.cli` / `commands.mcp` / `mcp.tools`             | `registerCommand` / `registerMcpTool`                                                                                                   |
+| `media.variants` / `transforms` / `generators`            | `registerMediaVariantPreset` / `registerMediaTransform` / `registerMediaGenerator`                                                      |
+| `schemas.models`                                          | `registerModelTemplate`                                                                                                                 |
+| `git.commitHooks` / `git.providers`                       | `registerGitCommitHook` / `registerGitProvider`                                                                                         |
+| `webhooks.outboundEvents`                                 | `registerOutboundWebhookEvent` (added to the allowed event list)                                                                        |
+| `forms.actions` / `fields` / `screens` / `holds`          | `registerFormAction` / `registerFormField` / `registerSubmissionScreen` / `registerSubmissionHold` ([Forms](Forms.md#what-plugins-add)) |
 
 Enablement (`isPluginEnabledForProject`) is not a contribution.
 

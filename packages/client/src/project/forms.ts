@@ -1,4 +1,5 @@
 import type { MoteurClient } from '../client.js';
+import type { FormActionSetting } from '@moteurio/types';
 
 const base = (projectId: string) => `/projects/${encodeURIComponent(projectId)}/forms`;
 
@@ -6,6 +7,17 @@ export function projectFormsApi(client: MoteurClient) {
     return {
         list(projectId: string): Promise<{ forms: Record<string, unknown>[] }> {
             return client.get(base(projectId));
+        },
+        /** The actions plugins add to forms, and the settings each asks for. */
+        actions(projectId: string): Promise<{
+            actions: {
+                type: string;
+                label: string;
+                description?: string;
+                settings: Record<string, FormActionSetting>;
+            }[];
+        }> {
+            return client.get(`${base(projectId)}/actions`);
         },
         get(projectId: string, formId: string): Promise<{ form: Record<string, unknown> }> {
             return client.get(`${base(projectId)}/${encodeURIComponent(formId)}`);

@@ -25,6 +25,12 @@ export class ContributionCollector {
     private gitProviders: string[] = [];
     private gitCommitHooks = false;
     private outboundEvents: string[] = [];
+    private forms: Record<'actions' | 'fields' | 'screens' | 'holds', string[]> = {
+        actions: [],
+        fields: [],
+        screens: [],
+        holds: []
+    };
 
     addBlock(type: string): void {
         if (type) this.blocks.push(type);
@@ -109,6 +115,10 @@ export class ContributionCollector {
         if (event) this.outboundEvents.push(event);
     }
 
+    addFormExtension(kind: 'actions' | 'fields' | 'screens' | 'holds', id: string): void {
+        if (id) this.forms[kind].push(id);
+    }
+
     snapshot(): PluginContributions {
         const out: PluginContributions = {};
         if (
@@ -161,6 +171,12 @@ export class ContributionCollector {
                 ...(this.gitProviders.length ? { providers: [...this.gitProviders] } : {})
             };
         }
+        const forms = Object.fromEntries(
+            Object.entries(this.forms)
+                .filter(([, ids]) => ids.length)
+                .map(([kind, ids]) => [kind, [...ids]])
+        );
+        if (Object.keys(forms).length) out.forms = forms;
         if (this.outboundEvents.length) {
             out.webhooks = { outboundEvents: [...this.outboundEvents] };
         }

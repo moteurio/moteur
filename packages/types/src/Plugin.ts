@@ -84,6 +84,8 @@ export interface PluginContributions {
         counts?: PlanLimitKind[];
     };
     events?: { subscribes?: string[] };
+    /** Form actions, field checks, spam checks and holds the plugin adds. */
+    forms?: { actions?: string[]; fields?: string[]; screens?: string[]; holds?: string[] };
     server?: { attach?: boolean };
     platform?: { onlinePresence?: boolean };
     storage?: { projectKeys?: string[] };

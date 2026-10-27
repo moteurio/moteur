@@ -19,6 +19,7 @@ export {
     eraseSubmission,
     getSubmissionForProject,
     listSubmissionRows,
+    releaseSubmission,
     saveSubmissionForProject
 } from './formSubmissions.js';
 export type { SubmissionRow } from './utils/submissionIndex.js';
