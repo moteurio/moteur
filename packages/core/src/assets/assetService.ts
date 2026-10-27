@@ -26,7 +26,12 @@ import {
 import { getVariantDefinitions } from './defaultVariants.js';
 import { generateVariants, readImageShape, stripImageMetadata } from './imageTransformer.js';
 import { detectVideoDuration } from './videoMetadata.js';
-import { isAllowedMime, getAssetTypeFromMime, resolveUploadMime } from './allowedTypes.js';
+import {
+    isAllowedMime,
+    getAssetTypeFromMime,
+    nameForType,
+    resolveUploadMime
+} from './allowedTypes.js';
 import { dispatch as webhookDispatch } from '../webhooks/webhookService.js';
 import { sanitizeUploadFilename } from './safeUploadFilename.js';
 import { ASSET_KINDS, fold, kindOf, textValues } from './assetFacts.js';
@@ -271,8 +276,11 @@ export async function uploadAsset(
 ): Promise<Asset> {
     assertCanWrite(user);
     let buffer = file.buffer;
-    const safeOriginalName = sanitizeUploadFilename(file.originalName);
-    file = { ...file, mimeType: resolveUploadMime(file.mimeType, safeOriginalName) };
+    file = {
+        ...file,
+        mimeType: resolveUploadMime(file.mimeType, sanitizeUploadFilename(file.originalName))
+    };
+    const safeOriginalName = nameForType(sanitizeUploadFilename(file.originalName), file.mimeType);
     const project = await getProject(user, projectId);
     const assetType = assertUploadAllowed(
         project,
@@ -1455,8 +1463,8 @@ export async function replaceAssetFile(
             'A video kept at a video host can’t be replaced yet: upload the new one instead.'
         );
     }
-    const safeName = sanitizeUploadFilename(file.originalName);
-    const mimeType = resolveUploadMime(file.mimeType, safeName);
+    const mimeType = resolveUploadMime(file.mimeType, sanitizeUploadFilename(file.originalName));
+    const safeName = nameForType(sanitizeUploadFilename(file.originalName), mimeType);
     const type = assertUploadAllowed(
         project,
         file.buffer.length,

@@ -34,6 +34,20 @@ describe('static assets route', () => {
         fs.rmSync(path.dirname(root), { recursive: true, force: true });
     });
 
+    it('sends anything but media as a sandboxed download, never as a page', async () => {
+        const dir = path.join(root, 'data', 'projects', 'p1', 'assets', 'original');
+        fs.mkdirSync(dir, { recursive: true });
+        fs.writeFileSync(path.join(dir, 'x-page.html'), '<script>alert(1)</script>');
+        const page = await request(app).get('/static/assets/p1/original/x-page.html');
+        expect(page.headers['content-disposition']).toMatch(/^attachment/);
+        expect(page.headers['content-security-policy']).toContain('sandbox');
+        expect(page.headers['x-content-type-options']).toBe('nosniff');
+
+        const image = await request(app).get('/static/assets/p1/thumb/a1.webp');
+        expect(image.headers['content-disposition']).toBeUndefined();
+        expect(image.headers['x-content-type-options']).toBe('nosniff');
+    });
+
     it('serves files even when the data root is under a dot-directory', async () => {
         const res = await request(app).get('/static/assets/p1/thumb/a1.webp');
         expect(res.status).toBe(200);
