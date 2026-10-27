@@ -122,3 +122,19 @@ export const formsSubmitRateLimiter = rateLimit({
     },
     message: { error: 'Too many submissions. Please try again later.', code: 'rate_limited' }
 });
+
+/**
+ * Rate limiter for form tokens (asked for each time a site shows a form). Per form, four times
+ * the submissions allowed: most visitors who see a form don't send it.
+ */
+export const formsTokenRateLimiter = rateLimit({
+    windowMs: FORMS_WINDOW_MS,
+    max: getFormsSubmitMax() * 4,
+    standardHeaders: true,
+    legacyHeaders: false,
+    keyGenerator: (req: Request) => {
+        const p = req.params as Record<string, string>;
+        return `forms-token:${p?.projectId ?? ''}:${p?.formId ?? ''}`;
+    },
+    message: { error: 'Too many requests. Please try again later.', code: 'rate_limited' }
+});

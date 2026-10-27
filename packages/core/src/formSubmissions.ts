@@ -21,6 +21,8 @@ import { sendEmail } from './emailNotifier.js';
 import { recordRequest, submissionCount } from './metering.js';
 import { assertSubmissionRoom } from './planLimits.js';
 import { answersMessage, checkAnswers } from './formAnswers.js';
+import { screenSubmission, type SubmissionProof } from './formGuard.js';
+import type { SubmissionRow } from './utils/submissionIndex.js';
 
 /** Form actions are the engine's own work, done for whoever sent the form. */
 const systemUser = (): User => systemActor('_forms', 'Forms');
@@ -86,7 +88,36 @@ export interface SubmissionsPage {
     unread: number;
 }
 
-const submittedAt = (s: FormSubmission) => s.metadata?.submittedAt ?? '';
+/** Spam is deleted this long after it arrived, or after someone marked it. */
+export const SPAM_KEPT_DAYS = 30;
+const PURGE_EVERY_MS = 60 * 60 * 1000;
+const lastPurge = new Map<string, number>();
+
+/** Delete a form's spam older than 30 days. Returns how many went. */
+export async function purgeOldSpam(
+    projectId: string,
+    formId: string,
+    now = Date.now()
+): Promise<number> {
+    lastPurge.set(`${projectId}\0${formId}`, now);
+    const cutoff = new Date(now - SPAM_KEPT_DAYS * 86_400_000).toISOString();
+    const old = (await UserDataStore.readIndex(projectId, formId)).filter(
+        r => r.status === 'spam' && (r.spamAt ?? r.submittedAt) < cutoff
+    );
+    for (const row of old) await UserDataStore.purgeSubmission(projectId, formId, row.id);
+    return old.length;
+}
+
+/** At most once an hour per form, whenever the form is used: no scheduler needed. */
+function purgeNowAndThen(projectId: string, formId: string): void {
+    const last = lastPurge.get(`${projectId}\0${formId}`) ?? 0;
+    if (Date.now() - last < PURGE_EVERY_MS) return;
+    void purgeOldSpam(projectId, formId).catch(() => {
+        // the next use tries again
+    });
+}
+
+const unreadRow = (r: SubmissionRow) => !r.read && r.status !== 'spam';
 
 /** A form's submissions, newest first, with how many match and how many are unread. */
 export async function querySubmissions(
@@ -96,26 +127,24 @@ export async function querySubmissions(
     options?: ListSubmissionsOptions
 ): Promise<SubmissionsPage> {
     await getForm(user, projectId, formId);
+    purgeNowAndThen(projectId, formId);
 
-    const ids = await UserDataStore.listSubmissionIds(projectId, formId);
-    const all: FormSubmission[] = [];
-    for (const id of ids) {
-        const sub = await UserDataStore.getSubmission(projectId, formId, id);
-        if (sub) all.push(sub);
-    }
-    all.sort((a, b) => submittedAt(b).localeCompare(submittedAt(a)));
-
-    let result = all;
-    if (options?.status !== undefined) result = result.filter(s => s.status === options.status);
-    if (options?.unread) result = result.filter(s => !s.readAt && s.status !== 'spam');
-    const total = result.length;
+    // The index answers the counts; only the page's submissions are opened.
+    const rows = [...(await UserDataStore.readIndex(projectId, formId))].sort(
+        (a, b) => b.submittedAt.localeCompare(a.submittedAt) || b.id.localeCompare(a.id)
+    );
+    let result = rows;
+    if (options?.status !== undefined) result = result.filter(r => r.status === options.status);
+    if (options?.unread) result = result.filter(unreadRow);
     const offset = Math.max(0, options?.offset ?? 0);
     const limit = options?.limit !== undefined && options.limit > 0 ? options.limit : undefined;
-    return {
-        submissions: result.slice(offset, limit === undefined ? undefined : offset + limit),
-        total,
-        unread: all.filter(s => !s.readAt && s.status !== 'spam').length
-    };
+    const page = result.slice(offset, limit === undefined ? undefined : offset + limit);
+    const submissions: FormSubmission[] = [];
+    for (const row of page) {
+        const sub = await UserDataStore.getSubmission(projectId, formId, row.id);
+        if (sub) submissions.push(sub);
+    }
+    return { submissions, total: result.length, unread: rows.filter(unreadRow).length };
 }
 
 /** A form's submissions, newest first. */
@@ -151,10 +180,12 @@ export async function updateSubmission(
     if (patch.spam === true && next.status !== 'spam') {
         next.statusBeforeSpam = next.status;
         next.status = 'spam';
+        next.spamAt = new Date().toISOString();
     } else if (patch.spam === false && next.status === 'spam') {
-        // Caught by the honeypot, its actions never ran: it goes back as received.
+        // Caught on arrival, its actions never ran: it goes back as received.
         next.status = next.statusBeforeSpam ?? 'received';
         delete next.statusBeforeSpam;
+        delete next.spamAt;
     }
     await UserDataStore.saveSubmission(projectId, formId, next);
     return next;
@@ -214,21 +245,28 @@ export async function deleteSubmission(
     }
 }
 
+/**
+ * Keep what a visitor sent. Answers are checked first (a person can fix them), then the proof
+ * that it's a person: honeypot, time trap, captcha. Spam is kept quietly for 30 days: it runs no
+ * actions, sends no email and doesn't count against the plan.
+ */
 export async function createSubmission(
     projectId: string,
     formId: string,
     data: Record<string, unknown>,
-    meta: FormSubmissionMeta
+    meta: FormSubmissionMeta,
+    proof: SubmissionProof = { honeypotTriggered: meta.honeypotTriggered }
 ): Promise<FormSubmission> {
     const form = await getFormForProject(projectId, formId);
     if (!form) {
         throw new Error(`Form "${formId}" not found in project "${projectId}".`);
     }
+    purgeNowAndThen(projectId, formId);
 
-    const caught = meta.honeypotTriggered && form.honeypot !== false;
+    const caught = proof.honeypotTriggered && form.honeypot !== false;
     // The browser's checks can be skipped: the answers are checked again here. A caught bot is
     // told the same thank-you, so it learns nothing; only what fits the form is kept.
-    const answers = checkAnswers(form, data);
+    const answers = checkAnswers(form, data, meta.locale);
     if (!caught && answers.issues.length) {
         throw Object.assign(new Error(answersMessage(form, answers.issues, meta.locale)), {
             statusCode: 422,
@@ -236,25 +274,34 @@ export async function createSubmission(
             issues: answers.issues
         });
     }
-    if (!caught) assertSubmissionRoom(projectId, submissionCount(projectId));
+    const screening = await screenSubmission(projectId, form, proof, meta.locale);
+    const spam = Boolean(screening.spamReason);
+    if (!spam) assertSubmissionRoom(projectId, submissionCount(projectId));
 
     let id = generateSubmissionId();
     while (await UserDataStore.getSubmission(projectId, formId, id)) {
         id = generateSubmissionId();
     }
 
+    const now = new Date().toISOString();
     const submission: FormSubmission = {
         id,
         formId,
         projectId,
         data: answers.data,
-        metadata: meta,
+        metadata: {
+            ...meta,
+            ...(proof.honeypotTriggered && { honeypotTriggered: true }),
+            ...screening
+        },
         actionResults: [],
-        status: 'received'
+        status: spam ? 'spam' : 'received',
+        ...(spam && { spamAt: now })
     };
 
     await UserDataStore.saveSubmission(projectId, formId, submission);
-    if (!caught) recordRequest('submission', projectId);
+    if (spam) return submission;
+    recordRequest('submission', projectId);
 
     void processSubmission(projectId, formId, submission).catch(() => {
         // fire-and-forget; never throw
@@ -274,16 +321,6 @@ async function processSubmission(
 ): Promise<void> {
     const form = await getFormForProject(projectId, formId);
     if (!form) return;
-
-    if (submission.metadata.honeypotTriggered && form.honeypot !== false) {
-        const updated: FormSubmission = {
-            ...((await UserDataStore.getSubmission(projectId, formId, submission.id)) ??
-                submission),
-            status: 'spam'
-        };
-        await UserDataStore.saveSubmission(projectId, formId, updated);
-        return;
-    }
 
     const actions: FormAction[] = form.actions ?? [];
     const actionResults: FormActionResult[] = [];

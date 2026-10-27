@@ -5,14 +5,10 @@
 import { randomUUID } from 'crypto';
 import fs from 'fs/promises';
 import path from 'path';
-import {
-    getProjectJson,
-    putProjectJson,
-    deleteProjectKey,
-    listProjectKeys
-} from './projectStorage.js';
+import { getProjectJson, putProjectJson, deleteProjectKey } from './projectStorage.js';
 import { userDataDir } from './pathUtils.js';
-import { submissionKey, submissionListPrefix } from './storageKeys.js';
+import { submissionKey } from './storageKeys.js';
+import { readIndex, rowOf, submissionFileIds, updateIndex } from './submissionIndex.js';
 import { log as logActivity } from '../activityLogger.js';
 import type { FormSubmission } from '@moteurio/types/Form.js';
 import type { User } from '@moteurio/types/User.js';
@@ -51,8 +47,7 @@ export async function getSubmission(
  * List submission ids for a form (no filter).
  */
 export async function listSubmissionIds(projectId: string, formId: string): Promise<string[]> {
-    const names = await listProjectKeys(projectId, submissionListPrefix(formId));
-    return names.map(n => (n.endsWith('.json') ? n.slice(0, -5) : n)).filter(Boolean);
+    return submissionFileIds(projectId, formId);
 }
 
 /**
@@ -66,6 +61,7 @@ export async function saveSubmission(
     const key = submissionKey(formId, submission.id);
     assertUserDataKey(key);
     await putProjectJson(projectId, key, submission);
+    await updateIndex(projectId, formId, { put: rowOf(submission) });
 }
 
 /**
@@ -81,6 +77,7 @@ export async function deleteSubmission(
     assertUserDataKey(key);
     const submission = await getProjectJson<FormSubmission>(projectId, key);
     await deleteProjectKey(projectId, key);
+    await updateIndex(projectId, formId, { remove: submissionId });
     logActivity({
         id: randomUUID(),
         projectId,
@@ -95,6 +92,20 @@ export async function deleteSubmission(
 }
 
 /**
+ * Delete spam: no log, nobody asked for it. Spam is kept 30 days so a mistake can be undone.
+ */
+export async function purgeSubmission(
+    projectId: string,
+    formId: string,
+    submissionId: string
+): Promise<void> {
+    const key = submissionKey(formId, submissionId);
+    assertUserDataKey(key);
+    await deleteProjectKey(projectId, key);
+    await updateIndex(projectId, formId, { remove: submissionId });
+}
+
+/**
  * Export submissions for a form as JSON or CSV.
  * Returns { format: 'json', data: FormSubmission[] } or { format: 'csv', data: string }.
  */
@@ -103,10 +114,9 @@ export async function exportCollection(
     formId: string,
     format: 'json' | 'csv'
 ): Promise<{ format: 'json'; data: FormSubmission[] } | { format: 'csv'; data: string }> {
-    const names = await listProjectKeys(projectId, submissionListPrefix(formId));
+    const ids = await submissionFileIds(projectId, formId);
     const submissions: FormSubmission[] = [];
-    for (const name of names) {
-        const id = name.endsWith('.json') ? name.slice(0, -5) : name;
+    for (const id of ids) {
         const sub = await getProjectJson<FormSubmission>(projectId, submissionKey(formId, id));
         if (sub) submissions.push(sub);
     }
@@ -165,5 +175,7 @@ export const UserDataStore = {
     listSubmissionIds,
     saveSubmission,
     deleteSubmission,
+    purgeSubmission,
+    readIndex,
     exportCollection
 };

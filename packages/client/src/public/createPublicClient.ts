@@ -4,11 +4,12 @@ import { publicCollectionsReadApi } from './collectionsRead.js';
 import { createPublicCollectionChannel } from './collectionChannel.js';
 import { publicSiteOutputsApi } from './pageOutputs.js';
 import { publicRadarApi } from './radar.js';
+import { publicFormsApi } from './forms.js';
 import type { MoteurPublicClientConfig } from '../types.js';
 
 /**
  * Read-only SDK for a **project API key** (`x-api-key`) and fixed `projectId`.
- * Use `channel(collectionId)` for collection-shaped reads; `site` for sitemap / navigation tree / urls / breadcrumb, in any language, and to resolve a path or list redirects.
+ * Use `channel(collectionId)` for collection-shaped reads; `forms` to show and send forms; `site` for sitemap / navigation tree / urls / breadcrumb, in any language, and to resolve a path or list redirects.
  */
 export function createMoteurPublicClient(config: MoteurPublicClientConfig) {
     const auth = config.auth;
@@ -39,6 +40,7 @@ export function createMoteurPublicClient(config: MoteurPublicClientConfig) {
     const collectionsRead = publicCollectionsReadApi(client);
     const site = publicSiteOutputsApi(client, projectId);
     const radar = publicRadarApi(client, projectId);
+    const forms = publicFormsApi(client, projectId);
 
     return {
         get baseURL() {
@@ -53,6 +55,8 @@ export function createMoteurPublicClient(config: MoteurPublicClientConfig) {
             createPublicCollectionChannel(client, projectId, collectionId),
         site,
         radar,
+        /** Show a form in the visitor's language, and send what they wrote. */
+        forms,
         /** Clone this client with a preview token (draft / latest view on collection reads). */
         withPreview(previewToken: string) {
             return createMoteurPublicClient({
