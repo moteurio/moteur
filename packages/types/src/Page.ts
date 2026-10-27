@@ -7,7 +7,10 @@ export interface PageNodeBase {
     projectId: string;
     type: PageNodeType;
     label: string;
+    /** The address segment in the project's default language. */
     slug: string;
+    /** The address segment in other languages, by locale. A language left out uses `slug`. */
+    slugs?: Record<string, string>;
     parentId: string | null;
     order: number;
     navInclude: boolean;

@@ -501,7 +501,30 @@ const baseSchemas: OpenAPIV3.ComponentsObject['schemas'] = {
         type: 'object',
         additionalProperties: true,
         properties: {
-            url: { type: 'string' }
+            url: { type: 'string' },
+            locale: { type: 'string', description: 'The language of this address.' },
+            alternates: {
+                type: 'object',
+                additionalProperties: { type: 'string' },
+                description: 'The same page or entry in every language, by locale.'
+            }
+        }
+    },
+    Redirect: {
+        type: 'object',
+        required: ['id', 'from', 'to', 'status'],
+        properties: {
+            id: { type: 'string' },
+            from: { type: 'string', description: 'The old path, starting with /.' },
+            to: { type: 'string', description: 'A path on the site, or an http(s) address.' },
+            status: { type: 'integer', enum: [301, 302] },
+            auto: {
+                type: 'boolean',
+                description: 'Made by Moteur when a live page or entry changed address.'
+            },
+            note: { type: 'string' },
+            createdAt: { type: 'string' },
+            updatedAt: { type: 'string' }
         }
     },
     /** Navigation tree from GET .../navigation */

@@ -36,6 +36,8 @@ export type {
     StorageSettings
 } from './project/mediaSettings.js';
 export type { PageMove } from './project/pages.js';
+export type { RedirectInput } from './project/redirects.js';
+export type { ResolvedPath } from './public/pageOutputs.js';
 export type { SubmissionListParams, SubmissionListResult } from './project/submissions.js';
 
 export {

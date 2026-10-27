@@ -28,5 +28,6 @@ export * from './platformRoles.js';
 export * from './ValidationResult.js';
 export * from './Webhook.js';
 export * from './Radar.js';
+export * from './Redirect.js';
 export * from './Schedule.js';
 export * from './StudioForm.js';

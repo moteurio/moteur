@@ -6,6 +6,13 @@ import { fillPath } from '../execute.js';
 
 const P = '/projects/{project}';
 const pageArg: ArgSpec = { ...id('Page'), positional: 0 };
+const locale: ArgSpec = {
+    name: 'locale',
+    description: 'In this language (e.g. fr)',
+    in: 'query',
+    aliases: ['lang']
+};
+const redirectArg: ArgSpec = { ...id('Redirect'), positional: 0 };
 
 export const pages = group('pages', [
     ...crud({
@@ -40,7 +47,11 @@ export const pages = group('pages', [
     {
         name: 'by-slug',
         summary: 'Find a page by its slug',
-        args: [project, { name: 'slug', description: 'The slug', required: true, positional: 0 }],
+        args: [
+            project,
+            { name: 'slug', description: 'The slug', required: true, positional: 0 },
+            locale
+        ],
         http: `GET ${P}/pages/by-slug/{slug}`,
         readOnly: true
     },
@@ -97,8 +108,8 @@ export const pages = group('pages', [
 export const site = group('site', [
     {
         name: 'urls',
-        summary: 'Every published address of the site',
-        args: [project],
+        summary: 'Every published address of the site, in every language',
+        args: [project, locale],
         http: `GET ${P}/urls`,
         pick: 'urls',
         table: [
@@ -139,7 +150,8 @@ export const site = group('site', [
         args: [
             project,
             { name: 'depth', type: 'number', description: 'How deep', in: 'query' },
-            { name: 'root', description: 'Start from this page', in: 'query', key: 'rootId' }
+            { name: 'root', description: 'Start from this page', in: 'query', key: 'rootId' },
+            locale
         ],
         http: `GET ${P}/navigation`,
         readOnly: true
@@ -162,9 +174,93 @@ export const site = group('site', [
                 description: 'Entry id shown on the page',
                 in: 'query',
                 key: 'entryId'
-            }
+            },
+            locale
         ],
         http: `GET ${P}/breadcrumb`,
         readOnly: true
+    },
+    {
+        name: 'resolve',
+        summary: 'What lives at an address: a page or entry (and its language), or a redirect',
+        args: [
+            project,
+            {
+                name: 'path',
+                description: 'The address, e.g. /fr/a-propos',
+                required: true,
+                positional: 0,
+                in: 'query'
+            }
+        ],
+        http: `GET ${P}/resolve`,
+        readOnly: true
+    },
+    {
+        name: 'redirects',
+        summary: 'Old addresses and where they go',
+        args: [project],
+        http: `GET ${P}/redirects`,
+        table: [
+            { key: 'from', header: 'from' },
+            { key: 'to', header: 'to' },
+            { key: 'status', header: 'status' },
+            { key: 'auto', header: 'auto', format: v => (v ? 'yes' : '') }
+        ],
+        readOnly: true
+    },
+    {
+        name: 'redirect-add',
+        summary: 'Send an old address somewhere else',
+        args: [
+            project,
+            {
+                name: 'from',
+                description: 'The old path, e.g. /old-about',
+                required: true,
+                positional: 0,
+                in: 'body'
+            },
+            {
+                name: 'to',
+                description: 'A path on the site, or an http(s) address',
+                required: true,
+                positional: 1,
+                in: 'body'
+            },
+            {
+                name: 'status',
+                type: 'number',
+                description: '301 permanent (default), 302 temporary',
+                in: 'body'
+            },
+            { name: 'note', description: 'Why it exists', in: 'body' }
+        ],
+        http: `POST ${P}/redirects`
+    },
+    {
+        name: 'redirect-update',
+        summary: 'Change where a redirect goes',
+        args: [
+            project,
+            redirectArg,
+            { name: 'from', description: 'The old path', in: 'body' },
+            { name: 'to', description: 'Where it goes', in: 'body' },
+            {
+                name: 'status',
+                type: 'number',
+                description: '301 permanent, 302 temporary',
+                in: 'body'
+            },
+            { name: 'note', description: 'Why it exists', in: 'body' }
+        ],
+        http: `PATCH ${P}/redirects/{id}`
+    },
+    {
+        name: 'redirect-delete',
+        summary: 'Remove a redirect',
+        args: [project, redirectArg],
+        http: `DELETE ${P}/redirects/{id}`,
+        destructive: true
     }
 ]);

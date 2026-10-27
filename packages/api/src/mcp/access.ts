@@ -113,7 +113,7 @@ export function scopedServerOptions(
 const CONTENT_PATH =
     /^\/(?:assets|pages|menus|comments|reviews|notifications|schedules)(?:\/|$)|^\/models\/[^/]+\/entries(?:\/|$)|^\/forms\/[^/]+\/submissions(?:\/|$)/;
 const INSPECT_PATH =
-    /^\/(?:models|assets|pages|menus|comments|reviews|notifications|schedules|layouts|structures|blocks|templates|forms|activity|radar|search|collections|urls|navigation|breadcrumb|sitemap\.xml|sitemap\.json)(?:\/|$)/;
+    /^\/(?:models|assets|pages|menus|comments|reviews|notifications|schedules|layouts|structures|blocks|templates|forms|activity|radar|search|collections|urls|navigation|breadcrumb|resolve|redirects|sitemap\.xml|sitemap\.json)(?:\/|$)/;
 const GLOBAL_GET =
     /^\/(?:auth\/me|auth\/providers|openapi\.json|studio\/field-types|moteur\/blocks|ai\/status)$|^\/blueprints\/(?:projects|models|structures|templates)(?:\/|$)/;
 

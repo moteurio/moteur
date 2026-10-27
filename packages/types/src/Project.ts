@@ -3,6 +3,8 @@ import type { VariantDefinition } from './VariantDefinition.js';
 import { Audit } from './Audit.js';
 import { Field } from './Field.js';
 
+export type LocalePrefix = 'others' | 'all' | 'none';
+
 export interface ProjectSchema {
     id: string; // Unique project ID (same as folder name)
     label: string; // Human-readable name
@@ -39,6 +41,13 @@ export interface ProjectSchema {
 
     /** Base URL for the site (e.g. https://example.com). Used for sitemap <loc>; if absent, sitemap uses path-only URLs. */
     siteUrl?: string;
+
+    /**
+     * How a page's address shows its language. `others` (the default): the default language has
+     * no prefix and the others do (/about, /fr/a-propos). `all`: every language has one (/en/about).
+     * `none`: no prefix, languages differ by their slugs alone (/about, /a-propos).
+     */
+    localePrefix?: LocalePrefix;
 
     /**
      * When true, core/html fields may include iframe tags (subject to field allowedTags). Default: off.

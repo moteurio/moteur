@@ -117,7 +117,7 @@ Reusable bundles of fields (e.g. Publishable, SEO, Team Member). They have a `ty
     - **Collection pages** — bound to a **model**; index URL plus one URL per published entry (e.g. `[post.slug]`).
     - **Folder nodes** — grouping only; no content, no URL.
 
-The tree drives **sitemap**, **navigation**, **breadcrumbs**, and URL resolution. Public endpoints: `GET /projects/:projectId/sitemap.xml`, `sitemap.json`, `navigation`, `urls`, `breadcrumb`. See [REST API](docs/REST%20API.md) and [`@moteurio/client`](packages/client/README.md).
+The tree drives **sitemap**, **navigation**, **breadcrumbs**, and URL resolution, with an address per language (`/about`, `/fr/a-propos`) and `hreflang` alternates. When a live address changes, the old one redirects to the new. Public endpoints: `GET /projects/:projectId/sitemap.xml`, `sitemap.json`, `navigation`, `urls`, `breadcrumb`, `resolve`, `redirects`. See [REST API](docs/REST%20API.md) and [`@moteurio/client`](packages/client/README.md).
 
 ### Navigations
 

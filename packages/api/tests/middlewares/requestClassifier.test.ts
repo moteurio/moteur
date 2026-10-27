@@ -56,6 +56,15 @@ describe('requestClassifier', () => {
         expect(res.body.projectId).toBe('site1');
     });
 
+    it('counts what sites call to find a path, and reading redirects, but not changing them', async () => {
+        expect((await request(app).get('/projects/site1/resolve?path=/fr')).body.type).toBe(
+            'public'
+        );
+        expect((await request(app).get('/projects/site1/redirects')).body.type).toBe('public');
+        expect((await request(app).post('/projects/site1/redirects')).body.type).toBeNull();
+        expect((await request(app).delete('/projects/site1/redirects/r1')).body.type).toBeNull();
+    });
+
     it('sets null type for non-studio non-public path', async () => {
         const res = await request(app).get('/api/auth/login');
         expect(res.body.type).toBeNull();

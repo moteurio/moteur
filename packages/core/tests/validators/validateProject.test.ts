@@ -18,6 +18,13 @@ describe('validateProject', () => {
         expect(result.issues).toHaveLength(0);
     });
 
+    it('takes a known language prefix and refuses others', () => {
+        for (const localePrefix of ['others', 'all', 'none'] as const)
+            expect(validateProject(minimalProject({ localePrefix })).valid).toBe(true);
+        const result = validateProject(minimalProject({ localePrefix: 'sometimes' as never }));
+        expect(result.issues.map(i => i.code)).toEqual(['PROJECT_INVALID_LOCALE_PREFIX']);
+    });
+
     it('rejects reserved project id (exact match, lowercase)', () => {
         const result = validateProject(minimalProject({ id: 'admin' }));
         expect(result.valid).toBe(false);
