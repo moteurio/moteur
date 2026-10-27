@@ -27,15 +27,41 @@ export interface MoteurClientConfig {
     onError?: (error: import('./client.js').MoteurApiError) => void;
 }
 
-/** Public client: API key auth with a fixed project id (required). */
-export type MoteurPublicAuth = { type: 'apiKey'; apiKey: string; projectId: string };
+/** Public client: API key auth, for one project. */
+export type MoteurPublicAuth = { type: 'apiKey'; apiKey: string; projectId?: string };
 
+/** Where the public client reads from when no `baseURL` is given. */
+export const DEFAULT_API_URL = 'https://api.moteur.io';
+
+/**
+ * A site's key is enough: `createMoteurPublicClient({ apiKey })`. The key's project and channel
+ * are asked of the API once, on the first read (`GET /keys/me`).
+ */
 export interface MoteurPublicClientConfig {
-    baseURL: string;
-    auth: MoteurPublicAuth;
+    /** The project key (read-only). Or `auth: { type: 'apiKey', apiKey }`. */
+    apiKey?: string;
+    auth?: MoteurPublicAuth;
+    /** Default `https://api.moteur.io`; set it for a server of your own. */
+    baseURL?: string;
+    /** Skips asking the API which project the key belongs to. */
+    projectId?: string;
+    /** What `channel()` reads when given no id. Default: the key's only channel, or `site`. */
+    channel?: string;
     /** Same as {@link MoteurClientConfig.timeout}. */
     timeout?: number;
     previewToken?: string;
+}
+
+/** What a project key is (`GET /keys/me`). */
+export interface KeyInfo {
+    projectId: string;
+    keyId: string;
+    /** The channels it reads. */
+    channels: string[];
+    /** The one to read when there's no doubt: its only channel, or `site`. */
+    channel?: string;
+    /** Whether it also reads the sitemap, navigation, urls, breadcrumb and Radar. */
+    siteWide: boolean;
 }
 
 export interface SignedIn {

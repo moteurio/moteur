@@ -2664,7 +2664,7 @@ Each type takes a locale mode: 'all' as stored, or 'one' for content read with ?
 
 ```bash
 moteur types --out src/moteur.ts
-moteur types --channel site --out src/moteur.ts --check
+MOTEUR_API_KEY=… moteur types --out src/moteur.ts --check
 ```
 
 ## imports

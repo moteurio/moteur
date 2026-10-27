@@ -5,7 +5,12 @@
  */
 import type { MoteurAdminClient } from '@moteurio/client';
 import type { ArgSpec, CommandSpec, RunContext } from './spec.js';
-import { getClientOrThrow, getOperatorClientOrThrow, getProjectId } from './config.js';
+import {
+    getClientOrThrow,
+    getOperatorClientOrThrow,
+    getProjectId,
+    onProjectKey
+} from './config.js';
 
 /** The caller used the command wrongly (missing or bad argument): exit code 2, not an API error. */
 export class UsageError extends Error {}
@@ -244,11 +249,15 @@ export function makeContext(
             : session.client,
         project: async () => {
             const id = (args.project as string | undefined) ?? (await session.defaultProject());
-            if (!id)
-                throw new UsageError(
-                    'Which project? Give project (--project), or set a default: moteur projects use <id>'
-                );
-            return id;
+            if (id) return id;
+            // A project key says its project.
+            if (!command.operator && (await onProjectKey())) {
+                const client = await session.client();
+                return (await client.get<{ projectId: string }>('/keys/me')).projectId;
+            }
+            throw new UsageError(
+                'Which project? Give project (--project), or set a default: moteur projects use <id>'
+            );
         },
         body: async () => {
             const base =

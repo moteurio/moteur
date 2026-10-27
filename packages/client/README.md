@@ -221,25 +221,25 @@ await fr.site.urls(); // site outputs follow the client's language too
 - **`site.navigation()`** → HTTP `GET /projects/:id/navigation` — the tree **computed from the page tree** (`navInclude` pages).
 - **Admin** `forProject().navigations` → CRUD on the menu documents themselves (JWT).
 
+### One key is enough
+
+`createMoteurPublicClient({ apiKey })` reads from `https://api.moteur.io` (`baseURL` for a server of your own). On the first read, the client asks the API what the key is (`GET /keys/me`): its project, and its channel. That's the key's only channel, or `site`, which every project starts with.
+
+- **`channel()`** reads that channel.
+- **A key that reads several channels:** name one, `channel('blog')`.
+- **`client.whoami()`** gives what the key said.
+- **Skipping the question:** give `projectId` (and `channel`).
+
 ### Example: load blog posts for a page
 
 ```ts
 import { createMoteurPublicClient } from '@moteurio/client';
 
-const client = createMoteurPublicClient({
-    baseURL: process.env.MOTEUR_API_URL!,
-    auth: {
-        type: 'apiKey',
-        apiKey: process.env.MOTEUR_API_KEY!,
-        projectId: 'my-blog'
-    }
-});
+// The key is enough: it says its project and channel (asked once, on the first read).
+const client = createMoteurPublicClient({ apiKey: process.env.MOTEUR_API_KEY! });
 
-// Discover channels (optional)
-const { channels } = await client.channels.list();
-
-// `website` must match a channel id you created in Studio / admin API
-const posts = await client.channel('website').entries.list('posts', {
+// The key's channel; `channel('blog')` for another one it reads.
+const posts = await client.channel().entries.list('posts', {
     resolveUrl: true // adds resolved URL when the API supports it
 });
 

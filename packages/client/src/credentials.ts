@@ -4,6 +4,7 @@
  * used exclusively by web Atelier sessions; when present, config files are never touched.
  * Safe to load in browser: no Node globals or modules at top level.
  */
+import { DEFAULT_API_URL } from './types.js';
 
 export interface MoteurCredentials {
     token?: string;
@@ -142,24 +143,11 @@ export async function resolveCredentials(): Promise<MoteurCredentials> {
     }
 
     if (apiKey) {
-        if (!apiUrl) {
-            throw new MoteurClientError({
-                code: 'MOTEUR_E_CONFIG',
-                message: 'MOTEUR_API_KEY is set but MOTEUR_API_URL is missing',
-                hint: 'Set MOTEUR_API_URL (and MOTEUR_PROJECT) alongside MOTEUR_API_KEY'
-            });
-        }
-        if (!projectId?.trim()) {
-            throw new MoteurClientError({
-                code: 'MOTEUR_E_CONFIG',
-                message: 'MOTEUR_API_KEY is set but MOTEUR_PROJECT is missing',
-                hint: 'Set MOTEUR_PROJECT to the project id when using MOTEUR_API_KEY from the environment'
-            });
-        }
+        // The key says its project (GET /keys/me); the API is api.moteur.io unless said.
         return {
             apiKey,
-            apiUrl,
-            projectId,
+            apiUrl: apiUrl || DEFAULT_API_URL,
+            projectId: projectId?.trim() || null,
             source: 'environment'
         };
     }

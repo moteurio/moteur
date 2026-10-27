@@ -40,6 +40,21 @@ Projects can have **multiple** API keys (different secrets, different restrictio
 
 ## 2. Create a channel
 
+A new project already has one, `site`: its published pages, every model, menus, forms and layouts. In Studio, **Make a key for it** on a channel creates a key limited to it, which can also read the sitemap and navigation. Create more channels when a project feeds several sites or apps.
+
+### What a key says about itself
+
+```http
+GET /keys/me
+x-api-key: <your-raw-key>
+```
+
+```json
+{ "projectId": "my-site", "keyId": "…", "channels": ["site"], "channel": "site", "siteWide": true }
+```
+
+`channel` is the one to read when there's no doubt: the key's only channel, or `site`. The client uses this so a site needs nothing but its key.
+
 A channel defines _what_ that API key can read: which models and pages, and with which options (fields, status filter, reference resolution).
 
 With the same JWT (and project access):

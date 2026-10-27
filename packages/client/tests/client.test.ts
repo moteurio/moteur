@@ -15,8 +15,15 @@ const capturedRequests: Array<{
     headers?: unknown;
     responseType?: unknown;
 }> = [];
-let requestInterceptor: (config: Record<string, unknown>) => Record<string, unknown> = c => c;
 let lastAxiosCreateConfig: Record<string, unknown> | undefined;
+/** What `GET /keys/me` says. */
+let keyAnswer: Record<string, unknown> = {
+    projectId: 'from-key',
+    keyId: 'k1',
+    channels: ['site'],
+    channel: 'site',
+    siteWide: true
+};
 
 vi.mock('axios', () => ({
     default: {
@@ -24,21 +31,25 @@ vi.mock('axios', () => ({
             lastAxiosCreateConfig = config;
             const baseURL = (config.baseURL as string) ?? '';
             const headers = { ...(config.headers as Record<string, string>) };
+            // Like axios: every request interceptor, the last one added first, possibly async.
+            const requestInterceptors: Array<(c: Record<string, unknown>) => unknown> = [];
             return {
                 interceptors: {
                     request: {
-                        use(fn: (c: Record<string, unknown>) => Record<string, unknown>) {
-                            requestInterceptor = fn;
+                        use(fn: (c: Record<string, unknown>) => unknown) {
+                            requestInterceptors.unshift(fn);
                         }
                     },
                     response: { use: () => {} }
                 },
-                request(options: Record<string, unknown>) {
-                    const c = requestInterceptor({
+                async request(options: Record<string, unknown>) {
+                    let c: Record<string, unknown> = {
                         ...options,
                         baseURL,
                         headers: { ...headers, ...(options.headers as Record<string, string>) }
-                    });
+                    };
+                    for (const fn of requestInterceptors)
+                        c = (await fn(c)) as Record<string, unknown>;
                     capturedRequests.push({
                         method: (c.method as string) ?? 'get',
                         url: c.url as string,
@@ -48,8 +59,12 @@ vi.mock('axios', () => ({
                         responseType: c.responseType
                     });
                     const data =
-                        c.responseType === 'text' ? '<?xml version="1.0"?><urlset></urlset>' : {};
-                    return Promise.resolve({ data, status: 200 });
+                        c.url === '/keys/me'
+                            ? keyAnswer
+                            : c.responseType === 'text'
+                              ? '<?xml version="1.0"?><urlset></urlset>'
+                              : {};
+                    return { data, status: 200 };
                 },
                 get(url: string, opts?: Record<string, unknown>) {
                     return this.request({ method: 'get', url, ...opts });
@@ -74,7 +89,6 @@ vi.mock('axios', () => ({
 describe('createMoteurAdminClient', () => {
     beforeEach(() => {
         capturedRequests.length = 0;
-        requestInterceptor = c => c;
     });
 
     it('returns client with auth, projects, models, entries, resource APIs, instance, forProject, blueprints, activity', () => {
@@ -259,17 +273,48 @@ describe('createMoteurAdminClient', () => {
 describe('createMoteurPublicClient', () => {
     beforeEach(() => {
         capturedRequests.length = 0;
-        requestInterceptor = c => c;
         lastAxiosCreateConfig = undefined;
     });
 
-    it('throws when projectId is missing', () => {
-        expect(() =>
-            createMoteurPublicClient({
-                baseURL: 'https://api.example.com',
-                auth: { type: 'apiKey', apiKey: 'k', projectId: '' }
-            })
-        ).toThrow(MoteurClientError);
+    it('needs only the key: it asks once which project and channel it reads', async () => {
+        const moteur = createMoteurPublicClient({ apiKey: 'mk_live_x' });
+        expect(moteur.baseURL).toBe('https://api.moteur.io');
+        await moteur.channel().pages.list();
+        await moteur.locale('fr').site.urls();
+        await moteur.channel('blog').entries.list('post');
+        expect(capturedRequests.map(r => r.url)).toEqual([
+            '/keys/me',
+            '/projects/from-key/channels/site/pages',
+            '/projects/from-key/urls',
+            '/projects/from-key/channels/blog/post/entries'
+        ]);
+        expect(capturedRequests[1]!.headers?.['x-api-key']).toBe('mk_live_x');
+        expect(moteur.projectId).toBe('from-key');
+    });
+
+    it('asks to name a channel when the key reads several', async () => {
+        const before = keyAnswer;
+        keyAnswer = { projectId: 'p', keyId: 'k', channels: ['blog', 'shop'], siteWide: false };
+        try {
+            const moteur = createMoteurPublicClient({ apiKey: 'mk_live_y' });
+            await expect(moteur.channel().pages.list()).rejects.toThrow(
+                /name one, channel\('blog'\)/
+            );
+            await moteur.channel('shop').pages.list();
+            expect(capturedRequests.at(-1)!.url).toBe('/projects/p/channels/shop/pages');
+        } finally {
+            keyAnswer = before;
+        }
+    });
+
+    it('asks nothing when the project and channel are given', async () => {
+        const moteur = createMoteurPublicClient({ apiKey: 'k', projectId: 'p1', channel: 'web' });
+        await moteur.channel().pages.list();
+        expect(capturedRequests.map(r => r.url)).toEqual(['/projects/p1/channels/web/pages']);
+    });
+
+    it('throws without a key', () => {
+        expect(() => createMoteurPublicClient({ apiKey: ' ' })).toThrow(MoteurClientError);
     });
 
     it('throws when apiKey is missing', () => {
