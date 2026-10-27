@@ -35,7 +35,13 @@ New projects get `.gitignore` written (or merged) so `.moteur/`, `user-data/`, a
 ## When commits and push happen
 
 - **Commit**: After each content save or delete, the Git plugin commits the changed paths. Commit author is taken from the user performing the action. Failures (e.g. not a repo, merge conflict) do not fail the save; they are best-effort.
-- **Push**: After each commit, the API may push to the remote. Push failures are non-fatal and do not block the request. You can disable auto-push via configuration if needed.
+- **Push**: After each commit, the API pushes to the project's Git address (`project.git.remoteUrl`, the `origin` remote). A branch never pushed gets its upstream on the first push. Push failures are non-fatal and do not block the request: they are logged as `git_push_failed` activity. Without an address, the history stays on the server and nothing is pushed.
+
+### The Git address
+
+The address must be `https://` and must not contain a password or token: it is saved in `project.json`, which every save commits and pushes. For a private repository, an admin gives the project an access token: `PUT /projects/:projectId/git/token` with `{ token, username? }`, or the Studio's Setup › Project › Git. Use a token that can write to that one repository (GitHub: a fine-grained token with Contents read and write; GitLab: a project access token; Bitbucket: a repository access token with the user name `x-token-auth`). The token is kept in the gitignored `.moteur/secrets.json`, encrypted with `MOTEUR_ENCRYPTION_KEY` (required in production), never in a snapshot, and never returned: the status only says `token.hasToken` and when it was set. It reaches Git only during a push, as an `Authorization` header passed through the environment, never in the address or the repository's config. `DELETE /projects/:projectId/git/token` removes it. Without a token, the server pushes with whatever Git credentials its host has.
+
+`GET /projects/:projectId/git/status` says where things stand: the `branch`, the `lastCommit`, the `remoteUrl` (any credentials Git holds are left out), and `unpushed`, the number of commits the address lacks. A number that keeps growing means pushes fail. Admins can push at once with `POST /projects/:projectId/git/push`, which answers `pushed` and the status after. The Studio shows both under Setup › Project › Git; the CLI has `moteur branches status` and `moteur branches push`.
 
 ---
 

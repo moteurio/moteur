@@ -19,4 +19,12 @@ describe('gitRemoteRefusal', () => {
             expect(gitRemoteRefusal({ remoteUrl }), remoteUrl).toMatch(/https/);
         }
     });
+
+    it('refuses a password or token in the address: project.json is committed', () => {
+        for (const remoteUrl of [
+            'https://ghp_secret@github.com/a/b.git',
+            'https://x-access-token:ghp_secret@github.com/a/b.git'
+        ])
+            expect(gitRemoteRefusal({ remoteUrl }), remoteUrl).toMatch(/password or token/);
+    });
 });

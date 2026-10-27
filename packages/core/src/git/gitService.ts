@@ -2,6 +2,7 @@ import { spawn, spawnSync } from 'child_process';
 import fs from 'fs/promises';
 import path from 'path';
 import { existsSync } from 'fs';
+import { gitAuthEnv } from '../gitCredentials.js';
 
 /** Paths to exclude from the repo. Workspace and user data are gitignored; content is tracked. */
 export const GITIGNORE_LINES = ['.moteur/', 'user-data/', '.trash/'];
@@ -412,11 +413,65 @@ export function hasRemote(projectDir: string): boolean {
 export function push(projectDir: string): boolean {
     if (!isGitRepo(projectDir)) return false;
     try {
-        git(projectDir, ['push']);
+        // A branch never pushed has no upstream: the first push sets it, on origin.
+        const env = pushEnv(projectDir);
+        if (upstreamOf(projectDir)) git(projectDir, ['push'], env);
+        else git(projectDir, ['push', '--set-upstream', 'origin', 'HEAD'], env);
         return true;
     } catch {
         return false;
     }
+}
+
+/** A push never waits for a password prompt, and uses the project's token when it has one. */
+function pushEnv(projectDir: string): Record<string, string> {
+    return { GIT_TERMINAL_PROMPT: '0', ...gitAuthEnv(projectDir) };
+}
+
+/** The branch this one pushes to (`origin/main`), or null before its first push. */
+function upstreamOf(projectDir: string): string | null {
+    try {
+        return (
+            git(projectDir, ['rev-parse', '--abbrev-ref', '--symbolic-full-name', '@{u}']) || null
+        );
+    } catch {
+        return null;
+    }
+}
+
+export interface GitStatus {
+    /** The content branch, null before the first commit. */
+    branch: string | null;
+    /** Where it pushes (`origin`'s address), as Git has it. */
+    remoteUrl: string | null;
+    lastCommit: CommitInfo | null;
+    /** Commits the remote doesn't have yet: 0 when all are there, null without a remote. */
+    unpushed: number | null;
+}
+
+/** Where the content's history stands: its branch, last commit, and what the remote lacks. */
+export function gitStatus(projectDir: string): GitStatus {
+    const empty: GitStatus = { branch: null, remoteUrl: null, lastCommit: null, unpushed: null };
+    if (!isGitRepo(projectDir)) return empty;
+    let remoteUrl: string | null;
+    try {
+        remoteUrl = git(projectDir, ['remote', 'get-url', 'origin']) || null;
+    } catch {
+        remoteUrl = null;
+    }
+    const lastCommit = getRepoLog(projectDir, 1)[0] ?? null;
+    let unpushed: number | null = null;
+    if (remoteUrl && lastCommit) {
+        const upstream = upstreamOf(projectDir);
+        try {
+            unpushed = Number(
+                git(projectDir, ['rev-list', '--count', upstream ? `${upstream}..HEAD` : 'HEAD'])
+            );
+        } catch {
+            unpushed = null;
+        }
+    }
+    return { branch: getCurrentBranch(projectDir), remoteUrl, lastCommit, unpushed };
 }
 
 /**
@@ -425,7 +480,7 @@ export function push(projectDir: string): boolean {
 export function pushBranch(projectDir: string, branch: string): boolean {
     if (!isGitRepo(projectDir)) return false;
     try {
-        git(projectDir, ['push', 'origin', branch]);
+        git(projectDir, ['push', 'origin', branch], pushEnv(projectDir));
         return true;
     } catch {
         return false;

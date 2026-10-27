@@ -514,5 +514,22 @@ export const branches = group('branches', [
         ],
         http: `GET ${P}/git/log`,
         readOnly: true
+    },
+    {
+        name: 'status',
+        summary: 'Where the history stands: branch, last commit, and what the Git address lacks',
+        args: [project],
+        http: `GET ${P}/git/status`,
+        readOnly: true
+    },
+    {
+        name: 'push',
+        summary: 'Push the history to the project’s Git address now',
+        args: [project],
+        http: `POST ${P}/git/push`,
+        done: r =>
+            (r as { pushed?: boolean })?.pushed
+                ? 'Pushed.'
+                : 'The push failed: check that the server can write to the Git address.'
     }
 ]);

@@ -7,6 +7,24 @@ import type {
     ProjectMemberUser
 } from '@moteurio/types';
 
+/** `GET /projects/:id/git/status`: the branch, last commit, Git address, and commits it lacks. */
+export type GitStatus = {
+    branch: string | null;
+    remoteUrl: string | null;
+    lastCommit: {
+        hash: string;
+        message: string;
+        authorName: string;
+        authorEmail: string;
+        date: string;
+    } | null;
+    /** 0 when the address has every commit; null without an address. */
+    unpushed: number | null;
+    /** Whether pushes carry a token (never the token itself). */
+    token?: GitTokenInfo;
+};
+
+export type GitTokenInfo = { hasToken: boolean; username?: string; setAt?: string };
 export function projectsApi(client: MoteurClient) {
     return {
         list(): Promise<{ projects: ProjectSchema[] }> {
@@ -59,6 +77,25 @@ export function projectsApi(client: MoteurClient) {
                     `/projects/${encodeURIComponent(projectId)}/activity`,
                     q as Record<string, string>
                 );
+            }
+        },
+        /** Where the content's Git history stands, and pushing it now (admins). */
+        git: {
+            status(projectId: string): Promise<GitStatus> {
+                return client.get(`/projects/${encodeURIComponent(projectId)}/git/status`);
+            },
+            push(projectId: string): Promise<GitStatus & { pushed: boolean }> {
+                return client.post(`/projects/${encodeURIComponent(projectId)}/git/push`);
+            },
+            /** Admins: the token pushes use. It's kept encrypted and never sent back. */
+            setToken(
+                projectId: string,
+                body: { token: string; username?: string }
+            ): Promise<GitTokenInfo> {
+                return client.put(`/projects/${encodeURIComponent(projectId)}/git/token`, body);
+            },
+            removeToken(projectId: string): Promise<GitTokenInfo> {
+                return client.delete(`/projects/${encodeURIComponent(projectId)}/git/token`);
             }
         },
         branches: {
