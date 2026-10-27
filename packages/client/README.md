@@ -189,12 +189,12 @@ So: **channel = collection id + typed helpers** in the SDK; on the wire it is `/
 | Property                    | Purpose                                                                                                                                                          |
 | --------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **`collections`**           | `list()` / `get(id)` — metadata about configured collections.                                                                                                    |
-| **`channel(collectionId)`** | `pages`, `entries`, `layouts`, `forms`, `menus` — **GET** reads allowed by that collection’s config.                                                             |
+| **`channel(collectionId)`** | `pages`, `entries`, `layouts`, `forms`, `menus` — **GET** reads allowed by that collection’s config. `schema()`: what it delivers, described.                    |
 | **`site`**                  | Page **outputs**: `sitemapXml`, `sitemapJson`, `navigation` (published **tree**), `urls`, `breadcrumb` (each takes `locale`), `resolve(path)` and `redirects()`. |
 
 ### Typed answers, in one language
 
-`moteur types --out src/moteur.ts` writes the project's types, `MoteurSchema` among them. Give it to the client and every read is typed: model ids are checked, entries and pages have their fields, blocks are a union you can switch on.
+`moteur types --channel site --out src/moteur.ts` writes the channel's types, `MoteurSchema` among them (the site's read-only key is enough). Give it to the client and every read is typed: model ids are checked, entries and pages have their fields, blocks are a union you can switch on.
 
 ```ts
 import { createMoteurPublicClient } from '@moteurio/client';

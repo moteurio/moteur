@@ -27,6 +27,7 @@ import { EntryReadBudget } from '../../utils/entryReadBudget.js';
 import { resolveEntryAssets, resolvePageAssets } from '@moteurio/core/assets/assetResolver.js';
 import { getModelSchemaForProject } from '@moteurio/core/models.js';
 import { getProjectById } from '@moteurio/core/projects.js';
+import { channelSchema, schemaTypes } from '@moteurio/core/publicSchema.js';
 import {
     localeSchemas,
     localizeEntry,
@@ -353,6 +354,39 @@ router.get('/:collectionId/openapi', async (req: Request, res: Response) => {
 router.get('/:collectionId/openapi.json', async (req: Request, res: Response) => {
     try {
         await respondCollectionOpenApi(req, res);
+    } catch (err: unknown) {
+        sendApiError(res, req, err);
+    }
+});
+
+/** The channel's schema, and the types made from it: `If-None-Match` answers 304 when unchanged. */
+async function respondChannelSchema(req: Request, res: Response, as: 'json' | 'types') {
+    const { projectId, collectionId } = req.params as Record<string, string>;
+    if (rejectIfCollectionAccessForbidden(req, res, collectionId!)) return;
+    const schema = await channelSchema(projectId!, collectionId!);
+    if (!schema) return void res.status(404).json({ error: 'Collection not found' });
+    const etag = `"${schema.version}${as === 'types' ? '-ts' : ''}"`;
+    res.setHeader('ETag', etag);
+    res.setHeader('Cache-Control', 'no-cache');
+    if (req.headers['if-none-match'] === etag) return void res.status(304).end();
+    if (as === 'json') return void res.json(schema);
+    res.type('text/plain; charset=utf-8');
+    res.send(schemaTypes(schema));
+}
+
+// GET /projects/:projectId/collections/:collectionId/schema
+router.get('/:collectionId/schema', async (req: Request, res: Response) => {
+    try {
+        await respondChannelSchema(req, res, 'json');
+    } catch (err: unknown) {
+        sendApiError(res, req, err);
+    }
+});
+
+// GET /projects/:projectId/collections/:collectionId/types
+router.get('/:collectionId/types', async (req: Request, res: Response) => {
+    try {
+        await respondChannelSchema(req, res, 'types');
     } catch (err: unknown) {
         sendApiError(res, req, err);
     }
@@ -1060,6 +1094,74 @@ export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
                         }
                     }
                 },
+                '404': { description: 'Not found', ...jsonErrorBody }
+            }
+        }
+    },
+    '/projects/{projectId}/collections/{collectionId}/schema': {
+        get: {
+            summary: 'What the collection delivers, described',
+            description:
+                "Its models (only the fields it gives), the templates of its pages, and the blocks and structures they use: each field's type, label, description and the options that explain its value. Studio's presentation and plugins' settings are left out. `version` changes with any schema (also the `ETag`). Same auth as other collection reads.",
+            tags: ['Public API — Collections'],
+            parameters: [
+                { name: 'projectId', in: 'path', required: true, schema: { type: 'string' } },
+                { name: 'collectionId', in: 'path', required: true, schema: { type: 'string' } }
+            ],
+            responses: {
+                '200': {
+                    description: 'The schema',
+                    content: {
+                        'application/json': {
+                            schema: {
+                                type: 'object',
+                                required: [
+                                    'version',
+                                    'projectId',
+                                    'collectionId',
+                                    'defaultLocale',
+                                    'locales',
+                                    'models',
+                                    'templates',
+                                    'blocks',
+                                    'structures'
+                                ],
+                                properties: {
+                                    version: { type: 'string' },
+                                    projectId: { type: 'string' },
+                                    collectionId: { type: 'string' },
+                                    defaultLocale: { type: 'string' },
+                                    locales: { type: 'array', items: { type: 'string' } },
+                                    models: { type: 'object', additionalProperties: true },
+                                    templates: { type: 'object', additionalProperties: true },
+                                    blocks: { type: 'object', additionalProperties: true },
+                                    structures: { type: 'object', additionalProperties: true }
+                                }
+                            }
+                        }
+                    }
+                },
+                '304': { description: 'Unchanged since the `If-None-Match` version' },
+                '404': { description: 'Not found', ...jsonErrorBody }
+            }
+        }
+    },
+    '/projects/{projectId}/collections/{collectionId}/types': {
+        get: {
+            summary: 'TypeScript types of what the collection delivers',
+            description:
+                "Made from the collection's schema: one file with a type for each model, template, block and structure, and `MoteurSchema` for a typed client. What `moteur types --channel` writes.",
+            tags: ['Public API — Collections'],
+            parameters: [
+                { name: 'projectId', in: 'path', required: true, schema: { type: 'string' } },
+                { name: 'collectionId', in: 'path', required: true, schema: { type: 'string' } }
+            ],
+            responses: {
+                '200': {
+                    description: 'The types',
+                    content: { 'text/plain': { schema: { type: 'string' } } }
+                },
+                '304': { description: 'Unchanged since the `If-None-Match` version' },
                 '404': { description: 'Not found', ...jsonErrorBody }
             }
         }

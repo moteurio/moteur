@@ -6,7 +6,6 @@
 import type { Field } from '@moteurio/types/Field.js';
 import type { ModelSchema } from '@moteurio/types/Model.js';
 import type { TemplateSchema } from '@moteurio/types/Template.js';
-import type { BlockSchema } from '@moteurio/types/Block.js';
 import type { StructureSchema } from '@moteurio/types/Structure.js';
 import type { User } from '@moteurio/types/User.js';
 import { listModelSchemas } from './models.js';
@@ -15,14 +14,16 @@ import { listBlocks } from './blocks.js';
 import { findStructure, listStructures } from './structures.js';
 import { getProjectById } from './projects.js';
 
+/** What types are made from: a project's stored schemas, or a channel's public schema. */
+type Described = { label?: unknown; fields?: unknown };
 export type TypegenInput = {
     projectId: string;
     defaultLocale: string;
     locales: string[];
-    models: ModelSchema[];
-    templates: TemplateSchema[];
-    blocks: Record<string, BlockSchema>;
-    structures: Record<string, StructureSchema>;
+    models: Array<Pick<ModelSchema, 'id'> & Described>;
+    templates: Array<Pick<TemplateSchema, 'id'> & Described>;
+    blocks: Record<string, Described>;
+    structures: Record<string, Pick<StructureSchema, 'type'> & Described>;
 };
 
 type Fields = Record<string, Field>;
@@ -222,7 +223,7 @@ export function generateTypes(input: TypegenInput): string {
         return ns === input.projectId ? pascal(rest!) : pascal(type);
     };
 
-    const structureNames = new Map<StructureSchema, string>();
+    const structureNames = new Map<TypegenInput['structures'][string], string>();
     for (const s of Object.values(input.structures))
         structureNames.set(s, nameFor(`${short(s.type)}Structure`));
     const blockNames = new Map<string, string>();
@@ -276,7 +277,10 @@ export function generateTypes(input: TypegenInput): string {
         }
         if (t === 'core/structure') {
             const id = f.options?.structure;
-            const s = typeof id === 'string' ? findStructure(input.structures, id) : undefined;
+            const s =
+                typeof id === 'string'
+                    ? findStructure(input.structures as Record<string, StructureSchema>, id)
+                    : undefined;
             if (s) return `${structureNames.get(s)}<M>`;
             const inline = f.options?.inlineSchema?.fields as Fields | undefined;
             return inline ? objectOf(inline, indent) : 'Record<string, unknown>';
@@ -345,17 +349,17 @@ export function generateTypes(input: TypegenInput): string {
     }
 
     const out: string[] = [PRELUDE(input)];
-    const iface = (name: string, label: string, fields: Fields | undefined) =>
-        `${doc(label, '')}export interface ${name}<M extends LocaleMode = 'all'> ${objectOf(fields ?? {}, '')}\n`;
+    const iface = (name: string, label: string, fields: unknown) =>
+        `${doc(label, '')}export interface ${name}<M extends LocaleMode = 'all'> ${objectOf((fields as Fields | undefined) ?? {}, '')}\n`;
 
     if (structureNames.size) out.push('// Structures\n');
     for (const [s, name] of structureNames)
-        out.push(iface(name, textOf(s.label, locale) || s.type, s.fields as Fields));
+        out.push(iface(name, textOf(s.label, locale) || s.type, s.fields));
 
     out.push('// Blocks\n');
     for (const [type, name] of blockNames) {
         const b = input.blocks[type]!;
-        out.push(iface(`${name}Data`, textOf(b.label, locale) || type, b.fields as Fields));
+        out.push(iface(`${name}Data`, textOf(b.label, locale) || type, b.fields));
         out.push(
             `export type ${name}<M extends LocaleMode = 'all'> = Block<${quote(type)}, ${name}Data<M>>;\n`
         );
@@ -384,7 +388,7 @@ export function generateTypes(input: TypegenInput): string {
     out.push('// Templates (pages)\n');
     for (const t of input.templates) {
         const name = templateNames.get(t.id)!;
-        out.push(iface(name, textOf(t.label, locale) || t.id, t.fields as Fields));
+        out.push(iface(name, textOf(t.label, locale) || t.id, t.fields));
         out.push(
             `export type ${name.replace(/Fields$/, '')}Page<M extends LocaleMode = 'all'> = Page<${name}<M>, ${quote(t.id)}>;\n`
         );

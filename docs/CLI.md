@@ -2442,6 +2442,23 @@ The OpenAPI document a frontend reads this channel with
 
 Calls `GET /projects/{project}/collections/{id}/openapi`.
 
+### `moteur channels schema <id>`
+
+What this channel delivers, described: models, templates, blocks, structures
+
+Each field's type, label, description and the options that explain its value. A read-only key for the channel can read it.
+
+| Option               |                                                                              |
+| -------------------- | ---------------------------------------------------------------------------- |
+| `--project <string>` | Project id (default: MOTEUR_PROJECT, .moteur.json, or `moteur projects use`) |
+| `--id <string>`      | Channel id (required)                                                        |
+
+Calls `GET /projects/{project}/collections/{id}/schema`.
+
+```bash
+moteur channels schema site --json
+```
+
 ## webhooks
 
 ### `moteur webhooks list`
@@ -2638,15 +2655,16 @@ TypeScript types of the content (models, templates, blocks, structures)
 
 Each type takes a locale mode: 'all' as stored, or 'one' for content read with ?locale=. Make them again after changing a schema; in CI, --check fails when the file is out of date.
 
-| Option               |                                                                              |
-| -------------------- | ---------------------------------------------------------------------------- |
-| `--project <string>` | Project id (default: MOTEUR_PROJECT, .moteur.json, or `moteur projects use`) |
-| `--out <string>`     | Write them to this file instead of printing them                             |
-| `--check`            | Change nothing; fail if the file differs from the project                    |
+| Option               |                                                                                       |
+| -------------------- | ------------------------------------------------------------------------------------- |
+| `--project <string>` | Project id (default: MOTEUR_PROJECT, .moteur.json, or `moteur projects use`)          |
+| `--out <string>`     | Write them to this file instead of printing them                                      |
+| `--channel <string>` | Only what this channel delivers, from its schema (the site's read-only key is enough) |
+| `--check`            | Change nothing; fail if the file differs from the project                             |
 
 ```bash
 moteur types --out src/moteur.ts
-moteur types --out src/moteur.ts --check
+moteur types --channel site --out src/moteur.ts --check
 ```
 
 ## imports

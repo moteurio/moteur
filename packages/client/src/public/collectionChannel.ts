@@ -1,4 +1,5 @@
 import type { ResolvedNavigation } from '@moteurio/types/Navigation.js';
+import type { PublicSchema } from '@moteurio/types/PublicSchema.js';
 import type { MoteurClient } from '../client.js';
 import type { PublicForm } from './forms.js';
 import type {
@@ -70,6 +71,8 @@ export interface PublicChannel<
         list(): Promise<Record<string, unknown>[]>;
         get(id: string): Promise<Record<string, unknown>>;
     };
+    /** What the channel delivers, described: each model, template, block and structure. */
+    schema(): Promise<PublicSchema>;
 }
 
 /** The query of a read: the call's options over the client's own language. */
@@ -128,6 +131,7 @@ export function createPublicCollectionChannel<
         layouts: {
             list: () => get(`${root}/layouts`),
             get: id => get(`${root}/layouts/${enc(id)}`)
-        }
+        },
+        schema: () => client.get<PublicSchema>(`${root}/schema`)
     };
 }
