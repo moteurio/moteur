@@ -572,7 +572,10 @@ router.get('/:collectionId/forms', async (req: Request, res: Response) => {
             );
             forms = form ? [form] : [];
         }
-        return void res.json(forms.filter(f => f.status === 'active').map(toPublicForm));
+        const locale = typeof req.query.locale === 'string' ? req.query.locale : undefined;
+        return void res.json(
+            forms.filter(f => f.status === 'active').map(f => toPublicForm(f, locale))
+        );
     } catch (err: unknown) {
         return void sendApiError(res, req, err);
     }
@@ -595,7 +598,8 @@ router.get('/:collectionId/forms/:id', async (req: Request, res: Response) => {
         const form = await getProjectJson<FormSchema>(projectId, formKey(id));
         if (!form || form.status !== 'active')
             return void res.status(404).json({ error: 'Form not found' });
-        return void res.json(toPublicForm(form));
+        const locale = typeof req.query.locale === 'string' ? req.query.locale : undefined;
+        return void res.json(toPublicForm(form, locale));
     } catch (err: unknown) {
         return void sendApiError(res, req, err);
     }
@@ -1030,7 +1034,14 @@ export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
             tags: ['Public API — Collections'],
             parameters: [
                 { name: 'projectId', in: 'path', required: true, schema: { type: 'string' } },
-                { name: 'collectionId', in: 'path', required: true, schema: { type: 'string' } }
+                { name: 'collectionId', in: 'path', required: true, schema: { type: 'string' } },
+                {
+                    name: 'locale',
+                    in: 'query',
+                    schema: { type: 'string' },
+                    description:
+                        'Every label, hint, choice and message in this language (fr-CA reads fr). Absent: each is as written, one text or one per language.'
+                }
             ],
             responses: {
                 '200': {
@@ -1055,7 +1066,14 @@ export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
             parameters: [
                 { name: 'projectId', in: 'path', required: true, schema: { type: 'string' } },
                 { name: 'collectionId', in: 'path', required: true, schema: { type: 'string' } },
-                { name: 'id', in: 'path', required: true, schema: { type: 'string' } }
+                { name: 'id', in: 'path', required: true, schema: { type: 'string' } },
+                {
+                    name: 'locale',
+                    in: 'query',
+                    schema: { type: 'string' },
+                    description:
+                        'Every label, hint, choice and message in this language (fr-CA reads fr). Absent: each is as written, one text or one per language.'
+                }
             ],
             responses: {
                 '200': {

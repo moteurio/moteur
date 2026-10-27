@@ -41,6 +41,13 @@ export type { PageMove } from './project/pages.js';
 export type { RedirectInput } from './project/redirects.js';
 export type { GitStatus, GitTokenInfo } from './admin/projects.js';
 export type { ResolvedPath } from './public/pageOutputs.js';
+export type {
+    PublicForm,
+    FormSubmitOptions,
+    FormSubmitResult,
+    FormIssue,
+    FormIssueCode
+} from './public/forms.js';
 export type { SubmissionListParams, SubmissionListResult } from './project/submissions.js';
 
 export {

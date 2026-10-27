@@ -11,10 +11,11 @@ import {
     deleteForm
 } from '@moteurio/core/forms.js';
 import { createSubmission } from '@moteurio/core/formSubmissions.js';
+import { CAPTCHA_FIELDS, issueFormToken, sentCaptcha } from '@moteurio/core/formGuard.js';
 import { submissionSource } from '@moteurio/core/submissionSource.js';
 import type { FormSubmissionMeta } from '@moteurio/types/Form.js';
 import { requireProjectAccess, requireProjectAdmin } from '../../middlewares/auth.js';
-import { formsSubmitRateLimiter } from '../../middlewares/rateLimit.js';
+import { formsSubmitRateLimiter, formsTokenRateLimiter } from '../../middlewares/rateLimit.js';
 import submissionsRouter, { openapi as submissionsOpenapi } from './submissions.js';
 import { mergePathSpecs } from '../../utils/mergePathSpecs.js';
 import { sendApiError, getMessage as getErrorMessage } from '../../utils/apiError.js';
@@ -58,8 +59,31 @@ router.get('/:formId', requireProjectAccess, async (req: Request, res: Response)
 });
 
 // Sites on any domain send their forms here: no cookies or credentials, so any origin may.
-const anySite = cors({ origin: '*', methods: ['POST', 'OPTIONS'], credentials: false });
+const anySite = cors({ origin: '*', methods: ['GET', 'POST', 'OPTIONS'], credentials: false });
 router.options('/:formId/submit', anySite);
+router.options('/:formId/token', anySite);
+
+// A site asks for a token when it shows the form, and sends it back as `_token`: an answer sent
+// sooner than the form's minimum time after is kept as spam.
+router.get(
+    '/:formId/token',
+    anySite,
+    formsTokenRateLimiter,
+    async (req: Request, res: Response): Promise<void> => {
+        const { projectId, formId } = req.params as Record<string, string>;
+        try {
+            const form = await getFormForProject(projectId, formId);
+            if (!form || form.status !== 'active') {
+                res.status(404).json({ error: 'Form not found' });
+                return;
+            }
+            res.set('Cache-Control', 'no-store');
+            res.json({ token: issueFormToken(projectId, formId) });
+        } catch (err: unknown) {
+            return void sendApiError(res, req, err);
+        }
+    }
+);
 
 // Public form submit (no auth)
 router.post(
@@ -105,10 +129,15 @@ router.post(
             };
             const cleanData: Record<string, unknown> = {};
             for (const [key, value] of Object.entries(body)) {
-                if (key.startsWith('_')) continue;
+                if (key.startsWith('_') || CAPTCHA_FIELDS.includes(key)) continue;
                 cleanData[key] = value;
             }
-            const submission = await createSubmission(projectId, formId, cleanData, meta);
+            const submission = await createSubmission(projectId, formId, cleanData, meta, {
+                honeypotTriggered,
+                token: body._token,
+                captcha: sentCaptcha(body),
+                ip: req.ip
+            });
             const message = localizedSuccessMessage(form.successMessage, locale);
             res.status(200).json({
                 success: true,
@@ -185,7 +214,7 @@ const formsOpenapi: Record<string, OpenAPIV3.PathItemObject> = {
         post: {
             summary: 'Send a form (what visitors do)',
             description:
-                'No key or cookie, from any site, as a plain form post or JSON. Keys starting with `_` are not kept (`_honeypot`, `_locale`). The server checks every answer against the form: only its fields are kept, required ones must be there, emails, numbers (with min and max), dates, web addresses and choices must fit, and text has a length limit. A caught bot gets the same thank-you.',
+                "No key or cookie, from any site, as a plain form post or JSON. Keys starting with `_` are not kept (`_honeypot`, `_locale`, `_token`, `_page`, `_referrer`), nor the captcha widgets' answers (`cf-turnstile-response`, `h-captcha-response`, `g-recaptcha-response`, or `_captcha`). The server checks every answer against the form: only its fields are kept, required ones must be there, emails, numbers (with min and max), dates, web addresses and choices must fit, and text has a length limit. Issues are worded in `locale`, or in the field's own `messages`. Then it tells people from bots: the honeypot, the time trap (`_token`, from GET …/token, sent sooner than the form's minimum is spam) and the form's captcha, checked with its provider. Spam gets the same thank-you, is kept 30 days, runs no actions and isn't counted against the plan.",
             tags: ['Forms'],
             security: [],
             parameters: [
@@ -223,6 +252,10 @@ const formsOpenapi: Record<string, OpenAPIV3.PathItemObject> = {
                         }
                     }
                 },
+                '400': {
+                    description:
+                        'The form has a captcha and it wasn’t answered, or its provider refused the answer: `code` is `CAPTCHA_FAILED`, `error` asks the visitor to answer it and send again.'
+                },
                 '403': { description: 'The form is not active' },
                 '404': { description: 'No such form' },
                 '422': {
@@ -252,6 +285,31 @@ const formsOpenapi: Record<string, OpenAPIV3.PathItemObject> = {
                     }
                 },
                 '429': { description: 'Too many sends from this address' }
+            }
+        }
+    },
+    '/projects/{projectId}/forms/{formId}/token': {
+        get: {
+            summary: 'Get a token when showing a form (time trap)',
+            description:
+                "No key or cookie, from any site. Ask for it when the visitor sees the form and send it back as `_token`: an answer sent sooner than the form's `timeTrap.minSeconds` (default 3) after is kept as spam. A token lasts 24 hours. With `timeTrap.required`, answers without one are spam too.",
+            tags: ['Forms'],
+            security: [],
+            parameters: [
+                { name: 'projectId', in: 'path', required: true, schema: { type: 'string' } },
+                { name: 'formId', in: 'path', required: true, schema: { type: 'string' } }
+            ],
+            responses: {
+                '200': {
+                    description: 'A token for this form, signed, saying when it was shown',
+                    content: {
+                        'application/json': {
+                            schema: { type: 'object', properties: { token: { type: 'string' } } }
+                        }
+                    }
+                },
+                '404': { description: 'No such form, or it is not active' },
+                '429': { description: 'Too many requests for this form' }
             }
         }
     },

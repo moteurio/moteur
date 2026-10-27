@@ -1,12 +1,10 @@
-import type { Field } from '@moteurio/types/Field.js';
-import type { FormSchema } from '@moteurio/types/Form.js';
+import type { FormField, FormIssue, FormIssueCode, FormSchema } from '@moteurio/types/Form.js';
+import { issueMessage } from './formText.js';
+
+export { answersMessage, fieldLabel } from './formText.js';
 
 /** One answer the server refused, by field id, with a code a site can turn into its own words. */
-export type AnswerIssue = {
-    field: string;
-    code: 'required' | 'invalid' | 'too_long' | 'too_short' | 'too_small' | 'too_large' | 'choice';
-    message: string;
-};
+export type AnswerIssue = FormIssue;
 
 /** Longest answer kept for a field without its own `maxLength`. */
 const TEXT_LIMIT = { short: 1_000, long: 10_000 };
@@ -18,20 +16,8 @@ const TIME = /^\d{2}:\d{2}(:\d{2})?$/;
 const TRUE = new Set(['true', 'on', 'yes', '1']);
 const FALSE = new Set(['false', 'off', 'no', '0']);
 
-/** A field's label in the visitor's language (labels may be one text per language). */
-export function fieldLabel(field: Field, id: string, locale?: string): string {
-    const label = field.label as unknown;
-    if (typeof label === 'string' && label) return label;
-    if (label && typeof label === 'object') {
-        const map = label as Record<string, unknown>;
-        const pick = (locale && map[locale]) || Object.values(map).find(v => typeof v === 'string');
-        if (typeof pick === 'string' && pick) return pick;
-    }
-    return id;
-}
-
-/** The values a choice field allows: plain strings, or `{ value }` objects. */
-function choiceValues(field: Field): string[] | undefined {
+/** The values a choice field allows: plain strings, or `{ value, label }` objects. */
+function choiceValues(field: FormField): string[] | undefined {
     const choices = field.options?.choices ?? field.options?.options;
     if (!Array.isArray(choices)) return undefined;
     return choices
@@ -54,28 +40,32 @@ const isEmpty = (v: unknown) =>
 /** A form posted as text sends one value as a string and several as a list. */
 const asList = (v: unknown): unknown[] => (Array.isArray(v) ? v : [v]);
 
-type Checked = { value?: unknown; issue?: Omit<AnswerIssue, 'field'> };
+type Problem = {
+    code: FormIssueCode;
+    params?: Record<string, string | number>;
+    /** Narrower words than the code's: not text at all, several answers for one. */
+    detail?: 'text' | 'one';
+};
+type Checked = { value?: unknown; issue?: Problem };
 
-function checkText(value: unknown, field: Field, long: boolean): Checked {
+function checkText(value: unknown, field: FormField, long: boolean): Checked {
     if (typeof value !== 'string' && typeof value !== 'number')
-        return { issue: { code: 'invalid', message: 'must be text' } };
+        return { issue: { code: 'invalid', detail: 'text' } };
     const text = String(value).trim();
     const max = Number(field.options?.maxLength) || (long ? TEXT_LIMIT.long : TEXT_LIMIT.short);
     const min = Number(field.options?.minLength) || 0;
-    if (text.length > max)
-        return { issue: { code: 'too_long', message: `must be at most ${max} characters` } };
-    if (text.length < min)
-        return { issue: { code: 'too_short', message: `must be at least ${min} characters` } };
+    if (text.length > max) return { issue: { code: 'too_long', params: { max } } };
+    if (text.length < min) return { issue: { code: 'too_short', params: { min } } };
     return { value: text };
 }
 
-function checkOne(value: unknown, field: Field): Checked {
+function checkOne(value: unknown, field: FormField): Checked {
     const type = field.type;
     if (type === 'core/email') {
         const text = typeof value === 'string' ? value.trim() : '';
         return text.length <= 254 && EMAIL.test(text)
             ? { value: text }
-            : { issue: { code: 'invalid', message: 'must be an email address' } };
+            : { issue: { code: 'invalid' } };
     }
     if (type === 'core/url') {
         const text = typeof value === 'string' ? value.trim() : '';
@@ -85,23 +75,21 @@ function checkOne(value: unknown, field: Field): Checked {
         } catch {
             // falls through
         }
-        return { issue: { code: 'invalid', message: 'must be a web address (https://…)' } };
+        return { issue: { code: 'invalid' } };
     }
     if (type === 'core/phone') {
         const text = typeof value === 'string' ? value.trim() : String(value ?? '');
-        return PHONE.test(text)
-            ? { value: text }
-            : { issue: { code: 'invalid', message: 'must be a phone number' } };
+        return PHONE.test(text) ? { value: text } : { issue: { code: 'invalid' } };
     }
     if (type === 'core/number') {
         const n = typeof value === 'number' ? value : Number(String(value).trim());
         if (typeof value === 'boolean' || !Number.isFinite(n))
-            return { issue: { code: 'invalid', message: 'must be a number' } };
+            return { issue: { code: 'invalid' } };
         const { min, max } = field.options ?? {};
         if (typeof min === 'number' && n < min)
-            return { issue: { code: 'too_small', message: `must be at least ${min}` } };
+            return { issue: { code: 'too_small', params: { min } } };
         if (typeof max === 'number' && n > max)
-            return { issue: { code: 'too_large', message: `must be at most ${max}` } };
+            return { issue: { code: 'too_large', params: { max } } };
         return { value: n };
     }
     if (type === 'core/boolean') {
@@ -109,7 +97,7 @@ function checkOne(value: unknown, field: Field): Checked {
         const text = String(value).trim().toLowerCase();
         if (TRUE.has(text)) return { value: true };
         if (FALSE.has(text)) return { value: false };
-        return { issue: { code: 'invalid', message: 'must be yes or no' } };
+        return { issue: { code: 'invalid' } };
     }
     if (type === 'core/date' || type === 'core/datetime' || type === 'core/time') {
         const text = typeof value === 'string' ? value.trim() : '';
@@ -119,15 +107,7 @@ function checkOne(value: unknown, field: Field): Checked {
                 : type === 'core/date'
                   ? DATE.test(text) && !Number.isNaN(Date.parse(`${text}T00:00:00Z`))
                   : text.length <= 40 && !Number.isNaN(Date.parse(text));
-        return ok
-            ? { value: text }
-            : {
-                  issue: {
-                      code: 'invalid',
-                      message:
-                          type === 'core/time' ? 'must be a time' : 'must be a date (YYYY-MM-DD)'
-                  }
-              };
+        return ok ? { value: text } : { issue: { code: 'invalid' } };
     }
     if (type === 'core/address') {
         if (typeof value === 'string') return checkText(value, field, false);
@@ -141,7 +121,7 @@ function checkOne(value: unknown, field: Field): Checked {
                     value: Object.fromEntries(entries.map(([k, v]) => [k, String(v).trim()]))
                 };
         }
-        return { issue: { code: 'invalid', message: 'must be an address' } };
+        return { issue: { code: 'invalid' } };
     }
     return checkText(value, field, LONG_TEXT.has(type));
 }
@@ -153,10 +133,18 @@ function checkOne(value: unknown, field: Field): Checked {
  */
 export function checkAnswers(
     form: Pick<FormSchema, 'fields'>,
-    sent: Record<string, unknown>
+    sent: Record<string, unknown>,
+    locale?: string
 ): { data: Record<string, unknown>; issues: AnswerIssue[] } {
     const data: Record<string, unknown> = {};
     const issues: AnswerIssue[] = [];
+    // Worded in the visitor's language, or in the field's own words.
+    const refuse = (id: string, { code, params, detail }: Problem) =>
+        issues.push({
+            field: id,
+            code,
+            message: issueMessage(form.fields?.[id], code, locale, params, detail)
+        });
     const fields = Object.entries(form.fields ?? {});
     // A form that declares no fields takes any answers, as text, within limits.
     if (fields.length === 0) {
@@ -172,12 +160,12 @@ export function checkAnswers(
         const required = field.options?.required === true;
         // An unticked box sends nothing: that's a "no", unless the form needs a "yes".
         if (field.type === 'core/boolean' && isEmpty(raw)) {
-            if (required) issues.push({ field: id, code: 'required', message: 'is required' });
+            if (required) refuse(id, { code: 'required' });
             else data[id] = false;
             continue;
         }
         if (isEmpty(raw)) {
-            if (required) issues.push({ field: id, code: 'required', message: 'is required' });
+            if (required) refuse(id, { code: 'required' });
             continue;
         }
 
@@ -189,7 +177,7 @@ export function checkAnswers(
             const many = field.type === 'core/multi-select' || field.options?.multiple === true;
             const picked = asList(raw).map(v => String(v).trim());
             if ((!many && picked.length > 1) || picked.some(v => !choices.includes(v))) {
-                issues.push({ field: id, code: 'choice', message: 'must be one of the choices' });
+                refuse(id, { code: 'choice' });
                 continue;
             }
             data[id] = many ? picked : picked[0];
@@ -197,26 +185,14 @@ export function checkAnswers(
         }
 
         if (Array.isArray(raw)) {
-            issues.push({ field: id, code: 'invalid', message: 'must be one answer' });
+            refuse(id, { code: 'invalid', detail: 'one' });
             continue;
         }
         const { value, issue } = checkOne(raw, field);
-        if (issue) issues.push({ field: id, ...issue });
+        if (issue) refuse(id, issue);
         else if (field.type === 'core/boolean' && required && value === false)
-            issues.push({ field: id, code: 'required', message: 'is required' });
+            refuse(id, { code: 'required' });
         else data[id] = value;
     }
     return { data, issues };
-}
-
-/** A sentence for the visitor, naming the fields to fix in their language. */
-export function answersMessage(
-    form: Pick<FormSchema, 'fields'>,
-    issues: AnswerIssue[],
-    locale?: string
-): string {
-    const names = [...new Set(issues.map(i => fieldLabel(form.fields[i.field], i.field, locale)))];
-    return locale?.toLowerCase().startsWith('fr')
-        ? `Vérifiez ${names.length > 1 ? 'ces réponses' : 'cette réponse'}\u202f: ${names.join(', ')}.`
-        : `Please check ${names.length > 1 ? 'these answers' : 'this answer'}: ${names.join(', ')}.`;
 }

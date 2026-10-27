@@ -16,6 +16,47 @@ import {
 import { formKey, formListPrefix } from './utils/storageKeys.js';
 import { checkCountRoom } from './planLimits.js';
 import { countOf } from './projectCounts.js';
+import { captchaSecret, hasStoredCaptchaSecret, setCaptchaSecret } from './formGuard.js';
+
+/**
+ * A captcha's secret key is written with the form but never kept in it (forms are in Git): it
+ * goes to the secrets file. What the form keeps says only whether one is set.
+ */
+function keepCaptchaSecret<T extends Partial<FormSchema>>(
+    projectId: string,
+    formId: string,
+    form: T
+): T {
+    const out = { ...form };
+    const sent = form.captcha as
+        (FormSchema['captcha'] & { secretKey?: unknown }) | null | undefined;
+    if (sent === null) setCaptchaSecret(projectId, formId, null);
+    if (sent && typeof sent === 'object') {
+        const { secretKey, secretSet: _secretSet, ...captcha } = sent;
+        if (secretKey !== undefined) {
+            const secret = typeof secretKey === 'string' ? secretKey.trim() : '';
+            setCaptchaSecret(projectId, formId, secret || null);
+        }
+        out.captcha = captcha;
+    }
+    // The older setting: its secret moves out the next time the form is saved.
+    if (form.recaptcha?.secretKey) {
+        if (!sent) setCaptchaSecret(projectId, formId, form.recaptcha.secretKey);
+        out.recaptcha = { siteKey: form.recaptcha.siteKey };
+    }
+    return out;
+}
+
+/** The form as people in the Studio see it: whether a captcha secret is set, never the secret. */
+function withCaptchaState(projectId: string, form: FormSchema): FormSchema {
+    const { recaptcha, ...rest } = form;
+    const out: FormSchema = rest;
+    const secretSet = Boolean(captchaSecret(projectId, form));
+    if (form.captcha) out.captcha = { ...form.captcha, secretSet };
+    else if (recaptcha?.siteKey)
+        out.captcha = { provider: 'recaptcha', siteKey: recaptcha.siteKey, secretSet };
+    return out;
+}
 
 export async function listForms(user: User, projectId: string): Promise<FormSchema[]> {
     if (!isValidId(projectId)) {
@@ -29,7 +70,7 @@ export async function listForms(user: User, projectId: string): Promise<FormSche
     for (const id of ids) {
         const key = formKey(id);
         const form = await getProjectJson<FormSchema>(projectId, key);
-        if (form) forms.push(form);
+        if (form) forms.push(withCaptchaState(projectId, form));
     }
     return forms;
 }
@@ -46,7 +87,7 @@ export async function getForm(user: User, projectId: string, formId: string): Pr
     if (!form) {
         throw new Error(`Form "${formId}" not found in project "${projectId}".`);
     }
-    return form;
+    return withCaptchaState(projectId, form);
 }
 
 /** Load form without user check. For internal/public use (e.g. form submit handler). */
@@ -60,6 +101,15 @@ export async function getFormForProject(
 
 const FORM_STATUSES = ['active', 'inactive', 'archived'];
 const FORM_ACTION_TYPES = ['createEntry', 'email', 'webhook'];
+const CAPTCHA_PROVIDERS = ['turnstile', 'hcaptcha', 'recaptcha'];
+
+/** One text, or one text per language. */
+const isText = (v: unknown) =>
+    typeof v === 'string' ||
+    (!!v &&
+        typeof v === 'object' &&
+        !Array.isArray(v) &&
+        Object.values(v).every(x => typeof x === 'string'));
 
 /**
  * Checks what a form says it does, so a typo can't break submissions later. Throws a sentence
@@ -78,9 +128,39 @@ export function checkForm(form: Partial<FormSchema>): void {
         (!form.fields || typeof form.fields !== 'object' || Array.isArray(form.fields))
     )
         bad('"fields" must be an object of fields.');
-    for (const [key, field] of Object.entries(form.fields ?? {}))
+    for (const [key, field] of Object.entries(form.fields ?? {})) {
         if (!field || typeof field !== 'object' || typeof field.type !== 'string')
             bad(`field "${key}" needs a "type".`);
+        for (const word of ['label', 'description', 'help', 'placeholder'] as const)
+            if (field[word] !== undefined && !isText(field[word]))
+                bad(`field "${key}": "${word}" must be a text, or one text per language.`);
+        if (field.messages !== undefined) {
+            if (!field.messages || typeof field.messages !== 'object')
+                bad(`field "${key}": "messages" must be texts by issue code.`);
+            for (const text of Object.values(field.messages))
+                if (!isText(text)) bad(`field "${key}": each message must be a text.`);
+        }
+    }
+    if (form.captcha !== undefined && form.captcha !== null) {
+        const c = form.captcha;
+        if (typeof c !== 'object' || !CAPTCHA_PROVIDERS.includes(c.provider))
+            bad(`"captcha.provider" must be one of ${CAPTCHA_PROVIDERS.join(', ')}.`);
+        if (typeof c.siteKey !== 'string' || !c.siteKey.trim()) bad('"captcha.siteKey" is needed.');
+        if (
+            c.minScore !== undefined &&
+            !(typeof c.minScore === 'number' && c.minScore >= 0 && c.minScore <= 1)
+        )
+            bad('"captcha.minScore" must be between 0 and 1.');
+    }
+    if (form.timeTrap !== undefined && form.timeTrap !== null) {
+        const t = form.timeTrap;
+        if (typeof t !== 'object') bad('"timeTrap" must be an object.');
+        if (
+            t.minSeconds !== undefined &&
+            !(typeof t.minSeconds === 'number' && t.minSeconds >= 0 && t.minSeconds <= 600)
+        )
+            bad('"timeTrap.minSeconds" must be between 0 and 600.');
+    }
     if (form.redirectUrl !== undefined && form.redirectUrl !== null) {
         if (typeof form.redirectUrl !== 'string' || !/^(https?:\/\/|\/)/.test(form.redirectUrl))
             bad('"redirectUrl" must start with http://, https:// or /.');
@@ -123,6 +203,7 @@ export async function createForm(
     }
 
     checkForm(form);
+    form = keepCaptchaSecret(projectId, form.id, form);
 
     const exists = await hasProjectKey(projectId, formKey(form.id));
     if (exists) {
@@ -159,7 +240,7 @@ export async function createForm(
     } catch {
         // event must not fail the operation
     }
-    return toStore;
+    return withCaptchaState(projectId, toStore);
 }
 
 export async function updateForm(
@@ -168,8 +249,17 @@ export async function updateForm(
     formId: string,
     patch: Partial<FormSchema>
 ): Promise<FormSchema> {
-    const current = await getForm(user, projectId, formId);
+    await getForm(user, projectId, formId);
+    // As stored, not as the Studio sees it.
+    const current = (await getProjectJson<FormSchema>(projectId, formKey(formId)))!;
     checkForm(patch);
+    // Saving a form still holding the older secret moves it out too; a new one sent wins.
+    if (current.recaptcha?.secretKey) {
+        if (!hasStoredCaptchaSecret(projectId, formId))
+            setCaptchaSecret(projectId, formId, current.recaptcha.secretKey);
+        current.recaptcha = { siteKey: current.recaptcha.siteKey };
+    }
+    patch = keepCaptchaSecret(projectId, formId, patch);
     const updated: FormSchema = {
         ...current,
         ...patch,
@@ -200,7 +290,7 @@ export async function updateForm(
     } catch {
         // event must not fail the operation
     }
-    return updated;
+    return withCaptchaState(projectId, updated);
 }
 
 export async function deleteForm(user: User, projectId: string, formId: string): Promise<void> {
