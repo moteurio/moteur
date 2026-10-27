@@ -18,6 +18,8 @@ export interface ContentShape {
 
 export interface SchemaShape {
     locale: string;
+    /** The project id, which its own block types start with (`moteur-io/hero`). */
+    namespace?: string;
     all: ContentShape;
     one: ContentShape;
 }
@@ -43,6 +45,10 @@ export interface DeliveredPage {
     order: number;
     templateId: string;
     status: 'draft' | 'published';
+    /** Its address: in the language read, otherwise the default language's. */
+    path: string;
+    /** Its address in each language. */
+    paths: Record<string, string>;
     fields: Record<string, unknown>;
     [key: string]: unknown;
 }

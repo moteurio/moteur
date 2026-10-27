@@ -696,6 +696,23 @@ describe('page links and page relations on delivery', () => {
         ]);
     });
 
+    it('gives each page its own address, in every language or the one read', async () => {
+        const all = await request(app)
+            .get('/projects/demo/channels/site/pages/pricing')
+            .set('x-api-key', 'valid-key');
+        expect(all.body).toMatchObject({
+            path: '/pricing',
+            paths: { en: '/pricing', fr: '/fr/tarifs' }
+        });
+        const fr = await request(app)
+            .get('/projects/demo/channels/site/pages?locale=fr')
+            .set('x-api-key', 'valid-key');
+        const byId = Object.fromEntries(
+            fr.body.map((p: { id: string; path: string }) => [p.id, p.path])
+        );
+        expect(byId).toEqual({ home: '/fr', pricing: '/fr/tarifs' });
+    });
+
     it('gives one address with ?locale, in the page list too', async () => {
         const res = await request(app)
             .get('/projects/demo/channels/site/pages?locale=fr')

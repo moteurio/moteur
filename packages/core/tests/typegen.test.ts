@@ -201,7 +201,7 @@ const french: ArticleEntry<'one'> = {
 
 const home: HomePage<'one'> = {
     id: 'home', type: 'static', label: 'Home', slug: '', parentId: null, order: 0,
-    templateId: 'home', status: 'published', navInclude: true, createdAt: '', updatedAt: '',
+    templateId: 'home', status: 'published', path: '/fr', paths: { en: '/', fr: '/fr' }, navInclude: true, createdAt: '', updatedAt: '',
     fields: { seo: { title: 'Accueil' }, next: { id: 'pricing', label: 'Pricing', url: '/fr/tarifs', fields: { seo: { title: 'Tarifs' } } } }
 };
 
