@@ -2,7 +2,7 @@
 
 This guide walks through using the **Public API** with **Collections** and a **project API key** (e.g. for a headless frontend or static site generator).
 
-In TypeScript, use **`createMoteurPublicClient`** from `@moteurio/client` (`collections`, `channel(collectionId)`, `site`, `radar`) — see [packages/client/README.md](../packages/client/README.md).
+In TypeScript, use **`createMoteurPublicClient`** from `@moteurio/client` (`collections`, `channel(collectionId)`, `site`) — see [packages/client/README.md](../packages/client/README.md).
 
 ---
 

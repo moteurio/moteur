@@ -68,6 +68,8 @@ const client = createMoteurPublicClient({
 
 Collection reads then use the **latest** entry view (drafts included per collection status filters).
 
+A token made for one entry (`entryId`) or one page (`pageId`) shows only that one as it is now: in lists, and read by id or slug. Everything else comes back as published, so a preview link can't be used to read the project's other drafts. A token with neither shows every draft, for previewing the whole site. Draft pages never appear in navigation or menus.
+
 ## Starters
 
 Official stacks live in [moteur-starters](https://github.com/moteurio/moteur-starters). See [Starters.md](Starters.md). Use `create-moteur-app` for a new project with a wired frontend scaffold.

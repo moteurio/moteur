@@ -200,6 +200,18 @@ describe('urlResolver', () => {
             expect(folderInTree?.children).toHaveLength(1);
             expect(folderInTree?.children![0].id).toBe('blog');
         });
+
+        it('leaves out draft pages, what sits under them, and folders holding only drafts', () => {
+            const nodes = [
+                staticNode({ id: 'about', slug: 'about' }),
+                staticNode({ id: 'secret', slug: 'secret', status: 'draft' }),
+                staticNode({ id: 'under', parentId: 'secret', slug: 'under' }),
+                folderNode({ id: 'f', slug: 'f', navInclude: true }),
+                staticNode({ id: 'soon', parentId: 'f', slug: 'soon', status: 'draft' })
+            ];
+            const tree = buildNavigationTree(nodes, buildNodeMap(nodes), buildChildMap(nodes));
+            expect(tree.map(n => n.id)).toEqual(['about']);
+        });
     });
 
     describe('resolveAllUrls', () => {

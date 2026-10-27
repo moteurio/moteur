@@ -150,7 +150,7 @@ A new account records how it was made and the site page that brought them (`sign
 
 ## Project API keys (read-only)
 
-Each project may have **several API keys**. Any one of them can authenticate reads via the **Public API** — collections, page outputs (sitemap, navigation, urls, breadcrumb), and radar — subject to that key’s **restrictions** (`allowedHosts`, optional **channel allowlist**, optional **site-wide** access). Key auth is **read-only**: GET requests only; POST/PATCH/DELETE with only an API key return 403.
+Each project may have **several API keys**. Any one of them can authenticate reads via the **Public API** — collections and page outputs (sitemap, navigation, urls, breadcrumb) — subject to that key’s **restrictions** (`allowedHosts`, optional **channel allowlist**, optional **site-wide** access). Key auth is **read-only**: GET requests only; POST/PATCH/DELETE with only an API key return 403.
 
 **Browsers:** prefer a backend or edge that holds the key. If the key is used from client-side JavaScript, configure **allowed hosts** on the key (see below) and align **`CORS_ORIGINS`** on the API server with the same origins.
 
@@ -168,7 +168,7 @@ You can bind each key to one or more **hostname patterns** stored as `allowedHos
 - **`undefined` or `[]`:** No host check (default). Keys work from browsers, curl, and server-side clients as today.
 - **Non-empty list:** After the key hash is validated, the request must include **`Origin`** or **`Referer`** parseable as a URL whose **hostname** matches at least one pattern. Otherwise the API returns **403** with `code: "API_KEY_HOST_NOT_ALLOWED"`. Patterns are **exact hosts** (e.g. `www.example.com`) or a **single** leading wildcard segment (`*.my-project.vercel.com` matches `foo.my-project.vercel.com` but not `a.b.my-project.vercel.com`). **Rotation preserves** restriction fields.
 
-**Channel allowlist (optional):** If a key defines `allowedCollectionIds`, it may only read those API collections (channels). `GET .../collections` returns only allowed items. Keys with a non-empty allowlist **cannot** use sitemap, navigation, urls, breadcrumb, or radar unless **`allowSiteWideReads`** is true for that key.
+**Channel allowlist (optional):** If a key defines `allowedCollectionIds`, it may only read those API collections (channels). `GET .../collections` returns only allowed items. Keys with a non-empty allowlist **cannot** use sitemap, navigation, urls or breadcrumb unless **`allowSiteWideReads`** is true for that key.
 
 Configure with JWT:
 
@@ -194,7 +194,7 @@ See [Public API and Collections](Public%20API%20and%20Collections.md) for using 
 | Factory                        | Auth                                                                        | Use case                                                                                                                                                                                                                                                                                                                      |
 | ------------------------------ | --------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **`createMoteurAdminClient`**  | Bearer JWT (optional `apiKey` for mixed tooling, but not the primary story) | Full API: projects, **`/models/.../entries`**, project-scoped resources (pages, templates, **navigations** documents, assets, …), per-project **`/projects/:id/activity`**, **`client.instance`** (deployment maintenance on the server), blueprints; optional global **`GET /activity`** (cross-project, operator-oriented). |
-| **`createMoteurPublicClient`** | **`x-api-key`** + required **`projectId`**                                  | Read-only: collection list/get, **`channel(collectionId)`** (entries/pages/forms/layouts as exposed by the collection), **`site`** (sitemap, navigation tree, urls, breadcrumb), radar GET.                                                                                                                                   |
+| **`createMoteurPublicClient`** | **`x-api-key`** + required **`projectId`**                                  | Read-only: collection list/get, **`channel(collectionId)`** (entries/pages/forms/layouts as exposed by the collection), **`site`** (sitemap, navigation tree, urls, breadcrumb).                                                                                                                                              |
 
 Details and examples: [packages/client/README.md](../packages/client/README.md).
 
@@ -205,7 +205,7 @@ Details and examples: [packages/client/README.md](../packages/client/README.md).
 | Auth method             | Applies to                                                                                                                                                                      | Middleware                                                                      |
 | ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
 | **JWT** (Bearer token)  | All routes by default (Studio, project CRUD, global studio routes)                                                                                                              | `requireAuth`, `requireProjectAccess`, `requireProjectAdmin`, `requireOperator` |
-| **API Key** (read-only) | Collections, page outputs, radar                                                                                                                                                | `optionalAuth` + `apiKeyAuth` + `requireCollectionOrProjectAccess`              |
+| **API Key** (read-only) | Collections, page outputs                                                                                                                                                       | `optionalAuth` + `apiKeyAuth` + `requireCollectionOrProjectAccess`              |
 | **None** (intentional)  | `POST /auth/login`, `GET /auth/providers`, form submissions (`POST .../forms/:formId/submit`), inbound webhooks (`POST /webhooks/mux`, `/webhooks/vimeo`), static asset serving | Rate limiting or signature verification                                         |
 
 ### Roles in a project

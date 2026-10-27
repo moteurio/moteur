@@ -23,7 +23,7 @@ npm install @moteurio/client
 The server **does not** treat “any request + API key” like “any request + JWT”.
 
 - **JWT** means an identified user with **project access** (and possibly operator rights). That unlocks **writes**, **draft content**, direct **model/entry** APIs, project settings, **creating** collections and API keys, assets, webhooks, etc.
-- **Project API key** is **read-only** (GET only). It is allowed only on routes designed for public consumption: **collection metadata**, **reads through a collection (the channel)**, **page outputs** (sitemap, navigation tree, urls, breadcrumb), and **radar**.  
+- **Project API key** is **read-only** (GET only). It is allowed only on routes designed for public consumption: **collection metadata**, **reads through a collection (the channel)**, **page outputs** (sitemap, navigation tree, urls, breadcrumb). Radar reads drafts, so it takes a member's sign-in (`projects.radar` on the admin client).  
   What you can read **depends on how the collection is configured** (which models, fields, statuses, reference depth).
 
 So: **one generic client with an API key would lie**—many methods would always return 401/403. Splitting factories matches reality and keeps frontend code honest.
@@ -191,7 +191,6 @@ So: **channel = collection id + typed helpers** in the SDK; on the wire it is `/
 | **`collections`**           | `list()` / `get(id)` — metadata about configured collections.                                                                                                    |
 | **`channel(collectionId)`** | `pages`, `entries`, `layouts`, `forms`, `menus` — **GET** reads allowed by that collection’s config.                                                             |
 | **`site`**                  | Page **outputs**: `sitemapXml`, `sitemapJson`, `navigation` (published **tree**), `urls`, `breadcrumb` (each takes `locale`), `resolve(path)` and `redirects()`. |
-| **`radar`**                 | `get({ fullScan?, severity?, … })` — quality/readiness report for the project.                                                                                   |
 
 ### Typed answers, in one language
 

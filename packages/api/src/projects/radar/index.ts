@@ -1,101 +1,88 @@
-import type { Request, Response } from 'express';
+import type { NextFunction, Request, Response } from 'express';
 import { Router } from 'express';
 import type { OpenAPIV3 } from 'openapi-types';
-import {
-    optionalAuth,
-    apiKeyAuth,
-    requireProjectAccess,
-    denyIfApiKeySiteWideBlocked
-} from '../../middlewares/auth.js';
+import { optionalAuth, requireProjectAccess } from '../../middlewares/auth.js';
 import { loadRadarReport, runFullScan } from '@moteurio/core/radar/index.js';
 import { sendApiError } from '../../utils/apiError.js';
 
 const router: Router = Router({ mergeParams: true });
 
-function requireProjectOrApiKey(req: any, res: any, next: any) {
-    if (req.apiKeyAuth) return next();
+/**
+ * Radar is for the project's people: it reads drafts, and a scan saves its report and tells
+ * webhooks. An API key (a site's) is refused.
+ */
+function requireMember(req: Request, res: Response, next: NextFunction) {
+    if (!req.user) {
+        res.status(401).json({ error: 'Radar needs a member’s sign-in, not an API key' });
+        return;
+    }
     return requireProjectAccess(req, res, next);
 }
 
 /** GET /projects/:projectId/radar — list violations, optionally run full scan */
-router.get(
-    '/',
-    optionalAuth,
-    apiKeyAuth,
-    requireProjectOrApiKey,
-    async (req: Request, res: Response) => {
-        const { projectId } = req.params as Record<string, string>;
-        const scan = req.query.scan === 'true' || req.query.scan === '1';
-        const severity = typeof req.query.severity === 'string' ? req.query.severity : undefined;
-        const model = typeof req.query.model === 'string' ? req.query.model : undefined;
-        const locale = typeof req.query.locale === 'string' ? req.query.locale : undefined;
-        const ruleId = typeof req.query.ruleId === 'string' ? req.query.ruleId : undefined;
+router.get('/', optionalAuth, requireMember, async (req: Request, res: Response) => {
+    const { projectId } = req.params as Record<string, string>;
+    const scan = req.query.scan === 'true' || req.query.scan === '1';
+    const severity = typeof req.query.severity === 'string' ? req.query.severity : undefined;
+    const model = typeof req.query.model === 'string' ? req.query.model : undefined;
+    const locale = typeof req.query.locale === 'string' ? req.query.locale : undefined;
+    const ruleId = typeof req.query.ruleId === 'string' ? req.query.ruleId : undefined;
 
-        if (denyIfApiKeySiteWideBlocked(req, res)) return;
+    try {
+        let report = scan
+            ? await runFullScan(projectId, { source: 'studio' })
+            : await loadRadarReport(projectId);
 
-        try {
-            let report = scan
-                ? await runFullScan(projectId, { source: req.apiKeyAuth ? 'api' : 'studio' })
-                : await loadRadarReport(projectId);
-
-            if (!report) {
-                report = {
-                    scannedAt: new Date().toISOString(),
-                    summary: { errors: 0, warnings: 0, suggestions: 0, total: 0 },
-                    violations: []
-                };
-            }
-
-            let violations = report.violations;
-            if (severity) {
-                violations = violations.filter(v => v.severity === severity);
-            }
-            if (model) {
-                violations = violations.filter(v => v.modelSlug === model);
-            }
-            if (locale) {
-                violations = violations.filter(v => v.locale === locale);
-            }
-            if (ruleId) {
-                violations = violations.filter(v => v.ruleId === ruleId);
-            }
-
-            const summary = {
-                errors: violations.filter(v => v.severity === 'error').length,
-                warnings: violations.filter(v => v.severity === 'warning').length,
-                suggestions: violations.filter(v => v.severity === 'suggestion').length,
-                total: violations.length
+        if (!report) {
+            report = {
+                scannedAt: new Date().toISOString(),
+                summary: { errors: 0, warnings: 0, suggestions: 0, total: 0 },
+                violations: []
             };
-
-            return void res.json({
-                scannedAt: report.scannedAt,
-                summary,
-                violations
-            });
-        } catch (err: unknown) {
-            return void sendApiError(res, req, err);
         }
+
+        let violations = report.violations;
+        if (severity) {
+            violations = violations.filter(v => v.severity === severity);
+        }
+        if (model) {
+            violations = violations.filter(v => v.modelSlug === model);
+        }
+        if (locale) {
+            violations = violations.filter(v => v.locale === locale);
+        }
+        if (ruleId) {
+            violations = violations.filter(v => v.ruleId === ruleId);
+        }
+
+        const summary = {
+            errors: violations.filter(v => v.severity === 'error').length,
+            warnings: violations.filter(v => v.severity === 'warning').length,
+            suggestions: violations.filter(v => v.severity === 'suggestion').length,
+            total: violations.length
+        };
+
+        return void res.json({
+            scannedAt: report.scannedAt,
+            summary,
+            violations
+        });
+    } catch (err: unknown) {
+        return void sendApiError(res, req, err);
     }
-);
+});
 
 /** GET /projects/:projectId/radar/entry/:slug — violations for one entry */
-router.get(
-    '/entry/:slug',
-    optionalAuth,
-    apiKeyAuth,
-    requireProjectOrApiKey,
-    async (req: Request, res: Response) => {
-        const { projectId, slug } = req.params as Record<string, string>;
-        if (denyIfApiKeySiteWideBlocked(req, res)) return;
-        try {
-            const report = await loadRadarReport(projectId);
-            const violations = (report?.violations ?? []).filter(v => v.entrySlug === slug);
-            return void res.json({ entrySlug: slug, violations });
-        } catch (err: unknown) {
-            return void sendApiError(res, req, err);
-        }
+router.get('/entry/:slug', optionalAuth, requireMember, async (req: Request, res: Response) => {
+    const { projectId, slug } = req.params as Record<string, string>;
+    try {
+        const report = await loadRadarReport(projectId);
+        const violations = (report?.violations ?? []).filter(v => v.entrySlug === slug);
+        return void res.json({ entrySlug: slug, violations });
+    } catch (err: unknown) {
+        return void sendApiError(res, req, err);
     }
-);
+});
 
 export default router;
 export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
@@ -103,7 +90,7 @@ export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
         get: {
             summary: 'Get Radar violation report',
             description:
-                'Returns current violations. Use ?scan=true to run a full scan first. Supports severity, model, locale, ruleId filters.',
+                "Returns current violations, drafts included: for the project's people (sign-in), not API keys. Use ?scan=true to run a full scan first. Supports severity, model, locale, ruleId filters.",
             parameters: [
                 { name: 'projectId', in: 'path', required: true, schema: { type: 'string' } },
                 { name: 'scan', in: 'query', required: false, schema: { type: 'boolean' } },

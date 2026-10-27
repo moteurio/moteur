@@ -4,7 +4,6 @@ import { publicCollectionsReadApi } from './collectionsRead.js';
 import { createPublicCollectionChannel, type PublicChannel } from './collectionChannel.js';
 import type { LocaleMode, SchemaShape, UntypedSchema } from './schema.js';
 import { publicSiteOutputsApi } from './pageOutputs.js';
-import { publicRadarApi } from './radar.js';
 import { publicFormsApi } from './forms.js';
 import type { MoteurPublicClientConfig } from '../types.js';
 
@@ -25,7 +24,6 @@ export type MoteurPublicClient<
     /** The same client, answering in one language: every value in it, typed as such. */
     locale(locale: S['locale']): MoteurPublicClient<S, 'one'>;
     site: ReturnType<typeof publicSiteOutputsApi>;
-    radar: ReturnType<typeof publicRadarApi>;
     /** Show a form in the visitor's language, and send what they wrote. */
     forms: ReturnType<typeof publicFormsApi>;
     /** Clone this client with a preview token (draft / latest view on collection reads). */
@@ -90,7 +88,6 @@ function build<S extends SchemaShape, D extends LocaleMode>(
             createPublicCollectionChannel<S, D>(client, projectId, collectionId, language),
         locale: locale => build<S, 'one'>(config, locale),
         site: publicSiteOutputsApi(client, projectId, language),
-        radar: publicRadarApi(client, projectId),
         forms: publicFormsApi(client, projectId),
         withPreview: previewToken => build<S, D>({ ...config, previewToken }, language)
     };

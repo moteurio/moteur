@@ -361,15 +361,6 @@ describe('createMoteurPublicClient', () => {
         expect(capturedRequests[0].url).toBe('/projects/p1/navigation');
         expect(capturedRequests[0].params).toEqual({ depth: 2 });
     });
-
-    it('radar.get passes scan when fullScan', async () => {
-        const client = createMoteurPublicClient({
-            baseURL: 'https://api.example.com',
-            auth: { type: 'apiKey', apiKey: 'k', projectId: 'p1' }
-        });
-        await client.radar.get({ fullScan: true });
-        expect(capturedRequests[0].params).toEqual({ scan: 'true' });
-    });
 });
 
 describe('MoteurApiError', () => {

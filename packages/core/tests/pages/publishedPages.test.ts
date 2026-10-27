@@ -5,7 +5,8 @@ import path from 'path';
 import { initRepo } from '../../src/git/index.js';
 import { registerContentCommitHook } from '../../src/git/contentCommitHook.js';
 import { createTemplate } from '../../src/templates.js';
-import { createPage, getPage, resolveAllUrls, updatePage } from '../../src/pages.js';
+import { createPage, getNavigation, getPage, resolveAllUrls, updatePage } from '../../src/pages.js';
+import { createNavigation, resolveNavigation } from '../../src/navigations.js';
 import { hasWaitingChanges, publicPage } from '../../src/pages/publishedPages.js';
 import { approveReview, submitForPageReview } from '../../src/reviews.js';
 import { pageKey } from '../../src/utils/storageKeys.js';
@@ -67,6 +68,29 @@ describe('a live page and its changes', () => {
             status: 'published',
             fields: { headline: 'One' }
         } as never);
+
+    it('keeps draft pages out of navigation and menus', async () => {
+        await about();
+        const draft = await createPage(projectId, admin, {
+            type: 'static',
+            label: 'Secret launch',
+            slug: 'launch',
+            templateId: 'landing',
+            status: 'draft',
+            fields: { headline: 'Soon' }
+        } as never);
+
+        const tree = await getNavigation(projectId);
+        expect(tree.map(n => n.label)).toEqual(['About']);
+
+        const menu = await createNavigation(projectId, admin, {
+            name: 'Main',
+            handle: 'main',
+            items: [{ id: 'i1', label: 'Launch', linkType: 'page', pageId: draft.id }]
+        } as never);
+        const resolved = await resolveNavigation(projectId, menu);
+        expect(resolved.items[0].url).toBeUndefined();
+    });
 
     it("keeps a writer's edits waiting until a review approves them, once", async () => {
         const page = await about();

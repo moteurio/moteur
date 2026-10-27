@@ -314,8 +314,14 @@ export type NavigationNode = {
     children?: NavigationNode[];
 };
 
+/** Whether a page may appear on the site: published, or a folder (it shows what's inside). */
+export function isShown(node: PageNode): boolean {
+    return node.type === 'folder' || node.status === 'published';
+}
+
 /**
- * Build navigation tree: only nodes with navInclude; folders only if they have nav-included descendants.
+ * Build navigation tree: only published nodes with navInclude (a draft page and what's under it
+ * stay out); folders only if they have nav-included descendants.
  * depth: max depth (default all). rootId: start from this node's children (default root).
  */
 export function buildNavigationTree(
@@ -329,9 +335,12 @@ export function buildNavigationTree(
 
     function hasNavIncludedDescendant(node: PageNode, d: number): boolean {
         if (d <= 0) return false;
-        if (node.navInclude && node.type !== 'folder') return true;
         const children = childMap.get(node.id) ?? [];
-        return children.some(c => c.navInclude || hasNavIncludedDescendant(c, d - 1));
+        return children.some(
+            c =>
+                isShown(c) &&
+                ((c.navInclude && c.type !== 'folder') || hasNavIncludedDescendant(c, d - 1))
+        );
     }
 
     function build(pid: string | null, d: number): NavigationNode[] {
@@ -339,7 +348,7 @@ export function buildNavigationTree(
         const children = childMap.get(pid) ?? [];
         const out: NavigationNode[] = [];
         for (const node of children) {
-            if (!node.navInclude) continue;
+            if (!node.navInclude || !isShown(node)) continue;
             if (node.type === 'folder' && !hasNavIncludedDescendant(node, depth)) continue;
             const url = resolveNodePrefix(node.id, nodeMap, lang) || '/';
             const navNode: NavigationNode = {

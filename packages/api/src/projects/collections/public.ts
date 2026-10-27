@@ -68,6 +68,26 @@ import {
 
 const router: Router = Router({ mergeParams: true });
 
+/**
+ * Whether this request sees drafts, set on `req.previewAuth` for what follows. A preview link
+ * made for the whole project shows every draft; one made for an entry or a page shows that one
+ * as it is now, and everything else as published.
+ */
+function previewing(req: Request, item?: { entryId?: string; pageId?: string }): boolean {
+    if (!req.previewTokenId) return (req.previewAuth = false);
+    const { previewEntryId: entryId, previewPageId: pageId } = req;
+    req.previewAuth =
+        (!entryId && !pageId) ||
+        (!!entryId && item?.entryId === entryId) ||
+        (!!pageId && item?.pageId === pageId);
+    return req.previewAuth;
+}
+
+router.use((req, _res, next) => {
+    previewing(req);
+    next();
+});
+
 async function respondCollectionOpenApi(req: Request, res: Response): Promise<void> {
     const { projectId, collectionId } = req.params as Record<string, string>;
     if (!projectId || !collectionId) {
@@ -239,7 +259,7 @@ function rejectIfPreviewCollectionMismatch(
     res: Response,
     collectionId: string
 ): boolean {
-    if (!req.previewAuth) return false;
+    if (!req.previewTokenId) return false;
     const scoped = req.previewCollectionId;
     if (!scoped || scoped === collectionId) return false;
     res.status(403).json({
@@ -258,6 +278,56 @@ function rejectIfCollectionAccessForbidden(
         rejectIfApiKeyCollectionForbidden(req, res, collectionId) ||
         rejectIfPreviewCollectionMismatch(req, res, collectionId)
     );
+}
+
+/**
+ * A list read with a preview link made for one page: that page as it is now, in place of its
+ * published version or added when it has none (when the channel gives pages like it).
+ */
+async function withPreviewedPage(
+    req: Request,
+    projectId: string,
+    resource: ApiCollectionResource,
+    pages: PageNode[]
+): Promise<PageNode[]> {
+    const id = req.previewPageId;
+    if (!id || req.previewAuth) return pages;
+    const page = await getPage(projectId, id).catch(() => null);
+    if (!page || page.type === 'folder') return pages;
+    if (resource.resourceId !== 'pages' && page.templateId !== resource.resourceId) return pages;
+    if (!getStatusFilter(resource, false, true).includes(page.status as EntryStatus)) return pages;
+    const at = pages.findIndex(p => p.id === id);
+    return at < 0 ? [...pages, page] : pages.map(p => (p.id === id ? page : p));
+}
+
+/**
+ * A list read with a preview link made for one entry: the rest as published, that entry as it
+ * is now, where it sits now. It is left out when its edits no longer match the query, and
+ * counted once more when it has never been published.
+ */
+async function withPreviewedEntry(
+    req: Request,
+    projectId: string,
+    modelId: string,
+    resource: ApiCollectionResource,
+    query: EntryQuery,
+    found: { items: Entry[]; total: number }
+): Promise<{ items: Entry[]; total: number }> {
+    const id = req.previewEntryId;
+    if (!id || req.previewAuth) return found;
+    const draft = await getEntryForProject(projectId, modelId, id).catch(() => null);
+    if (!draft) return found;
+    const { items: latest } = await queryEntriesForProject(projectId, modelId, {
+        ...query,
+        view: 'latest',
+        status: getStatusFilter(resource, false, true)
+    });
+    const at = latest.findIndex(e => e.id === id);
+    const items = found.items.filter(e => e.id !== id);
+    if (at < 0) return { items, total: found.total };
+    items.splice(Math.min(at, items.length), 0, latest[at]);
+    const published = await getPublishedEntryForProject(projectId, modelId, id);
+    return { items, total: found.total + (published ? 0 : 1) };
 }
 
 // GET /projects/:projectId/collections
@@ -371,6 +441,7 @@ router.get('/:collectionId/pages', async (req: Request, res: Response) => {
         // Sites get each page as published; changes waiting for review stay out.
         if (usePublishedEntryView(req, statuses)) pages = await publicPages(projectId, pages);
         pages = pages.filter(p => 'status' in p && statuses.includes((p as any).status));
+        pages = await withPreviewedPage(req, projectId, pageResource, pages);
         const delivery = await deliveryFor(projectId, collection, req);
         pages = await Promise.all(pages.map(p => deliverPage(p, delivery)));
         return void res.json(pages);
@@ -391,6 +462,10 @@ router.get('/:collectionId/pages/by-slug/:slug', async (req: Request, res: Respo
         const pageResource = collection.resources.find(r => r.resourceType === 'page');
         if (!pageResource)
             return void res.status(404).json({ error: 'Collection does not expose pages' });
+        if (req.previewPageId) {
+            const page = await getPageBySlug(projectId, slug, parseLocaleQuery(req));
+            previewing(req, { pageId: page?.id });
+        }
         const apiKeyOnly = isPublishedOnlyDelivery(req);
         const statuses = getStatusFilter(pageResource, apiKeyOnly, req.previewAuth);
         const stored = await getPageBySlug(projectId, slug, parseLocaleQuery(req), {
@@ -419,6 +494,7 @@ router.get('/:collectionId/pages/:id', async (req: Request, res: Response) => {
         const pageResource = collection.resources.find(r => r.resourceType === 'page');
         if (!pageResource)
             return void res.status(404).json({ error: 'Collection does not expose pages' });
+        previewing(req, { pageId: id });
         const apiKeyOnly = isPublishedOnlyDelivery(req);
         const statuses = getStatusFilter(pageResource, apiKeyOnly, req.previewAuth);
         const file = await getPage(projectId, id);
@@ -459,11 +535,19 @@ router.get('/:collectionId/:resourceId/entries', async (req: Request, res: Respo
         } catch (err: unknown) {
             return void res.status(400).json({ error: (err as Error).message });
         }
-        const { items: entries, total } = await queryEntriesForProject(projectId, resourceId, {
+        const found = await queryEntriesForProject(projectId, resourceId, {
             ...parsed,
             view: usePublished ? 'published' : 'latest',
             status: statuses
         });
+        const { items: entries, total } = await withPreviewedEntry(
+            req,
+            projectId,
+            resourceId,
+            resource,
+            parsed,
+            found
+        );
         res.setHeader('X-Total-Count', String(total));
         const depth = (resource.resolve ?? 0) as 0 | 1 | 2;
         const fields = resource.fields && resource.fields.length > 0 ? resource.fields : undefined;
@@ -523,6 +607,7 @@ router.get('/:collectionId/:resourceId/entries/:id', async (req: Request, res: R
             collection.resources.find(r => r.resourceType === 'model' && r.resourceId === 'models');
         if (!resource || resource.resourceType !== 'model')
             return void res.status(404).json({ error: 'Resource not found in collection' });
+        previewing(req, { entryId: id });
         const apiKeyOnly = isPublishedOnlyDelivery(req);
         const statuses = getStatusFilter(resource, apiKeyOnly, req.previewAuth);
         const usePublished = usePublishedEntryView(req, statuses);
