@@ -2883,6 +2883,14 @@ Pull products from Shopify into entries
 
 Calls `POST /projects/{project}/shopify/sync`.
 
+## commands
+
+### `moteur commands list`
+
+Commands plugins added on this API
+
+Calls `GET /commands`.
+
 ## play
 
 ### `moteur play poll <poll>`
