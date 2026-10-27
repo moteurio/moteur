@@ -28,6 +28,11 @@ export interface ArgSpec {
     in?: 'query' | 'body' | 'none';
     /** Its name in the query or body when it differs: `filter.author`, `data`. */
     key?: string;
+    /**
+     * A path on the machine running the command (a file to read or write). Only offered where
+     * that machine is the person's own: never by a hosted server, whose disk is the server's.
+     */
+    local?: boolean;
 }
 
 export interface Column {
@@ -46,6 +51,8 @@ export interface RunContext {
     body: () => Promise<Record<string, unknown>>;
     /** Prints a line unless --quiet or --json. */
     say: (message: string) => void;
+    /** Whether the command runs on the person's own machine, so `local` paths are theirs. */
+    local: boolean;
 }
 
 export interface CommandSpec {

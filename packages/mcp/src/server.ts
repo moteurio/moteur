@@ -18,7 +18,14 @@ import {
     type Session
 } from '@moteurio/commands';
 import type { MoteurAdminClient } from '@moteurio/client';
-import { inputSchema, selectCommands, toolName, toolOf, type Selection } from './tools.js';
+import {
+    inputSchema,
+    selectCommands,
+    toolName,
+    toolOf,
+    withoutLocalArgs,
+    type Selection
+} from './tools.js';
 import { agentClient, agentName } from './agent.js';
 
 export interface ServerOptions extends Selection {
@@ -34,6 +41,11 @@ export interface ServerOptions extends Selection {
     client?: () => Promise<MoteurAdminClient>;
     /** The session to call the API with (the hosted server, tests); default: as an agent, for the person. */
     session?: (body: Record<string, unknown>) => Session;
+    /**
+     * False when the server runs somewhere other than the person's machine (the hosted `/mcp`):
+     * arguments naming files on disk are not offered, and commands never touch the disk.
+     */
+    local?: boolean;
     /** The commands to offer (tests); default: every API command. */
     commands?: CommandSpec[];
     /** Server-side authorization, checked again for every standard or compact tool execution. */
@@ -96,7 +108,8 @@ export function withPluginCommands(
 
 export function createServer(options: ServerOptions = {}): Server {
     const all = options.commands ?? API_COMMANDS;
-    const selected = selectCommands(all, options);
+    const local = options.local !== false;
+    const selected = selectCommands(all, options).map(c => (local ? c : withoutLocalArgs(c)));
     const server = new Server(
         { name: 'moteur', version: '2026.3.29' },
         { capabilities: { tools: {} }, instructions: INSTRUCTIONS }
@@ -111,6 +124,7 @@ export function createServer(options: ServerOptions = {}): Server {
             configSession({
                 client,
                 body: async () => body,
+                local,
                 ...(options.project ? { defaultProject: async () => options.project } : {})
             }));
 
@@ -139,11 +153,11 @@ export function createServer(options: ServerOptions = {}): Server {
             const { body, ...rest } = input;
             const args = checkArgs(command.args ?? [], rest, { naming: a => a.name });
             await options.beforeRun?.(command, args);
-            const result = await execute(
-                command,
-                args,
-                session((body as Record<string, unknown>) ?? {})
-            );
+            const result = await execute(command, args, {
+                ...session((body as Record<string, unknown>) ?? {}),
+                // A session given by the host can't make a hosted server local.
+                ...(local ? {} : { local: false })
+            });
             return ok(result ?? { done: true });
         } catch (err) {
             return fail(err instanceof UsageError ? err.message : errorText(err));

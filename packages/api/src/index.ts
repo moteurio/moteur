@@ -175,6 +175,8 @@ app.use(
     ...webhookContribs.map(c => c.router)
 );
 
+// Assistants send files inline (base64) over MCP, as they have no other way in: a larger body.
+app.use(basePath + '/mcp', express.json({ limit: process.env.MOTEUR_MCP_BODY_LIMIT || '20mb' }));
 app.use(express.json({ limit: bodyLimit }));
 
 // Request classification (studio vs public), usage logging, and rate limiting

@@ -214,6 +214,11 @@ export interface Session {
     debug?: boolean;
     /** The client for operator commands (default: the operator session on this machine). */
     operatorClient?: () => Promise<MoteurAdminClient>;
+    /**
+     * False on a hosted server: the disk is the server's, so commands never read or write
+     * paths a caller gives. Default true (the CLI, the local MCP process).
+     */
+    local?: boolean;
 }
 
 /** The signed-in session from MOTEUR_TOKEN/MOTEUR_API_KEY or ~/.moteur/config.json. */
@@ -254,7 +259,8 @@ export function makeContext(
             }
             return base;
         },
-        say: message => session.say?.(message)
+        say: message => session.say?.(message),
+        local: session.local !== false
     };
 }
 

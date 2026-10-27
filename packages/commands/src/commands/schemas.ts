@@ -153,7 +153,12 @@ export const submissions = group('submissions', [
                 description: 'File format',
                 in: 'query'
             },
-            { name: 'out', description: 'Write it to this file instead of printing it', in: 'none' }
+            {
+                name: 'out',
+                description: 'Write it to this file instead of printing it',
+                in: 'none',
+                local: true
+            }
         ],
         run: async ctx => {
             const client = await ctx.client();
@@ -164,6 +169,7 @@ export const submissions = group('submissions', [
                 responseType: 'text'
             });
             if (ctx.args.out) {
+                if (!ctx.local) throw new Error('Files can’t be written here: leave out out.');
                 fs.writeFileSync(
                     String(ctx.args.out),
                     typeof text === 'string' ? text : JSON.stringify(text, null, 2)

@@ -31,6 +31,15 @@ export function selectCommands(all: CommandSpec[], s: Selection = {}): CommandSp
     });
 }
 
+/**
+ * The command as a hosted server offers it: without arguments naming paths on the machine that
+ * runs it (the server's disk is not the caller's). Asking for one is then an unknown option.
+ */
+export function withoutLocalArgs(c: CommandSpec): CommandSpec {
+    if (!c.args?.some(a => a.local)) return c;
+    return { ...c, args: c.args.filter(a => !a.local) };
+}
+
 /** `entries list` → `entries_list`; `media-settings get` → `media_settings_get`; `status` → `status`. */
 export function toolName(c: CommandSpec): string {
     const name = c.name ? `${c.group}_${c.name}` : c.group === 'api' ? 'api_request' : c.group;
