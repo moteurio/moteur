@@ -69,7 +69,7 @@ jobs:
                   registry-url: 'https://registry.npmjs.org'
 
             - name: Install pnpm
-              run: npm install -g pnpm
+              run: npm install -g pnpm@11.22
 
             - name: Ensure npm for staged publish
               run: npm install -g npm@11.15
