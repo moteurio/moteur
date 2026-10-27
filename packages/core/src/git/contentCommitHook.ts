@@ -9,6 +9,7 @@ import { log, toActivityEvent } from '../activityLogger.js';
 import { addAndCommit, GITIGNORE_LINES, hasRemote, isGitRepo, push } from './gitService.js';
 import type { User } from '@moteurio/types/User.js';
 import { runGitCommitHooks } from '../plugins/gitHooks.js';
+import { batchFor } from '../contentBatch.js';
 
 type ContentEventPayload = { projectId: string; paths: string[]; message: string; user: User };
 
@@ -25,6 +26,19 @@ function trackedPaths(paths: string[]): string[] {
 }
 
 async function handleContentChange(payload: ContentEventPayload): Promise<void> {
+    const batch = batchFor(payload.projectId);
+    if (batch) {
+        // Held: the batch is committed as one (or undone).
+        for (const p of trackedPaths(payload.paths)) batch.paths.add(p.replace(/\\/g, '/'));
+        return;
+    }
+    await commitContentChange(payload);
+}
+
+/** Commits (and pushes) a change now: what a content event does outside a batch. The commit, if any. */
+export async function commitContentChange(
+    payload: ContentEventPayload
+): Promise<string | undefined> {
     const { projectId, message, user } = payload;
     const paths = trackedPaths(payload.paths);
     if (paths.length === 0) return;
@@ -66,7 +80,7 @@ async function handleContentChange(payload: ContentEventPayload): Promise<void> 
     }
 
     // A project without a remote keeps its history locally; there is nothing to push or report.
-    if (!hasRemote(dir)) return;
+    if (!hasRemote(dir)) return commitHash || undefined;
     const pushed = push(dir);
     if (!pushed) {
         console.warn(
@@ -80,6 +94,7 @@ async function handleContentChange(payload: ContentEventPayload): Promise<void> 
             })
         );
     }
+    return commitHash || undefined;
 }
 
 export function registerContentCommitHook(): void {

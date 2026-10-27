@@ -1615,6 +1615,30 @@ export async function deleteAssetForever(projectId: string, user: User, id: stri
     const project = await getProject(user, projectId);
     const asset = (await loadAssetsIndex(projectId)).find(a => a.id === id && a.deletedAt);
     if (!asset) throw new Error(`Asset "${id}" not found in the bin`);
+    await eraseAsset(projectId, project, asset, user);
+}
+
+/**
+ * Takes back assets a failed import added: their files, copies and hosted videos, and their
+ * place in the list. Not a person's action (no permission to check): the import's own undo.
+ */
+export async function discardImportedAssets(projectId: string, ids: string[]): Promise<void> {
+    if (!ids.length) return;
+    const project = await getProjectById(projectId);
+    if (!project) return;
+    const wanted = new Set(ids);
+    for (const asset of (await loadAssetsIndex(projectId)).filter(a => wanted.has(a.id)))
+        await eraseAsset(projectId, project, asset, SYSTEM_USER as User);
+}
+
+/** An asset gone for good: its files, its copies, its video at the host, its place in the list. */
+async function eraseAsset(
+    projectId: string,
+    project: ProjectSchema,
+    asset: Asset,
+    user: User
+): Promise<void> {
+    const id = asset.id;
     const adapter = getProjectAdapter(project);
 
     if (asset.path) {

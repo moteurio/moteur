@@ -30,6 +30,7 @@ These guides describe the engine in this repository: content modeling, delivery,
 | [Schema revisions](Schema%20revisions.md)           | Schema history, restore and consequences for existing content               |
 | [Blueprints](Blueprints.md)                         | Starting points for projects and schemas                                    |
 | [Seeds](Seeds.md)                                   | Built-in blueprint seeds                                                    |
+| [Imports](Imports.md)                               | Many things saved at once, all or nothing; a project exported as a bundle   |
 
 ## Integration and tools
 

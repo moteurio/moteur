@@ -1,6 +1,7 @@
 import { loadProjects } from '../projects.js';
 import { projectDir } from '../utils/pathUtils.js';
 import { withWriteLock } from '../utils/projectWriteLock.js';
+import { batchFor } from '../contentBatch.js';
 import { WorkBudget } from '../utils/workBudget.js';
 import crypto from 'crypto';
 import { randomUUID } from 'crypto';
@@ -62,7 +63,8 @@ const VALID_EVENTS: WebhookEvent[] = [
     'navigation.updated',
     'redirects.updated',
     'radar.violation.created',
-    'radar.violation.resolved'
+    'radar.violation.resolved',
+    'import.completed'
 ];
 
 const FILTER_FIELDS = ['modelId', 'status', 'locale', 'environment', 'source'] as const;
@@ -720,6 +722,12 @@ export async function dispatch(
         source: 'studio' | 'api' | 'scheduler';
     }
 ): Promise<void> {
+    // Inside a batch (an import), events are held: the batch sends one summary instead.
+    const batch = batchFor(context.projectId);
+    if (batch) {
+        batch.held.set(event, (batch.held.get(event) ?? 0) + 1);
+        return;
+    }
     try {
         const webhooks = await loadWebhooks(context.projectId);
         const enabled = webhooks.filter(w => w.enabled);

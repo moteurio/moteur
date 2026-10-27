@@ -3,6 +3,7 @@ import { buildRadarGraph } from './graph.js';
 import { runAllRules, pageLinkViolations, PAGES_MODEL_SLUG } from './rules/index.js';
 import { loadRadarReport, saveRadarReport, computeSummary } from './storage.js';
 import { dispatch as webhookDispatch } from '../webhooks/webhookService.js';
+import { batchFor } from '../contentBatch.js';
 
 /** A violation of this entry (a page's have the `pages` model). */
 const isEntryViolation = (v: RadarViolation, entryId: string) =>
@@ -191,6 +192,8 @@ export function runEntryScanDebounced(
     entryId: string,
     options?: ScanOptions
 ): void {
+    // A batch (an import) is scanned once, as a whole, when it is saved.
+    if (batchFor(projectId)) return;
     const key = `${projectId}:${modelId}:${entryId}`;
     const existing = debounceMap.get(key);
     if (existing) clearTimeout(existing);

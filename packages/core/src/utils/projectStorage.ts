@@ -162,3 +162,29 @@ export async function listProjectKeys(projectId: string, prefix?: string): Promi
         throw err;
     }
 }
+
+/**
+ * Puts a file back as it was (its exact text), or removes it (`null`): an undone change. The
+ * content index follows.
+ */
+export async function restoreProjectFile(
+    projectId: string,
+    key: string,
+    text: string | null
+): Promise<void> {
+    const target = fullPath(projectId, key);
+    if (text === null) {
+        await fs.rm(target, { force: true });
+        await updateContentIndex(projectId, key);
+        return;
+    }
+    await fs.mkdir(path.dirname(target), { recursive: true });
+    await fs.writeFile(target, text, ENCODING);
+    let data: unknown;
+    try {
+        data = JSON.parse(text);
+    } catch {
+        data = undefined;
+    }
+    if (data !== undefined) await updateContentIndex(projectId, key, data);
+}

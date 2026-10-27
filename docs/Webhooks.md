@@ -17,33 +17,34 @@ Webhooks notify your HTTPS endpoint when content events occur in a project (entr
 
 ## Event types
 
-| Event                   | Description                     |
-| ----------------------- | ------------------------------- |
-| `entry.created`         | Entry created.                  |
-| `entry.updated`         | Entry updated.                  |
-| `entry.published`       | Entry status set to published.  |
-| `entry.unpublished`     | Entry unpublished.              |
-| `entry.deleted`         | Entry deleted.                  |
-| `entry.scheduled`       | Publish/unpublish scheduled.    |
-| `entry.unscheduled`     | Schedule cancelled.             |
-| `entry.schedule.failed` | Scheduled action failed.        |
-| `asset.created`         | Asset created.                  |
-| `asset.updated`         | Asset updated.                  |
-| `asset.deleted`         | Asset deleted.                  |
-| `page.published`        | Page published.                 |
-| `page.updated`          | A live page saved, or moved.    |
-| `page.unpublished`      | Page unpublished.               |
-| `page.deleted`          | Page deleted.                   |
-| `page.scheduled`        | Page schedule set.              |
-| `page.unscheduled`      | Page schedule cancelled.        |
-| `page.schedule.failed`  | Page schedule failed.           |
-| `review.submitted`      | Entry submitted for review.     |
-| `review.approved`       | Review approved.                |
-| `review.rejected`       | Review rejected.                |
-| `comment.created`       | Comment created on an entry.    |
-| `form.submitted`        | Form submission received.       |
-| `navigation.updated`    | A menu created, saved, deleted. |
-| `redirects.updated`     | The redirects changed.          |
+| Event                   | Description                                                                                                                                                  |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `entry.created`         | Entry created.                                                                                                                                               |
+| `entry.updated`         | Entry updated.                                                                                                                                               |
+| `entry.published`       | Entry status set to published.                                                                                                                               |
+| `entry.unpublished`     | Entry unpublished.                                                                                                                                           |
+| `entry.deleted`         | Entry deleted.                                                                                                                                               |
+| `entry.scheduled`       | Publish/unpublish scheduled.                                                                                                                                 |
+| `entry.unscheduled`     | Schedule cancelled.                                                                                                                                          |
+| `entry.schedule.failed` | Scheduled action failed.                                                                                                                                     |
+| `asset.created`         | Asset created.                                                                                                                                               |
+| `asset.updated`         | Asset updated.                                                                                                                                               |
+| `asset.deleted`         | Asset deleted.                                                                                                                                               |
+| `page.published`        | Page published.                                                                                                                                              |
+| `page.updated`          | A live page saved, or moved.                                                                                                                                 |
+| `page.unpublished`      | Page unpublished.                                                                                                                                            |
+| `page.deleted`          | Page deleted.                                                                                                                                                |
+| `page.scheduled`        | Page schedule set.                                                                                                                                           |
+| `page.unscheduled`      | Page schedule cancelled.                                                                                                                                     |
+| `page.schedule.failed`  | Page schedule failed.                                                                                                                                        |
+| `review.submitted`      | Entry submitted for review.                                                                                                                                  |
+| `review.approved`       | Review approved.                                                                                                                                             |
+| `review.rejected`       | Review rejected.                                                                                                                                             |
+| `comment.created`       | Comment created on an entry.                                                                                                                                 |
+| `form.submitted`        | Form submission received.                                                                                                                                    |
+| `navigation.updated`    | A menu created, saved, deleted.                                                                                                                              |
+| `redirects.updated`     | The redirects changed.                                                                                                                                       |
+| `import.completed`      | An import saved (or approved): one event for all of it, instead of one per page or entry. Its data has `import.summary`, `import.items` and `import.commit`. |
 
 When registering a webhook you can pass an **events** array; if empty, the webhook receives **all** events. You can further narrow with **filters** (e.g. only when `modelId === 'article'`).
 
