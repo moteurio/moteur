@@ -4,6 +4,7 @@ import { projectsApi } from './projects.js';
 import { modelsApi } from '../project/models.js';
 import { entriesApi } from '../project/entries.js';
 import { projectPagesApi } from '../project/pages.js';
+import { projectImportsApi } from '../project/imports.js';
 import { projectTemplatesApi } from '../project/templates.js';
 import { projectLayoutsApi } from '../project/layouts.js';
 import { projectStructuresApi } from '../project/structures.js';
@@ -37,6 +38,7 @@ export function createMoteurAdminClient(config: MoteurClientConfig) {
         models: modelsApi(client),
         entries: entriesApi(client),
         pages: projectPagesApi(client),
+        imports: projectImportsApi(client),
         templates: projectTemplatesApi(client),
         layouts: projectLayoutsApi(client),
         structures: projectStructuresApi(client),

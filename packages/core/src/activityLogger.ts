@@ -1,4 +1,5 @@
 import { randomUUID } from 'crypto';
+import { batchFor } from './contentBatch.js';
 import path from 'path';
 import fs from 'fs';
 import type {
@@ -73,6 +74,8 @@ const writeQueues = new Map<string, Promise<void>>();
  */
 export function log(event: ActivityEvent): Promise<void> {
     const projectId = event.projectId;
+    // A batch (an import) is logged once, as itself, when it is saved.
+    if (batchFor(projectId)) return Promise.resolve();
     const previous = writeQueues.get(projectId) ?? Promise.resolve();
     const append = previous
         .then(async () => {

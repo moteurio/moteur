@@ -357,7 +357,8 @@ export async function createPage(
     if ((data as StaticPage).status === 'published' && needsApproval(user, project))
         throw contentForbidden(approvalMessage(user, project));
 
-    const id = randomUUID();
+    // An id given (an import keeping its own) is kept; a page with it already is refused below.
+    const id = typeof data.id === 'string' && isValidId(data.id) ? data.id : randomUUID();
     const parentId = data.parentId ?? null;
     const isRoot = parentId === null;
 

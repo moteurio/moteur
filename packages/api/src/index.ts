@@ -177,6 +177,11 @@ app.use(
 
 // Assistants send files inline (base64) over MCP, as they have no other way in: a larger body.
 app.use(basePath + '/mcp', express.json({ limit: process.env.MOTEUR_MCP_BODY_LIMIT || '20mb' }));
+// A bundle can hold its files inline (base64).
+app.use(
+    basePath + '/projects/:projectId/imports',
+    express.json({ limit: process.env.MOTEUR_IMPORT_BODY_LIMIT || '50mb' })
+);
 app.use(express.json({ limit: bodyLimit }));
 
 // Request classification (studio vs public), usage logging, and rate limiting

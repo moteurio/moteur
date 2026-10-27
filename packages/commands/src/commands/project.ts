@@ -570,3 +570,140 @@ export const types = group('types', [
         examples: ['moteur types --out src/moteur.ts']
     }
 ]);
+
+const importArg: ArgSpec = { ...id('Import'), positional: 0 };
+
+/** What an import did, in a line. */
+function importLine(r: unknown): string {
+    const job = r as {
+        id: string;
+        status: string;
+        dryRun?: boolean;
+        items?: { action: string }[];
+        issues?: { path: string; message: string }[];
+        progress?: { done: number; total: number };
+    };
+    const changed = (job.items ?? []).filter(i => i.action !== 'skip').length;
+    const issues = (job.issues ?? [])
+        .map(i => `\n  ${i.path || '(bundle)'}: ${i.message}`)
+        .join('');
+    switch (job.status) {
+        case 'running':
+            return `Still importing (${job.progress?.done ?? 0} of ${job.progress?.total ?? '?'}). Follow it: moteur imports get ${job.id}`;
+        case 'failed':
+            return `Nothing was kept:${issues}`;
+        case 'awaiting_approval':
+            return `Saved ${changed} as drafts. A person puts them live: moteur imports approve ${job.id}`;
+        default:
+            return job.dryRun
+                ? `Checked: ${changed} would be saved, nothing was kept.`
+                : `Imported ${changed}.${issues ? ` Some could not go live:${issues}` : ''}`;
+    }
+}
+
+/** Bundles: many things saved at once, all or nothing (`moteur imports run site.json`). */
+export const imports = group('imports', [
+    {
+        name: 'run',
+        summary:
+            'Import a bundle: schemas, files, pages, entries, menus, redirects (all or nothing)',
+        description:
+            'The bundle comes from a file, or as the JSON body. { "$ref": "page:<ref>" } (or entry:<model>/<ref>, asset:<ref>) anywhere stands for the id of something in the bundle. Try it first with --dry-run.',
+        args: [
+            project,
+            {
+                name: 'file',
+                description: 'The bundle (JSON) on this machine',
+                positional: 0,
+                in: 'none',
+                local: true
+            },
+            {
+                name: 'dry-run',
+                type: 'boolean',
+                description: 'Check everything as if saving, then keep nothing',
+                in: 'none'
+            },
+            {
+                name: 'wait',
+                type: 'number',
+                description: 'Seconds to wait for the end before answering (0–60)',
+                in: 'none'
+            }
+        ],
+        body: 'json',
+        run: async ctx => {
+            const client = await ctx.client();
+            let bundle: Record<string, unknown>;
+            if (ctx.args.file) {
+                if (!ctx.local) throw new Error('Files on disk can’t be read here: give the body.');
+                bundle = JSON.parse(fs.readFileSync(String(ctx.args.file), 'utf8'));
+            } else bundle = await ctx.body();
+            if (!Object.keys(bundle).length)
+                throw new Error('Give the bundle: a file, or the body.');
+            return client.imports.run(await ctx.project(), bundle as never, {
+                dryRun: ctx.args['dry-run'] === true,
+                ...(ctx.args.wait !== undefined && { wait: Number(ctx.args.wait) })
+            });
+        },
+        covers: [`POST ${P}/imports`],
+        done: importLine,
+        examples: ['moteur imports run site.json --dry-run', 'moteur imports run site.json']
+    },
+    {
+        name: 'list',
+        summary: 'Recent imports',
+        args: [project],
+        http: `GET ${P}/imports`,
+        table: [
+            { key: 'id', header: 'id' },
+            { key: 'status', header: 'status' },
+            { key: 'createdAt', header: 'started' },
+            { key: 'items', header: 'saved', format: v => String((v as unknown[]).length) }
+        ],
+        readOnly: true
+    },
+    {
+        name: 'get',
+        summary: 'An import and how far it has come',
+        args: [project, importArg],
+        http: `GET ${P}/imports/{id}`,
+        done: importLine,
+        readOnly: true
+    },
+    {
+        name: 'approve',
+        summary: 'Put a waiting import live (a person who can publish)',
+        args: [project, importArg],
+        http: `POST ${P}/imports/{id}/approve`,
+        done: importLine
+    }
+]);
+
+/** The project as a bundle (`moteur export --out site.json`), to import elsewhere. */
+export const exportBundle = group('export', [
+    {
+        name: '',
+        summary: 'The project as an import bundle',
+        args: [
+            project,
+            {
+                name: 'out',
+                description: 'Write it to this file instead of printing it',
+                in: 'none',
+                local: true
+            }
+        ],
+        run: async ctx => {
+            const client = await ctx.client();
+            const bundle = await client.imports.export(await ctx.project());
+            if (!ctx.args.out) return bundle;
+            if (!ctx.local) throw new Error('Files can’t be written here: leave out out.');
+            fs.writeFileSync(String(ctx.args.out), JSON.stringify(bundle, null, 2));
+            return `Wrote ${ctx.args.out}.`;
+        },
+        covers: [`GET ${P}/export`],
+        readOnly: true,
+        examples: ['moteur export --out site.json']
+    }
+]);

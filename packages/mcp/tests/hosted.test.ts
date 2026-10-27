@@ -67,7 +67,10 @@ describe('a hosted server (its disk is not the caller’s)', () => {
         expect(props('media_upload')).toEqual(expect.arrayContaining(['content', 'name', 'url']));
         expect(props('media_replace')).not.toContain('file');
         expect(props('submissions_export')).not.toContain('out');
+        expect(props('imports_run')).not.toContain('file');
+        expect(props('imports_run')).toContain('body');
         expect(props('types')).not.toContain('out');
+        expect(props('export')).not.toContain('out');
     });
 
     it('refuses a path even when asked, and reads nothing', async () => {

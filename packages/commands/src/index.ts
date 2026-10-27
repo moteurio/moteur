@@ -24,6 +24,8 @@ import {
     invites,
     keys,
     members,
+    exportBundle,
+    imports,
     projects,
     types,
     webhooks
@@ -115,6 +117,8 @@ export const API_COMMANDS = [
     ...webhooks,
     ...branches,
     ...types,
+    ...imports,
+    ...exportBundle,
     ...ai,
     ...radar,
     ...search,

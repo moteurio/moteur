@@ -22,6 +22,17 @@ export const ALLOWED_MIME: Record<AssetType, string[]> = {
 
 /** Browsers rarely know 3D formats (and some audio) and send these files as octet-stream or with no type. */
 const MIME_BY_EXTENSION: Record<string, string> = {
+    jpg: 'image/jpeg',
+    jpeg: 'image/jpeg',
+    png: 'image/png',
+    gif: 'image/gif',
+    webp: 'image/webp',
+    avif: 'image/avif',
+    svg: 'image/svg+xml',
+    pdf: 'application/pdf',
+    mp4: 'video/mp4',
+    webm: 'video/webm',
+    mov: 'video/quicktime',
     glb: 'model/gltf-binary',
     gltf: 'model/gltf+json',
     usdz: 'model/vnd.usdz+zip',

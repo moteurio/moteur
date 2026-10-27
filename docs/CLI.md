@@ -1005,6 +1005,17 @@ Find a page by its slug
 
 Calls `GET /projects/{project}/pages/by-slug/{slug}`.
 
+### `moteur pages referrers <id>`
+
+What links to a page: entries and other pages (check before deleting it)
+
+| Option               |                                                                              |
+| -------------------- | ---------------------------------------------------------------------------- |
+| `--project <string>` | Project id (default: MOTEUR_PROJECT, .moteur.json, or `moteur projects use`) |
+| `--id <string>`      | Page id (required)                                                           |
+
+Calls `GET /projects/{project}/pages/{id}/referrers`.
+
 ### `moteur pages status <id> <to>`
 
 Set a page’s state (draft, published…)
@@ -1299,14 +1310,17 @@ Show one file
 
 Calls `GET /projects/{project}/assets/{id}`.
 
-### `moteur media upload <files>`
+### `moteur media upload [files]`
 
 Add files to the library
 
 | Option               |                                                                              |
 | -------------------- | ---------------------------------------------------------------------------- |
 | `--project <string>` | Project id (default: MOTEUR_PROJECT, .moteur.json, or `moteur projects use`) |
-| `--files <list>`     | Paths of the files (required)                                                |
+| `--files <list>`     | Paths of the files on this machine                                           |
+| `--content <string>` | The file itself, in base64 (or a data: URL), with name                       |
+| `--name <string>`    | The file’s name with its extension, for content                              |
+| `--url <string>`     | A public HTTPS address of the file: the server downloads it                  |
 | `--folder <string>`  | Put them in this folder                                                      |
 | `--alt <string>`     | Alt text: what the picture shows                                             |
 | `--title <string>`   | Title                                                                        |
@@ -1315,6 +1329,7 @@ Add files to the library
 
 ```bash
 moteur media upload photos/*.jpg --folder covers
+moteur media upload --url https://example.com/inbox.png --alt "The inbox"
 ```
 
 ### `moteur media update <id>`
@@ -1348,7 +1363,7 @@ Put a file in a folder ("" for none)
 
 Calls `POST /projects/{project}/assets/{id}/move`.
 
-### `moteur media replace <id> <file>`
+### `moteur media replace <id> [file]`
 
 Swap a file for another of the same kind, keeping its id and uses
 
@@ -1356,7 +1371,9 @@ Swap a file for another of the same kind, keeping its id and uses
 | -------------------- | ---------------------------------------------------------------------------- |
 | `--project <string>` | Project id (default: MOTEUR_PROJECT, .moteur.json, or `moteur projects use`) |
 | `--id <string>`      | File id (required)                                                           |
-| `--file <string>`    | Path of the new file (required)                                              |
+| `--file <string>`    | Path of the new file on this machine                                         |
+| `--content <string>` | The file itself, in base64 (or a data: URL), with name                       |
+| `--name <string>`    | The file’s name with its extension, for content                              |
 
 ### `moteur media delete <id>`
 
@@ -2612,6 +2629,92 @@ Push the history to the project’s Git address now
 | `--project <string>` | Project id (default: MOTEUR_PROJECT, .moteur.json, or `moteur projects use`) |
 
 Calls `POST /projects/{project}/git/push`.
+
+## types
+
+### `moteur types`
+
+TypeScript types of the content (models, templates, blocks, structures)
+
+Each type takes a locale mode: 'all' as stored, or 'one' for content read with ?locale=. Make them again after changing a schema.
+
+| Option               |                                                                              |
+| -------------------- | ---------------------------------------------------------------------------- |
+| `--project <string>` | Project id (default: MOTEUR_PROJECT, .moteur.json, or `moteur projects use`) |
+| `--out <string>`     | Write them to this file instead of printing them                             |
+
+```bash
+moteur types --out src/moteur.ts
+```
+
+## imports
+
+### `moteur imports run [file]`
+
+Import a bundle: schemas, files, pages, entries, menus, redirects (all or nothing)
+
+The bundle comes from a file, or as the JSON body. { "$ref": "page:<ref>" } (or entry:<model>/<ref>, asset:<ref>) anywhere stands for the id of something in the bundle. Try it first with --dry-run.
+
+| Option               |                                                                              |
+| -------------------- | ---------------------------------------------------------------------------- |
+| `--project <string>` | Project id (default: MOTEUR_PROJECT, .moteur.json, or `moteur projects use`) |
+| `--file <string>`    | The bundle (JSON) on this machine                                            |
+| `--dry-run`          | Check everything as if saving, then keep nothing                             |
+| `--wait <number>`    | Seconds to wait for the end before answering (0–60)                          |
+| `--file <string>`    | Read the JSON body from this file                                            |
+| `--data <string>`    | The JSON body, inline                                                        |
+
+```bash
+moteur imports run site.json --dry-run
+moteur imports run site.json
+```
+
+### `moteur imports list`
+
+Recent imports
+
+| Option               |                                                                              |
+| -------------------- | ---------------------------------------------------------------------------- |
+| `--project <string>` | Project id (default: MOTEUR_PROJECT, .moteur.json, or `moteur projects use`) |
+
+Calls `GET /projects/{project}/imports`.
+
+### `moteur imports get <id>`
+
+An import and how far it has come
+
+| Option               |                                                                              |
+| -------------------- | ---------------------------------------------------------------------------- |
+| `--project <string>` | Project id (default: MOTEUR_PROJECT, .moteur.json, or `moteur projects use`) |
+| `--id <string>`      | Import id (required)                                                         |
+
+Calls `GET /projects/{project}/imports/{id}`.
+
+### `moteur imports approve <id>`
+
+Put a waiting import live (a person who can publish)
+
+| Option               |                                                                              |
+| -------------------- | ---------------------------------------------------------------------------- |
+| `--project <string>` | Project id (default: MOTEUR_PROJECT, .moteur.json, or `moteur projects use`) |
+| `--id <string>`      | Import id (required)                                                         |
+
+Calls `POST /projects/{project}/imports/{id}/approve`.
+
+## export
+
+### `moteur export`
+
+The project as an import bundle
+
+| Option               |                                                                              |
+| -------------------- | ---------------------------------------------------------------------------- |
+| `--project <string>` | Project id (default: MOTEUR_PROJECT, .moteur.json, or `moteur projects use`) |
+| `--out <string>`     | Write it to this file instead of printing it                                 |
+
+```bash
+moteur export --out site.json
+```
 
 ## ai
 

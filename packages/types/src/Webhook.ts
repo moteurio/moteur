@@ -26,7 +26,8 @@ export type WebhookEvent =
     | 'navigation.updated'
     | 'redirects.updated'
     | 'radar.violation.created'
-    | 'radar.violation.resolved';
+    | 'radar.violation.resolved'
+    | 'import.completed';
 
 // A filter narrows which events actually trigger delivery
 // e.g. only fire when modelId === 'article'
