@@ -9,12 +9,17 @@ import { getProjectJson, putProjectJson } from '../src/utils/projectStorage.js';
 import { entryKey, modelKey } from '../src/utils/storageKeys.js';
 import {
     createEntry,
+    deleteEntry,
     getPublishedEntryForProject,
     publishEntry,
     updateEntry
 } from '../src/entries.js';
 import { approveReview, submitForReview } from '../src/reviews.js';
 import { actingUser } from '../src/auth.js';
+import { createNavigation, deleteNavigation } from '../src/navigations.js';
+import { querySubmissions } from '../src/formSubmissions.js';
+import { createPreviewToken } from '../src/previewTokens.js';
+import { createSchedule } from '../src/schedules.js';
 import { onEvent } from '../src/utils/eventBus.js';
 import auditPlugin from '../src/plugins/core/auditLogger.js';
 import { registerContentCommitHook } from '../src/git/contentCommitHook.js';
@@ -95,6 +100,42 @@ describe('review workflow', () => {
         expect((await getPublishedEntryForProject(projectId, 'article', 'e4'))?.data?.title).toBe(
             'x'
         );
+    });
+
+    it('keeps translators, billing and review-only agents to their part', async () => {
+        const translator: User = { ...editor, roles: ['translator'] };
+        const billing: User = { ...editor, roles: ['billing'] };
+        const agent = actingUser(admin, { agent: { name: 'Claude' } });
+        const forbidden = { statusCode: 403 };
+
+        const menu = { name: 'Main', handle: 'main', items: [] };
+        await expect(createNavigation(projectId, translator, menu)).rejects.toMatchObject(
+            forbidden
+        );
+        const made = await createNavigation(projectId, agent, menu);
+        await expect(deleteNavigation(projectId, agent, made.id)).rejects.toMatchObject(forbidden);
+
+        await expect(querySubmissions(translator, projectId, 'contact')).rejects.toMatchObject(
+            forbidden
+        );
+        await expect(createPreviewToken(projectId, billing)).rejects.toMatchObject(forbidden);
+
+        await publishEntry(admin, projectId, 'article', 'e1');
+        await expect(
+            updateEntry(agent, projectId, 'article', 'e1', { status: 'unpublished' })
+        ).rejects.toMatchObject(forbidden);
+        await expect(deleteEntry(agent, projectId, 'article', 'e1')).rejects.toMatchObject(
+            forbidden
+        );
+        await expect(
+            createSchedule(agent, projectId, {
+                resourceType: 'entry',
+                resourceId: 'e1',
+                modelId: 'article',
+                action: 'unpublish',
+                scheduledAt: new Date(Date.now() + 3_600_000).toISOString()
+            })
+        ).rejects.toMatchObject(forbidden);
     });
 
     it('approving publishes the reviewed version, so the public API serves it', async () => {

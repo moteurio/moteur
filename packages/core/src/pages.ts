@@ -15,6 +15,7 @@ import { User } from '@moteurio/types/User.js';
 import {
     assertCanEdit,
     assertCanWrite,
+    assertNotReviewOnly,
     contentForbidden,
     translationOnlyChange,
     translatorOnly
@@ -444,6 +445,12 @@ export async function updatePage(
 
     const current = await getPageWithAuth(user, projectId, id);
     assertCanEdit(user);
+    if (
+        (patch as { status?: string }).status &&
+        (patch as { status?: string }).status !== 'published' &&
+        (current as StaticPage).status === 'published'
+    )
+        assertNotReviewOnly(user, 'take content offline');
     if (translatorOnly(user)) {
         const project = await getProject(user, projectId);
         const locales = [project.defaultLocale, ...(project.supportedLocales ?? [])].filter(
@@ -625,6 +632,7 @@ export async function restorePageAtRevision(
 
 export async function deletePage(projectId: string, user: User, id: string): Promise<void> {
     assertCanWrite(user);
+    assertNotReviewOnly(user, 'delete content');
     const current = await getPageWithAuth(user, projectId, id);
     const allPages = await loadAllPages(projectId);
     const children = allPages.filter(p => (p.parentId ?? null) === id);

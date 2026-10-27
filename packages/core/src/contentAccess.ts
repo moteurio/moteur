@@ -22,6 +22,21 @@ export function assertCanSubmit(user: User): void {
         throw contentForbidden('You cannot submit content for review.');
 }
 
+/**
+ * Agents that work for review (the default) draft and propose; taking content down, deleting it,
+ * or changing what's live without a review is a person's call.
+ */
+export function assertNotReviewOnly(user: User, doing: string): void {
+    if (user.agent?.reviewOnly)
+        throw contentForbidden(`An agent can't ${doing}: a person does that.`);
+}
+
+/** Form submissions hold what visitors wrote about themselves: the project's writers read them. */
+export function assertCanReadSubmissions(user: User): void {
+    if (!canWrite(user))
+        throw contentForbidden("Form submissions are for the project's writers and admins.");
+}
+
 export { translatorOnly };
 
 function isPlain(v: unknown): v is Record<string, unknown> {
