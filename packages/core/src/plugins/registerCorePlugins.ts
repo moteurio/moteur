@@ -2,6 +2,7 @@ import { pluginRegistry } from '../registry/PluginRegistry.js';
 import { createPluginContext, setPluginScope, wrapPluginContext } from './pluginContext.js';
 import { ContributionCollector } from './contributionCollector.js';
 import { registerContentCommitHook } from '../git/contentCommitHook.js';
+import { registerRedirectHooks } from '../redirects.js';
 import type { PluginContributions, PluginManifest } from '@moteurio/types/Plugin.js';
 import { mergeContributions } from '@moteurio/types/Plugin.js';
 import type { PluginContext } from './pluginContext.js';
@@ -91,6 +92,7 @@ export async function registerCorePlugins(): Promise<void> {
 
     // Core: commit and push on content.saved / content.deleted (gated by project.git.enabled)
     registerContentCommitHook();
+    registerRedirectHooks();
 }
 
 /** Register host-provided plugin modules. Optional plugin composition belongs to the host runtime. */

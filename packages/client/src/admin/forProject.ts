@@ -12,6 +12,7 @@ import { projectCollectionsApi } from '../project/collections.js';
 import { projectFormsApi } from '../project/forms.js';
 import { projectSubmissionsApi } from '../project/submissions.js';
 import { projectNavigationsApi } from '../project/navigations.js';
+import { projectRedirectsApi, type RedirectInput } from '../project/redirects.js';
 import { projectWebhooksApi } from '../project/webhooks.js';
 import { projectSchedulesApi } from '../project/schedules.js';
 import { projectAssetsApi } from '../project/assets.js';
@@ -44,6 +45,7 @@ export function createProjectClient(client: MoteurClient, projectId: string) {
     const forms = projectFormsApi(client);
     const submissions = projectSubmissionsApi(client);
     const navigations = projectNavigationsApi(client);
+    const redirects = projectRedirectsApi(client);
     const webhooks = projectWebhooksApi(client);
     const schedules = projectSchedulesApi(client);
     const assets = projectAssetsApi(client);
@@ -133,7 +135,7 @@ export function createProjectClient(client: MoteurClient, projectId: string) {
         pages: {
             list: () => pages.list(pid),
             get: (pageId: string) => pages.get(pid, pageId),
-            getBySlug: (slug: string) => pages.getBySlug(pid, slug),
+            getBySlug: (slug: string, locale?: string) => pages.getBySlug(pid, slug, locale),
             create: (body: Record<string, unknown>) => pages.create(pid, body),
             update: (pageId: string, body: Record<string, unknown>) =>
                 pages.update(pid, pageId, body),
@@ -211,6 +213,14 @@ export function createProjectClient(client: MoteurClient, projectId: string) {
             update: (navigationId: string, body: Record<string, unknown>) =>
                 navigations.update(pid, navigationId, body),
             delete: (navigationId: string) => navigations.delete(pid, navigationId)
+        },
+
+        redirects: {
+            list: () => redirects.list(pid),
+            create: (body: RedirectInput) => redirects.create(pid, body),
+            update: (redirectId: string, body: Partial<RedirectInput>) =>
+                redirects.update(pid, redirectId, body),
+            delete: (redirectId: string) => redirects.delete(pid, redirectId)
         },
 
         webhooks: {

@@ -20,8 +20,14 @@ export function projectPagesApi(client: MoteurClient) {
         get(projectId: string, pageId: string): Promise<{ page: Page }> {
             return wrap(client.get(`${base(projectId)}/${encodeURIComponent(pageId)}`));
         },
-        getBySlug(projectId: string, slug: string): Promise<{ page: Page }> {
-            return wrap(client.get(`${base(projectId)}/by-slug/${encodeURIComponent(slug)}`));
+        /** With a locale, the slug in that language; without, a slug in any language. */
+        getBySlug(projectId: string, slug: string, locale?: string): Promise<{ page: Page }> {
+            return wrap(
+                client.get(
+                    `${base(projectId)}/by-slug/${encodeURIComponent(slug)}`,
+                    locale ? { locale } : undefined
+                )
+            );
         },
         create(projectId: string, body: Record<string, unknown>): Promise<{ page: Page }> {
             return wrap(client.post(base(projectId), body));

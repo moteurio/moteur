@@ -299,7 +299,7 @@ router.get('/:collectionId/pages/by-slug/:slug', async (req: Request, res: Respo
         const pageResource = collection.resources.find(r => r.resourceType === 'page');
         if (!pageResource)
             return void res.status(404).json({ error: 'Collection does not expose pages' });
-        const page = await getPageBySlug(projectId, slug);
+        const page = await getPageBySlug(projectId, slug, parseLocaleQuery(req));
         if (!page) return void res.status(404).json({ error: 'Page not found' });
         const apiKeyOnly = isPublishedOnlyDelivery(req);
         const statuses = getStatusFilter(pageResource, apiKeyOnly, req.previewAuth);
@@ -416,7 +416,7 @@ router.get('/:collectionId/:resourceId/entries', async (req: Request, res: Respo
         if (queryFlag(req.query.resolveUrl)) {
             projected = await Promise.all(
                 projected.map(async (item: any) => {
-                    const url = await resolveEntryUrl(projectId, item.id, resourceId);
+                    const url = await resolveEntryUrl(projectId, item.id, resourceId, locale);
                     return { ...item, ...(url != null && { resolvedUrl: url }) };
                 })
             );
@@ -485,7 +485,7 @@ router.get('/:collectionId/:resourceId/entries/:id', async (req: Request, res: R
         const fields = resource.fields && resource.fields.length > 0 ? resource.fields : undefined;
         let projected = selectFields(resolved, fields);
         if (queryFlag(req.query.resolveUrl)) {
-            const url = await resolveEntryUrl(projectId, id, resourceId);
+            const url = await resolveEntryUrl(projectId, id, resourceId, localeOne);
             projected = { ...projected, ...(url != null && { resolvedUrl: url }) };
         }
         return void res.json(projected);
@@ -956,7 +956,14 @@ export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
             parameters: [
                 { name: 'projectId', in: 'path', required: true, schema: { type: 'string' } },
                 { name: 'collectionId', in: 'path', required: true, schema: { type: 'string' } },
-                { name: 'slug', in: 'path', required: true, schema: { type: 'string' } }
+                { name: 'slug', in: 'path', required: true, schema: { type: 'string' } },
+                {
+                    name: 'locale',
+                    in: 'query',
+                    schema: { type: 'string' },
+                    description:
+                        "Match the page's slug in this language (a page without one answers to its default slug). Without it, a slug in any language matches."
+                }
             ],
             responses: {
                 '200': {

@@ -8,7 +8,7 @@ import type { MoteurPublicClientConfig } from '../types.js';
 
 /**
  * Read-only SDK for a **project API key** (`x-api-key`) and fixed `projectId`.
- * Use `channel(collectionId)` for collection-shaped reads; `site` for sitemap / navigation tree / urls / breadcrumb.
+ * Use `channel(collectionId)` for collection-shaped reads; `site` for sitemap / navigation tree / urls / breadcrumb, in any language, and to resolve a path or list redirects.
  */
 export function createMoteurPublicClient(config: MoteurPublicClientConfig) {
     const auth = config.auth;

@@ -230,6 +230,20 @@ export function validateProject(
         }
     }
 
+    // localePrefix: optional, how addresses show their language
+    if (
+        project.localePrefix !== undefined &&
+        project.localePrefix !== null &&
+        !['others', 'all', 'none'].includes(project.localePrefix)
+    ) {
+        addIssue(result, {
+            type: 'error',
+            code: 'PROJECT_INVALID_LOCALE_PREFIX',
+            message: 'Project "localePrefix" is "others", "all" or "none".',
+            path: 'localePrefix'
+        });
+    }
+
     // users: optional, array of strings
     if (project.users !== undefined) {
         if (!Array.isArray(project.users)) {

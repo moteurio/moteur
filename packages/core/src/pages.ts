@@ -54,11 +54,23 @@ import {
     resolveBreadcrumb as resolveBreadcrumbFromTree,
     resolveNodePrefix,
     interpolatePattern,
+    joinPath,
+    slugIn,
+    withLocale,
+    type UrlLanguage,
+    type UrlLanguages,
     type ResolvedUrl,
     type NavigationNode,
     type BreadcrumbItem
 } from './pages/urlResolver.js';
-import { listEntriesForProject, listPublishedEntriesForProject } from './entries.js';
+import {
+    getEntryForProject,
+    getPublishedEntryForProject,
+    listEntriesForProject,
+    listPublishedEntriesForProject
+} from './entries.js';
+import { findRedirect, normalizePath, recordMovedAddresses } from './redirects.js';
+import type { Redirect } from '@moteurio/types/Redirect.js';
 import type { Entry, ModelSchema } from '@moteurio/types/Model.js';
 import type { TemplateSchema } from '@moteurio/types/Template.js';
 import { assertEntryComplete } from './validators/entryComplete.js';
@@ -145,10 +157,43 @@ export async function getPageWithAuth(
     return getPage(projectId, id);
 }
 
-export async function getPageBySlug(projectId: string, slug: string): Promise<PageNode | null> {
+/**
+ * The first page with this slug. With a locale, its slug in that language (a page without a
+ * translated slug answers to its default one); without, its slug in any language.
+ */
+export async function getPageBySlug(
+    projectId: string,
+    slug: string,
+    locale?: string
+): Promise<PageNode | null> {
     const pages = await loadAllPages(projectId);
-    const found = pages.find(p => p.slug === slug);
+    if (locale) {
+        const project = await getProjectById(projectId);
+        const lang = { locale, defaultLocale: project?.defaultLocale ?? locale };
+        return pages.find(p => slugIn(p, lang) === slug) ?? null;
+    }
+    const found =
+        pages.find(p => p.slug === slug) ??
+        pages.find(p => Object.values(p.slugs ?? {}).includes(slug));
     return found ?? null;
+}
+
+/** The project's languages, for addresses: default first. */
+export function urlLanguagesFor(project: ProjectSchema | null | undefined): UrlLanguages {
+    const defaultLocale = project?.defaultLocale || 'en';
+    return {
+        defaultLocale,
+        locales: [defaultLocale, ...(project?.supportedLocales ?? [])].filter(Boolean),
+        prefix: project?.localePrefix
+    };
+}
+
+function languageList(languages: UrlLanguages): UrlLanguage[] {
+    return [...new Set([languages.defaultLocale, ...languages.locales])].map(locale => ({
+        locale,
+        defaultLocale: languages.defaultLocale,
+        prefix: languages.prefix
+    }));
 }
 
 /**
@@ -169,17 +214,52 @@ function isUrlSafeSlug(slug: string, isRoot: boolean): boolean {
     return true;
 }
 
+/** Translated slugs: only the project's other languages, each URL-safe and not empty. */
+function assertTranslatedSlugs(slugs: unknown, project: ProjectSchema | null | undefined): void {
+    if (slugs === undefined || slugs === null) return;
+    if (typeof slugs !== 'object' || Array.isArray(slugs))
+        throw new Error('slugs must be one slug per language, e.g. { "fr": "a-propos" }.');
+    const languages = urlLanguagesFor(project);
+    for (const [locale, slug] of Object.entries(slugs)) {
+        if (locale === languages.defaultLocale)
+            throw new Error(
+                `"${locale}" is the default language: its slug is the page's slug, not in slugs.`
+            );
+        if (!languages.locales.includes(locale))
+            throw new Error(`"${locale}" is not one of this project's languages.`);
+        if (typeof slug !== 'string' || !isUrlSafeSlug(slug, false))
+            throw new Error(
+                `The ${locale} slug must be URL-safe (letters, digits, - and _), and not empty.`
+            );
+    }
+}
+
+/** Every slug a page answers to, by language (or all together when languages share addresses). */
+function slugKeys(node: PageNode, languages: UrlLanguages): string[] {
+    const list = languageList(languages);
+    if ((languages.prefix ?? 'others') === 'none')
+        return [...new Set(list.map(l => slugIn(node, l)))];
+    return list.map(l => `${l.locale}:${slugIn(node, l)}`);
+}
+
 async function assertSlugUniqueAmongSiblings(
     projectId: string,
-    parentId: string | null,
-    slug: string,
+    page: Pick<PageNode, 'slug' | 'slugs' | 'parentId'>,
     excludePageId?: string
 ): Promise<void> {
-    if (slug === '' && parentId === null) return;
+    const parentId = page.parentId ?? null;
+    const project = await getProjectById(projectId);
+    const languages = urlLanguagesFor(project);
     const pages = await loadAllPages(projectId);
-    const siblings = pages.filter(p => (p.parentId ?? null) === parentId);
-    const existing = siblings.find(p => p.slug === slug && p.id !== excludePageId);
-    if (existing) {
+    const siblings = pages.filter(p => (p.parentId ?? null) === parentId && p.id !== excludePageId);
+    const mine = slugKeys(page as PageNode, languages);
+    for (const sibling of siblings) {
+        const theirs = new Set(slugKeys(sibling, languages));
+        const taken = mine.find(k => theirs.has(k));
+        if (taken === undefined) continue;
+        const slug = taken.includes(':') ? taken.slice(taken.indexOf(':') + 1) : taken;
+        // The home page's empty slug is the root itself.
+        if (slug === '' && parentId === null) continue;
         throw new Error(`Another page already uses the slug "${slug}" under the same parent.`);
     }
 }
@@ -225,6 +305,7 @@ function ensurePageNodeDefaults(
         projectId,
         label: data.label,
         slug: data.slug,
+        ...(data.slugs && Object.keys(data.slugs).length > 0 && { slugs: data.slugs }),
         parentId: data.parentId ?? null,
         order,
         navInclude: data.navInclude ?? true,
@@ -283,9 +364,11 @@ export async function createPage(
         );
     }
 
+    assertTranslatedSlugs(data.slugs, project);
+
     const allPages = await loadAllPages(projectId);
     assertCountRoom(projectId, 'pages', allPages.length);
-    await assertSlugUniqueAmongSiblings(projectId, parentId, data.slug);
+    await assertSlugUniqueAmongSiblings(projectId, { ...data, parentId });
 
     if (parentId) {
         await getPage(projectId, parentId);
@@ -362,7 +445,9 @@ export async function updatePage(
         const locales = [project.defaultLocale, ...(project.supportedLocales ?? [])].filter(
             Boolean
         );
-        const extra = Object.keys(patch).filter(key => key !== 'fields' && key !== 'updatedAt');
+        const extra = Object.keys(patch).filter(
+            key => key !== 'fields' && key !== 'slugs' && key !== 'updatedAt'
+        );
         const beforeFields = (current as { fields?: unknown }).fields ?? {};
         const afterFields =
             (patch as { fields?: unknown }).fields === undefined
@@ -408,8 +493,14 @@ export async function updatePage(
         if (!isUrlSafeSlug(updated.slug, isRoot)) {
             throw new Error('Slug must be URL-safe (no spaces or slashes).');
         }
-        await assertSlugUniqueAmongSiblings(projectId, updated.parentId ?? null, updated.slug, id);
     }
+    if (patch.slugs !== undefined) {
+        assertTranslatedSlugs(patch.slugs, await getProjectById(projectId));
+        // An empty map (or null) clears the translated slugs.
+        if (!updated.slugs || Object.keys(updated.slugs).length === 0) delete updated.slugs;
+    }
+    const addressChanged = movesAddress(current, updated);
+    if (addressChanged) await assertSlugUniqueAmongSiblings(projectId, updated, id);
     const newParentId = patch.parentId !== undefined ? patch.parentId : updated.parentId;
     if (newParentId && newParentId !== current.parentId) {
         await getPage(projectId, newParentId);
@@ -428,6 +519,7 @@ export async function updatePage(
     if (sameContent(current, updated)) return current;
 
     await triggerEvent('page.beforeUpdate', { page: updated, user, projectId });
+    const before = addressChanged ? await liveAddresses(projectId) : undefined;
     await putProjectJson(projectId, pageKey(id), updated);
     triggerEvent('content.saved', {
         projectId,
@@ -438,6 +530,7 @@ export async function updatePage(
         user
     });
     triggerEvent('page.afterUpdate', { page: updated, user, projectId });
+    if (before) await redirectMoved(projectId, user, before);
 
     const pagePayload = (): { pageId: string; title: string; url: string; updatedBy: string } => ({
         pageId: id,
@@ -475,6 +568,7 @@ const KEPT_ON_RESTORE = [
     'parentId',
     'order',
     'slug',
+    'slugs',
     'status',
     'createdAt'
 ] as const;
@@ -618,20 +712,26 @@ export async function reorderPages(
         }
     }
 
-    // A page moved under a new parent must not take a sibling's address.
+    // A page moved under a new parent must not take a sibling's address, in any language.
+    const languages = urlLanguagesFor(await getProjectById(projectId));
     const seenSlugs = new Map<string, string>();
     for (const node of updatedNodes) {
-        if (node.slug === '' && (node.parentId ?? null) === null) continue;
-        const key = `${node.parentId ?? ''}/${node.slug}`;
-        const other = seenSlugs.get(key);
-        if (other)
-            throw new Error(
-                `"${node.label}" and "${other}" would both be at the same address ("${node.slug}") under one parent.`
-            );
-        seenSlugs.set(key, node.label);
+        for (const slugKey of new Set(slugKeys(node, languages))) {
+            const slug = slugKey.slice(slugKey.indexOf(':') + 1);
+            if (slug === '' && (node.parentId ?? null) === null) continue;
+            const key = `${node.parentId ?? ''}/${slugKey}`;
+            const other = seenSlugs.get(key);
+            if (other)
+                throw new Error(
+                    `"${node.label}" and "${other}" would both be at the same address ("${slug}") under one parent.`
+                );
+            seenSlugs.set(key, node.label);
+        }
     }
 
     // Only pages that moved are written (and committed).
+    const moved = updatedNodes.some(n => movesAddress(nodeMap.get(n.id)!, n));
+    const before = moved ? await liveAddresses(projectId) : undefined;
     const paths: string[] = [];
     for (const node of updatedNodes) {
         const before = nodeMap.get(node.id)!;
@@ -649,6 +749,7 @@ export async function reorderPages(
             user
         });
     }
+    if (before) await redirectMoved(projectId, user, before);
     return updatedNodes;
 }
 
@@ -666,23 +767,41 @@ async function getEntriesForResolver(
 
 export async function resolveAllUrls(projectId: string): Promise<ResolvedUrl[]> {
     const nodes = await loadAllPages(projectId);
-    return resolveAllUrlsFromTree(nodes, getEntriesForResolver, projectId);
+    const project = await getProjectById(projectId);
+    return resolveAllUrlsFromTree(
+        nodes,
+        getEntriesForResolver,
+        projectId,
+        urlLanguagesFor(project)
+    );
+}
+
+/** A language of the project, for one address; an unknown or missing locale is the default. */
+async function urlLanguage(projectId: string, locale?: string): Promise<UrlLanguage> {
+    const languages = urlLanguagesFor(await getProjectById(projectId));
+    return {
+        locale: locale && languages.locales.includes(locale) ? locale : languages.defaultLocale,
+        defaultLocale: languages.defaultLocale,
+        prefix: languages.prefix
+    };
 }
 
 export async function getNavigation(
     projectId: string,
-    options?: { depth?: number; rootId?: string | null }
+    options?: { depth?: number; rootId?: string | null; locale?: string }
 ): Promise<NavigationNode[]> {
     const nodes = await loadAllPages(projectId);
     const nodeMap = buildNodeMap(nodes);
     const childMap = buildChildMap(nodes);
-    return buildNavigationTree(nodes, nodeMap, childMap, options);
+    const lang = await urlLanguage(projectId, options?.locale);
+    return buildNavigationTree(nodes, nodeMap, childMap, { ...options, lang });
 }
 
 export async function resolveBreadcrumb(
     projectId: string,
     nodeId: string,
-    entryId?: string
+    entryId?: string,
+    locale?: string
 ): Promise<{ url: string; breadcrumb: BreadcrumbItem[] }> {
     const nodes = await loadAllPages(projectId);
     const nodeMap = buildNodeMap(nodes);
@@ -699,36 +818,111 @@ export async function resolveBreadcrumb(
                 ).find(e => e.id === entryId) ?? undefined;
         }
     }
-    return resolveBreadcrumbFromTree(nodeId, nodeMap, entry);
+    return resolveBreadcrumbFromTree(nodeId, nodeMap, entry, await urlLanguage(projectId, locale));
 }
 
-export async function resolveEntryUrl(
+/**
+ * An entry's live address in every language, by locale, from the collection page showing its
+ * model. Empty when no page shows the model, the entry isn't public, or the pattern gives nothing.
+ */
+export async function resolveEntryUrls(
     projectId: string,
     entryId: string,
     modelId: string
-): Promise<string | null> {
+): Promise<Record<string, string>> {
     const nodes = await loadAllPages(projectId);
     const nodeMap = buildNodeMap(nodes);
     const collectionPage = nodes.find(
         (n): n is CollectionPage => n.type === 'collection' && n.modelId === modelId
     );
-    if (!collectionPage) return null;
+    if (!collectionPage?.urlPattern) return {};
 
     const entryStatus = collectionPage.entryStatus ?? 'published';
-    const entries =
+    const entry =
         entryStatus === 'published'
-            ? await listPublishedEntriesForProject(projectId, modelId, { status: 'published' })
-            : await listEntriesForProject(projectId, modelId, { status: entryStatus });
-    const entry = entries.find(e => e.id === entryId);
-    if (!entry) return null;
+            ? await getPublishedEntryForProject(projectId, modelId, entryId)
+            : await getEntryForProject(projectId, modelId, entryId);
+    if (!entry || (entry.status ?? 'draft') !== entryStatus) return {};
 
-    const pattern = collectionPage.urlPattern ?? undefined;
-    if (!pattern) return null;
+    const languages = urlLanguagesFor(await getProjectById(projectId));
+    const urls: Record<string, string> = {};
+    for (const lang of languageList(languages)) {
+        const segment = interpolatePattern(collectionPage.urlPattern, entry, lang);
+        if (!segment) continue;
+        const prefix = resolveNodePrefix(collectionPage.id, nodeMap, { ...lang, prefix: 'none' });
+        urls[lang.locale] = withLocale(joinPath(prefix, segment), lang);
+    }
+    return urls;
+}
 
-    const prefix = resolveNodePrefix(collectionPage.id, nodeMap);
-    const segment = interpolatePattern(pattern, entry);
-    if (!segment) return null;
-    return prefix ? `${prefix}/${segment}` : `/${segment}`;
+/** An entry's live address in one language (the default when none is given). */
+export async function resolveEntryUrl(
+    projectId: string,
+    entryId: string,
+    modelId: string,
+    locale?: string
+): Promise<string | null> {
+    const urls = await resolveEntryUrls(projectId, entryId, modelId);
+    const lang = await urlLanguage(projectId, locale);
+    return urls[lang.locale] ?? null;
+}
+
+export type ResolvedPath =
+    | ({ match: 'page' } & ResolvedUrl)
+    | { match: 'redirect'; from: string; to: string; status: Redirect['status'] };
+
+/**
+ * What lives at a path on the site: a page or entry (with its language and its address in the
+ * others), or a redirect to follow. A live page wins over a redirect from its address.
+ */
+export async function resolvePath(
+    projectId: string,
+    rawPath: string
+): Promise<ResolvedPath | null> {
+    const path = normalizePath(rawPath);
+    if (path === null) return null;
+    const urls = await resolveAllUrls(projectId);
+    const found = urls.find(u => u.url === path);
+    if (found) return { match: 'page', ...found };
+    const redirect = await findRedirect(projectId, path);
+    return redirect
+        ? { match: 'redirect', from: redirect.from, to: redirect.to, status: redirect.status }
+        : null;
+}
+
+/** The address of everything live, keyed by page, entry and language. */
+async function liveAddresses(projectId: string): Promise<Map<string, string>> {
+    const urls = await resolveAllUrls(projectId);
+    return new Map(urls.map(u => [`${u.nodeId}|${u.entryId ?? ''}|${u.locale ?? ''}`, u.url]));
+}
+
+/** After a save, a redirect from each live address that changed to where it went. */
+async function redirectMoved(
+    projectId: string,
+    user: User,
+    before: Map<string, string>
+): Promise<void> {
+    try {
+        const after = await liveAddresses(projectId);
+        const moves: { from: string; to: string }[] = [];
+        for (const [key, from] of before) {
+            const to = after.get(key);
+            if (to && to !== from) moves.push({ from, to });
+        }
+        if (moves.length) await recordMovedAddresses(projectId, user, moves);
+    } catch (err) {
+        // A failed redirect never fails the save.
+        console.error('[Moteur] Could not record moved addresses:', err);
+    }
+}
+
+/** True when a save changes where a page lives: its slugs or its parent. */
+function movesAddress(before: PageNode, after: PageNode): boolean {
+    return (
+        before.slug !== after.slug ||
+        (before.parentId ?? null) !== (after.parentId ?? null) ||
+        !sameContent(before.slugs ?? {}, after.slugs ?? {})
+    );
 }
 
 export async function validatePageById(projectId: string, id: string): Promise<ValidationResult> {

@@ -73,6 +73,9 @@ export const NAVIGATIONS_KEY = 'navigations.json';
 
 export const WEBHOOKS_KEY = 'webhooks.json';
 
+/** Old addresses and where they go, kept in Git with the pages. */
+export const REDIRECTS_KEY = 'redirects.json';
+
 export function formKey(formId: string): string {
     return `forms/${formId}/form.json`;
 }

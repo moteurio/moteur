@@ -59,7 +59,8 @@ router.get('/by-slug/:slug', requireProjectAccess, async (req: Request, res: Res
     if (!projectId || !slug)
         return void res.status(400).json({ error: 'Missing projectId or slug' });
     try {
-        const page = await getPageBySlug(projectId, slug);
+        const locale = typeof req.query.locale === 'string' ? req.query.locale : undefined;
+        const page = await getPageBySlug(projectId, slug, locale);
         if (!page) return void res.status(404).json({ error: 'Page not found' });
         return void res.json(page);
     } catch (err: unknown) {

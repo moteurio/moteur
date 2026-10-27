@@ -95,7 +95,10 @@ describe('Pages', () => {
 
         expect(res.status).toBe(200);
         expect(res.body).toEqual(mockPage);
-        expect(getPageBySlug).toHaveBeenCalledWith('demo', 'home');
+        expect(getPageBySlug).toHaveBeenCalledWith('demo', 'home', undefined);
+
+        await request(app).get(`${base}/by-slug/a-propos?locale=fr`);
+        expect(getPageBySlug).toHaveBeenCalledWith('demo', 'a-propos', 'fr');
     });
 
     it('GET /:id should return page', async () => {

@@ -16,6 +16,40 @@ Manage the tree through `/projects/:projectId/pages` with a member JWT. Page tem
 
 `navInclude`, `navLabel`, `sitemapInclude` and sitemap options control derived site outputs. These are different from manually authored named menus. A folder groups descendants; it is not a standalone content page.
 
+## Addresses in every language
+
+A page's `slug` is its address in the project's default language. `slugs` gives it in the others, for example `{ "fr": "a-propos" }`; a language left out uses `slug`. Each slug must be URL-safe and unique among its siblings in its language. A translator may change `slugs` as part of a translation.
+
+Collection URL patterns read translated entry fields in each language, so `[slug]` on an entry whose slug is `{ "en": "the-factory", "fr": "l-usine" }` gives `/blog/the-factory` and `/fr/blogue/l-usine`.
+
+The project's `localePrefix` sets how an address shows its language:
+
+| `localePrefix`     | Default language | Other languages          |
+| ------------------ | ---------------- | ------------------------ |
+| `others` (default) | `/about`         | `/fr/a-propos`           |
+| `all`              | `/en/about`      | `/fr/a-propos`           |
+| `none`             | `/about`         | `/a-propos` (slugs only) |
+
+With `none`, a page whose slug is the same in two languages has one address, listed once.
+
+Every page and entry then has one address per language. `/urls` and `sitemap.json` list each with its `locale` and its `alternates` (the same page in every language), and take `?locale=` to keep one language. `sitemap.xml` lists every address with `hreflang` alternates and an `x-default`. `navigation`, `breadcrumb`, a page by slug, and an entry's `resolveUrl` take `?locale=` too.
+
+`GET /projects/:projectId/resolve?path=/fr/a-propos` says what lives at a path, for a site's catch-all route: `{ match: "page", locale, nodeId, entryId?, alternates… }`, or `{ match: "redirect", to, status }`, or 404.
+
+## Redirects
+
+`/projects/:projectId/redirects` lists old addresses and where they go (`from`, `to`, `status` 301 or 302, optional `note`). They are kept in `redirects.json`, in Git with the pages. A site or its host reads the list with a project key and applies it, or asks `resolve` path by path.
+
+Moteur adds a redirect itself (`auto: true`, 301) when a live address changes: a published page's slug in any language, its parent, or a published entry's pattern fields. A page's entries follow it. Drafts have no live address, so they make none.
+
+The list stays short and safe:
+
+- A redirect to another redirect points to the end of the chain, and redirects to an address follow it when it moves again.
+- A loop, a second redirect from one address, or a redirect from a live page's address is refused. Change the page's address instead.
+- When an address is live again, the redirect from it goes.
+
+`from` is a path starting with `/` (no query or `#`); trailing slashes are ignored. `to` is a path, or a full `http(s)` address. Anyone who can write content manages them (`POST`, `PATCH /:id`, `DELETE /:id`); reading them counts as a public request.
+
 ## Named menus
 
 Manage menus through `/projects/:projectId/navigations`. Each navigation has a project-unique `handle`, such as `header`, a nesting limit, and ordered items. Items link to a page, a custom URL, an asset, or no destination for a grouping item. Labels can be plain text or locale-keyed strings. A page link is resolved at read time, so the menu does not need a copied URL for every page.

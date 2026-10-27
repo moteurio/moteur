@@ -119,17 +119,21 @@ Named views of project data for external consumers. Authenticate with **project 
 
 ---
 
-## 🌐 Public — Page outputs (sitemap, navigation, urls, breadcrumb)
+## 🌐 Public — Page outputs (sitemap, navigation, urls, breadcrumb, resolve, redirects)
 
 Project-scoped. Requires **project API key** or **JWT**. Used by frontends and static site generators.
 
-| Method | Endpoint                            | Description                                                                                                                                                                                              |
-| ------ | ----------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| GET    | `/projects/:projectId/sitemap.xml`  | XML sitemap. Includes all resolved URLs with `sitemapInclude`; collection entries expanded when `sitemapIncludeEntries` is true. Uses `project.siteUrl` as base for `<loc>` if set; otherwise path-only. |
-| GET    | `/projects/:projectId/sitemap.json` | Same as sitemap.xml but JSON array of `ResolvedUrl[]` (sitemap-included only).                                                                                                                           |
-| GET    | `/projects/:projectId/navigation`   | Navigation tree. Query: `depth?`, `rootId?`. Returns `NavigationNode[]` (only `navInclude` nodes; folders only if they have nav-included descendants).                                                   |
-| GET    | `/projects/:projectId/urls`         | Flat list of all resolved URLs (static + collection-expanded).                                                                                                                                           |
-| GET    | `/projects/:projectId/breadcrumb`   | Query: **`pageId`** (required), `entryId?`. Returns `{ url, breadcrumb: [{ label, url, nodeId, entryId? }] }` from root to current.                                                                      |
+| Method | Endpoint                            | Description                                                                                                                                                                                                     |
+| ------ | ----------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| GET    | `/projects/:projectId/sitemap.xml`  | XML sitemap. Includes all resolved URLs with `sitemapInclude`; collection entries expanded when `sitemapIncludeEntries` is true. Uses `project.siteUrl` as base for `<loc>` if set; otherwise path-only.        |
+| GET    | `/projects/:projectId/sitemap.json` | Same as sitemap.xml but JSON array of `ResolvedUrl[]` (sitemap-included only).                                                                                                                                  |
+| GET    | `/projects/:projectId/navigation`   | Navigation tree. Query: `depth?`, `rootId?`. Returns `NavigationNode[]` (only `navInclude` nodes; folders only if they have nav-included descendants).                                                          |
+| GET    | `/projects/:projectId/urls`         | Flat list of all resolved URLs (static + collection-expanded).                                                                                                                                                  |
+| GET    | `/projects/:projectId/breadcrumb`   | Query: **`pageId`** (required), `entryId?`. Returns `{ url, breadcrumb: [{ label, url, nodeId, entryId? }] }` from root to current.                                                                             |
+| GET    | `/projects/:projectId/resolve`      | Query: **`path`**. What lives there: `{ match: 'page', url, locale, nodeId, entryId?, alternates }` or `{ match: 'redirect', from, to, status }`; 404 when nothing does.                                        |
+| GET    | `/projects/:projectId/redirects`    | Old addresses and where they go: `Redirect[]` (`from`, `to`, `status`, `auto?`, `note?`). Writes (JWT): `POST`, `PATCH /:id`, `DELETE /:id`. See [Pages and navigation](Pages%20and%20navigation.md#redirects). |
+
+Every address exists once per project language: `urls` and `sitemap.json` rows carry `locale` and `alternates`, and take `?locale=`; `sitemap.xml` adds `hreflang` alternates; `navigation` and `breadcrumb` take `?locale=`. See [Addresses in every language](Pages%20and%20navigation.md#addresses-in-every-language).
 
 ---
 
@@ -380,9 +384,9 @@ JWT + project access. Pages are a **typed tree**: **static** (authored content),
 | Method | Endpoint | Description |
 | ------ | ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------- |
 | GET | `/projects/:projectId/pages` | List all page nodes. Query: `templateId?`, `parentId?`, `status?` (draft \| published), `type?` (static \| collection \| folder). |
-| POST | `/projects/:projectId/pages` | Create. Body: `type`, `label`, `slug`; for static/collection: `templateId`; for collection: `modelId`; optional `parentId`, `urlPattern`, `navInclude`, `sitemapInclude`, etc. Returns `PageNode`. 409 if slug conflict among siblings; 422 if validation fails (cycle, unknown template/model). |
+| POST | `/projects/:projectId/pages` | Create. Body: `type`, `label`, `slug`; for static/collection: `templateId`; for collection: `modelId`; optional `parentId`, `slugs` (the slug in other languages, e.g. `{ "fr": "a-propos" }`), `urlPattern`, `navInclude`, `sitemapInclude`, etc. Returns `PageNode`. 409 if slug conflict among siblings; 422 if validation fails (cycle, unknown template/model). |
 | GET | `/projects/:projectId/pages/:id` | Get one. |
-| PATCH | `/projects/:projectId/pages/:id` | Update. Same validations as create. |
+| PATCH | `/projects/:projectId/pages/:id` | Update. Same validations as create. When a published page's address changes (slug, `slugs` or parent), its old addresses, and its entries', redirect to the new ones. |
 | DELETE | `/projects/:projectId/pages/:id` | Soft-delete. **409** if node has children (move or delete children first). 204 on success. |
 | POST | `/projects/:projectId/pages/reorder` | Batch reorder. Body: `[{ id, parentId, order }]`. Returns updated `PageNode[]`. Used by Studio drag-and-drop. |
 | PATCH | `/projects/:projectId/pages/:id/status` | Set status. Body: `{ status: 'draft'                                                                                                                                                                                                                                                             | 'published' }`. |
@@ -474,7 +478,7 @@ Set **`MOTEUR_FAIL_ON_OPENAPI_COLLISION=1`** to fail bootstrap when merged plugi
 
 ## 🛡 Request logging, rate limiting, and security
 
-**Classification:** Every request is classified as **studio** or **public** (or neither). **Studio** = any path under `/studio/`. **Public** = what sites call: `/projects/:projectId/collections/*`, page outputs (`sitemap.xml`, `sitemap.json`, `navigation`, `urls`, `breadcrumb`), and form submissions (`/projects/:projectId/forms/:formId/submit`). Counts are stored in two separate places so limits can differ (e.g. high limit on studio routes, per-project limit on public).
+**Classification:** Every request is classified as **studio** or **public** (or neither). **Studio** = any path under `/studio/`. **Public** = what sites call: `/projects/:projectId/collections/*`, page outputs (`sitemap.xml`, `sitemap.json`, `navigation`, `urls`, `breadcrumb`, `resolve`, and reading `redirects`), and form submissions (`/projects/:projectId/forms/:formId/submit`). Counts are stored in two separate places so limits can differ (e.g. high limit on studio routes, per-project limit on public).
 
 **Audit log:** If `API_REQUEST_LOG_FILE` (absolute path) or `API_REQUEST_LOG_DIR` is set, each classified request is appended as a JSON line (timestamp, type, projectId, method, path, statusCode, durationMs). **API key and Authorization header are never logged.** Use log rotation (e.g. logrotate) and retain logs as needed for audit or billing disputes.
 

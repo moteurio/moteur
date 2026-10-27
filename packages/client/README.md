@@ -186,12 +186,12 @@ So: **channel = collection id + typed helpers** in the SDK; on the wire it is `/
 
 ### What’s on the public client
 
-| Property                    | Purpose                                                                                                 |
-| --------------------------- | ------------------------------------------------------------------------------------------------------- |
-| **`collections`**           | `list()` / `get(id)` — metadata about configured collections.                                           |
-| **`channel(collectionId)`** | `pages`, `entries`, `layouts`, `forms`, `menus` — **GET** reads allowed by that collection’s config.    |
-| **`site`**                  | Page **outputs**: `sitemapXml`, `sitemapJson`, `navigation` (published **tree**), `urls`, `breadcrumb`. |
-| **`radar`**                 | `get({ fullScan?, severity?, … })` — quality/readiness report for the project.                          |
+| Property                    | Purpose                                                                                                                                                          |
+| --------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **`collections`**           | `list()` / `get(id)` — metadata about configured collections.                                                                                                    |
+| **`channel(collectionId)`** | `pages`, `entries`, `layouts`, `forms`, `menus` — **GET** reads allowed by that collection’s config.                                                             |
+| **`site`**                  | Page **outputs**: `sitemapXml`, `sitemapJson`, `navigation` (published **tree**), `urls`, `breadcrumb` (each takes `locale`), `resolve(path)` and `redirects()`. |
+| **`radar`**                 | `get({ fullScan?, severity?, … })` — quality/readiness report for the project.                                                                                   |
 
 ### Menus vs `site.navigation`
 

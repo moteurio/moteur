@@ -990,6 +990,7 @@ Find a page by its slug
 | -------------------- | ---------------------------------------------------------------------------- |
 | `--project <string>` | Project id (default: MOTEUR_PROJECT, .moteur.json, or `moteur projects use`) |
 | `--slug <string>`    | The slug (required)                                                          |
+| `--locale <string>`  | In this language (e.g. fr)                                                   |
 
 Calls `GET /projects/{project}/pages/by-slug/{slug}`.
 
@@ -1089,11 +1090,12 @@ Calls `POST /projects/{project}/pages/{id}/revisions/{revision}/restore`.
 
 ### `moteur site urls`
 
-Every published address of the site
+Every published address of the site, in every language
 
 | Option               |                                                                              |
 | -------------------- | ---------------------------------------------------------------------------- |
 | `--project <string>` | Project id (default: MOTEUR_PROJECT, .moteur.json, or `moteur projects use`) |
+| `--locale <string>`  | In this language (e.g. fr)                                                   |
 
 Calls `GET /projects/{project}/urls`.
 
@@ -1115,6 +1117,7 @@ The page tree as the site navigates it
 | `--project <string>` | Project id (default: MOTEUR_PROJECT, .moteur.json, or `moteur projects use`) |
 | `--depth <number>`   | How deep                                                                     |
 | `--root <string>`    | Start from this page                                                         |
+| `--locale <string>`  | In this language (e.g. fr)                                                   |
 
 Calls `GET /projects/{project}/navigation`.
 
@@ -1127,8 +1130,70 @@ The trail to a page (and an entry shown on it)
 | `--project <string>` | Project id (default: MOTEUR_PROJECT, .moteur.json, or `moteur projects use`) |
 | `--page <string>`    | Page id (required)                                                           |
 | `--entry <string>`   | Entry id shown on the page                                                   |
+| `--locale <string>`  | In this language (e.g. fr)                                                   |
 
 Calls `GET /projects/{project}/breadcrumb`.
+
+### `moteur site resolve <path>`
+
+What lives at an address: a page or entry (and its language), or a redirect
+
+| Option               |                                                                              |
+| -------------------- | ---------------------------------------------------------------------------- |
+| `--project <string>` | Project id (default: MOTEUR_PROJECT, .moteur.json, or `moteur projects use`) |
+| `--path <string>`    | The address, e.g. /fr/a-propos (required)                                    |
+
+Calls `GET /projects/{project}/resolve`.
+
+### `moteur site redirects`
+
+Old addresses and where they go
+
+| Option               |                                                                              |
+| -------------------- | ---------------------------------------------------------------------------- |
+| `--project <string>` | Project id (default: MOTEUR_PROJECT, .moteur.json, or `moteur projects use`) |
+
+Calls `GET /projects/{project}/redirects`.
+
+### `moteur site redirect-add <from> <to>`
+
+Send an old address somewhere else
+
+| Option               |                                                                              |
+| -------------------- | ---------------------------------------------------------------------------- |
+| `--project <string>` | Project id (default: MOTEUR_PROJECT, .moteur.json, or `moteur projects use`) |
+| `--from <string>`    | The old path, e.g. /old-about (required)                                     |
+| `--to <string>`      | A path on the site, or an http(s) address (required)                         |
+| `--status <number>`  | 301 permanent (default), 302 temporary                                       |
+| `--note <string>`    | Why it exists                                                                |
+
+Calls `POST /projects/{project}/redirects`.
+
+### `moteur site redirect-update <id>`
+
+Change where a redirect goes
+
+| Option               |                                                                              |
+| -------------------- | ---------------------------------------------------------------------------- |
+| `--project <string>` | Project id (default: MOTEUR_PROJECT, .moteur.json, or `moteur projects use`) |
+| `--id <string>`      | Redirect id (required)                                                       |
+| `--from <string>`    | The old path                                                                 |
+| `--to <string>`      | Where it goes                                                                |
+| `--status <number>`  | 301 permanent, 302 temporary                                                 |
+| `--note <string>`    | Why it exists                                                                |
+
+Calls `PATCH /projects/{project}/redirects/{id}`.
+
+### `moteur site redirect-delete <id>`
+
+Remove a redirect Asks first (or `--yes`).
+
+| Option               |                                                                              |
+| -------------------- | ---------------------------------------------------------------------------- |
+| `--project <string>` | Project id (default: MOTEUR_PROJECT, .moteur.json, or `moteur projects use`) |
+| `--id <string>`      | Redirect id (required)                                                       |
+
+Calls `DELETE /projects/{project}/redirects/{id}`.
 
 ## menus
 
