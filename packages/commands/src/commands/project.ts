@@ -386,6 +386,16 @@ export const channels = group('channels', [
         args: [project, { ...id('Channel'), positional: 0 }],
         http: `GET ${P}/collections/{id}/openapi`,
         readOnly: true
+    },
+    {
+        name: 'schema',
+        summary: 'What this channel delivers, described: models, templates, blocks, structures',
+        description:
+            "Each field's type, label, description and the options that explain its value. A read-only key for the channel can read it.",
+        args: [project, { ...id('Channel'), positional: 0 }],
+        http: `GET ${P}/collections/{id}/schema`,
+        readOnly: true,
+        examples: ['moteur channels schema site --json']
     }
 ]);
 
@@ -576,6 +586,12 @@ export const types = group('types', [
                 local: true
             },
             {
+                name: 'channel',
+                description:
+                    "Only what this channel delivers, from its schema (the site's read-only key is enough)",
+                in: 'none'
+            },
+            {
                 name: 'check',
                 type: 'boolean',
                 description: 'Change nothing; fail if the file differs from the project',
@@ -586,7 +602,9 @@ export const types = group('types', [
             const client = await ctx.client();
             const text = await client.request<string>({
                 method: 'GET',
-                url: `/projects/${encodeURIComponent(await ctx.project())}/types`,
+                url: ctx.args.channel
+                    ? `/projects/${encodeURIComponent(await ctx.project())}/collections/${encodeURIComponent(String(ctx.args.channel))}/types`
+                    : `/projects/${encodeURIComponent(await ctx.project())}/types`,
                 responseType: 'text'
             });
             const out = ctx.args.out ? String(ctx.args.out) : undefined;
@@ -607,9 +625,12 @@ export const types = group('types', [
             fs.writeFileSync(out, text);
             return `Wrote ${out}.`;
         },
-        covers: [`GET ${P}/types`],
+        covers: [`GET ${P}/types`, `GET ${P}/collections/{collectionId}/types`],
         readOnly: true,
-        examples: ['moteur types --out src/moteur.ts', 'moteur types --out src/moteur.ts --check']
+        examples: [
+            'moteur types --out src/moteur.ts',
+            'moteur types --channel site --out src/moteur.ts --check'
+        ]
     }
 ]);
 

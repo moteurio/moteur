@@ -53,6 +53,15 @@ export type {
     EntryListOptions
 } from './public/collectionChannel.js';
 export type {
+    PublicSchema,
+    PublicModel,
+    PublicTemplate,
+    PublicBlock,
+    PublicStructure,
+    PublicField,
+    Localizable
+} from '@moteurio/types/PublicSchema.js';
+export type {
     SchemaShape,
     ContentShape,
     LocaleMode,

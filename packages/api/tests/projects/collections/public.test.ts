@@ -29,6 +29,10 @@ vi.mock('@moteurio/core/navigations.js', () => ({
     getNavigationByHandle: vi.fn(),
     resolveNavigation: vi.fn(async (_p: string, nav: any) => ({ ...nav, resolved: true }))
 }));
+vi.mock('@moteurio/core/publicSchema.js', () => ({
+    channelSchema: vi.fn(),
+    schemaTypes: vi.fn(() => 'export interface MoteurSchema {}\n')
+}));
 vi.mock('@moteurio/core/projects.js', () => ({
     getProjectById: vi.fn(async () => ({ defaultLocale: 'fr' }))
 }));
@@ -50,6 +54,7 @@ import {
     resolveNavigation
 } from '@moteurio/core/navigations.js';
 import { getProjectById } from '@moteurio/core/projects.js';
+import { channelSchema } from '@moteurio/core/publicSchema.js';
 import collectionsPublicRouter from '../../../src/projects/collections/public.js';
 import {
     optionalAuth,
@@ -742,5 +747,75 @@ describe('page links and page relations on delivery', () => {
             label: 'Pricing',
             url: { en: '/pricing', fr: '/fr/tarifs' }
         });
+    });
+});
+
+describe('GET /projects/:projectId/collections/:collectionId/schema and /types', () => {
+    const schema = {
+        version: 'abc123',
+        projectId: 'demo',
+        collectionId: 'site',
+        defaultLocale: 'en',
+        locales: ['en'],
+        models: {},
+        templates: {},
+        blocks: {},
+        structures: {}
+    };
+    const key = (collectionWhitelist: string[] | null) =>
+        vi.mocked(verifyProjectApiKey).mockResolvedValue({
+            ok: true,
+            keyId: 'k1',
+            policy: { collectionWhitelist, allowSiteWideReads: true }
+        } as never);
+
+    beforeEach(() => {
+        vi.clearAllMocks();
+        vi.mocked(channelSchema).mockResolvedValue(schema as never);
+    });
+
+    it('gives the schema to the channel’s key, with its version as ETag', async () => {
+        key(['site']);
+        const res = await request(app)
+            .get('/projects/demo/collections/site/schema')
+            .set('x-api-key', 'k');
+        expect(res.status).toBe(200);
+        expect(res.body).toEqual(schema);
+        expect(res.headers.etag).toBe('"abc123"');
+        expect(channelSchema).toHaveBeenCalledWith('demo', 'site');
+    });
+
+    it('answers 304 when nothing changed', async () => {
+        key(['site']);
+        const res = await request(app)
+            .get('/projects/demo/collections/site/schema')
+            .set('x-api-key', 'k')
+            .set('If-None-Match', '"abc123"');
+        expect(res.status).toBe(304);
+    });
+
+    it('gives the types made from it', async () => {
+        key(['site']);
+        const res = await request(app)
+            .get('/projects/demo/collections/site/types')
+            .set('x-api-key', 'k');
+        expect(res.status).toBe(200);
+        expect(res.type).toBe('text/plain');
+        expect(res.text).toContain('MoteurSchema');
+        expect(res.headers.etag).toBe('"abc123-ts"');
+    });
+
+    it('refuses a key for another channel, and 404s an unknown one', async () => {
+        key(['blog']);
+        const other = await request(app)
+            .get('/projects/demo/collections/site/schema')
+            .set('x-api-key', 'k');
+        expect(other.status).toBe(403);
+        key(null);
+        vi.mocked(channelSchema).mockResolvedValue(null);
+        const missing = await request(app)
+            .get('/projects/demo/collections/nope/types')
+            .set('x-api-key', 'k');
+        expect(missing.status).toBe(404);
     });
 });

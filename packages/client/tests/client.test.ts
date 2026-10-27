@@ -330,6 +330,16 @@ describe('createMoteurPublicClient', () => {
         expect(capturedRequests[0].params).toBeUndefined();
     });
 
+    it('schema() reads the channel’s schema, in every language', async () => {
+        const fr = createMoteurPublicClient({
+            baseURL: 'https://api.example.com',
+            auth: { type: 'apiKey', apiKey: 'k', projectId: 'p1' }
+        }).locale('fr');
+        await fr.channel('site').schema();
+        expect(capturedRequests[0].url).toBe('/projects/p1/collections/site/schema');
+        expect(capturedRequests[0].params).toBeUndefined();
+    });
+
     it('a preview copy keeps its language', async () => {
         const fr = createMoteurPublicClient({
             baseURL: 'https://api.example.com',

@@ -47,7 +47,22 @@ function render(page: AnyPage<'one'>) {
 
 The file also has `MoteurSchema`, for the client: `createMoteurPublicClient<MoteurSchema>(…)` (or `createMoteur<MoteurSchema>` in `@moteurio/astro`) types every answer, and `.locale('fr')` gives a client whose reads come in that language, typed `'one'`. See the [client README](../packages/client/README.md#typed-answers-in-one-language).
 
-The types come from `GET /projects/:projectId/types`. Make them again after a schema changes, in CI for example.
+The types come from the channel's schema, so the site's read-only key is enough: `moteur types --channel site --out src/moteur.ts`. They then describe only what that channel delivers. Without `--channel`, they come from every schema of the project (`GET /projects/:projectId/types`, for a signed-in member). In CI, `--check` fails when the file no longer matches:
+
+```bash
+MOTEUR_API_KEY=… moteur types --channel site --out src/moteur.ts --check
+```
+
+## The schema of a channel
+
+`GET /projects/:projectId/collections/:collectionId/schema` describes what a channel delivers: its models (only the fields it gives), the templates of its pages, and the blocks and structures they use. For each field: its type, label and description (per language), and the options that explain its value (`required`, `multilingual`, `choices` with their labels, a relation's `model`, a block list's `allowedBlockTypes`, limits). Studio's presentation options and plugins' settings are left out. It is the same shape as the stored schemas, so it reads like them.
+
+```ts
+const schema = await moteur.channel('site').schema();
+schema.models.rival.fields.pricing; // { type: 'core/select', label: { en: 'Pricing model' }, options: { choices: […] } }
+```
+
+`version` changes whenever a schema does, and is the `ETag`: send `If-None-Match` and an unchanged schema answers 304. `GET …/collections/:collectionId/types` is the same schema as TypeScript.
 
 ## Preview tokens
 

@@ -187,4 +187,13 @@ x-api-key: <your-raw-key>
 
 In **Studio → Setup → API channels**, open **API reference** on a channel to browse it, or download the JSON for Postman, Stoplight, or a client generator. The document is built on every request (`Cache-Control: no-store`), so it follows channel and model changes immediately. Also served at `.../openapi.json`.
 
+### The channel's schema
+
+```http
+GET /projects/:projectId/collections/:collectionId/schema
+x-api-key: <your-raw-key>
+```
+
+What the channel delivers, described the way Moteur stores it: models (with the collection's field allowlist applied), the templates of its pages, and the blocks and structures those use, each field with its type, label, description and the options that explain its value. Studio presentation (`ui`, `placeholder`, `studio`) and plugin settings are not included; editorial blocks are left out, as delivery strips them. `version` (also the `ETag`) changes with any schema; `If-None-Match` answers 304. `…/types` serves the same schema as TypeScript (`moteur types --channel <id>`). See [Frontend](Frontend.md#the-schema-of-a-channel).
+
 **Hardening before GraphQL:** tighten collection OpenAPI and shared read behavior first; GraphQL would reuse the same projection and auth boundaries later, not replace them.
