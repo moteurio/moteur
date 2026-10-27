@@ -1,30 +1,15 @@
 import { User } from '@moteurio/types/User.js';
-import { sendWelcomeEmail } from '@moteurio/core/emailNotifier.js';
-import { getDemoProjectId, copyProjectForNewUser } from '@moteurio/core/projects.js';
-import { isExistingProjectId } from '@moteurio/core/utils/fileUtils.js';
+import { sendWelcome } from '@moteurio/core/onboarding.js';
 
 /**
- * Runs onboarding for a newly created user: welcome email and a copy of the demo project.
- * Non-blocking; logs errors but does not throw so auth flow is not broken.
+ * Runs once for a new account: the welcome email. Nothing else is made for them: the Studio's
+ * welcome screens ask what they came for, and copy the demo only if they want to be shown around.
+ * Never throws, so signing up never fails because of it.
  */
 export async function runOnboardingForNewUser(user: User): Promise<void> {
     try {
-        await sendWelcomeEmail(user);
+        await sendWelcome(user);
     } catch (err) {
         console.error('[Onboarding] Welcome email failed:', err);
-    }
-
-    const demoId = getDemoProjectId();
-    if (!demoId || !isExistingProjectId(demoId)) {
-        return;
-    }
-
-    const shortId = user.id.replace(/^user:/, '').slice(0, 8);
-    const newProjectId = `demo-${shortId}`;
-
-    try {
-        await copyProjectForNewUser(demoId, newProjectId, user.id);
-    } catch (err) {
-        console.error('[Onboarding] Demo project copy failed:', err);
     }
 }

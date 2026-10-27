@@ -35,6 +35,7 @@ describe('verified provider onboarding and linking', () => {
         vi.stubEnv('AUTH_USERS_FILE', path.join(root, 'users.json'));
         vi.stubEnv('DATA_ROOT', root);
         vi.stubEnv('JWT_SECRET', 'provider-proof-test');
+        vi.stubEnv('MOTEUR_SIGNUP', 'open');
         fs.writeFileSync(path.join(root, 'users.json'), JSON.stringify([existing]));
         reloadUsers();
         mail.mockReset().mockResolvedValue(undefined);

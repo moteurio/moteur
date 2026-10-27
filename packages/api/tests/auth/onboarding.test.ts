@@ -1,70 +1,37 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-vi.mock('@moteurio/core/emailNotifier', () => ({
-    sendWelcomeEmail: vi.fn().mockResolvedValue(undefined)
+vi.mock('@moteurio/core/onboarding.js', () => ({
+    sendWelcome: vi.fn().mockResolvedValue(undefined)
 }));
-
-vi.mock('@moteurio/core/projects', () => ({
-    getDemoProjectId: vi.fn().mockReturnValue('demo'),
+vi.mock('@moteurio/core/projects.js', () => ({
     copyProjectForNewUser: vi.fn().mockResolvedValue(undefined)
 }));
 
-vi.mock('@moteurio/core/utils/fileUtils', () => ({
-    isExistingProjectId: vi.fn().mockReturnValue(true)
-}));
-
 import { runOnboardingForNewUser } from '../../src/auth/onboarding';
-import { sendWelcomeEmail } from '@moteurio/core/emailNotifier';
-import { getDemoProjectId, copyProjectForNewUser } from '@moteurio/core/projects';
-import { isExistingProjectId } from '@moteurio/core/utils/fileUtils';
+import { sendWelcome } from '@moteurio/core/onboarding.js';
+import { copyProjectForNewUser } from '@moteurio/core/projects.js';
 
 const mockUser = {
     id: 'user:abc12345',
     isActive: true,
     email: 'new@example.com',
     name: 'New User',
-    roles: ['user'],
+    roles: [],
     projects: []
 };
 
 describe('runOnboardingForNewUser', () => {
-    beforeEach(() => {
-        vi.clearAllMocks();
-        (getDemoProjectId as any).mockReturnValue('demo');
-        (isExistingProjectId as any).mockReturnValue(true);
-        (copyProjectForNewUser as any).mockResolvedValue(undefined);
-    });
+    beforeEach(() => vi.clearAllMocks());
 
-    it('calls sendWelcomeEmail with the user', async () => {
+    it('sends the welcome email, and makes nothing unasked', async () => {
         await runOnboardingForNewUser(mockUser as any);
-        expect(sendWelcomeEmail).toHaveBeenCalledWith(mockUser);
-    });
-
-    it('calls copyProjectForNewUser when demo project exists', async () => {
-        await runOnboardingForNewUser(mockUser as any);
-        expect(getDemoProjectId).toHaveBeenCalled();
-        expect(isExistingProjectId).toHaveBeenCalledWith('demo');
-        expect(copyProjectForNewUser).toHaveBeenCalledWith(
-            'demo',
-            'demo-abc12345',
-            'user:abc12345'
-        );
-    });
-
-    it('skips copy when demo project does not exist', async () => {
-        (isExistingProjectId as any).mockReturnValue(false);
-        await runOnboardingForNewUser(mockUser as any);
-        expect(sendWelcomeEmail).toHaveBeenCalled();
+        expect(sendWelcome).toHaveBeenCalledWith(mockUser);
+        // The demo is copied only when they ask to be shown around.
         expect(copyProjectForNewUser).not.toHaveBeenCalled();
     });
 
-    it('does not throw when sendWelcomeEmail fails', async () => {
-        (sendWelcomeEmail as any).mockRejectedValueOnce(new Error('SMTP fail'));
-        await expect(runOnboardingForNewUser(mockUser as any)).resolves.toBeUndefined();
-    });
-
-    it('does not throw when copyProjectForNewUser fails', async () => {
-        (copyProjectForNewUser as any).mockRejectedValueOnce(new Error('Copy fail'));
+    it('never fails the sign-up when the email fails', async () => {
+        (sendWelcome as any).mockRejectedValueOnce(new Error('SMTP fail'));
         await expect(runOnboardingForNewUser(mockUser as any)).resolves.toBeUndefined();
     });
 });

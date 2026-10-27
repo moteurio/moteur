@@ -63,6 +63,12 @@ function fresh(): { token: string; tokenHash: string; createdAt: string; expires
     };
 }
 
+/** Whether someone was invited to a project at this address, and the invite is still good. */
+export function hasLiveInvite(email: string): boolean {
+    const wanted = normalizeInviteEmail(email);
+    return readAll().some(i => isLive(i) && i.email === wanted);
+}
+
 export function normalizeInviteEmail(email: string): string {
     return email.trim().toLowerCase();
 }

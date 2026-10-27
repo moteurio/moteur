@@ -134,6 +134,20 @@ On the link, `GET {basePath}/invites/:token` describes the invite. Someone signe
 
 ---
 
+## New accounts and email codes
+
+Anyone can sign in, or make an account, with an email and a six-digit code: no password to keep. `POST /auth/email/code` sends the code, `POST /auth/email/verify` trades it for a session. A known address gets a code to sign in. A new one gets a code to make an account when the server takes new accounts (`MOTEUR_SIGNUP=open`) or the address has a live invite. The answer is `{ sent: true }` either way, and the email goes out after it, so neither the answer nor its timing tells who has an account.
+
+- A code works once, for 15 minutes, five tries. One code a minute and ten an hour per address. After ten wrong codes in a day, an address gets no more codes that day. The whole server sends at most `MOTEUR_EMAIL_CODES_PER_HOUR` (default 300).
+- Codes are stored as a keyed hash, never as they are.
+- Two-step sign-in still applies: a code gives a ticket for the app's code, like a password does.
+- Accounts made by code have no password: password sign-in refuses them. Email addresses are compared without case.
+- `MOTEUR_EMAIL_SIGNIN=off` turns email codes off, for servers where owning a mailbox must not be enough.
+
+A server is closed by default: without `MOTEUR_SIGNUP=open`, only invited people can make an account, by code, invite link or provider. Moteur Cloud is open.
+
+A new account records how it was made and the site page that brought them (`signup`), and what they came for (`onboarding`: `PATCH /auth/me/onboarding`). The Studio's welcome screens ask once. `POST /auth/me/demo` copies the server's demo project (`DEMO_PROJECT_ID`) for them, at most three times: its content only, never its workspace (`.moteur/`), credentials, outbound webhooks, Git history or form submissions. Whoever creates a project is its admin, billing and developer.
+
 ## Project API keys (read-only)
 
 Each project may have **several API keys**. Any one of them can authenticate reads via the **Public API** — collections, page outputs (sitemap, navigation, urls, breadcrumb), and radar — subject to that key’s **restrictions** (`allowedHosts`, optional **channel allowlist**, optional **site-wide** access). Key auth is **read-only**: GET requests only; POST/PATCH/DELETE with only an API key return 403.

@@ -19,6 +19,8 @@ vi.mock('../src/users.js', () => ({
     withoutSecrets: (user: User) => user
 }));
 vi.mock('../src/projects.js', () => ({ getProjectIdsForUser: () => [] }));
+const invited = vi.hoisted(() => ({ emails: [] as string[] }));
+vi.mock('../src/invites.js', () => ({ hasLiveInvite: (e: string) => invited.emails.includes(e) }));
 
 const { loginWithProvider } = await import('../src/auth.js');
 
@@ -29,6 +31,8 @@ describe('loginWithProvider', () => {
         vi.stubEnv('AUTH_SESSIONS_FILE', path.join(sessionRoot, 'sessions.json'));
         users.length = 0;
         vi.stubEnv('JWT_SECRET', 'test-secret');
+        vi.stubEnv('MOTEUR_SIGNUP', 'open');
+        invited.emails.length = 0;
     });
     afterEach(() => {
         vi.unstubAllEnvs();
@@ -101,5 +105,20 @@ describe('loginWithProvider', () => {
         await expect(
             loginWithProvider({ auth: { githubId: 1 }, email: 'off@example.com' })
         ).rejects.toThrow('User is not active');
+    });
+
+    it('takes no stranger when sign-up is closed, but lets invited people in', async () => {
+        vi.stubEnv('MOTEUR_SIGNUP', '');
+        await expect(
+            loginWithProvider({ auth: { githubId: 9 }, email: 'stranger@example.com' })
+        ).rejects.toMatchObject({ code: 'SIGNUP_CLOSED', status: 403 });
+        expect(users).toHaveLength(0);
+        invited.emails.push('guest@example.com');
+        const guest = await loginWithProvider({
+            auth: { githubId: 10 },
+            email: 'guest@example.com'
+        });
+        expect('token' in guest && guest.isNew).toBe(true);
+        expect(users[0]).toMatchObject({ signup: { method: 'provider' } });
     });
 });

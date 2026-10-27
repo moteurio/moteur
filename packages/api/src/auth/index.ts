@@ -13,6 +13,7 @@ import sessionToken, { openapi as sessionTokenSpec } from './sessionToken.js';
 import sessions, { openapi as sessionsSpec } from './sessions.js';
 import providerSignIn, { openapi as providerSignInSpec } from './providerSignIn.js';
 import twoFactor, { openapi as twoFactorSpec } from './twoFactor.js';
+import emailSignIn, { openapi as emailSignInSpec } from './emailSignIn.js';
 
 export function createAuthRouter(authProviders: AuthProviderContribution[] = []): Router {
     const router: Router = Router();
@@ -24,6 +25,7 @@ export function createAuthRouter(authProviders: AuthProviderContribution[] = [])
     router.use(sessions);
     router.use(providerSignIn);
     router.use(twoFactor);
+    router.use(emailSignIn);
     return router;
 }
 
@@ -36,7 +38,8 @@ export const authSpecs = {
         ...sessionTokenSpec,
         ...sessionsSpec,
         ...providerSignInSpec,
-        ...twoFactorSpec
+        ...twoFactorSpec,
+        ...emailSignInSpec
     },
     schemas: {
         ...loginSchemas,

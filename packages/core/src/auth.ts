@@ -12,6 +12,8 @@ import {
     withoutSecrets
 } from './users.js';
 import { hasTwoFactor, twoFactorTicket } from './twoFactor.js';
+import { signupOpen } from './signupPolicy.js';
+import { hasLiveInvite } from './invites.js';
 import { createAuthSession, requireAuthSession, type AuthSession } from './authSessions.js';
 import { getProjectIdsForUser } from './projects.js';
 import { hasRole } from '@moteurio/types';
@@ -68,25 +70,29 @@ export async function loginUser(
     if (!user) {
         throw new Error('Invalid credentials');
     }
-    const isValid = await bcrypt.compare(password, user.passwordHash as string);
+    // Someone who signs in by email code has no password: none matches.
+    const isValid = user.passwordHash ? await bcrypt.compare(password, user.passwordHash) : false;
     if (!isValid) {
         throw new Error('Invalid credentials');
     }
     if (!user.isActive) {
         throw new Error('User is not active');
     }
-    if (hasTwoFactor(user)) return { twoFactor: { ticket: twoFactorTicket(user) } };
+    return finishSignIn(user);
+}
 
+/** Once someone has proved who they are: a ticket for their two-step code if they use one, else a session. */
+export async function finishSignIn(
+    user: User
+): Promise<{ token: string; user: SignedInUser } | TwoFactorStep> {
+    if (hasTwoFactor(user)) return { twoFactor: { ticket: twoFactorTicket(user) } };
     const loginAt = await recordUserLogin(user.id);
     const displayUser: User = {
         ...user,
         ...(loginAt ? { lastLoginAt: loginAt } : {}),
         projects: getProjectIdsForUser(user.id)
     };
-    return {
-        token: generateJWT(displayUser),
-        user: withoutSecrets(displayUser)
-    };
+    return { token: generateJWT(displayUser), user: withoutSecrets(displayUser) };
 }
 
 /** Someone an OAuth provider vouches for. Only pass an address the provider has verified. */
@@ -130,6 +136,12 @@ export async function loginWithProvider(
         if (listUsers().some(candidate => candidate.email?.toLowerCase() === email.toLowerCase())) {
             throw new Error('Sign in with your existing method to link this provider');
         }
+        // A server that doesn't take new accounts still lets invited people in.
+        if (!signupOpen() && !hasLiveInvite(email))
+            throw Object.assign(new Error('This server only takes invited people.'), {
+                status: 403,
+                code: 'SIGNUP_CLOSED'
+            });
         user = await createUser({
             id: `user:${randomUUID()}`,
             isActive: true,
@@ -137,22 +149,16 @@ export async function loginWithProvider(
             name: identity.name?.trim() || email,
             roles: [],
             auth: identity.auth,
-            projects: []
+            projects: [],
+            signup: { at: new Date().toISOString(), method: 'provider' }
         });
         if (onNewUser) await onNewUser(user);
     }
     if (!user.isActive) {
         throw new Error('User is not active');
     }
-    if (hasTwoFactor(user)) return { twoFactor: { ticket: twoFactorTicket(user) } };
-
-    const loginAt = await recordUserLogin(user.id);
-    const displayUser: User = {
-        ...user,
-        ...(loginAt ? { lastLoginAt: loginAt } : {}),
-        projects: getProjectIdsForUser(user.id)
-    };
-    return { token: generateJWT(displayUser), user: withoutSecrets(displayUser), isNew };
+    const done = await finishSignIn(user);
+    return 'twoFactor' in done ? done : { ...done, isNew };
 }
 
 export function generateJWT(user: User): string {

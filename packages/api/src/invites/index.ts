@@ -104,7 +104,10 @@ router.post('/:token/register', async (req: Request, res: Response) => {
             name,
             passwordHash: await hashPassword(password),
             roles: [],
-            projects: []
+            projects: [],
+            signup: { at: new Date().toISOString(), method: 'invite' },
+            // Invited to a project: the welcome screens have nothing to ask.
+            onboarding: { intent: 'team', finishedAt: new Date().toISOString() }
         });
         await addProjectMember(invite.projectId, user, invite.roles);
         consumeInvite(invite.id);

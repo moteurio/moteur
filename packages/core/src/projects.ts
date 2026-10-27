@@ -154,6 +154,16 @@ export async function createProject(
     if (isExistingProjectId(project.id)) {
         throw new Error(`Project with id "${project.id}" already exists`);
     }
+    // The demo's address is the server's: nobody else may take it, or every newcomer would copy theirs.
+    const demoId = process.env.DEMO_PROJECT_ID?.trim();
+    if (demoId && project.id === demoId) {
+        throw Object.assign(
+            new Error(`The project id "${project.id}" is reserved on this server.`),
+            {
+                status: 409
+            }
+        );
+    }
 
     const validationErrors = validateProject(project);
     if (validationErrors.issues.length > 0) {
@@ -396,7 +406,18 @@ export async function copyProjectForNewUser(
     const sourceDir = path.join(base, sourceProjectId);
     const destDir = path.join(base, newProjectId);
 
-    fs.cpSync(sourceDir, destDir, { recursive: true });
+    // The content only: models, entries, pages, media. Never the workspace (.moteur: secrets,
+    // notes, AI log, notifications), the history, the outbound hooks or what visitors sent.
+    fs.cpSync(sourceDir, destDir, {
+        recursive: true,
+        filter: src => {
+            const top = path.relative(sourceDir, src).split(path.sep)[0];
+            return (
+                top === '' ||
+                !(top.startsWith('.') || top === 'user-data' || top === 'webhooks.json')
+            );
+        }
+    });
     const destGit = path.join(destDir, '.git');
     if (fs.existsSync(destGit)) {
         fs.rmSync(destGit, { recursive: true });
@@ -408,8 +429,17 @@ export async function copyProjectForNewUser(
     const project = await getProjectJson<ProjectSchema>(newProjectId, PROJECT_KEY);
     if (!project) throw new Error(`Project data not found in "${sourceProjectId}"`);
 
+    // Settings that reach outside services stay with the source: its keys, its remote, its hosts.
+    const {
+        apiKeys: _apiKeys,
+        git: _git,
+        integrations: _integrations,
+        videoProviders: _videoProviders,
+        assetConfig: _assetConfig,
+        ...content
+    } = project;
     const updated: ProjectSchema = {
-        ...project,
+        ...content,
         id: newProjectId,
         label: (project.label || 'Demo').replace(/^demo$/i, 'My Demo') || 'My Demo',
         users: [userId],

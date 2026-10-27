@@ -26,6 +26,35 @@ export interface User {
      * Comes from the token, never stored: `name` then reads "Louise via Claude".
      */
     agent?: AgentActor;
+    /** How the account was made, and the page and campaign that brought them (attribution). */
+    signup?: SignupRecord;
+    /** What they said they came for, and how far they are in getting started. */
+    onboarding?: OnboardingState;
+}
+
+/** Why someone came, as they said on their first screen. */
+export type OnboardingIntent = 'agency' | 'own' | 'developer' | 'team';
+
+export interface OnboardingState {
+    intent?: OnboardingIntent;
+    /** Their copy of the demo project, once they asked to be shown around. */
+    demoProjectId?: string;
+    /** Demo copies they have made (a few at most). */
+    demoCopies?: number;
+    /** When they finished (or skipped) the welcome screens. */
+    finishedAt?: string;
+}
+
+export interface SignupRecord {
+    at: string;
+    method: 'email' | 'provider' | 'invite';
+    /** The site page they came from (`/for/agencies`). */
+    from?: string;
+    /** The site's goal on that link (`start`, `agency-demo`). */
+    goal?: string;
+    /** `utm_*` from the visit, without the prefix. */
+    campaign?: Record<string, string>;
+    locale?: string;
 }
 
 /** An agent acting for a person. */
