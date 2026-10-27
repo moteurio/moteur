@@ -8,8 +8,10 @@ import {
     getUserById,
     listUsers,
     reloadUsers,
-    recordUserLogin
+    recordUserLogin,
+    withoutSecrets
 } from './users.js';
+import { hasTwoFactor, twoFactorTicket } from './twoFactor.js';
 import { createAuthSession, requireAuthSession, type AuthSession } from './authSessions.js';
 import { getProjectIdsForUser } from './projects.js';
 import { hasRole } from '@moteurio/types';
@@ -45,10 +47,16 @@ export async function hashPassword(plain: string): Promise<string> {
     return bcrypt.hash(plain, 10);
 }
 
+/** A user as a sign-in sends it back: no password hash or two-step secrets. */
+export type SignedInUser = ReturnType<typeof withoutSecrets<User>>;
+
+/** With two-step sign-in on, a password (or a provider) gives a ticket; a code makes the session. */
+export type TwoFactorStep = { twoFactor: { ticket: string } };
+
 export async function loginUser(
     email: string,
     password: string
-): Promise<{ token: string; user: User }> {
+): Promise<{ token: string; user: SignedInUser } | TwoFactorStep> {
     if (!email || !password) {
         throw new Error('Missing email or password');
     }
@@ -67,6 +75,7 @@ export async function loginUser(
     if (!user.isActive) {
         throw new Error('User is not active');
     }
+    if (hasTwoFactor(user)) return { twoFactor: { ticket: twoFactorTicket(user) } };
 
     const loginAt = await recordUserLogin(user.id);
     const displayUser: User = {
@@ -76,7 +85,7 @@ export async function loginUser(
     };
     return {
         token: generateJWT(displayUser),
-        user: displayUser
+        user: withoutSecrets(displayUser)
     };
 }
 
@@ -98,7 +107,7 @@ export type ProviderIdentity = {
 export async function loginWithProvider(
     identity: ProviderIdentity,
     onNewUser?: (user: User) => Promise<void>
-): Promise<{ token: string; user: User; isNew: boolean }> {
+): Promise<{ token: string; user: SignedInUser; isNew: boolean } | TwoFactorStep> {
     const email = identity.email.trim();
 
     reloadUsers();
@@ -135,6 +144,7 @@ export async function loginWithProvider(
     if (!user.isActive) {
         throw new Error('User is not active');
     }
+    if (hasTwoFactor(user)) return { twoFactor: { ticket: twoFactorTicket(user) } };
 
     const loginAt = await recordUserLogin(user.id);
     const displayUser: User = {
@@ -142,7 +152,7 @@ export async function loginWithProvider(
         ...(loginAt ? { lastLoginAt: loginAt } : {}),
         projects: getProjectIdsForUser(user.id)
     };
-    return { token: generateJWT(displayUser), user: displayUser, isNew };
+    return { token: generateJWT(displayUser), user: withoutSecrets(displayUser), isNew };
 }
 
 export function generateJWT(user: User): string {

@@ -444,3 +444,38 @@ async function updateUserAsOperatorUnlocked(
     triggerEvent('user.afterUpdate', { user: updated, performedBy });
     return updated;
 }
+
+/**
+ * Change one stored user under the users file's lock (credentials, two-step sign-in). `update`
+ * returns the new record, or null to leave it as it is. Returns the record as saved.
+ */
+export async function updateStoredUser(
+    userId: string,
+    update: (user: User) => User | null
+): Promise<User> {
+    return withWriteLock(getUsersFilePath(), async () => {
+        const filePath = getUsersFilePath();
+        const users = JSON.parse(fs.readFileSync(filePath, 'utf-8')) as User[];
+        const index = users.findIndex(u => u.id === userId);
+        if (index === -1) throw new Error(`User not found: ${userId}`);
+        const next = update(users[index]);
+        if (!next) return users[index];
+        users[index] = { ...next, id: users[index].id };
+        writePrivateState(filePath, users);
+        cachedUsers = null;
+        return users[index];
+    });
+}
+
+/** A user as it may leave the server: no password hash, no two-step secrets. */
+export function withoutSecrets<T extends Partial<User>>(
+    user: T
+): Omit<T, 'passwordHash' | 'twoFactor' | 'twoFactorPending'> & { twoFactor?: boolean } {
+    const {
+        passwordHash: _passwordHash,
+        twoFactor,
+        twoFactorPending: _pending,
+        ...rest
+    } = user as T & User;
+    return { ...rest, ...(twoFactor && { twoFactor: true }) } as never;
+}

@@ -2,6 +2,7 @@ import type { Request, Response } from 'express';
 import { Router } from 'express';
 import { requireAuth } from '../middlewares/auth.js';
 import { getProjectIdsForUser } from '@moteurio/core/projects.js';
+import { withoutSecrets } from '@moteurio/core/users.js';
 import type { OpenAPIV3 } from 'openapi-types';
 
 const router: Router = Router();
@@ -14,7 +15,7 @@ router.get('/me', requireAuth, (req: Request, res: Response) => {
     }
 
     const projects = getProjectIdsForUser(user.id);
-    const { passwordHash: _passwordHash, ...safeUser } = user;
+    const safeUser = withoutSecrets(user);
     res.json({ user: { ...safeUser, projects } });
 });
 

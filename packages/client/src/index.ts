@@ -8,6 +8,8 @@ export type {
     MoteurPublicClientConfig,
     MoteurPublicAuth,
     LoginResult,
+    SignedIn,
+    TwoFactorRequired,
     ApiError
 } from './types.js';
 export { DEFAULT_REQUEST_TIMEOUT_MS } from './types.js';

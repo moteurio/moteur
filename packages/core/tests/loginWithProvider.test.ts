@@ -15,7 +15,8 @@ vi.mock('../src/users.js', () => ({
         users.push(user);
         return user;
     },
-    recordUserLogin: () => '2026-10-19T00:00:00.000Z'
+    recordUserLogin: () => '2026-10-19T00:00:00.000Z',
+    withoutSecrets: (user: User) => user
 }));
 vi.mock('../src/projects.js', () => ({ getProjectIdsForUser: () => [] }));
 

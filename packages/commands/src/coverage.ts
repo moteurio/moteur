@@ -31,6 +31,14 @@ export const SKIPPED: Record<string, string> = {
     'POST /webhooks/shopify': 'received from Shopify',
     'POST /projects/{x}/play/polls/{x}/vote': 'visitors vote on the site',
     'POST /projects/{x}/forms/{x}/submit': 'visitors send it from the site',
+    'POST /auth/two-factor/verify':
+        'the second step of signing in: the command line’s `moteur auth login` asks for the code',
+    'GET /auth/two-factor': 'a person’s own sign-in: in the Studio, not through an agent',
+    'POST /auth/two-factor/setup': 'a person’s own sign-in: in the Studio, not through an agent',
+    'POST /auth/two-factor/enable': 'a person’s own sign-in: in the Studio, not through an agent',
+    'POST /auth/two-factor/disable': 'a person’s own sign-in: in the Studio, not through an agent',
+    'POST /auth/two-factor/recovery-codes':
+        'a person’s own sign-in: in the Studio, not through an agent',
     'PUT /projects/{x}/git/token':
         'a secret: set in the Studio, never through an agent or a shell history',
     'DELETE /projects/{x}/git/token': 'with the token it removes, in the Studio',

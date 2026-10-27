@@ -202,10 +202,16 @@ export function redirectAfterLogin(res: OAuthResponse, token: string, next = '')
 export function redirectProviderSignIn(
     req: OAuthRequest,
     res: OAuthResponse,
-    result: { token: string } | { pending: { ticket: string; browserToken: string } },
+    result:
+        | { token: string }
+        | { pending: { ticket: string; browserToken: string } }
+        | { twoFactor: { ticket: string } },
     next = ''
 ): void {
     if ('token' in result) return redirectAfterLogin(res, result.token, next);
+    // Two-step sign-in: the app asks for a code, then trades it with the ticket for a session.
+    if ('twoFactor' in result)
+        return void res.redirect(appUrl({ two_factor: result.twoFactor.ticket, next }));
     const secure = isHttps(req);
     const flags = `Path=/; HttpOnly; ${secure ? 'Secure; ' : ''}`;
     res.setHeader('Set-Cookie', [

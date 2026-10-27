@@ -19,7 +19,10 @@ type Pending = {
     used?: boolean;
 };
 export type ProviderSignInResult =
-    { token: string } | { pending: { ticket: string; browserToken: string } };
+    | { token: string }
+    | { pending: { ticket: string; browserToken: string } }
+    /** Two-step sign-in is on: the app asks for a code, then trades it and the ticket for a session. */
+    | { twoFactor: { ticket: string } };
 const digest = (value: string) => createHash('sha256').update(value).digest('hex');
 const file = () => privateStatePath('provider-signins.json');
 function load(): Pending[] {

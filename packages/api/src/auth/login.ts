@@ -45,9 +45,12 @@ router.post('/login', loginRateLimiter, async (req: Request, res: Response) => {
         if (password.length > PASSWORD_MAX_LENGTH) {
             return void res.status(400).json({ error: 'Invalid request' });
         }
-        const { token, user } = await loginUser(normalizedUsername, password);
+        const result = await loginUser(normalizedUsername, password);
         clearLoginFailures(normalizedUsername);
-        return void res.json({ token, user });
+        // Two-step sign-in: no session yet, a ticket for POST /auth/two-factor/verify.
+        if ('twoFactor' in result)
+            return void res.json({ twoFactor: true, ticket: result.twoFactor.ticket });
+        return void res.json(result);
     } catch (err: unknown) {
         const msg = getMessage(err).toLowerCase();
         if (msg.includes('invalid credentials') && normalizedUsername) {

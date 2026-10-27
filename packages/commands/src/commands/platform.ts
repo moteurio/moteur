@@ -214,9 +214,18 @@ export const operator = group('operator', [
             { key: 'name', header: 'name' },
             { key: 'email', header: 'email' },
             { key: 'roles', header: 'roles', format: v => ((v as string[]) ?? []).join(', ') },
-            { key: 'isActive', header: 'active' }
+            { key: 'isActive', header: 'active' },
+            { key: 'twoFactor', header: '2-step', format: v => (v ? 'on' : '') }
         ],
         readOnly: true
+    },
+    {
+        name: 'reset-two-factor',
+        summary: 'Turn off someone’s two-step sign-in (lost phone and codes)',
+        args: [id('User')],
+        http: 'POST /operator/users/{id}/two-factor/reset',
+        destructive: true,
+        done: () => 'Two-step sign-in is off, and their sessions have ended.'
     },
     {
         name: 'update-user',

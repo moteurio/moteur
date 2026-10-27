@@ -117,7 +117,12 @@ export const session = group('auth', [
                 aliases: ['apiUrl']
             },
             { name: 'email', description: 'Your email', in: 'none', aliases: ['username'] },
-            { name: 'password', description: 'Your password (asked when left out)', in: 'none' }
+            { name: 'password', description: 'Your password (asked when left out)', in: 'none' },
+            {
+                name: 'code',
+                description: 'With two-step sign-in: the app’s code (asked when left out)',
+                in: 'none'
+            }
         ],
         offline: true,
         run: async ctx => {
@@ -130,14 +135,19 @@ export const session = group('auth', [
             const email = (ctx.args.email as string | undefined) ?? (await ask('Email:'));
             const password =
                 (ctx.args.password as string | undefined) ?? (await ask('Password:', true));
-            const { token, user } = await createMoteurAdminClient({ baseURL: apiUrl }).auth.login(
-                email,
-                password
-            );
+            const client = createMoteurAdminClient({ baseURL: apiUrl });
+            let result = await client.auth.login(email, password);
+            if ('twoFactor' in result) {
+                const code =
+                    (ctx.args.code as string | undefined) ??
+                    (await ask('Code from your authenticator app (or a recovery code):'));
+                result = await client.auth.verifyTwoFactor(result.ticket, code);
+            }
+            const { token, user } = result;
             await saveConfig({ apiUrl, token, projectId: config.projectId });
             return { apiUrl, user };
         },
-        covers: ['POST /auth/login'],
+        covers: ['POST /auth/login', 'POST /auth/two-factor/verify'],
         done: r => `Signed in to ${(r as { apiUrl: string }).apiUrl}.`
     },
     {
