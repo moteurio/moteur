@@ -1,4 +1,8 @@
+import fs from 'fs';
+import os from 'os';
+import path from 'path';
 import { describe, it, expect } from 'vitest';
+import { typesDiff } from '../src/commands/project.js';
 import {
     API_COMMANDS,
     Commands,
@@ -235,5 +239,55 @@ describe('the commands', () => {
         expect(registry.resolve(['entries', 'publish', 'article']).command?.name).toBe('publish');
         expect(registry.resolve(['api', 'GET', '/x']).command?.group).toBe('api');
         expect(registry.resolve(['nope']).command).toBeUndefined();
+    });
+});
+
+describe('types --check', () => {
+    const typesCmd = API_COMMANDS.find(c => c.group === 'types')!;
+    const current =
+        'export type Locale = "en";\n\nexport interface HeroBlock {\n    heading: string;\n}\n';
+    const session = {
+        client: async () => ({ request: async () => current }) as never,
+        defaultProject: async () => 'demo'
+    };
+    const file = (text?: string) => {
+        const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'moteur-types-'));
+        const out = path.join(dir, 'moteur.ts');
+        if (text !== undefined) fs.writeFileSync(out, text);
+        return out;
+    };
+
+    it('passes when the file matches the project, and writes nothing', async () => {
+        const out = file(current);
+        await expect(execute(typesCmd, { out, check: true }, session)).resolves.toMatch(
+            /up to date/
+        );
+    });
+
+    it('fails with what changed when the file is out of date', async () => {
+        const out = file(
+            'export type Locale = "en";\n\nexport interface HeroBlock {\n    title: string;\n}\n\nexport type OldBlock = {};\n'
+        );
+        const run = execute(typesCmd, { out, check: true }, session);
+        await expect(run).rejects.toThrow(/out of date:\n {2}~ HeroBlock\n {2}- OldBlock/);
+        expect(fs.readFileSync(out, 'utf8')).toContain('title: string');
+    });
+
+    it('fails when the file is missing, and needs --out', async () => {
+        await expect(execute(typesCmd, { out: file(), check: true }, session)).rejects.toThrow(
+            /doesn’t exist/
+        );
+        await expect(execute(typesCmd, { check: true }, session)).rejects.toThrow(/needs --out/);
+    });
+});
+
+describe('typesDiff', () => {
+    it('lists added, changed and removed types', () => {
+        expect(
+            typesDiff(
+                'export type A = 1;\nexport type B = 2;\n',
+                'export type A = 1;\nexport type B = 3;\nexport type C = 4;\n'
+            )
+        ).toEqual(['~ B', '+ C']);
     });
 });
