@@ -59,4 +59,28 @@ describe('public form submit', () => {
             expect.objectContaining({ locale: 'fr', honeypotTriggered: false })
         );
     });
+
+    it('answers 422, readable from any site, when the answers don’t fit the form', async () => {
+        (getFormForProject as any).mockResolvedValue({ id: 'contact', status: 'active' });
+        const issues = [{ field: 'email', code: 'invalid', message: 'must be an email address' }];
+        (createSubmission as any).mockRejectedValue(
+            Object.assign(new Error('Please check this answer: Email.'), {
+                statusCode: 422,
+                code: 'ANSWERS_INVALID',
+                issues
+            })
+        );
+        const res = await request(app)
+            .post('/projects/demo/forms/contact/submit')
+            .set('Origin', 'https://journal.example')
+            .type('form')
+            .send({ email: 'nope' });
+        expect(res.status).toBe(422);
+        expect(res.headers['access-control-allow-origin']).toBe('*');
+        expect(res.body).toMatchObject({
+            error: 'Please check this answer: Email.',
+            code: 'ANSWERS_INVALID',
+            issues
+        });
+    });
 });
