@@ -92,6 +92,8 @@ router.post('/provider/verify', async (req, res) => {
             runOnboardingForNewUser
         );
         done(res);
+        if ('twoFactor' in result)
+            return void res.json({ twoFactor: true, ticket: result.twoFactor.ticket });
         res.json({ token: result.token });
     } catch (error) {
         sendApiError(res, req, error);

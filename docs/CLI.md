@@ -12,11 +12,12 @@ Install: `npm install -g @moteurio/cli`. Sign in: `moteur auth login`. The Studi
 
 Sign in to a Moteur API and remember it
 
-| Option                |                                                           |
-| --------------------- | --------------------------------------------------------- |
-| `--api-url <string>`  | The API (default: the last one, or http://localhost:3000) |
-| `--email <string>`    | Your email                                                |
-| `--password <string>` | Your password (asked when left out)                       |
+| Option                |                                                             |
+| --------------------- | ----------------------------------------------------------- |
+| `--api-url <string>`  | The API (default: the last one, or http://localhost:3000)   |
+| `--email <string>`    | Your email                                                  |
+| `--password <string>` | Your password (asked when left out)                         |
+| `--code <string>`     | With two-step sign-in: the app’s code (asked when left out) |
 
 ### `moteur auth logout`
 
@@ -139,6 +140,16 @@ Calls `GET /operator/summary`.
 Every account
 
 Calls `GET /operator/users`.
+
+### `moteur operator reset-two-factor <id>`
+
+Turn off someone’s two-step sign-in (lost phone and codes) Asks first (or `--yes`).
+
+| Option          |                    |
+| --------------- | ------------------ |
+| `--id <string>` | User id (required) |
+
+Calls `POST /operator/users/{id}/two-factor/reset`.
 
 ### `moteur operator update-user <id>`
 

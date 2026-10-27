@@ -15,6 +15,13 @@ export interface User {
     /** ISO 8601 — updated on successful sign-in (password or OAuth). */
     lastLoginAt?: string;
     /**
+     * Two-step sign-in: an authenticator app's secret (sealed with MOTEUR_ENCRYPTION_KEY), the
+     * last code step used (no code works twice), and recovery codes as SHA-256 digests. Never sent.
+     */
+    twoFactor?: { secret: string; lastStep?: number; enabledAt: string; recoveryCodes: string[] };
+    /** A secret shown to set two-step sign-in up, until a first code confirms it. Never sent. */
+    twoFactorPending?: { secret: string; createdAt: string };
+    /**
      * Set when an agent (an AI client such as Claude) makes the request on this person's behalf.
      * Comes from the token, never stored: `name` then reads "Louise via Claude".
      */

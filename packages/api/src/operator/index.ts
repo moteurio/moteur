@@ -5,7 +5,7 @@ import type { ProjectSchema } from '@moteurio/types/Project.js';
 import type { User } from '@moteurio/types/User.js';
 import { capabilitiesFromContributions, mergeContributions } from '@moteurio/types/Plugin.js';
 import { loadProjects, updateProject } from '@moteurio/core/projects.js';
-import { listUsers, reloadUsers, updateUserAsOperator } from '@moteurio/core/users.js';
+import { getUserById, listUsers, reloadUsers, updateUserAsOperator } from '@moteurio/core/users.js';
 import { creditBalance, currentPeriod, getMeteringStore } from '@moteurio/core/metering.js';
 import { pluginRegistry } from '@moteurio/core/registry/PluginRegistry.js';
 import {
@@ -30,6 +30,7 @@ import {
     savePluginChoice,
     type PluginEntry
 } from '../plugins/pluginCatalog.js';
+import { resetTwoFactor } from '@moteurio/core/twoFactor.js';
 
 /**
  * The operator's view of the whole server: every project, every account, every plugin, and the
@@ -76,6 +77,7 @@ function userRow(u: User, projectIds: Set<string>) {
         roles: u.roles ?? [],
         isActive: u.isActive,
         lastLoginAt: u.lastLoginAt,
+        twoFactor: Boolean(u.twoFactor),
         projects: (u.projects ?? []).filter(id => projectIds.has(id))
     };
 }
@@ -213,6 +215,19 @@ router.get('/users', (req: Request, res: Response) => {
         reloadUsers();
         const projectIds = new Set(loadProjects().map(p => p.id));
         res.json({ users: listUsers().map(u => userRow(u, projectIds)) });
+    } catch (err) {
+        sendApiError(res, req, err);
+    }
+});
+
+/** For someone who lost both phone and recovery codes: two-step sign-in off, sessions ended. */
+router.post('/users/:userId/two-factor/reset', async (req: Request, res: Response) => {
+    const { userId } = params(req);
+    try {
+        if (!getUserById(userId)) return void res.status(404).json({ error: 'User not found' });
+        await resetTwoFactor(userId);
+        const updated = getUserById(userId)!;
+        res.json({ user: userRow(updated, new Set(loadProjects().map(p => p.id))) });
     } catch (err) {
         sendApiError(res, req, err);
     }
@@ -510,6 +525,21 @@ const paths: Record<string, OpenAPIV3.PathItemObject> = {
                 'Name, email, account roles, active or not, last sign-in, projects. Operators only.',
             tags,
             responses: ok('`{ users }`', { users: { type: 'array', items: userRowSchema } })
+        }
+    },
+    '/operator/users/{userId}/two-factor/reset': {
+        post: {
+            summary: 'Turn off a person’s two-step sign-in',
+            description:
+                'For someone who lost both their phone and their recovery codes: two-step sign-in goes off and every session of theirs ends. Check who is asking first.',
+            tags: ['Operator'],
+            parameters: [
+                { name: 'userId', in: 'path', required: true, schema: { type: 'string' } }
+            ],
+            responses: {
+                '200': { description: '`{ user }`' },
+                '404': { description: 'No such user' }
+            }
         }
     },
     '/operator/users/{userId}': {

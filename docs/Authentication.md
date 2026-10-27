@@ -89,6 +89,23 @@ The session-aware release rejects old stateless JWTs: users and CLI clients must
 | POST   | `/logout`              | Revoke the current session                                 |
 | POST   | `/refresh`             | Renew access within the original personal-session deadline |
 
+### Two-step sign-in
+
+Anyone can turn on a second step after the password (or after GitHub, Google, Microsoft or OIDC): a code from an authenticator app. In the Studio, Account security › Two-step sign-in shows a QR code, turns on with a first code, and shows ten recovery codes once.
+
+Signing in then answers `{ twoFactor: true, ticket }` instead of a token (`POST /auth/login`, `POST /auth/provider/verify`; a provider's redirect brings `#two_factor=…`). `POST /auth/two-factor/verify` with `{ ticket, code }` gives the session: the ticket lasts five minutes and is no session itself; a code from the app works once; a recovery code works once and is then gone. Wrong codes slow the next attempts down like wrong passwords.
+
+| Method | Route below `/auth`          | Purpose                                                    |
+| ------ | ---------------------------- | ---------------------------------------------------------- |
+| POST   | `/two-factor/verify`         | Ticket and code: the session                               |
+| GET    | `/two-factor`                | Whether it's on, and recovery codes left                   |
+| POST   | `/two-factor/setup`          | A secret, its `otpauth` link and a QR code (SVG)           |
+| POST   | `/two-factor/enable`         | Turn on with a first code: `{ recoveryCodes }`, shown once |
+| POST   | `/two-factor/disable`        | Turn off, with a code or a recovery code                   |
+| POST   | `/two-factor/recovery-codes` | New recovery codes, with a code                            |
+
+Only the person does this, in a personal session: never an agent. The secret is sealed with `MOTEUR_ENCRYPTION_KEY` (refused in production without it) and the recovery codes are kept as digests; neither ever leaves the server, and sign-in replies carry no password hash. Someone who lost both phone and codes asks an operator: `POST /operator/users/:userId/two-factor/reset` (CLI: `moteur operator reset-two-factor <id>`) turns it off and ends their sessions. The CLI's `moteur auth login` asks for the code.
+
 ### Invites
 
 Project admins invite people by email: `POST {basePath}/projects/:projectId/invites` with `{ "email", "roles", "appUrl" }`. The link (`<studio>/invite/<token>`) is valid for 7 days, is emailed when SMTP is set up (`SMTP_HOST`, `SMTP_FROM`), and is returned once in the response so it can be shared by hand. Only a hash of the token is stored (`invites.json`, next to the users file). Inviting the same address again, or `POST …/invites/:inviteId/resend`, makes a new link and the old one stops working; `DELETE …/invites/:inviteId` withdraws it.

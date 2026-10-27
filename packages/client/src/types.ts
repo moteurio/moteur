@@ -38,10 +38,18 @@ export interface MoteurPublicClientConfig {
     previewToken?: string;
 }
 
-export interface LoginResult {
+export interface SignedIn {
     token: string;
     user: Record<string, unknown>;
 }
+
+/** Two-step sign-in is on: no session yet. Send the ticket with a code to `verifyTwoFactor`. */
+export interface TwoFactorRequired {
+    twoFactor: true;
+    ticket: string;
+}
+
+export type LoginResult = SignedIn | TwoFactorRequired;
 
 export interface ApiError {
     error: string;

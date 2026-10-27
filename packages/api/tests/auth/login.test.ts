@@ -138,4 +138,13 @@ describe('POST /auth/login', () => {
         expect(res.status).toBe(200);
         expect(loginUser).toHaveBeenCalledWith('tester@example.com', maxPassword);
     });
+
+    it('gives a ticket, not a session, when two-step sign-in is on', async () => {
+        vi.mocked(loginUser).mockResolvedValue({ twoFactor: { ticket: 'tkt' } } as never);
+        const res = await request(app)
+            .post('/auth/login')
+            .send({ username: 'louise@journal.test', password: 'a long password' });
+        expect(res.status).toBe(200);
+        expect(res.body).toEqual({ twoFactor: true, ticket: 'tkt' });
+    });
 });

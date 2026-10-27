@@ -12,7 +12,8 @@ vi.mock('../../src/users.js', () => ({
         state.users.push(user);
         return user;
     },
-    recordUserLogin: vi.fn()
+    recordUserLogin: vi.fn(),
+    withoutSecrets: (user: User) => user
 }));
 vi.mock('../../src/projects.js', () => ({ getProjectIdsForUser: () => [] }));
 import { loginWithProvider } from '../../src/auth.js';

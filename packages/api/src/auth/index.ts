@@ -12,6 +12,7 @@ import me, { openapi as meSpec } from './me.js';
 import sessionToken, { openapi as sessionTokenSpec } from './sessionToken.js';
 import sessions, { openapi as sessionsSpec } from './sessions.js';
 import providerSignIn, { openapi as providerSignInSpec } from './providerSignIn.js';
+import twoFactor, { openapi as twoFactorSpec } from './twoFactor.js';
 
 export function createAuthRouter(authProviders: AuthProviderContribution[] = []): Router {
     const router: Router = Router();
@@ -22,6 +23,7 @@ export function createAuthRouter(authProviders: AuthProviderContribution[] = [])
     router.use('/session-token', sessionToken);
     router.use(sessions);
     router.use(providerSignIn);
+    router.use(twoFactor);
     return router;
 }
 
@@ -33,7 +35,8 @@ export const authSpecs = {
         ...meSpec,
         ...sessionTokenSpec,
         ...sessionsSpec,
-        ...providerSignInSpec
+        ...providerSignInSpec,
+        ...twoFactorSpec
     },
     schemas: {
         ...loginSchemas,
