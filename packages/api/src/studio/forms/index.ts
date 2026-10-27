@@ -11,6 +11,7 @@ import {
     deleteForm
 } from '@moteurio/core/forms.js';
 import { createSubmission } from '@moteurio/core/formSubmissions.js';
+import { submissionSource } from '@moteurio/core/submissionSource.js';
 import type { FormSubmissionMeta } from '@moteurio/types/Form.js';
 import { requireProjectAccess } from '../../middlewares/auth.js';
 import { formsSubmitRateLimiter } from '../../middlewares/rateLimit.js';
@@ -95,6 +96,11 @@ router.post(
                 ip: req.ip,
                 userAgent: req.headers['user-agent'],
                 locale: locale || undefined,
+                ...submissionSource({
+                    page: body._page,
+                    referrer: body._referrer,
+                    refererHeader: req.headers.referer
+                }),
                 honeypotTriggered
             };
             const cleanData: Record<string, unknown> = {};

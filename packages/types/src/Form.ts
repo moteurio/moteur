@@ -58,6 +58,18 @@ export interface FormSubmissionMeta {
     ip?: string;
     userAgent?: string;
     locale?: string;
+    /** The page the form was sent from. */
+    page?: string;
+    /** Where the visitor came from before that page. */
+    referrer?: string;
+    /** The campaign, from the page's utm_* parameters. */
+    campaign?: {
+        source?: string;
+        medium?: string;
+        campaign?: string;
+        term?: string;
+        content?: string;
+    };
     honeypotTriggered?: boolean;
     recaptchaScore?: number;
 }

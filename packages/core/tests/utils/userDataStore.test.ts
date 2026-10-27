@@ -109,5 +109,29 @@ describe('UserDataStore', () => {
             expect(csvOut.data).toContain('name');
             expect(csvOut.data).toContain('score');
         });
+
+        it('keeps where each letter came from, and never lets an answer run as a formula', async () => {
+            await UserDataStore.ensureUserData(projectId);
+            await UserDataStore.saveSubmission(projectId, formId, {
+                id: 'e2',
+                formId,
+                projectId,
+                data: { name: '=HYPERLINK("https://evil.test","x")', topics: ['robots', 'usines'] },
+                metadata: {
+                    submittedAt: '2026-10-26T00:00:00.000Z',
+                    page: 'https://site.test/contact?utm_source=newsletter',
+                    campaign: { source: 'newsletter' }
+                },
+                actionResults: [],
+                status: 'received'
+            });
+            const csv = (await UserDataStore.exportCollection(projectId, formId, 'csv'))
+                .data as string;
+            const [head, row] = csv.split('\n');
+            expect(head).toBe('id,status,receivedAt,name,topics,page,utm_source');
+            expect(row).toContain(`"'=HYPERLINK(""https://evil.test"",""x"")"`);
+            expect(row).toContain('"robots, usines"');
+            expect(row).toContain('https://site.test/contact?utm_source=newsletter,newsletter');
+        });
     });
 });
