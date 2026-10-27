@@ -16,7 +16,7 @@ import { entryFilePath, trashEntryDir, projectDir } from './utils/pathUtils.js';
 import { User } from '@moteurio/types/User.js';
 import { getModelSchema } from './models.js';
 import { getProject } from './projects.js';
-import { hasApprovedReview } from './reviews.js';
+import { hasApprovedReview, useApprovals } from './reviews.js';
 import { triggerEvent } from './utils/eventBus.js';
 import { getProjectJson, putProjectJson, hasProjectKey } from './utils/projectStorage.js';
 import { entryKey } from './utils/storageKeys.js';
@@ -711,6 +711,8 @@ async function publishEntryUnlocked(
     }
 
     triggerEvent('entry.afterUpdate', { entry, user, modelId, projectId });
+    // Published: the approval that allowed it is used, and the next change needs another.
+    await useApprovals(projectId, { modelId, entryId });
 
     const source = options?.source ?? 'api';
     try {

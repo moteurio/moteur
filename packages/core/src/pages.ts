@@ -24,7 +24,13 @@ import { getProject, getProjectById } from './projects.js';
 import { assertUserCanAccessProject } from './utils/access.js';
 import { getTemplate } from './templates.js';
 import { getModelSchemaForProject } from './models.js';
-import { hasApprovedReviewForPage } from './reviews.js';
+import { hasApprovedReviewForPage, useApprovals } from './reviews.js';
+import {
+    pinPublishedPage,
+    publishPageVersion,
+    publicPages,
+    withoutPublishedVersion
+} from './pages/publishedPages.js';
 import { getFileAtRevision } from './fileRevisions.js';
 import { sameContent, type Restored } from './utils/sameContent.js';
 import { triggerEvent } from './utils/eventBus.js';
@@ -109,6 +115,11 @@ async function loadAllPages(projectId: string): Promise<PageNode[]> {
     return pages;
 }
 
+/** What sites see: each page's published version (see pages/publishedPages.ts). */
+export async function loadPublicPages(projectId: string): Promise<PageNode[]> {
+    return publicPages(projectId, await loadAllPages(projectId));
+}
+
 export async function listPages(
     projectId: string,
     options?: ListPagesOptions
@@ -165,9 +176,12 @@ export async function getPageWithAuth(
 export async function getPageBySlug(
     projectId: string,
     slug: string,
-    locale?: string
+    locale?: string,
+    options?: { published?: boolean }
 ): Promise<PageNode | null> {
-    const pages = await loadAllPages(projectId);
+    const pages = options?.published
+        ? await loadPublicPages(projectId)
+        : await loadAllPages(projectId);
     if (locale) {
         const project = await getProjectById(projectId);
         const lang = { locale, defaultLocale: project?.defaultLocale ?? locale };
@@ -417,15 +431,32 @@ export async function createPage(
     }
 
     await triggerEvent('page.beforeCreate', { page, user, projectId });
-    await putProjectJson(projectId, pageKey(id), page);
-    triggerEvent('content.saved', {
-        projectId,
-        paths: [pageKey(id)],
-        message: `Create page ${id} — ${user.name ?? user.id}`,
-        user
-    });
-    triggerEvent('page.afterCreate', { page, user, projectId });
-    return page;
+    const recordSave = () =>
+        triggerEvent('content.saved', {
+            projectId,
+            paths: [pageKey(id)],
+            message: `Create page ${id} — ${user.name ?? user.id}`,
+            user
+        });
+    let saved: PageNode = page;
+    // Created live: this save is its published version.
+    if (page.type !== 'folder' && page.status === 'published')
+        saved = await publishPageVersion(projectId, user, page, recordSave);
+    else {
+        await putProjectJson(projectId, pageKey(id), page);
+        void recordSave();
+    }
+    triggerEvent('page.afterCreate', { page: saved, user, projectId });
+    return saved;
+}
+
+/** Published, or in review with a published version that sites keep serving meanwhile. */
+function isLive(page: PageNode): boolean {
+    if (page.type === 'folder') return false;
+    return (
+        page.status === 'published' ||
+        ((page.status as string) === 'in_review' && !!page.publishedCommit)
+    );
 }
 
 export async function updatePage(
@@ -435,16 +466,27 @@ export async function updatePage(
     patch: Partial<PageNode>,
     options?: { restoredFrom?: string }
 ): Promise<PageNode> {
-    if ((patch as any).status === 'published') {
-        const project = await getProject(user, projectId);
-        if (needsApproval(user, project)) {
-            const approved = await hasApprovedReviewForPage(projectId, id);
-            if (!approved) throw contentForbidden(approvalMessage(user, project));
-        }
-    }
-
-    const current = await getPageWithAuth(user, projectId, id);
+    let current = await getPageWithAuth(user, projectId, id);
     assertCanEdit(user);
+    // Set by publishing only.
+    const {
+        publishedCommit: _commit,
+        publishedAt: _at,
+        ...ownPatch
+    } = patch as Partial<StaticPage>;
+    patch = ownPatch as Partial<PageNode>;
+
+    const project = await getProject(user, projectId);
+    const live = isLive(current);
+    const mayPublish =
+        !needsApproval(user, project) || (await hasApprovedReviewForPage(projectId, id));
+    const asked = (patch as { status?: string }).status;
+    if (asked === 'published' && !live && !mayPublish)
+        throw contentForbidden(approvalMessage(user, project));
+    // On a live page, the edits of someone who needs a review wait in the page: sites keep its
+    // published version until a review approves them (or someone who can publishes).
+    const waiting = live && !mayPublish && (asked === undefined || asked === 'published');
+    if (waiting) current = await pinPublishedPage(projectId, user, current);
     if (
         (patch as { status?: string }).status &&
         (patch as { status?: string }).status !== 'published' &&
@@ -472,6 +514,7 @@ export async function updatePage(
         }
     }
     const updated = { ...current, ...patch } as PageNode;
+    if (waiting) (updated as StaticPage).status = (current as StaticPage).status;
 
     if (updated.type === 'static' || updated.type === 'collection') {
         const templateId = (updated as StaticPage | CollectionPage).templateId;
@@ -494,7 +537,7 @@ export async function updatePage(
                 const msg = validation.issues.map(i => `${i.path}: ${i.message}`).join('; ');
                 throw new Error(`Page validation failed: ${msg}`);
             }
-            if ((updated as StaticPage).status === 'published')
+            if ((updated as StaticPage).status === 'published' && !waiting)
                 assertPageComplete(updated as StaticPage, template);
         }
     }
@@ -530,18 +573,32 @@ export async function updatePage(
     if (sameContent(current, updated)) return current;
 
     await triggerEvent('page.beforeUpdate', { page: updated, user, projectId });
-    const before = addressChanged ? await liveAddresses(projectId) : undefined;
-    await putProjectJson(projectId, pageKey(id), updated);
-    triggerEvent('content.saved', {
-        projectId,
-        paths: [pageKey(id)],
-        message: options?.restoredFrom
-            ? `Restore page ${id} from ${options.restoredFrom.slice(0, 7)} — ${user.name ?? user.id}`
-            : `Update page ${id} — ${user.name ?? user.id}`,
-        user
-    });
-    triggerEvent('page.afterUpdate', { page: updated, user, projectId });
+    const before = addressChanged && !waiting ? await liveAddresses(projectId) : undefined;
+    const goesLive = !waiting && updated.type !== 'folder' && updated.status === 'published';
+    const recordSave = () =>
+        triggerEvent('content.saved', {
+            projectId,
+            paths: [pageKey(id)],
+            message: options?.restoredFrom
+                ? `Restore page ${id} from ${options.restoredFrom.slice(0, 7)} — ${user.name ?? user.id}`
+                : `Update page ${id} — ${user.name ?? user.id}`,
+            user
+        });
+    let saved: PageNode = updated;
+    if (goesLive) {
+        // What is saved is what sites get: this save becomes the page's published version.
+        saved = await publishPageVersion(projectId, user, updated, recordSave);
+        await useApprovals(projectId, { pageId: id });
+    } else {
+        if (live && updated.type !== 'folder' && updated.status === 'draft')
+            saved = withoutPublishedVersion(updated);
+        await putProjectJson(projectId, pageKey(id), saved);
+        void recordSave();
+    }
+    triggerEvent('page.afterUpdate', { page: saved, user, projectId });
     if (before) await redirectMoved(projectId, user, before);
+    // Waiting changes leave the site as it was: nothing to announce.
+    if (waiting) return saved;
 
     const pagePayload = (): { pageId: string; title: string; url: string; updatedBy: string } => ({
         pageId: id,
@@ -564,7 +621,7 @@ export async function updatePage(
                     source: 'api'
                 });
             } else if (currentStatus === 'published' && newStatus === 'published') {
-                // Pages are live as saved: the site changed.
+                // Published as saved: the site changed.
                 await webhookDispatch('page.updated', pagePayload(), { projectId, source: 'api' });
             }
         } else if (addressChanged) {
@@ -574,7 +631,7 @@ export async function updatePage(
     } catch {
         // never fail the operation
     }
-    return updated;
+    return saved;
 }
 
 /** What a page restore leaves as it is: where the page lives in the site, and its state. */
@@ -593,8 +650,8 @@ const KEPT_ON_RESTORE = [
 /**
  * Put a page back as it was saved in one revision, as a new save on top of the history (every
  * later version stays and can be restored in turn). Its content, template and settings go back;
- * its place in the tree, address and status stay. Pages are live as saved, so a published page
- * shows the restored content at once.
+ * its place in the tree, address and status stay. Like any edit to a live page, it goes live at
+ * once when the person may publish, and otherwise waits for a review.
  */
 export async function restorePageAtRevision(
     projectId: string,
@@ -806,7 +863,7 @@ async function getEntriesForResolver(
 }
 
 export async function resolveAllUrls(projectId: string): Promise<ResolvedUrl[]> {
-    const nodes = await loadAllPages(projectId);
+    const nodes = await loadPublicPages(projectId);
     const project = await getProjectById(projectId);
     return resolveAllUrlsFromTree(
         nodes,
@@ -830,7 +887,7 @@ export async function getNavigation(
     projectId: string,
     options?: { depth?: number; rootId?: string | null; locale?: string }
 ): Promise<NavigationNode[]> {
-    const nodes = await loadAllPages(projectId);
+    const nodes = await loadPublicPages(projectId);
     const nodeMap = buildNodeMap(nodes);
     const childMap = buildChildMap(nodes);
     const lang = await urlLanguage(projectId, options?.locale);
@@ -843,7 +900,7 @@ export async function resolveBreadcrumb(
     entryId?: string,
     locale?: string
 ): Promise<{ url: string; breadcrumb: BreadcrumbItem[] }> {
-    const nodes = await loadAllPages(projectId);
+    const nodes = await loadPublicPages(projectId);
     const nodeMap = buildNodeMap(nodes);
     let entry: Entry | undefined;
     if (entryId) {
@@ -870,7 +927,7 @@ export async function resolveEntryUrls(
     entryId: string,
     modelId: string
 ): Promise<Record<string, string>> {
-    const nodes = await loadAllPages(projectId);
+    const nodes = await loadPublicPages(projectId);
     const nodeMap = buildNodeMap(nodes);
     const collectionPage = nodes.find(
         (n): n is CollectionPage => n.type === 'collection' && n.modelId === modelId

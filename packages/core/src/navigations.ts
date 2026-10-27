@@ -17,6 +17,7 @@ import { triggerEvent } from './utils/eventBus.js';
 import { isValidId } from './utils/idUtils.js';
 import type { PageNode } from '@moteurio/types/Page.js';
 import { listPages } from './pages.js';
+import { publicPages } from './pages/publishedPages.js';
 import { buildNodeMap, resolveNodePrefix } from './pages/urlResolver.js';
 import { getAsset, resolveAssetUrl } from './assets/assetService.js';
 import { dispatch as webhookDispatch } from './webhooks/webhookService.js';
@@ -417,7 +418,8 @@ export async function resolveNavigation(
     navigation: Navigation,
     language?: { locale: string; fallback: string }
 ): Promise<ResolvedNavigation> {
-    const pages = await listPages(projectId);
+    // Menus are delivered to sites: pages as published.
+    const pages = await publicPages(projectId, await listPages(projectId));
     const nodeMap = buildNodeMap(pages);
     const items = await Promise.all(
         navigation.items.map(item => resolveItem(projectId, item, nodeMap, language))

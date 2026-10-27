@@ -1,6 +1,7 @@
 import type { Field } from '@moteurio/types/Field.js';
 import type { PageNode, StaticPage, CollectionPage } from '@moteurio/types/Page.js';
 import type { TemplateSchema } from '@moteurio/types/Template.js';
+import { publicPages } from './pages/publishedPages.js';
 import { listPages, urlLanguagesFor } from './pages.js';
 import { getProjectById } from './projects.js';
 import { listTemplates } from './templates.js';
@@ -37,8 +38,14 @@ export type PageLinkContext = {
     templates?: Map<string, TemplateSchema>;
 };
 
-export async function pageLinkContext(projectId: string): Promise<PageLinkContext> {
-    const nodes = await listPages(projectId);
+export async function pageLinkContext(
+    projectId: string,
+    options?: { published?: boolean }
+): Promise<PageLinkContext> {
+    // Links lead where the site's pages are: their published versions, outside a preview.
+    const nodes = options?.published
+        ? await publicPages(projectId, await listPages(projectId))
+        : await listPages(projectId);
     const pages = buildNodeMap(nodes);
     const languages = urlLanguagesFor(await getProjectById(projectId));
     const locales = [...new Set([languages.defaultLocale, ...languages.locales])];

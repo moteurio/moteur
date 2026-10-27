@@ -14,7 +14,7 @@ import {
     publishEntry,
     updateEntry
 } from '../src/entries.js';
-import { approveReview, submitForReview } from '../src/reviews.js';
+import { approveReview, hasApprovedReview, submitForReview } from '../src/reviews.js';
 import { actingUser } from '../src/auth.js';
 import { createNavigation, deleteNavigation } from '../src/navigations.js';
 import { querySubmissions } from '../src/formSubmissions.js';
@@ -136,6 +136,23 @@ describe('review workflow', () => {
                 scheduledAt: new Date(Date.now() + 3_600_000).toISOString()
             })
         ).rejects.toMatchObject(forbidden);
+    });
+
+    it('approves what was sent, once', async () => {
+        const first = await submitForReview(projectId, editor, 'article', 'e1');
+        await approveReview(projectId, reviewer, first.id);
+        // Publishing used the approval: a later change needs another.
+        expect(await hasApprovedReview(projectId, 'article', 'e1')).toBe(false);
+        await updateEntry(editor, projectId, 'article', 'e1', { data: { title: 'v2' } });
+        await expect(
+            updateEntry(editor, projectId, 'article', 'e1', { status: 'published' })
+        ).rejects.toMatchObject({ statusCode: 403 });
+
+        const second = await submitForReview(projectId, editor, 'article', 'e1');
+        await updateEntry(editor, projectId, 'article', 'e1', { data: { title: 'v3' } });
+        await expect(approveReview(projectId, reviewer, second.id)).rejects.toMatchObject({
+            statusCode: 409
+        });
     });
 
     it('approving publishes the reviewed version, so the public API serves it', async () => {

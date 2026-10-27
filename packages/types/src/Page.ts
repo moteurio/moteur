@@ -28,6 +28,12 @@ export interface StaticPage extends PageNodeBase {
     templateId: string;
     status: PageStatus;
     fields: Record<string, unknown>;
+    /**
+     * The commit holding the page as published: sites are served that version. Edits saved
+     * since by someone who needs a review wait in the page until it is published again.
+     */
+    publishedCommit?: string;
+    publishedAt?: string;
 }
 
 /** Collection page — bound to a model, resolves to N URLs (one per entry) */
@@ -36,6 +42,12 @@ export interface CollectionPage extends PageNodeBase {
     templateId: string;
     status: PageStatus;
     fields: Record<string, unknown>;
+    /**
+     * The commit holding the page as published: sites are served that version. Edits saved
+     * since by someone who needs a review wait in the page until it is published again.
+     */
+    publishedCommit?: string;
+    publishedAt?: string;
     modelId: string;
     urlPattern?: string;
     entryStatus?: PageStatus;
