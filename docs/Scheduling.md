@@ -34,7 +34,9 @@ Only one pending schedule for a resource and action is allowed. Cancel it before
 
 ## Permissions and outcomes
 
-Project permissions and the review workflow apply when scheduling. A required approval must be present before scheduling publication; a review-only agent cannot use scheduling to skip approval. A schedule can still fail at execution, for example if its resource was removed or its content no longer validates. Inspect its status and error rather than treating creation as a guarantee of publication.
+Scheduling follows the rules of publishing now. Only people who can write content may schedule, cancel or delete (not translators or the billing role). When the project requires reviews, a writer's scheduled publication needs an approved review first, as a publish would; admins can always publish, so they can schedule without one. A review-only agent cannot use scheduling to skip approval.
+
+In the Studio, an entry's or page's "Scheduled" card sets and cancels schedules, and the Overview lists what's coming. A schedule can still fail at execution, for example if its resource was removed or its content no longer validates. Inspect its status and error rather than treating creation as a guarantee of publication.
 
 Statuses are `pending`, `processing`, `done`, `failed` and `cancelled`. Failure handling records activity, emits schedule events and can notify reviewers. See [Workflows](Workflows.md) for reviews and [REST API](REST%20API.md) for response schemas.
 

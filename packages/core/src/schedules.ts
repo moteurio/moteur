@@ -6,7 +6,7 @@ import type {
     CreateScheduleInput,
     ListSchedulesOptions
 } from '@moteurio/types/Schedule.js';
-import { canReview } from '@moteurio/types';
+import { canReview, canWrite, needsApproval } from '@moteurio/types';
 import type { User } from '@moteurio/types/User.js';
 
 export type { CreateScheduleInput, ListSchedulesOptions };
@@ -40,6 +40,8 @@ function canSchedule(
 ): boolean {
     // A review-only agent may schedule; publishing still waits for a person's approval (below).
     if (user.agent?.reviewOnly) return true;
+    // Scheduling changes what's live: translators and billing can't publish, so they can't either.
+    if (!canWrite(user)) return false;
     if (!project.workflow?.enabled || !project.workflow?.requireReview) {
         return true;
     }
@@ -141,17 +143,18 @@ export async function createSchedule(
 
     if (!canSchedule(user, project)) {
         const err = new Error(
-            'Only users with reviewer or admin role can schedule when review workflow is enabled.'
+            canWrite(user)
+                ? 'Only users with reviewer or admin role can schedule when review workflow is enabled.'
+                : 'You cannot schedule publishing in this project.'
         );
         (err as Error & { statusCode?: number }).statusCode = 403;
         throw err;
     }
 
+    // The same rule as publishing now: with reviews required, an approved review first (admins
+    // can always publish, so they can always schedule a publish).
     if (input.action === 'publish') {
-        if (
-            (project.workflow?.enabled && project.workflow?.requireReview) ||
-            user.agent?.reviewOnly
-        ) {
+        if (needsApproval(user, project)) {
             if (input.resourceType === 'entry' && input.modelId) {
                 const approved = await hasApprovedReview(
                     projectId,
@@ -266,6 +269,10 @@ export async function cancelSchedule(
 ): Promise<Schedule> {
     const project = await getProject(user, projectId);
     assertUserCanAccessProject(user, project);
+    if (!canWrite(user) && !user.agent?.reviewOnly)
+        throw Object.assign(new Error('You cannot change schedules in this project.'), {
+            statusCode: 403
+        });
 
     const schedule = await getProjectJson<Schedule>(projectId, scheduleKey(scheduleId));
     if (!schedule) {
@@ -330,6 +337,10 @@ export async function deleteSchedule(
 ): Promise<void> {
     const project = await getProject(user, projectId);
     assertUserCanAccessProject(user, project);
+    if (!canWrite(user) && !user.agent?.reviewOnly)
+        throw Object.assign(new Error('You cannot change schedules in this project.'), {
+            statusCode: 403
+        });
 
     const schedule = await getProjectJson<Schedule>(projectId, scheduleKey(scheduleId));
     if (!schedule) {

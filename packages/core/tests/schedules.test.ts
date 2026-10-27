@@ -226,6 +226,22 @@ describe('schedules', () => {
             ).resolves.toMatchObject({ action: 'unpublish', status: 'pending' });
         });
 
+        it('refuses a translator: scheduling changes what is live', async () => {
+            const translator: User = { ...editor, roles: ['translator'] };
+            await expect(
+                createSchedule(translator, projectId, {
+                    resourceType: 'page',
+                    resourceId: 'p1',
+                    action: 'publish',
+                    scheduledAt: inOneHour()
+                })
+            ).rejects.toMatchObject({ statusCode: 403 });
+            const stored = await storeSchedule({});
+            await expect(cancelSchedule(translator, projectId, stored.id)).rejects.toMatchObject({
+                statusCode: 403
+            });
+        });
+
         it('rejects users who are not members of the project', async () => {
             await expect(
                 createSchedule(outsider, projectId, {
@@ -279,6 +295,18 @@ describe('schedules', () => {
                         scheduledAt: inOneHour()
                     })
                 ).rejects.toThrow(/approved review/);
+            });
+
+            it('lets an admin schedule a publish without a review, as they can publish', async () => {
+                const admin: User = { ...reviewer, id: 'u1', roles: ['admin'] };
+                await expect(
+                    createSchedule(admin, projectId, {
+                        resourceType: 'page',
+                        resourceId: 'p-admin',
+                        action: 'publish',
+                        scheduledAt: inOneHour()
+                    })
+                ).resolves.toMatchObject({ status: 'pending' });
             });
 
             it('lets a reviewer schedule an approved publish', async () => {
