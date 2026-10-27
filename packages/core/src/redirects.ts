@@ -9,6 +9,7 @@ import { REDIRECTS_KEY } from './utils/storageKeys.js';
 import { triggerEvent, onEvent } from './utils/eventBus.js';
 import { isValidId } from './utils/idUtils.js';
 import { resolveAllUrls, resolveEntryUrls } from './pages.js';
+import { dispatch as webhookDispatch } from './webhooks/webhookService.js';
 
 /** More than any site needs; it keeps the file a frontend downloads small. */
 const MAX_REDIRECTS = 5000;
@@ -74,6 +75,16 @@ async function saveRedirects(
 ): Promise<void> {
     await putProjectJson(projectId, REDIRECTS_KEY, list);
     triggerEvent('content.saved', { projectId, paths: [REDIRECTS_KEY], message, user });
+    // Hosts often apply redirects at build time: a deploy hook rebuilds.
+    try {
+        await webhookDispatch(
+            'redirects.updated',
+            { count: list.length, updatedBy: user.id },
+            { projectId, source: 'api' }
+        );
+    } catch {
+        // never fail the operation
+    }
 }
 
 export async function listRedirects(projectId: string): Promise<Redirect[]> {

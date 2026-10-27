@@ -12,6 +12,7 @@ export type WebhookEvent =
     | 'asset.updated'
     | 'asset.deleted'
     | 'page.published'
+    | 'page.updated'
     | 'page.unpublished'
     | 'page.deleted'
     | 'page.scheduled'
@@ -22,6 +23,8 @@ export type WebhookEvent =
     | 'review.rejected'
     | 'comment.created'
     | 'form.submitted'
+    | 'navigation.updated'
+    | 'redirects.updated'
     | 'radar.violation.created'
     | 'radar.violation.resolved';
 
@@ -35,11 +38,33 @@ export type WebhookFilter = {
     value: string | string[];
 };
 
+/** What live on the site changed: what a deploy hook listens to unless told otherwise. */
+export const DEPLOY_EVENTS: WebhookEvent[] = [
+    'entry.published',
+    'entry.unpublished',
+    'entry.deleted',
+    'page.published',
+    'page.updated',
+    'page.unpublished',
+    'page.deleted',
+    'asset.updated',
+    'asset.deleted',
+    'navigation.updated',
+    'redirects.updated'
+];
+
 // The registered webhook endpoint
 export type Webhook = {
     id: string;
     projectId: string;
     name: string; // "Vercel deploy", "Slack notify"
+    /**
+     * `deploy`: a host's build hook (Vercel, Netlify, Cloudflare Pages…). Changes within
+     * `batchSeconds` of the first one start a single build. Default: `webhook`, one call per event.
+     */
+    kind?: 'webhook' | 'deploy';
+    /** For a deploy hook: how long to wait for more changes before calling it (0–600, default 30). */
+    batchSeconds?: number;
     url: string; // target HTTPS endpoint
     secret: string; // used to sign payloads — stored encrypted
     events: WebhookEvent[]; // which events to listen for; [] = all
@@ -98,7 +123,20 @@ export type WebhookPayloadData =
     | CommentPayloadData
     | FormPayloadData
     | SchedulePayloadData
-    | RadarPayloadData;
+    | RadarPayloadData
+    | NavigationPayloadData
+    | RedirectsPayloadData;
+
+export type NavigationPayloadData = {
+    navigationId: string;
+    handle: string;
+    updatedBy: string;
+};
+
+export type RedirectsPayloadData = {
+    count: number;
+    updatedBy: string;
+};
 
 export type RadarPayloadData = {
     violation: import('./Radar.js').RadarViolation;

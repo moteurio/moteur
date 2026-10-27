@@ -216,6 +216,8 @@ export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
         },
         post: {
             summary: 'Create webhook',
+            description:
+                'Body: `name`, `url`, optional `events`, `filters`, `headers`, `enabled`. `kind: "deploy"` makes it a host\'s build hook (Vercel, Netlify, Cloudflare Pages): it listens to what goes live unless `events` says otherwise (entries and pages published, unpublished or deleted, live pages saved, files changed, menus and redirects), and changes within `batchSeconds` (0–600, default 30) of the first start one build.',
             tags: ['Webhooks'],
             parameters: [
                 { name: 'projectId', in: 'path', required: true, schema: { type: 'string' } }

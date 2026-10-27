@@ -7,6 +7,7 @@ import { randomUUID } from 'crypto';
 import { validateUrl } from './networkPolicy.js';
 import { postWebhook } from './outboundHttp.js';
 export { assertPublicHttpsUrl } from './networkPolicy.js';
+import { DEPLOY_EVENTS } from '@moteurio/types/Webhook.js';
 import type {
     Webhook,
     WebhookDelivery,
@@ -47,6 +48,7 @@ const VALID_EVENTS: WebhookEvent[] = [
     'asset.updated',
     'asset.deleted',
     'page.published',
+    'page.updated',
     'page.unpublished',
     'page.deleted',
     'page.scheduled',
@@ -57,6 +59,8 @@ const VALID_EVENTS: WebhookEvent[] = [
     'review.rejected',
     'comment.created',
     'form.submitted',
+    'navigation.updated',
+    'redirects.updated',
     'radar.violation.created',
     'radar.violation.resolved'
 ];
@@ -77,6 +81,22 @@ function validateEvents(events: WebhookEvent[] | undefined): void {
             throw new Error(`Invalid event: ${e}. Valid: ${[...allowed].join(', ')}`);
         }
     }
+}
+
+const DEFAULT_BATCH_SECONDS = 30;
+
+/** A deploy hook's kind and wait: a known kind, and 0 to 600 seconds. */
+function validateKind(kind: unknown, batchSeconds: unknown): void {
+    if (kind !== undefined && kind !== 'webhook' && kind !== 'deploy')
+        throw new Error('kind must be "webhook" or "deploy"');
+    if (
+        batchSeconds !== undefined &&
+        (typeof batchSeconds !== 'number' ||
+            !Number.isInteger(batchSeconds) ||
+            batchSeconds < 0 ||
+            batchSeconds > 600)
+    )
+        throw new Error('batchSeconds must be a whole number from 0 to 600');
 }
 
 function validateFilters(filters: WebhookFilter[] | undefined): void {
@@ -190,22 +210,36 @@ async function appendDeliveryAndTrimUnlocked(
 /** Append multiple deliveries in one read-modify-write to avoid races when dispatching to several webhooks. */
 async function appendDeliveriesAndTrim(
     projectId: string,
-    newDeliveries: WebhookDelivery[]
-): Promise<void> {
+    newDeliveries: WebhookDelivery[],
+    batched: Set<string> = new Set()
+): Promise<WebhookDelivery[]> {
     return withWriteLock(`${projectDir(projectId)}/${WEBHOOK_LOG_KEY}`, () =>
-        appendDeliveriesAndTrimUnlocked(projectId, newDeliveries)
+        appendDeliveriesAndTrimUnlocked(projectId, newDeliveries, batched)
     );
 }
 
+/**
+ * Append what isn't already waiting: a webhook in `batched` (a deploy hook) whose call hasn't gone
+ * out yet takes no second one, since that build will include this change. Returns what was added.
+ */
 async function appendDeliveriesAndTrimUnlocked(
     projectId: string,
-    newDeliveries: WebhookDelivery[]
-): Promise<void> {
-    if (newDeliveries.length === 0) return;
+    newDeliveries: WebhookDelivery[],
+    batched: Set<string> = new Set()
+): Promise<WebhookDelivery[]> {
+    if (newDeliveries.length === 0) return [];
     const arr = await loadDeliveryLog(projectId);
-    const next = [...newDeliveries, ...arr];
+    const waiting = new Set(
+        arr.filter(d => d.status === 'pending' && d.attemptCount === 0).map(d => d.webhookId)
+    );
+    const added = newDeliveries.filter(
+        d => !(batched.has(d.webhookId) && waiting.has(d.webhookId))
+    );
+    if (added.length === 0) return [];
+    const next = [...added, ...arr];
     const trimmed = retainDeliveries(next);
     await putProjectJson(projectId, WEBHOOK_LOG_KEY, trimmed);
+    return added;
 }
 
 async function updateDeliveryInLog(
@@ -253,6 +287,8 @@ export async function createWebhook(
         filters?: WebhookFilter[];
         headers?: Record<string, string>;
         enabled?: boolean;
+        kind?: Webhook['kind'];
+        batchSeconds?: number;
     }
 ): Promise<Webhook> {
     return withWriteLock(`${projectDir(projectId)}/${WEBHOOKS_KEY}`, () =>
@@ -271,11 +307,15 @@ async function createWebhookUnlocked(
         filters?: WebhookFilter[];
         headers?: Record<string, string>;
         enabled?: boolean;
+        kind?: Webhook['kind'];
+        batchSeconds?: number;
     }
 ): Promise<Webhook> {
     await validateUrl(data.url);
     validateEvents(data.events);
     validateFilters(data.filters);
+    validateKind(data.kind, data.batchSeconds);
+    const deploy = data.kind === 'deploy';
 
     const secret = data.secret ?? crypto.randomBytes(32).toString('hex');
     const encryptedSecret = encryptSecret(secret);
@@ -285,9 +325,14 @@ async function createWebhookUnlocked(
         id: randomUUID(),
         projectId,
         name: data.name.trim(),
+        ...(deploy && {
+            kind: 'deploy' as const,
+            batchSeconds: data.batchSeconds ?? DEFAULT_BATCH_SECONDS
+        }),
         url: data.url.trim(),
         secret: encryptedSecret,
-        events: data.events ?? [],
+        // A build for what goes live, not for every note or form letter.
+        events: data.events?.length ? data.events : deploy ? [...DEPLOY_EVENTS] : [],
         filters: data.filters ?? [],
         headers: data.headers ?? {},
         enabled: data.enabled ?? true,
@@ -328,6 +373,7 @@ async function updateWebhookUnlocked(
     if (patch.url !== undefined) await validateUrl(patch.url);
     if (patch.events !== undefined) validateEvents(patch.events);
     if (patch.filters !== undefined) validateFilters(patch.filters);
+    validateKind(patch.kind, patch.batchSeconds);
 
     const current = list[idx]!;
     let secret = current.secret;
@@ -695,6 +741,7 @@ export async function dispatch(
                 data
             };
 
+            const deploy = webhook.kind === 'deploy';
             const delivery: WebhookDelivery = {
                 id: deliveryId,
                 webhookId: webhook.id,
@@ -703,19 +750,33 @@ export async function dispatch(
                 payload,
                 status: 'pending',
                 attemptCount: 0,
-                createdAt: timestamp
+                createdAt: timestamp,
+                // A deploy hook waits for the rest of the changes, then builds once.
+                ...(deploy && {
+                    nextRetryAt: new Date(
+                        Date.now() + (webhook.batchSeconds ?? DEFAULT_BATCH_SECONDS) * 1000
+                    ).toISOString()
+                })
             };
 
             deliveries.push({ delivery, webhook });
         }
 
         if (deliveries.length > 0) {
-            await appendDeliveriesAndTrim(
-                context.projectId,
-                deliveries.map(({ delivery }) => delivery)
+            const batched = new Set(
+                deliveries.filter(d => d.webhook.kind === 'deploy').map(d => d.webhook.id)
+            );
+            const added = new Set(
+                (
+                    await appendDeliveriesAndTrim(
+                        context.projectId,
+                        deliveries.map(({ delivery }) => delivery),
+                        batched
+                    )
+                ).map(d => d.id)
             );
             for (const { delivery, webhook } of deliveries) {
-                scheduleDelivery(delivery, webhook);
+                if (added.has(delivery.id)) scheduleDelivery(delivery, webhook);
             }
         }
     } catch {
