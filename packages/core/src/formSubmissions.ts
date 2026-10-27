@@ -473,3 +473,44 @@ async function processSubmission(
         // event must not fail the operation
     }
 }
+
+/** A form's submissions, one light line each (id, date, status, read): no user check. */
+export function listSubmissionRows(projectId: string, formId: string): Promise<SubmissionRow[]> {
+    return UserDataStore.readIndex(projectId, formId);
+}
+
+/** One submission, no user check: for the engine and its plugins. */
+export function getSubmissionForProject(
+    projectId: string,
+    formId: string,
+    submissionId: string
+): Promise<FormSubmission | null> {
+    if (!isValidId(submissionId)) return Promise.resolve(null);
+    return UserDataStore.getSubmission(projectId, formId, submissionId);
+}
+
+/** Save a submission as given (e.g. with answers taken out): no user check. */
+export async function saveSubmissionForProject(submission: FormSubmission): Promise<void> {
+    if (!isValidId(submission.id)) throw new Error(`Invalid submission ID: "${submission.id}"`);
+    await UserDataStore.saveSubmission(submission.projectId, submission.formId, submission);
+}
+
+/**
+ * Delete a submission for good, in the name of a plugin or the engine: the activity log says
+ * who (`by`), and keeps no copy of it. No user check: the caller decided.
+ */
+export async function eraseSubmission(
+    projectId: string,
+    formId: string,
+    submissionId: string,
+    by: { id: string; name: string }
+): Promise<void> {
+    if (!isValidId(submissionId)) throw new Error(`Invalid submission ID: "${submissionId}"`);
+    await UserDataStore.deleteSubmission(
+        projectId,
+        formId,
+        submissionId,
+        systemActor(by.id, by.name),
+        { keepCopy: false }
+    );
+}

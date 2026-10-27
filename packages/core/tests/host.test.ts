@@ -3,6 +3,13 @@ import * as host from '../src/host.js';
 
 // Plugins in other repos import these: removing or renaming one breaks them at runtime.
 const CONTRACT = [
+    'saveSubmissionForProject',
+    'loadProjects',
+    'listSubmissionRows',
+    'listFormsForProject',
+    'getSubmissionForProject',
+    'getFormForProject',
+    'eraseSubmission',
     'appendAiAuditEvent',
     'assertPublicHttpsUrl',
     'createEntry',
