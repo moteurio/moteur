@@ -2,7 +2,7 @@ import type { Request, Response } from 'express';
 import { Router } from 'express';
 import type { OpenAPIV3 } from 'openapi-types';
 import { getFileAtRevision, getFileRevisions } from '@moteurio/core/fileRevisions.js';
-import { requireProjectAccess } from '../middlewares/auth.js';
+import { requireProjectAccess, requireProjectAdmin } from '../middlewares/auth.js';
 import { sendApiError } from '../utils/apiError.js';
 
 export type ContentRevisionMountOptions = {
@@ -20,6 +20,8 @@ export type ContentRevisionMountOptions = {
     ) => Promise<{ restored: unknown; changed: boolean }>;
     /** What a restore keeps and whether it goes live, for the API docs. */
     restoreDescription?: string;
+    /** Restoring changes how the site is built (layouts): admins only, like changing it. */
+    restoreAdminOnly?: boolean;
 };
 
 function parseMax(raw: unknown): number {
@@ -90,7 +92,7 @@ export function createContentRevisionRouter(options: ContentRevisionMountOptions
     if (restore) {
         router.post(
             `/:${idParam}/revisions/:revisionId/restore`,
-            requireProjectAccess,
+            options.restoreAdminOnly ? requireProjectAdmin : requireProjectAccess,
             async (req: Request, res: Response) => {
                 const id = String(req.params[idParam]);
                 const revisionId = String(req.params.revisionId);

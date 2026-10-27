@@ -7,7 +7,7 @@ import {
     updateLayout,
     deleteLayout
 } from '@moteurio/core/layouts.js';
-import { requireProjectAccess } from '../../middlewares/auth.js';
+import { requireProjectAccess, requireProjectAdmin } from '../../middlewares/auth.js';
 import type { OpenAPIV3 } from 'openapi-types';
 import { sendApiError } from '../../utils/apiError.js';
 import { mergePathSpecs } from '../../utils/mergePathSpecs.js';
@@ -40,7 +40,7 @@ router.get('/:layoutId', requireProjectAccess, async (req: Request, res: Respons
     }
 });
 
-router.post('/', requireProjectAccess, async (req: Request, res: Response) => {
+router.post('/', requireProjectAdmin, async (req: Request, res: Response) => {
     const { projectId } = req.params as Record<string, string>;
     if (!projectId) return void res.status(400).json({ error: 'Missing projectId' });
     try {
@@ -51,7 +51,7 @@ router.post('/', requireProjectAccess, async (req: Request, res: Response) => {
     }
 });
 
-router.patch('/:layoutId', requireProjectAccess, async (req: Request, res: Response) => {
+router.patch('/:layoutId', requireProjectAdmin, async (req: Request, res: Response) => {
     const { projectId, layoutId } = req.params as Record<string, string>;
     if (!projectId || !layoutId)
         return void res.status(400).json({ error: 'Missing projectId or layoutId' });
@@ -63,7 +63,7 @@ router.patch('/:layoutId', requireProjectAccess, async (req: Request, res: Respo
     }
 });
 
-router.delete('/:layoutId', requireProjectAccess, async (req: Request, res: Response) => {
+router.delete('/:layoutId', requireProjectAdmin, async (req: Request, res: Response) => {
     const { projectId, layoutId } = req.params as Record<string, string>;
     if (!projectId || !layoutId)
         return void res.status(400).json({ error: 'Missing projectId or layoutId' });

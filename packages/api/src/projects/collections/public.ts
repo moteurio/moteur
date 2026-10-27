@@ -8,7 +8,7 @@ import {
     updateCollection,
     deleteCollection
 } from '@moteurio/core/apiCollections.js';
-import { requireProjectAccess } from '../../middlewares/auth.js';
+import { requireDeveloper } from '../../middlewares/auth.js';
 import {
     getEntryForProject,
     getPublishedEntryForProject,
@@ -210,7 +210,7 @@ router.get('/:collectionId', async (req: Request, res: Response) => {
 });
 
 // Write routes (JWT + project access)
-router.post('/', requireProjectAccess, async (req: Request, res: Response) => {
+router.post('/', requireDeveloper, async (req: Request, res: Response) => {
     const { projectId } = req.params as Record<string, string>;
     if (!projectId) return void res.status(400).json({ error: 'Missing projectId' });
     try {
@@ -226,7 +226,7 @@ router.post('/', requireProjectAccess, async (req: Request, res: Response) => {
         return void sendApiError(res, req, err);
     }
 });
-router.patch('/:collectionId', requireProjectAccess, async (req: Request, res: Response) => {
+router.patch('/:collectionId', requireDeveloper, async (req: Request, res: Response) => {
     const { projectId, collectionId } = req.params as Record<string, string>;
     if (!projectId || !collectionId)
         return void res.status(400).json({ error: 'Missing projectId or collectionId' });
@@ -240,7 +240,7 @@ router.patch('/:collectionId', requireProjectAccess, async (req: Request, res: R
         });
     }
 });
-router.delete('/:collectionId', requireProjectAccess, async (req: Request, res: Response) => {
+router.delete('/:collectionId', requireDeveloper, async (req: Request, res: Response) => {
     const { projectId, collectionId } = req.params as Record<string, string>;
     if (!projectId || !collectionId)
         return void res.status(400).json({ error: 'Missing projectId or collectionId' });

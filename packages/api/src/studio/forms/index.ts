@@ -13,7 +13,7 @@ import {
 import { createSubmission } from '@moteurio/core/formSubmissions.js';
 import { submissionSource } from '@moteurio/core/submissionSource.js';
 import type { FormSubmissionMeta } from '@moteurio/types/Form.js';
-import { requireProjectAccess } from '../../middlewares/auth.js';
+import { requireProjectAccess, requireProjectAdmin } from '../../middlewares/auth.js';
 import { formsSubmitRateLimiter } from '../../middlewares/rateLimit.js';
 import submissionsRouter, { openapi as submissionsOpenapi } from './submissions.js';
 import { mergePathSpecs } from '../../utils/mergePathSpecs.js';
@@ -122,7 +122,7 @@ router.post(
     }
 );
 
-router.post('/', requireProjectAccess, async (req: Request, res: Response) => {
+router.post('/', requireProjectAdmin, async (req: Request, res: Response) => {
     const { projectId } = req.params as Record<string, string>;
     if (!projectId) return void res.status(400).json({ error: 'Missing projectId' });
     try {
@@ -141,7 +141,7 @@ router.post('/', requireProjectAccess, async (req: Request, res: Response) => {
     }
 });
 
-router.patch('/:formId', requireProjectAccess, async (req: Request, res: Response) => {
+router.patch('/:formId', requireProjectAdmin, async (req: Request, res: Response) => {
     const { projectId, formId } = req.params as Record<string, string>;
     if (!projectId || !formId) {
         return void res.status(400).json({ error: 'Missing projectId or formId' });
@@ -157,7 +157,7 @@ router.patch('/:formId', requireProjectAccess, async (req: Request, res: Respons
     }
 });
 
-router.delete('/:formId', requireProjectAccess, async (req: Request, res: Response) => {
+router.delete('/:formId', requireProjectAdmin, async (req: Request, res: Response) => {
     const { projectId, formId } = req.params as Record<string, string>;
     if (!projectId || !formId) {
         return void res.status(400).json({ error: 'Missing projectId or formId' });

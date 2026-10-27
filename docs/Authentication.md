@@ -199,7 +199,8 @@ Details and examples: [packages/client/README.md](../packages/client/README.md).
 Each user has **account roles** (`roles` in `users.json`). A project may set other roles for a member in `memberRoles` (user id to roles); in that project those replace the account roles. `requireProjectAccess` resolves them, so after it `req.user.roles` are the member's roles in that project (`req.account` keeps the stored account).
 
 - Whoever creates a project (`POST /projects`, or the demo copy made at sign-up) becomes **Admin** and **Billing** on it, on top of their Studio roles.
-- Project admins (`requireProjectAdmin`) may update or delete the project and create, update or delete its models.
+- Project admins (`requireProjectAdmin`) may update or delete the project and change how it's built: create, update or delete its models, block types, structures, page templates, layouts and forms (and restore their earlier versions). Writers fill these in; they can't change them.
+- Developers (`requireDeveloper`) manage channels, API keys and webhooks.
 - `PATCH /projects/:projectId/users/:userId` with `roles` sets that member's roles in this project only. It needs Admin in the project, and the project must keep at least one admin. `memberRoles` cannot be written through `PATCH /projects/:projectId`.
 - `GET /projects` lists the projects the signed-in user belongs to. `GET /blueprints/*` is open to anyone signed in, so they can pick a starting point; changing blueprints is for operators (below).
 - A project's member list changes through invitations and the members routes, never `PATCH /projects/:projectId`. A member's account itself (name, email, active) is changed by them, or by an operator: `PATCH /projects/:projectId/users/:userId` only sets their roles in that project.
