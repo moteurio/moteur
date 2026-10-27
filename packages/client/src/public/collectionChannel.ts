@@ -1,104 +1,133 @@
+import type { ResolvedNavigation } from '@moteurio/types/Navigation.js';
 import type { MoteurClient } from '../client.js';
+import type { PublicForm } from './forms.js';
+import type {
+    EntryOf,
+    LocaleMode,
+    ModeOf,
+    ModelId,
+    PageOf,
+    SchemaShape,
+    UntypedSchema
+} from './schema.js';
 
-function qEntries(opts?: {
+/** For any read: one language (the answer is in it), and pictures with their files. */
+export type ReadOptions<S extends SchemaShape = UntypedSchema> = {
+    locale?: S['locale'];
     resolveAssets?: boolean;
+};
+
+export type EntryReadOptions<S extends SchemaShape = UntypedSchema> = ReadOptions<S> & {
+    /** Add `resolvedUrl`: the entry's address, when a collection page gives it one. */
     resolveUrl?: boolean;
+};
+
+export type EntryListOptions<S extends SchemaShape = UntypedSchema> = EntryReadOptions<S> & {
     limit?: number;
     offset?: number;
+    /** `id`, `createdAt`, `updatedAt` or `publishedAt`, `-` first for descending. */
     sort?: string;
-}): Record<string, string> | undefined {
+};
+
+/**
+ * What a collection (channel) delivers: pages, entries, menus, forms and layouts. Typed by the
+ * project's schema (`S`); answers are in one language (`'one'`) when the call names one, or
+ * when the client was made for one (`client.locale('fr')`).
+ */
+export interface PublicChannel<
+    S extends SchemaShape = UntypedSchema,
+    D extends LocaleMode = 'all'
+> {
+    pages: {
+        list<O extends ReadOptions<S>>(options?: O): Promise<PageOf<S, ModeOf<O, D>>[]>;
+        getBySlug<O extends ReadOptions<S>>(
+            slug: string,
+            options?: O
+        ): Promise<PageOf<S, ModeOf<O, D>>>;
+        get<O extends ReadOptions<S>>(id: string, options?: O): Promise<PageOf<S, ModeOf<O, D>>>;
+    };
+    entries: {
+        list<K extends ModelId<S>, O extends EntryListOptions<S>>(
+            model: K,
+            options?: O
+        ): Promise<EntryOf<S, K, ModeOf<O, D>>[]>;
+        get<K extends ModelId<S>, O extends EntryReadOptions<S>>(
+            model: K,
+            id: string,
+            options?: O
+        ): Promise<EntryOf<S, K, ModeOf<O, D>>>;
+    };
+    /** Menus with item addresses resolved, by handle (`header`, `footer`). */
+    menus: {
+        list(options?: { locale?: S['locale'] }): Promise<ResolvedNavigation[]>;
+        get(handle: string, options?: { locale?: S['locale'] }): Promise<ResolvedNavigation>;
+    };
+    forms: {
+        list(options?: { locale?: S['locale'] }): Promise<PublicForm[]>;
+        get(id: string, options?: { locale?: S['locale'] }): Promise<PublicForm>;
+    };
+    layouts: {
+        list(): Promise<Record<string, unknown>[]>;
+        get(id: string): Promise<Record<string, unknown>>;
+    };
+}
+
+/** The query of a read: the call's options over the client's own language. */
+function query(
+    options: EntryListOptions | undefined,
+    locale: string | undefined
+): Record<string, string> | undefined {
     const o: Record<string, string> = {};
-    if (opts?.resolveAssets) o.resolveAssets = '1';
-    if (opts?.resolveUrl) o.resolveUrl = '1';
-    if (opts?.limit != null) o.limit = String(opts.limit);
-    if (opts?.offset != null) o.offset = String(opts.offset);
-    if (opts?.sort) o.sort = opts.sort;
+    const lang = options?.locale ?? locale;
+    if (lang) o.locale = lang;
+    if (options?.resolveAssets) o.resolveAssets = '1';
+    if (options?.resolveUrl) o.resolveUrl = '1';
+    if (options?.limit != null) o.limit = String(options.limit);
+    if (options?.offset != null) o.offset = String(options.offset);
+    if (options?.sort) o.sort = options.sort;
     return Object.keys(o).length ? o : undefined;
 }
 
 /**
- * Public collection channel: pages, entries, layouts, forms, and menus exposed by a collection.
- * Paths match `GET` routes in `packages/api/src/projects/collections/public.ts`.
+ * Public collection channel. Paths match `GET` routes in
+ * `packages/api/src/projects/collections/public.ts`.
  */
-export function createPublicCollectionChannel(
+export function createPublicCollectionChannel<
+    S extends SchemaShape = UntypedSchema,
+    D extends LocaleMode = 'all'
+>(
     client: MoteurClient,
     projectId: string,
-    collectionId: string
-) {
+    collectionId: string,
+    locale?: string
+): PublicChannel<S, D> {
     const enc = encodeURIComponent;
     const root = `/projects/${enc(projectId)}/collections/${enc(collectionId)}`;
+    // Typed by PublicChannel; the HTTP call itself doesn't know the schema.
+    const get = (url: string, options?: EntryListOptions) =>
+        client.get<never>(url, query(options, locale));
 
     return {
         pages: {
-            list(options?: { resolveAssets?: boolean }): Promise<unknown> {
-                const params = options?.resolveAssets ? { resolveAssets: '1' } : undefined;
-                return client.get(`${root}/pages`, params);
-            },
-            getBySlug(slug: string, options?: { resolveAssets?: boolean }): Promise<unknown> {
-                const params = options?.resolveAssets ? { resolveAssets: '1' } : undefined;
-                return client.get(`${root}/pages/by-slug/${enc(slug)}`, params);
-            },
-            get(id: string, options?: { resolveAssets?: boolean }): Promise<unknown> {
-                const params = options?.resolveAssets ? { resolveAssets: '1' } : undefined;
-                return client.get(`${root}/pages/${enc(id)}`, params);
-            }
+            list: options => get(`${root}/pages`, options),
+            getBySlug: (slug, options) => get(`${root}/pages/by-slug/${enc(slug)}`, options),
+            get: (id, options) => get(`${root}/pages/${enc(id)}`, options)
         },
-
         entries: {
-            /**
-             * `limit`/`offset` page the list; `sort` is `id`, `createdAt`, `updatedAt` or
-             * `publishedAt`, prefixed with `-` for descending.
-             */
-            list(
-                resourceId: string,
-                options?: {
-                    resolveAssets?: boolean;
-                    resolveUrl?: boolean;
-                    limit?: number;
-                    offset?: number;
-                    sort?: string;
-                }
-            ) {
-                return client.get(`${root}/${enc(resourceId)}/entries`, qEntries(options));
-            },
-            get(
-                resourceId: string,
-                entryId: string,
-                options?: { resolveAssets?: boolean; resolveUrl?: boolean }
-            ) {
-                return client.get(
-                    `${root}/${enc(resourceId)}/entries/${enc(entryId)}`,
-                    qEntries(options)
-                );
-            }
+            list: (model, options) => get(`${root}/${enc(model)}/entries`, options),
+            get: (model, id, options) => get(`${root}/${enc(model)}/entries/${enc(id)}`, options)
         },
-
-        layouts: {
-            list(): Promise<unknown> {
-                return client.get(`${root}/layouts`);
-            },
-            get(id: string): Promise<unknown> {
-                return client.get(`${root}/layouts/${enc(id)}`);
-            }
-        },
-
-        forms: {
-            list(): Promise<unknown> {
-                return client.get(`${root}/forms`);
-            },
-            get(id: string): Promise<unknown> {
-                return client.get(`${root}/forms/${enc(id)}`);
-            }
-        },
-
-        /** Menus with item URLs resolved, fetched by handle (e.g. `main`, `footer`). */
         menus: {
-            list(): Promise<unknown> {
-                return client.get(`${root}/menus`);
-            },
-            get(handle: string): Promise<unknown> {
-                return client.get(`${root}/menus/${enc(handle)}`);
-            }
+            list: options => get(`${root}/menus`, options),
+            get: (handle, options) => get(`${root}/menus/${enc(handle)}`, options)
+        },
+        forms: {
+            list: options => get(`${root}/forms`, options),
+            get: (id, options) => get(`${root}/forms/${enc(id)}`, options)
+        },
+        layouts: {
+            list: () => get(`${root}/layouts`),
+            get: id => get(`${root}/layouts/${enc(id)}`)
         }
     };
 }

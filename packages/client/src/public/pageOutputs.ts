@@ -18,16 +18,46 @@ export type ResolvedPath =
       }
     | { match: 'redirect'; from: string; to: string; status: 301 | 302 };
 
-/** `{ locale }` as a query, when given. */
-const inLocale = (locale?: string): Record<string, string> => (locale ? { locale } : {});
+/** A page's or entry's address in one language, with the same in the others. */
+export type SiteUrl = {
+    url: string;
+    nodeId: string;
+    nodeType: 'static' | 'collection' | 'folder';
+    label: string;
+    navInclude: boolean;
+    navLabel?: string;
+    sitemapInclude: boolean;
+    sitemapPriority: number;
+    sitemapChangefreq?: string;
+    entryId?: string;
+    modelId?: string;
+    locale?: string;
+    /** The same page or entry in every language, by locale (this address included). */
+    alternates?: Record<string, string>;
+};
+
+export type NavigationNode = {
+    id: string;
+    label: string;
+    url: string;
+    type: 'static' | 'collection' | 'folder';
+    children?: NavigationNode[];
+};
+
+export type BreadcrumbItem = { label: string; url: string; nodeId: string; entryId?: string };
 
 /**
  * Read-only page outputs: sitemap, resolved URLs, navigation tree, breadcrumb, path lookup and
  * redirects. These are separate from operator `navigations` CRUD (`/projects/:id/navigations`).
  * `locale` picks one language; addresses carry their `alternates` in the others.
  */
-export function publicSiteOutputsApi(client: MoteurClient, projectId: string) {
+export function publicSiteOutputsApi(client: MoteurClient, projectId: string, language?: string) {
     const base = root(projectId);
+    /** `{ locale }` as a query: the call's, or the client's own language. */
+    const inLocale = (locale?: string): Record<string, string> => {
+        const lang = locale ?? language;
+        return lang ? { locale: lang } : {};
+    };
     return {
         sitemapXml(): Promise<string> {
             return client.request<string>({
@@ -36,7 +66,7 @@ export function publicSiteOutputsApi(client: MoteurClient, projectId: string) {
                 responseType: 'text'
             });
         },
-        sitemapJson(options?: { locale?: string }): Promise<unknown> {
+        sitemapJson(options?: { locale?: string }): Promise<SiteUrl[]> {
             return client.get(`${base}/sitemap.json`, inLocale(options?.locale));
         },
         /** Published navigation tree (`GET .../navigation`), not navigation documents CRUD. */
@@ -44,7 +74,7 @@ export function publicSiteOutputsApi(client: MoteurClient, projectId: string) {
             depth?: number;
             rootId?: string | null;
             locale?: string;
-        }): Promise<unknown> {
+        }): Promise<NavigationNode[]> {
             const q: Record<string, string | number> = inLocale(options?.locale);
             if (options?.depth != null) q.depth = options.depth;
             if (options?.rootId !== undefined) {
@@ -55,14 +85,14 @@ export function publicSiteOutputsApi(client: MoteurClient, projectId: string) {
             }
             return client.get(`${base}/navigation`, q as Record<string, string>);
         },
-        urls(options?: { locale?: string }): Promise<unknown> {
+        urls(options?: { locale?: string }): Promise<SiteUrl[]> {
             return client.get(`${base}/urls`, inLocale(options?.locale));
         },
         breadcrumb(options: {
             pageId: string;
             entryId?: string;
             locale?: string;
-        }): Promise<unknown> {
+        }): Promise<{ url: string; breadcrumb: BreadcrumbItem[] }> {
             const q: Record<string, string> = {
                 pageId: options.pageId,
                 ...inLocale(options.locale)

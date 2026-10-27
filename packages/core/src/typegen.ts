@@ -206,7 +206,9 @@ export function generateTypes(input: TypegenInput): string {
         'AnyBlock',
         'AnyPage',
         'Models',
-        'Templates'
+        'Templates',
+        'MoteurContent',
+        'MoteurSchema'
     ]);
     const nameFor = (base: string) => {
         let name = base;
@@ -395,8 +397,31 @@ export function generateTypes(input: TypegenInput): string {
             .join('\n')}\n}\n`
     );
     out.push(
-        `/** Any page of the project, told apart by \`templateId\`. */\nexport type AnyPage<M extends LocaleMode = 'all'> = Templates<M>[keyof Templates<M>];\n`
+        input.templates.length
+            ? `/** Any page of the project, told apart by \`templateId\`. */\nexport type AnyPage<M extends LocaleMode = 'all'> = Templates<M>[keyof Templates<M>];\n`
+            : `/** Any page of the project (it has no templates yet). */\nexport type AnyPage<M extends LocaleMode = 'all'> = Page<Record<string, unknown>>;\n`
     );
+    out.push(`// For the client
+
+/** What the project delivers, in a locale mode. */
+export interface MoteurContent<M extends LocaleMode = 'all'> {
+    models: Models<M>;
+    pages: AnyPage<M>;
+    blocks: AnyBlock<M>;
+}
+
+/**
+ * The project, for a typed client: answers come typed, in one language after \`locale()\`.
+ *
+ *     const moteur = createMoteurPublicClient<MoteurSchema>({ … });
+ *     const pages = await moteur.locale('fr').channel('site').pages.list();
+ */
+export interface MoteurSchema {
+    locale: Locale;
+    all: MoteurContent<'all'>;
+    one: MoteurContent<'one'>;
+}
+`);
     return out.join('\n');
 }
 

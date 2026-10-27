@@ -40,7 +40,29 @@ export type {
 export type { PageMove, PageReferrer } from './project/pages.js';
 export type { RedirectInput } from './project/redirects.js';
 export type { GitStatus, GitTokenInfo } from './admin/projects.js';
-export type { ResolvedPath } from './public/pageOutputs.js';
+export type {
+    ResolvedPath,
+    SiteUrl,
+    NavigationNode,
+    BreadcrumbItem
+} from './public/pageOutputs.js';
+export type {
+    PublicChannel,
+    ReadOptions,
+    EntryReadOptions,
+    EntryListOptions
+} from './public/collectionChannel.js';
+export type {
+    SchemaShape,
+    ContentShape,
+    LocaleMode,
+    UntypedSchema,
+    DeliveredEntry,
+    DeliveredPage,
+    ModelId,
+    EntryOf,
+    PageOf
+} from './public/schema.js';
 export type {
     PublicForm,
     FormSubmitOptions,
