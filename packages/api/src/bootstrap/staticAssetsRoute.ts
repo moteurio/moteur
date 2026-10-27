@@ -9,6 +9,32 @@ import {
     ResizeNotFound
 } from '@moteurio/core/assets/resize.js';
 
+/** Played or shown in place by browsers; every other file is sent to be saved, never rendered here. */
+const INLINE = new Set([
+    '.jpg',
+    '.jpeg',
+    '.png',
+    '.gif',
+    '.webp',
+    '.avif',
+    '.mp4',
+    '.m4v',
+    '.mov',
+    '.webm',
+    '.mp3',
+    '.m4a',
+    '.aac',
+    '.wav',
+    '.ogg',
+    '.oga',
+    '.weba',
+    '.flac',
+    '.pdf',
+    '.glb',
+    '.gltf',
+    '.usdz'
+]);
+
 function assertSafeSegment(value: string, _label: string): boolean {
     if (!value || value.includes('/') || value.includes('\\') || value === '.' || value === '..') {
         return false;
@@ -54,6 +80,13 @@ export function mountStaticAssets(app: Express, basePath: string): void {
         // Media is meant to be embedded by sites and the Studio on other origins; the global
         // security headers (Helmet) would otherwise mark it same-origin only.
         res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+        // Files come from people: the browser takes the type we send, and nothing they hold runs
+        // on the API's origin. Anything but media is a download.
+        res.setHeader('X-Content-Type-Options', 'nosniff');
+        if (!INLINE.has(path.extname(filename).toLowerCase())) {
+            res.setHeader('Content-Security-Policy', "default-src 'none'; sandbox");
+            res.attachment(filename);
+        }
         // Originals never change, and rebuilt copies get a new `?v=`: both can be kept for good.
         // A copy asked for without its version (an old link) may still change: keep it an hour.
         const immutable = variantKey === 'original' || typeof req.query.v === 'string';

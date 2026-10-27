@@ -43,6 +43,44 @@ const MIME_BY_EXTENSION: Record<string, string> = {
     flac: 'audio/flac'
 };
 
+/** The extension a file is stored under for each accepted type (the first is used when it has none of them). */
+const EXTENSIONS_BY_MIME: Record<string, string[]> = {
+    'image/jpeg': ['jpg', 'jpeg'],
+    'image/png': ['png'],
+    'image/webp': ['webp'],
+    'image/gif': ['gif'],
+    'image/avif': ['avif'],
+    'video/mp4': ['mp4', 'm4v'],
+    'video/quicktime': ['mov'],
+    'audio/mpeg': ['mp3'],
+    'audio/mp4': ['m4a', 'mp4'],
+    'audio/aac': ['aac', 'm4a'],
+    'audio/wav': ['wav'],
+    'audio/x-wav': ['wav'],
+    'audio/ogg': ['ogg', 'oga'],
+    'audio/webm': ['webm', 'weba'],
+    'audio/flac': ['flac'],
+    'application/pdf': ['pdf'],
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['docx'],
+    'model/gltf-binary': ['glb'],
+    'model/gltf+json': ['gltf'],
+    'model/vnd.usdz+zip': ['usdz']
+};
+
+/**
+ * The name a file is stored under: its own, with the extension of the type it was accepted as.
+ * `page.html` sent as a PDF is kept as `page.pdf`, so nothing serves it as a web page.
+ */
+export function nameForType(filename: string, mimeType: string): string {
+    const allowed = EXTENSIONS_BY_MIME[mimeType];
+    if (!allowed) return filename;
+    const dot = filename.lastIndexOf('.');
+    const ext = dot > 0 ? filename.slice(dot + 1).toLowerCase() : '';
+    if (allowed.includes(ext)) return filename;
+    const stem = dot > 0 ? filename.slice(0, dot) : filename;
+    return `${stem || 'file'}.${allowed[0]}`;
+}
+
 const GENERIC_MIME = new Set(['', 'application/octet-stream', 'binary/octet-stream']);
 
 /** The upload's MIME type, or the one its extension implies when the client sent a generic one. */
