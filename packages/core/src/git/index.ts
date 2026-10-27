@@ -14,6 +14,7 @@ export {
     isGitRepo,
     GITIGNORE_LINES,
     getCurrentBranch,
+    gitStatus,
     listBranches,
     createBranch,
     checkoutBranch,
@@ -25,5 +26,5 @@ export {
     WORKSPACE_SNAPSHOT_BRANCH,
     USERDATA_SNAPSHOT_BRANCH
 } from './gitService.js';
-export type { GitAuthor, CommitInfo } from './gitService.js';
+export type { GitAuthor, CommitInfo, GitStatus } from './gitService.js';
 export * as publishedContentCache from './publishedContentCache.js';

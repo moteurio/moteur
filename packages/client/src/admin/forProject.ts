@@ -108,6 +108,14 @@ export function createProjectClient(client: MoteurClient, projectId: string) {
                 projects.activity.list(pid, params)
         },
 
+        git: {
+            status: () => projects.git.status(pid),
+            push: () => projects.git.push(pid),
+            setToken: (body: { token: string; username?: string }) =>
+                projects.git.setToken(pid, body),
+            removeToken: () => projects.git.removeToken(pid)
+        },
+
         models: {
             list: () => models.list(pid),
             get: (modelId: string) => models.get(pid, modelId),

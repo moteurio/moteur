@@ -30,6 +30,9 @@ export const SKIPPED: Record<string, string> = {
     'POST /webhooks/cloudflare-stream': 'received from Cloudflare Stream',
     'POST /webhooks/shopify': 'received from Shopify',
     'POST /projects/{x}/play/polls/{x}/vote': 'visitors vote on the site',
+    'PUT /projects/{x}/git/token':
+        'a secret: set in the Studio, never through an agent or a shell history',
+    'DELETE /projects/{x}/git/token': 'with the token it removes, in the Studio',
     'GET /projects/{x}/presence/debug': 'presence debugging, for developers of the Studio',
     'DELETE /projects/{x}/presence/screen/{x}': 'presence debugging, for developers of the Studio',
     'POST /studio/assets/migrate-provider': 'deprecated: moteur media-settings move-videos',

@@ -122,7 +122,7 @@ See [Operations](Operations.md) for storage, backup/restore, the single-writer m
 
 ## Webhook secret storage
 
-`MOTEUR_ENCRYPTION_KEY` encrypts stored webhook secrets with AES-256-GCM. Preserve the key when restoring a data backup. See [Webhooks](Webhooks.md) for delivery limits and signature verification.
+`MOTEUR_ENCRYPTION_KEY` encrypts stored webhook secrets and projects' Git tokens with AES-256-GCM. In production, the engine refuses Git tokens while it is unset. Preserve the key when restoring a data backup. See [Webhooks](Webhooks.md) for delivery limits and signature verification.
 
 ## Verification and resource budgets
 

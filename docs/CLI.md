@@ -2582,6 +2582,26 @@ The content’s git history
 
 Calls `GET /projects/{project}/git/log`.
 
+### `moteur branches status`
+
+Where the history stands: branch, last commit, and what the Git address lacks
+
+| Option               |                                                                              |
+| -------------------- | ---------------------------------------------------------------------------- |
+| `--project <string>` | Project id (default: MOTEUR_PROJECT, .moteur.json, or `moteur projects use`) |
+
+Calls `GET /projects/{project}/git/status`.
+
+### `moteur branches push`
+
+Push the history to the project’s Git address now
+
+| Option               |                                                                              |
+| -------------------- | ---------------------------------------------------------------------------- |
+| `--project <string>` | Project id (default: MOTEUR_PROJECT, .moteur.json, or `moteur projects use`) |
+
+Calls `POST /projects/{project}/git/push`.
+
 ## ai
 
 ### `moteur ai status`
