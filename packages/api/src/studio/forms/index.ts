@@ -175,6 +175,80 @@ const formOne = {
 };
 
 const formsOpenapi: Record<string, OpenAPIV3.PathItemObject> = {
+    '/projects/{projectId}/forms/{formId}/submit': {
+        post: {
+            summary: 'Send a form (what visitors do)',
+            description:
+                'No key or cookie, from any site, as a plain form post or JSON. Keys starting with `_` are not kept (`_honeypot`, `_locale`). The server checks every answer against the form: only its fields are kept, required ones must be there, emails, numbers (with min and max), dates, web addresses and choices must fit, and text has a length limit. A caught bot gets the same thank-you.',
+            tags: ['Forms'],
+            security: [],
+            parameters: [
+                { name: 'projectId', in: 'path', required: true, schema: { type: 'string' } },
+                { name: 'formId', in: 'path', required: true, schema: { type: 'string' } },
+                {
+                    name: 'locale',
+                    in: 'query',
+                    schema: { type: 'string' },
+                    description: 'The language of the thank-you and of any error message.'
+                }
+            ],
+            requestBody: {
+                content: {
+                    'application/x-www-form-urlencoded': {
+                        schema: { type: 'object', additionalProperties: true }
+                    },
+                    'application/json': { schema: { type: 'object', additionalProperties: true } }
+                }
+            },
+            responses: {
+                '200': {
+                    description: 'Received',
+                    content: {
+                        'application/json': {
+                            schema: {
+                                type: 'object',
+                                properties: {
+                                    success: { type: 'boolean' },
+                                    submissionId: { type: 'string' },
+                                    message: { type: 'string' },
+                                    redirectUrl: { type: 'string' }
+                                }
+                            }
+                        }
+                    }
+                },
+                '403': { description: 'The form is not active' },
+                '404': { description: 'No such form' },
+                '422': {
+                    description:
+                        'Some answers don’t fit the form: `error` names them for the visitor, `issues` lists `{ field, code, message }` (code: required, invalid, too_long, too_short, too_small, too_large, choice).',
+                    content: {
+                        'application/json': {
+                            schema: {
+                                type: 'object',
+                                properties: {
+                                    error: { type: 'string' },
+                                    code: { type: 'string', enum: ['ANSWERS_INVALID'] },
+                                    issues: {
+                                        type: 'array',
+                                        items: {
+                                            type: 'object',
+                                            properties: {
+                                                field: { type: 'string' },
+                                                code: { type: 'string' },
+                                                message: { type: 'string' }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                '429': { description: 'Too many sends from this address' }
+            }
+        }
+    },
     '/projects/{projectId}/forms': {
         get: {
             summary: 'List forms',

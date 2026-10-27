@@ -30,6 +30,7 @@ export const SKIPPED: Record<string, string> = {
     'POST /webhooks/cloudflare-stream': 'received from Cloudflare Stream',
     'POST /webhooks/shopify': 'received from Shopify',
     'POST /projects/{x}/play/polls/{x}/vote': 'visitors vote on the site',
+    'POST /projects/{x}/forms/{x}/submit': 'visitors send it from the site',
     'PUT /projects/{x}/git/token':
         'a secret: set in the Studio, never through an agent or a shell history',
     'DELETE /projects/{x}/git/token': 'with the token it removes, in the Studio',

@@ -20,6 +20,7 @@ import { dispatch as webhookDispatch } from './webhooks/webhookService.js';
 import { sendEmail } from './emailNotifier.js';
 import { recordRequest, submissionCount } from './metering.js';
 import { assertSubmissionRoom } from './planLimits.js';
+import { answersMessage, checkAnswers } from './formAnswers.js';
 
 /** Form actions are the engine's own work, done for whoever sent the form. */
 const systemUser = (): User => systemActor('_forms', 'Forms');
@@ -225,6 +226,16 @@ export async function createSubmission(
     }
 
     const caught = meta.honeypotTriggered && form.honeypot !== false;
+    // The browser's checks can be skipped: the answers are checked again here. A caught bot is
+    // told the same thank-you, so it learns nothing; only what fits the form is kept.
+    const answers = checkAnswers(form, data);
+    if (!caught && answers.issues.length) {
+        throw Object.assign(new Error(answersMessage(form, answers.issues, meta.locale)), {
+            statusCode: 422,
+            code: 'ANSWERS_INVALID',
+            issues: answers.issues
+        });
+    }
     if (!caught) assertSubmissionRoom(projectId, submissionCount(projectId));
 
     let id = generateSubmissionId();
@@ -236,7 +247,7 @@ export async function createSubmission(
         id,
         formId,
         projectId,
-        data,
+        data: answers.data,
         metadata: meta,
         actionResults: [],
         status: 'received'

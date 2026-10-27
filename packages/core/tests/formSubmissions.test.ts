@@ -48,7 +48,11 @@ describe('formSubmissions', () => {
         await createForm(user, projectId, {
             id: formId,
             label: 'Contact',
-            fields: { email: { type: 'core/text', label: 'Email', options: {} } },
+            fields: {
+                email: { type: 'core/text', label: 'Email', options: {} },
+                name: { type: 'core/text', label: 'Name' },
+                x: { type: 'core/text', label: 'X' }
+            },
             status: 'active',
             actions: [],
             createdAt: '',

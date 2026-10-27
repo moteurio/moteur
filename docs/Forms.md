@@ -42,7 +42,22 @@ Content-Type: application/json
 }
 ```
 
-An accepted request returns `success`, `submissionId` and a localized message, with an optional configured `redirectUrl`. A successful receipt does not mean every action has completed: processing runs after storage and records individual `actionResults`. Honeypot catches are treated as spam and skip actions. Additional reCAPTCHA and host quota rules can apply.
+An accepted request returns `success`, `submissionId` and a localized message, with an optional configured `redirectUrl`. A successful receipt does not mean every action has completed: processing runs after storage and records individual `actionResults`. Honeypot catches are treated as spam and skip actions. The plan's monthly submission limit applies. The form type has a `recaptcha` setting, but the engine doesn't check it yet.
+
+## What the server checks
+
+The browser's checks can be skipped, so the server checks every answer again against the form's fields before anything is stored:
+
+- Only the form's fields are kept; other keys are dropped. Keys starting with `_` are instructions, never answers.
+- Required fields must have an answer. An unticked `core/boolean` is a "no", so a required one must be ticked.
+- `core/email`, `core/url` (http or https), `core/phone`, `core/date` (`YYYY-MM-DD`), `core/datetime` and `core/time` must look like one.
+- `core/number` becomes a number and respects `min` and `max`. `core/boolean` takes `true`, `on`, `yes` or `1`, and their opposites.
+- `core/select` and `core/multi-select` take only their `choices`; one answer unless the field allows several.
+- Text is trimmed and respects `minLength` and `maxLength`; without them, it stops at 1,000 characters (10,000 for `core/textarea`). Objects and lists are refused where one answer is expected.
+
+A form that declares no fields takes any answers, as text within those limits.
+
+When answers don't fit, the reply is `422` with `code: "ANSWERS_INVALID"`, an `error` naming the fields for the visitor (in French when `locale` starts with `fr`, English otherwise), and `issues: [{ field, code, message }]` for a site that writes its own messages. The codes are `required`, `invalid`, `too_long`, `too_short`, `too_small`, `too_large` and `choice`. Nothing is stored and nothing counts against the limit. A caught bot gets the usual thank-you instead, so it learns nothing.
 
 ## Actions and inbox
 

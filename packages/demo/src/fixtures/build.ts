@@ -362,8 +362,9 @@ export async function buildFixtures(opts: {
                     choice: ['a', 'b', 'c'][i % 3],
                     choices: ['x', 'z'],
                     agree: i % 2 === 0,
+                    // The longest message the server takes (10,000 characters without a maxLength).
                     message:
-                        i === 7 ? STRINGS.injection : i === 8 ? 'x'.repeat(20000) : `Message ${i}`
+                        i === 7 ? STRINGS.injection : i === 8 ? 'x'.repeat(10000) : `Message ${i}`
                 },
                 {
                     submittedAt: new Date().toISOString(),
