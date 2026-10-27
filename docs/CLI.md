@@ -2636,15 +2636,17 @@ Calls `POST /projects/{project}/git/push`.
 
 TypeScript types of the content (models, templates, blocks, structures)
 
-Each type takes a locale mode: 'all' as stored, or 'one' for content read with ?locale=. Make them again after changing a schema.
+Each type takes a locale mode: 'all' as stored, or 'one' for content read with ?locale=. Make them again after changing a schema; in CI, --check fails when the file is out of date.
 
 | Option               |                                                                              |
 | -------------------- | ---------------------------------------------------------------------------- |
 | `--project <string>` | Project id (default: MOTEUR_PROJECT, .moteur.json, or `moteur projects use`) |
 | `--out <string>`     | Write them to this file instead of printing them                             |
+| `--check`            | Change nothing; fail if the file differs from the project                    |
 
 ```bash
 moteur types --out src/moteur.ts
+moteur types --out src/moteur.ts --check
 ```
 
 ## imports

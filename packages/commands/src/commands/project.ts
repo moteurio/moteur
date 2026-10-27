@@ -536,13 +536,37 @@ export const branches = group('branches', [
     }
 ]);
 
+/** Each declaration of a generated types file, by name. */
+function declarations(text: string): Map<string, string> {
+    const out = new Map<string, string>();
+    const parts = text.split(/^(?=export )/m);
+    for (const part of parts) {
+        const name = /^export (?:type|interface) (\w+)/.exec(part)?.[1];
+        if (name) out.set(name, part.trim());
+    }
+    return out;
+}
+
+/** What changed between the types on file and the project's: `+ Added`, `- Removed`, `~ Changed`. */
+export function typesDiff(onFile: string, current: string): string[] {
+    const before = declarations(onFile);
+    const after = declarations(current);
+    const lines: string[] = [];
+    for (const [name, text] of after) {
+        if (!before.has(name)) lines.push(`+ ${name}`);
+        else if (before.get(name) !== text) lines.push(`~ ${name}`);
+    }
+    for (const name of before.keys()) if (!after.has(name)) lines.push(`- ${name}`);
+    return lines;
+}
+
 /** The content as TypeScript types: `moteur types --out src/moteur.ts`. */
 export const types = group('types', [
     {
         name: '',
         summary: 'TypeScript types of the content (models, templates, blocks, structures)',
         description:
-            "Each type takes a locale mode: 'all' as stored, or 'one' for content read with ?locale=. Make them again after changing a schema.",
+            "Each type takes a locale mode: 'all' as stored, or 'one' for content read with ?locale=. Make them again after changing a schema; in CI, --check fails when the file is out of date.",
         args: [
             project,
             {
@@ -550,6 +574,12 @@ export const types = group('types', [
                 description: 'Write them to this file instead of printing them',
                 in: 'none',
                 local: true
+            },
+            {
+                name: 'check',
+                type: 'boolean',
+                description: 'Change nothing; fail if the file differs from the project',
+                in: 'none'
             }
         ],
         run: async ctx => {
@@ -559,15 +589,27 @@ export const types = group('types', [
                 url: `/projects/${encodeURIComponent(await ctx.project())}/types`,
                 responseType: 'text'
             });
-            if (!ctx.args.out) return text;
+            const out = ctx.args.out ? String(ctx.args.out) : undefined;
+            if (ctx.args.check && !out) throw new Error('--check needs --out: the file to check.');
+            if (!out) return text;
             if (!ctx.local) throw new Error('Files can’t be written here: leave out out.');
-            fs.mkdirSync(path.dirname(String(ctx.args.out)), { recursive: true });
-            fs.writeFileSync(String(ctx.args.out), text);
-            return `Wrote ${ctx.args.out}.`;
+            if (ctx.args.check) {
+                const onFile = fs.existsSync(out) ? fs.readFileSync(out, 'utf8') : '';
+                if (onFile === text) return `${out} is up to date.`;
+                const changed = onFile ? typesDiff(onFile, text) : [];
+                throw new Error(
+                    (onFile ? `${out} is out of date` : `${out} doesn’t exist`) +
+                        (changed.length ? `:\n  ${changed.join('\n  ')}` : '.') +
+                        `\nMake it again: moteur types --out ${out}`
+                );
+            }
+            fs.mkdirSync(path.dirname(out), { recursive: true });
+            fs.writeFileSync(out, text);
+            return `Wrote ${out}.`;
         },
         covers: [`GET ${P}/types`],
         readOnly: true,
-        examples: ['moteur types --out src/moteur.ts']
+        examples: ['moteur types --out src/moteur.ts', 'moteur types --out src/moteur.ts --check']
     }
 ]);
 
