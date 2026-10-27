@@ -171,6 +171,19 @@ export function setPairs(pairs: unknown): Record<string, unknown> {
     return out;
 }
 
+/**
+ * A value from --set laid over what a field holds now: objects merge key by key (title.en
+ * changes English, French stays), anything else replaces.
+ */
+export function layOver(now: unknown, value: unknown): unknown {
+    const isObject = (v: unknown): v is Record<string, unknown> =>
+        typeof v === 'object' && v !== null && !Array.isArray(v);
+    if (!isObject(now) || !isObject(value)) return value;
+    const out: Record<string, unknown> = { ...now };
+    for (const [key, v] of Object.entries(value)) out[key] = layOver(now[key], v);
+    return out;
+}
+
 export const SET_ARG: ArgSpec = {
     name: 'set',
     type: 'list',

@@ -142,6 +142,31 @@ describe('operator commands', () => {
     });
 });
 
+describe('entries update --set', () => {
+    const update = API_COMMANDS.find(c => c.group === 'entries' && c.name === 'update')!;
+
+    it('changes one language of a field and keeps the others', async () => {
+        const sent: unknown[] = [];
+        const client = {
+            get: async () => ({
+                entry: {
+                    data: {
+                        title: { fr: 'Sous la glace', en: 'Below the ice' },
+                        slug: { fr: 'sous-la-glace', en: 'below-the-ice' }
+                    }
+                }
+            }),
+            patch: async (_url: string, body: unknown) => sent.push(body)
+        };
+        await execute(
+            update,
+            { model: 'article', id: 'glace', set: ['title.en=Under the ice'] },
+            { client: async () => client as never, defaultProject: async () => 'demo' }
+        );
+        expect(sent).toEqual([{ data: { title: { fr: 'Sous la glace', en: 'Under the ice' } } }]);
+    });
+});
+
 describe('a server without a plugin', () => {
     const ai = API_COMMANDS.find(c => c.group === 'ai' && c.http)!;
 
