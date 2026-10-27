@@ -225,6 +225,18 @@ async function createEntryUnlocked(
         };
     }
 
+    // Saved as a draft first: publishing goes through publishEntry, with its review check and
+    // the published revision it records. Nobody skips review by sending status: 'published'.
+    const publishNow = entry.status === 'published';
+    if (publishNow) {
+        if (needsApproval(user, project)) {
+            const approved = await hasApprovedReview(projectId, modelId, entry.id);
+            if (!approved) throw contentForbidden(approvalMessage(user, project));
+        }
+        assertEntryComplete(entry, schema, 'publish');
+        entry = { ...entry, status: 'draft' };
+    }
+
     if (user.agent) {
         // What an agent writes is marked as such, unread until a person reads it.
         const assisted = agentMarks(
@@ -276,6 +288,7 @@ async function createEntryUnlocked(
     } catch {
         // never fail the operation
     }
+    if (publishNow) return publishEntry(user, projectId, modelId, entry.id, options);
     return entry;
 }
 
