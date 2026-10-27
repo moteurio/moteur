@@ -99,6 +99,17 @@ export async function getFormForProject(
     return getProjectJson<FormSchema>(projectId, formKey(formId));
 }
 
+/** A project's forms, without a user check: for the engine and its plugins. */
+export async function listFormsForProject(projectId: string): Promise<FormSchema[]> {
+    if (!isValidId(projectId)) return [];
+    const forms: FormSchema[] = [];
+    for (const id of await listProjectKeys(projectId, formListPrefix())) {
+        const form = await getProjectJson<FormSchema>(projectId, formKey(id));
+        if (form) forms.push(form);
+    }
+    return forms;
+}
+
 const FORM_STATUSES = ['active', 'inactive', 'archived'];
 const FORM_ACTION_TYPES = ['createEntry', 'email', 'webhook'];
 const CAPTCHA_PROVIDERS = ['turnstile', 'hcaptcha', 'recaptcha'];

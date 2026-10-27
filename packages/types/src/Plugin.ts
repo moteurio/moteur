@@ -30,7 +30,9 @@ export type PluginCategory =
     | 'ai'
     | 'billing'
     | 'presence'
-    | 'commerce';
+    | 'commerce'
+    | 'forms'
+    | 'privacy';
 
 export type PlanLimitKind =
     'channels' | 'models' | 'entries' | 'forms' | 'structures' | 'blocks' | 'templates' | 'pages';

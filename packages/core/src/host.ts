@@ -8,10 +8,20 @@
  */
 
 // Projects and their content
-export { getProject, getProjectById, updateProject } from './projects.js';
+export { getProject, getProjectById, loadProjects, updateProject } from './projects.js';
 export { getModelSchema } from './models.js';
 export { createEntry, getEntryForProject, updateEntry } from './entries.js';
 export { default as fieldRegistry } from './registry/FieldRegistry.js';
+
+// Forms and what visitors sent (no user checks: the plugin checks who may)
+export { getFormForProject, listFormsForProject } from './forms.js';
+export {
+    eraseSubmission,
+    getSubmissionForProject,
+    listSubmissionRows,
+    saveSubmissionForProject
+} from './formSubmissions.js';
+export type { SubmissionRow } from './utils/submissionIndex.js';
 
 // People and sign-in
 export { getUserById } from './users.js';

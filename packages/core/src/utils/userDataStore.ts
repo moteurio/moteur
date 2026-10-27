@@ -65,13 +65,15 @@ export async function saveSubmission(
 }
 
 /**
- * Hard delete a submission: file removed, no recovery. Deletion logged to activity.
+ * Hard delete a submission: file removed, no recovery. Deletion logged to activity, with a copy
+ * of what was deleted unless `keepCopy` is false (a person asked to be forgotten).
  */
 export async function deleteSubmission(
     projectId: string,
     formId: string,
     submissionId: string,
-    user: User
+    user: User,
+    options: { keepCopy?: boolean } = {}
 ): Promise<void> {
     const key = submissionKey(formId, submissionId);
     assertUserDataKey(key);
@@ -86,7 +88,7 @@ export async function deleteSubmission(
         action: 'deleted',
         userId: user.id,
         userName: user.name ?? user.id,
-        before: submission ?? undefined,
+        before: options.keepCopy === false ? undefined : (submission ?? undefined),
         timestamp: new Date().toISOString()
     });
 }
