@@ -21,6 +21,10 @@ export interface Review {
     rejectionCommentId?: string;
     createdAt: string;
     resolvedAt?: string;
+    /** What was sent for review, as a fingerprint of its content: approval needs it unchanged. */
+    submittedVersion?: string;
+    /** When publishing used this approval: one approval publishes once. */
+    usedAt?: string;
 }
 
 export interface GetReviewsOptions {

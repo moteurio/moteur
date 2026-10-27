@@ -1,4 +1,4 @@
-import { randomUUID } from 'crypto';
+import { createHash, randomUUID } from 'crypto';
 import { assertEntryComplete } from './validators/entryComplete.js';
 import type { Review, GetReviewsOptions } from '@moteurio/types/Review.js';
 import { canReview } from '@moteurio/types';
@@ -18,6 +18,76 @@ import { sendReviewEmail } from './emailNotifier.js';
 import { getProjectUsers, getUserById } from './users.js';
 import { dispatch as webhookDispatch } from './webhooks/webhookService.js';
 import { publishEntry } from './entries.js';
+import { publishPageVersion } from './pages/publishedPages.js';
+
+/**
+ * What a review is about, as a fingerprint: an entry's data, or a page's content and settings
+ * (not its place in the tree or its state). Approving needs it unchanged since it was sent.
+ */
+export function contentVersion(resource: Entry | PageNode): string {
+    const content =
+        'data' in resource
+            ? ((resource as Entry).data ?? {})
+            : (() => {
+                  const {
+                      status: _s,
+                      updatedAt: _u,
+                      order: _o,
+                      parentId: _p,
+                      publishedCommit: _c,
+                      publishedAt: _a,
+                      ...rest
+                  } = resource as PageNode & {
+                      status?: string;
+                      publishedCommit?: string;
+                      publishedAt?: string;
+                  };
+                  return rest;
+              })();
+    return createHash('sha256').update(stableJson(content)).digest('hex').slice(0, 32);
+}
+
+function stableJson(value: unknown): string {
+    if (Array.isArray(value)) return `[${value.map(stableJson).join(',')}]`;
+    if (value && typeof value === 'object')
+        return `{${Object.keys(value as object)
+            .sort()
+            .filter(k => (value as Record<string, unknown>)[k] !== undefined)
+            .map(k => `${JSON.stringify(k)}:${stableJson((value as Record<string, unknown>)[k])}`)
+            .join(',')}}`;
+    return JSON.stringify(value);
+}
+
+function changedSinceSubmitted(): Error {
+    return Object.assign(
+        new Error('This changed after it was sent for review. Open it again before approving.'),
+        { statusCode: 409, code: 'REVIEW_STALE' }
+    );
+}
+
+/** Publishing used the approvals waiting for this entry or page: each publishes once. */
+export async function useApprovals(
+    projectId: string,
+    target: { modelId: string; entryId: string } | { pageId: string }
+): Promise<void> {
+    const list = (await getProjectJson<Review[]>(projectId, REVIEWS_KEY)) ?? [];
+    const now = new Date().toISOString();
+    let changed = false;
+    for (const r of list) {
+        if (r.status !== 'approved' || r.usedAt) continue;
+        const match =
+            'pageId' in target
+                ? r.resourceType === 'page' && r.pageId === target.pageId
+                : r.resourceType !== 'page' &&
+                  r.modelId === target.modelId &&
+                  r.entryId === target.entryId;
+        if (match) {
+            r.usedAt = now;
+            changed = true;
+        }
+    }
+    if (changed) await putProjectJson(projectId, REVIEWS_KEY, list);
+}
 
 function normalizeUserName(user: User): string {
     return user?.name ?? user?.id ?? 'Unknown';
@@ -81,7 +151,8 @@ export async function submitForReview(
             requestedBy: user.id,
             requestedByName,
             ...(assignedTo && { assignedTo }),
-            createdAt: now
+            createdAt: now,
+            submittedVersion: contentVersion(entry)
         };
         list.push(review);
         await putProjectJson(projectId, REVIEWS_KEY, list);
@@ -194,6 +265,20 @@ export async function approveReview(
         if (review.status !== 'pending') {
             throw new Error('Review is not pending');
         }
+        // The reviewer approves what was sent: an edit since then needs a fresh look.
+        if (review.submittedVersion) {
+            const sent =
+                review.resourceType === 'page' && review.pageId
+                    ? await getProjectJson<PageNode>(projectId, pageKey(review.pageId))
+                    : review.modelId && review.entryId
+                      ? await getProjectJson<Entry>(
+                            projectId,
+                            entryKey(review.modelId, review.entryId)
+                        )
+                      : null;
+            if (sent && contentVersion(sent) !== review.submittedVersion)
+                throw changedSinceSubmitted();
+        }
 
         const now = new Date().toISOString();
         const reviewedByName = normalizeUserName(user);
@@ -209,18 +294,18 @@ export async function approveReview(
 
         if (review.resourceType === 'page' && review.templateId && review.pageId) {
             const page = await getProjectJson<PageNode>(projectId, pageKey(review.pageId));
-            if (page) {
-                await putProjectJson(projectId, pageKey(review.pageId), {
-                    ...page,
-                    status: 'published'
+            const recordSave = () =>
+                triggerEvent('content.saved', {
+                    projectId,
+                    paths: [REVIEWS_KEY, pageKey(review.pageId!)],
+                    message: `Approve review (page) — ${normalizeUserName(user)}`,
+                    user
                 });
-            }
-            triggerEvent('content.saved', {
-                projectId,
-                paths: [REVIEWS_KEY, pageKey(review.pageId)],
-                message: `Approve review (page) — ${normalizeUserName(user)}`,
-                user
-            });
+            if (page) {
+                // Approving publishes what was reviewed: it becomes the page's public version.
+                await publishPageVersion(projectId, user, page, recordSave);
+                await useApprovals(projectId, { pageId: review.pageId });
+            } else void recordSave();
             log(toActivityEvent(projectId, 'page', review.pageId, 'approved', user));
             try {
                 await triggerEvent('review.approved', { projectId, review: updated });
@@ -391,9 +476,11 @@ export async function rejectReview(
         if (review.resourceType === 'page' && review.pageId) {
             const page = await getProjectJson<PageNode>(projectId, pageKey(review.pageId));
             if (page) {
+                // A live page stays live with its published version; its changes wait, refused.
+                const live = !!(page as { publishedCommit?: string }).publishedCommit;
                 await putProjectJson(projectId, pageKey(review.pageId), {
                     ...page,
-                    status: 'draft'
+                    status: live ? 'published' : 'draft'
                 });
             }
             triggerEvent('content.saved', {
@@ -558,7 +645,7 @@ export async function hasApprovedReview(
     entryId: string
 ): Promise<boolean> {
     const reviews = await getReviews(projectId, { modelId, entryId, status: 'approved' });
-    return reviews.length > 0;
+    return reviews.some(r => !r.usedAt);
 }
 
 /**
@@ -573,7 +660,7 @@ export async function hasApprovedReviewForPage(
         resourceType: 'page',
         status: 'approved'
     });
-    return reviews.length > 0;
+    return reviews.some(r => !r.usedAt);
 }
 
 /**
@@ -620,11 +707,13 @@ export async function submitForPageReview(
         requestedBy: user.id,
         requestedByName,
         ...(assignedTo && { assignedTo }),
-        createdAt: now
+        createdAt: now,
+        submittedVersion: contentVersion(page)
     };
     list.push(review);
     await putProjectJson(projectId, REVIEWS_KEY, list);
 
+    // A live page stays live while its changes are reviewed: sites keep its published version.
     await putProjectJson(projectId, pageKey(pageId), { ...page, status: 'in_review' });
 
     triggerEvent('content.saved', {

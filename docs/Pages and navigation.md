@@ -10,7 +10,15 @@ Models describe content independently of its URL. Pages describe a site's tree a
 | `collection` | A model binding that produces a URL per entry, with a template and optional URL pattern |
 | `folder`     | Structural grouping in the tree, without authored page content                          |
 
-Pages use `parentId`, `slug` and `order` to define their position. Static and collection pages have `draft` or `published` status. Page statuses differ from entry statuses: entries also support review and explicit unpublication.
+Pages use `parentId`, `slug` and `order` to define their position. Static and collection pages have `draft` or `published` status (`in_review` while a review is open).
+
+A published page has a published version, like an entry: publishing commits the page and records that commit (`publishedCommit`, `publishedAt`). Sites get that version from channels, the sitemap, URLs, navigation, breadcrumbs, `/resolve`, menus and page links. Where the page sits in the tree is always the current one: moving a page is not content.
+
+- Someone who may publish (an admin, or anyone when the project doesn't ask for reviews) edits a live page and the change is live as saved.
+- Someone who needs a review edits a live page and the change waits in the page, while sites keep the published version. A request to publish doesn't bypass it. Sending the page for review keeps it live; approving publishes what was sent; rejecting leaves the page live as it was.
+- An approval publishes once. The reviewer approves what was sent: a change after sending answers **409** `REVIEW_STALE` on approval, and needs a fresh look. The same holds for entries.
+- Unpublishing (status `draft`) removes the published version. Previews (a preview token) and member requests see the page as saved.
+- A project without Git keeps no published copy and serves the page as saved.
 
 Manage the tree through `/projects/:projectId/pages` with a member JWT. Page templates live under `/projects/:projectId/templates`. A collection page's `modelId` selects its entries; `urlPattern` overrides the model's default pattern. Patterns can use entry fields, for example `[slug]`. Review the [Page types](../packages/types/src/Page.ts) and the host's OpenAPI document for required fields and supported operations.
 

@@ -18,7 +18,7 @@ const options = {
     restore: (req: import('express').Request, id: string, revisionId: string) =>
         restorePageAtRevision(String(req.params.projectId), req.user!, id, revisionId),
     restoreDescription:
-        'Saves the content, template and settings of that revision as a new revision. Later revisions stay in the history. The place in the page tree, slug and status are unchanged; the page is live as saved.'
+        'Saves the content, template and settings of that revision as a new revision. Later revisions stay in the history. The place in the page tree, slug and status are unchanged; it goes live as saved when the person may publish, and otherwise waits for a review like any edit to a live page.'
 };
 
 export const revisionsOpenapi = contentRevisionOpenApi(options);

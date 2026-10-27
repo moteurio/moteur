@@ -15,6 +15,7 @@ import {
     queryEntriesForProject
 } from '@moteurio/core/entries.js';
 import { listPages, getPage, getPageBySlug, resolveEntryUrl } from '@moteurio/core/pages.js';
+import { publicPage, publicPages } from '@moteurio/core/pages/publishedPages.js';
 import type { PageNode } from '@moteurio/types/Page.js';
 import { selectFields, selectFieldsFromList } from '@moteurio/core/fieldSelection.js';
 import {
@@ -149,7 +150,16 @@ async function deliveryFor(
     collection: { resources: ApiCollectionResource[] },
     req: Request
 ): Promise<Delivery> {
-    const links = await pageLinkContext(projectId);
+    const resource = collection.resources.find(r => r.resourceType === 'page');
+    const links = await pageLinkContext(projectId, {
+        published:
+            !req.previewAuth &&
+            (!resource ||
+                usePublishedEntryView(
+                    req,
+                    getStatusFilter(resource, isPublishedOnlyDelivery(req), req.previewAuth)
+                ))
+    });
     const locale = parseLocaleQuery(req);
     return {
         projectId,
@@ -358,6 +368,8 @@ router.get('/:collectionId/pages', async (req: Request, res: Response) => {
         let pages = await listPages(projectId, {
             templateId: pageResource.resourceId === 'pages' ? undefined : pageResource.resourceId
         });
+        // Sites get each page as published; changes waiting for review stay out.
+        if (usePublishedEntryView(req, statuses)) pages = await publicPages(projectId, pages);
         pages = pages.filter(p => 'status' in p && statuses.includes((p as any).status));
         const delivery = await deliveryFor(projectId, collection, req);
         pages = await Promise.all(pages.map(p => deliverPage(p, delivery)));
@@ -379,10 +391,12 @@ router.get('/:collectionId/pages/by-slug/:slug', async (req: Request, res: Respo
         const pageResource = collection.resources.find(r => r.resourceType === 'page');
         if (!pageResource)
             return void res.status(404).json({ error: 'Collection does not expose pages' });
-        const stored = await getPageBySlug(projectId, slug, parseLocaleQuery(req));
-        if (!stored) return void res.status(404).json({ error: 'Page not found' });
         const apiKeyOnly = isPublishedOnlyDelivery(req);
         const statuses = getStatusFilter(pageResource, apiKeyOnly, req.previewAuth);
+        const stored = await getPageBySlug(projectId, slug, parseLocaleQuery(req), {
+            published: usePublishedEntryView(req, statuses)
+        });
+        if (!stored) return void res.status(404).json({ error: 'Page not found' });
         if (!('status' in stored) || !statuses.includes((stored as any).status))
             return void res.status(404).json({ error: 'Page not found' });
         return void res.json(
@@ -405,9 +419,13 @@ router.get('/:collectionId/pages/:id', async (req: Request, res: Response) => {
         const pageResource = collection.resources.find(r => r.resourceType === 'page');
         if (!pageResource)
             return void res.status(404).json({ error: 'Collection does not expose pages' });
-        const stored = await getPage(projectId, id);
         const apiKeyOnly = isPublishedOnlyDelivery(req);
         const statuses = getStatusFilter(pageResource, apiKeyOnly, req.previewAuth);
+        const file = await getPage(projectId, id);
+        const stored = usePublishedEntryView(req, statuses)
+            ? await publicPage(projectId, file)
+            : file;
+        if (!stored) return void res.status(404).json({ error: 'Page not found' });
         if (!('status' in stored) || !statuses.includes((stored as any).status))
             return void res.status(404).json({ error: 'Page not found' });
         return void res.json(
