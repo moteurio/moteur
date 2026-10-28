@@ -20,7 +20,15 @@ import { hasApprovedReview, useApprovals } from './reviews.js';
 import { triggerEvent } from './utils/eventBus.js';
 import { getProjectJson, putProjectJson, hasProjectKey } from './utils/projectStorage.js';
 import { entryKey } from './utils/storageKeys.js';
-import { addAndCommit, getLog, isGitRepo, push, show, type CommitInfo } from './git/gitService.js';
+import {
+    addAndCommit,
+    getLog,
+    hasRemote,
+    isGitRepo,
+    schedulePush,
+    show,
+    type CommitInfo
+} from './git/gitService.js';
 import { dispatch as webhookDispatch } from './webhooks/webhookService.js';
 import { runEntryScanDebounced } from './radar/index.js';
 import {
@@ -595,7 +603,7 @@ async function publishEntryUnlocked(
     let commitHash: string | undefined;
     if (isGitRepo(dir)) {
         try {
-            const h = addAndCommit(
+            const h = await addAndCommit(
                 dir,
                 [entryKey(modelId, entryId)],
                 `Publish ${modelId}/${commitRef(entry, entryId)} — ${user.name ?? user.id}`,
@@ -642,7 +650,7 @@ async function publishEntryUnlocked(
         await putProjectJson(projectId, entryKey(modelId, entryId), entry);
         if (isGitRepo(dir)) {
             try {
-                const pointerHash = addAndCommit(
+                const pointerHash = await addAndCommit(
                     dir,
                     [entryKey(modelId, entryId)],
                     `Record publishedCommit for ${modelId}/${entryId}`,
@@ -665,22 +673,25 @@ async function publishEntryUnlocked(
                         )
                     );
                 }
-                if (!push(dir)) {
-                    log(
-                        toActivityEvent(
-                            projectId,
-                            'git',
-                            'repo',
-                            'git_push_failed',
-                            user,
-                            undefined,
-                            {
-                                context: 'publish_entry',
-                                paths: [entryKey(modelId, entryId)]
-                            }
-                        )
-                    );
-                }
+                // In the background, with the commits that follow soon; only where there's a remote.
+                if (hasRemote(dir))
+                    schedulePush(dir, pushed => {
+                        if (pushed) return;
+                        log(
+                            toActivityEvent(
+                                projectId,
+                                'git',
+                                'repo',
+                                'git_push_failed',
+                                user,
+                                undefined,
+                                {
+                                    context: 'publish_entry',
+                                    paths: [entryKey(modelId, entryId)]
+                                }
+                            )
+                        );
+                    });
             } catch (err) {
                 log(
                     toActivityEvent(
@@ -742,15 +753,15 @@ async function publishEntryUnlocked(
  * Get revision history for an entry from git log.
  * Each commit that touched the entry file is one revision (newest first).
  */
-export function getEntryRevisions(
+export async function getEntryRevisions(
     projectId: string,
     modelId: string,
     entryId: string,
     maxCount = 20
-): EntryRevision[] {
+): Promise<EntryRevision[]> {
     const dir = projectDir(projectId);
     const relativePath = entryKey(modelId, entryId);
-    const commits: CommitInfo[] = getLog(dir, relativePath, maxCount);
+    const commits: CommitInfo[] = await getLog(dir, relativePath, maxCount);
 
     return commits.map((c, i) => ({
         id: c.hash,
@@ -766,15 +777,15 @@ export function getEntryRevisions(
  * meta.audit.publishedCommit). Returns null when the hash is malformed or the entry
  * did not exist at that commit.
  */
-export function getEntryAtRevision(
+export async function getEntryAtRevision(
     projectId: string,
     modelId: string,
     entryId: string,
     revisionId: string
-): Entry | null {
+): Promise<Entry | null> {
     if (!isValidId(modelId) || !isValidId(entryId) || !/^[0-9a-f]{7,40}$/i.test(revisionId))
         return null;
-    const raw = show(projectDir(projectId), revisionId, entryKey(modelId, entryId));
+    const raw = await show(projectDir(projectId), revisionId, entryKey(modelId, entryId));
     if (!raw) return null;
     try {
         return JSON.parse(raw) as Entry;
@@ -812,7 +823,7 @@ async function restoreEntryAtRevisionUnlocked(
     options?: EntryServiceOptions
 ): Promise<Restored<Entry>> {
     const current = await getEntry(user, projectId, modelId, entryId);
-    const snapshot = getEntryAtRevision(projectId, modelId, entryId, revisionId);
+    const snapshot = await getEntryAtRevision(projectId, modelId, entryId, revisionId);
     if (!snapshot) throw new Error('Revision not found');
     const restored = await updateEntry(
         user,

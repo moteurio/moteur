@@ -1,7 +1,7 @@
 import { spawn, spawnSync } from 'child_process';
 import fs from 'fs/promises';
 import path from 'path';
-import { existsSync } from 'fs';
+import { existsSync, readFileSync } from 'fs';
 import { gitAuthEnv } from '../gitCredentials.js';
 
 /** Paths to exclude from the repo. Workspace and user data are gitignored; content is tracked. */
@@ -44,6 +44,47 @@ function git(
         throw e;
     }
     return (r.stdout ?? '').trim();
+}
+
+/** `gitAsync` as text: what most commands answer. The server keeps answering while Git works. */
+async function run(
+    projectDir: string,
+    args: string[],
+    env?: Record<string, string>
+): Promise<string> {
+    return (await gitAsync(projectDir, args, undefined, env)).toString('utf-8').trim();
+}
+
+const queues = new Map<string, Promise<unknown>>();
+
+/**
+ * One Git change at a time in a repository (two would meet on its index.lock); different
+ * projects' repositories work side by side.
+ */
+function inRepo<T>(projectDir: string, work: () => Promise<T>): Promise<T> {
+    const previous = queues.get(projectDir) ?? Promise.resolve();
+    const next = previous.then(work, work);
+    const settled = next.catch(() => undefined);
+    queues.set(projectDir, settled);
+    void settled.then(() => {
+        if (queues.get(projectDir) === settled) queues.delete(projectDir);
+    });
+    return next;
+}
+
+/** Every repository's Git work done (tests clean up after it; shutting down waits for it). */
+export async function gitIdle(): Promise<void> {
+    while (queues.size) await Promise.all([...queues.values()]);
+}
+
+function authorEnv(author: GitAuthor | { name?: string; email?: string; id?: string }) {
+    const { name, email } = safeAuthor(author);
+    return {
+        GIT_AUTHOR_NAME: name,
+        GIT_AUTHOR_EMAIL: email,
+        GIT_COMMITTER_NAME: name,
+        GIT_COMMITTER_EMAIL: email
+    };
 }
 
 /**
@@ -137,27 +178,28 @@ export function addAndCommit(
     relativePaths: string[],
     message: string,
     author: GitAuthor | { name?: string; email?: string; id?: string }
-): string {
-    const { name, email } = safeAuthor(author);
-    const env = {
-        GIT_AUTHOR_NAME: name,
-        GIT_AUTHOR_EMAIL: email,
-        GIT_COMMITTER_NAME: name,
-        GIT_COMMITTER_EMAIL: email
-    };
-    if (relativePaths.length === 0) return '';
+): Promise<string> {
+    if (relativePaths.length === 0) return Promise.resolve('');
+    const env = authorEnv(author);
     const normalized = relativePaths.map(p => p.replace(/\\/g, '/'));
-    // -A stages additions, modifications, and deletions for the given paths
-    git(projectDir, ['add', '-A', '--', ...normalized], env);
+    return inRepo(projectDir, async () => {
+        // -A stages additions, modifications, and deletions for the given paths
+        await run(projectDir, ['add', '-A', '--', ...normalized], env);
+        if (await nothingStaged(projectDir, env)) return '';
+        await run(projectDir, ['commit', '-m', message], env);
+        return run(projectDir, ['rev-parse', 'HEAD']);
+    });
+}
+
+/** `git diff --cached --quiet`: exit 0 when nothing is staged, 1 when something is. */
+async function nothingStaged(projectDir: string, env: Record<string, string>): Promise<boolean> {
     try {
-        git(projectDir, ['diff', '--cached', '--quiet'], env);
-        // No staged changes — no new commit
-        return '';
-    } catch {
-        // exit 1 = staged changes; commit only then
-        git(projectDir, ['commit', '-m', message], env);
+        await run(projectDir, ['diff', '--cached', '--quiet'], env);
+        return true;
+    } catch (err) {
+        if ((err as { status?: number }).status === 1) return false;
+        throw err;
     }
-    return git(projectDir, ['rev-parse', 'HEAD']);
 }
 
 /**
@@ -167,21 +209,14 @@ export function addAllAndCommit(
     projectDir: string,
     message: string,
     author: GitAuthor | { name?: string; email?: string; id?: string }
-): string {
-    const { name, email } = safeAuthor(author);
-    const env = {
-        GIT_AUTHOR_NAME: name,
-        GIT_AUTHOR_EMAIL: email,
-        GIT_COMMITTER_NAME: name,
-        GIT_COMMITTER_EMAIL: email
-    };
-    git(projectDir, ['add', '-A'], env);
-    try {
-        git(projectDir, ['diff', '--cached', '--quiet'], env);
-    } catch {
-        git(projectDir, ['commit', '-m', message], env);
-    }
-    return git(projectDir, ['rev-parse', 'HEAD']);
+): Promise<string> {
+    const env = authorEnv(author);
+    return inRepo(projectDir, async () => {
+        await run(projectDir, ['add', '-A'], env);
+        if (!(await nothingStaged(projectDir, env)))
+            await run(projectDir, ['commit', '-m', message], env);
+        return run(projectDir, ['rev-parse', 'HEAD']);
+    });
 }
 
 export interface CommitInfo {
@@ -227,15 +262,24 @@ export function getRepoLog(projectDir: string, maxCount = 50): CommitInfo[] {
 /**
  * Get commit history for a single file (relative path).
  */
-export function getLog(projectDir: string, relativePath: string, maxCount = 50): CommitInfo[] {
+export async function getLog(
+    projectDir: string,
+    relativePath: string,
+    maxCount = 50
+): Promise<CommitInfo[]> {
     if (!isGitRepo(projectDir)) return [];
     const normalized = relativePath.replace(/\\/g, '/');
     try {
-        const out = git(
-            projectDir,
-            ['log', '-n', String(maxCount), '--format=%H%n%s%n%an%n%ae%n%aI', '--', normalized],
-            undefined,
-            1024 * 1024
+        // After the commits already waiting in this repository: history as the last save left it.
+        const out = await inRepo(projectDir, () =>
+            run(projectDir, [
+                'log',
+                '-n',
+                String(maxCount),
+                '--format=%H%n%s%n%an%n%ae%n%aI',
+                '--',
+                normalized
+            ])
         );
         if (!out) return [];
         const lines = out.split(/\n/);
@@ -260,15 +304,16 @@ export function getLog(projectDir: string, relativePath: string, maxCount = 50):
 /**
  * Get file content at a given revision. Returns null if file did not exist at that rev.
  */
-export function show(projectDir: string, rev: string, relativePath: string): string | null {
+export async function show(
+    projectDir: string,
+    rev: string,
+    relativePath: string
+): Promise<string | null> {
     if (!isGitRepo(projectDir)) return null;
     const normalized = relativePath.replace(/\\/g, '/');
     try {
-        return git(
-            projectDir,
-            ['show', '--end-of-options', `${rev}:${normalized}`],
-            undefined,
-            10 * 1024 * 1024
+        return await inRepo(projectDir, () =>
+            run(projectDir, ['show', '--end-of-options', `${rev}:${normalized}`])
         );
     } catch {
         return null;
@@ -276,9 +321,17 @@ export function show(projectDir: string, rev: string, relativePath: string): str
 }
 
 /** Run git asynchronously and collect stdout (binary-safe). Rejects on a non-zero exit. */
-function gitAsync(projectDir: string, args: string[], input?: string): Promise<Buffer> {
+function gitAsync(
+    projectDir: string,
+    args: string[],
+    input?: string,
+    env?: Record<string, string>
+): Promise<Buffer> {
     return new Promise((resolve, reject) => {
-        const child = spawn('git', args, { cwd: projectDir });
+        const child = spawn('git', args, {
+            cwd: projectDir,
+            ...(env && { env: { ...process.env, ...env } })
+        });
         const out: Buffer[] = [];
         const err: Buffer[] = [];
         child.stdout.on('data', (chunk: Buffer) => out.push(chunk));
@@ -286,7 +339,13 @@ function gitAsync(projectDir: string, args: string[], input?: string): Promise<B
         child.on('error', reject);
         child.on('close', code => {
             if (code === 0) resolve(Buffer.concat(out));
-            else reject(new Error(Buffer.concat(err).toString() || `git ${args[0]} failed`));
+            else
+                reject(
+                    Object.assign(
+                        new Error(Buffer.concat(err).toString() || `git ${args[0]} failed`),
+                        { status: code }
+                    )
+                );
         });
         // Git may exit before reading its input (EPIPE); 'close' above reports why.
         child.stdin.on('error', () => {});
@@ -404,23 +463,74 @@ export function setRemoteOrigin(projectDir: string, remoteUrl: string): void {
 export function hasRemote(projectDir: string): boolean {
     if (!isGitRepo(projectDir)) return false;
     try {
-        return git(projectDir, ['remote']).trim().length > 0;
+        // Asked on every save: the repository's config says it, with no Git process to start.
+        return /^\[remote "/m.test(readFileSync(path.join(projectDir, '.git', 'config'), 'utf-8'));
     } catch {
         return false;
     }
 }
 
-export function push(projectDir: string): boolean {
-    if (!isGitRepo(projectDir)) return false;
-    try {
-        // A branch never pushed has no upstream: the first push sets it, on origin.
-        const env = pushEnv(projectDir);
-        if (upstreamOf(projectDir)) git(projectDir, ['push'], env);
-        else git(projectDir, ['push', '--set-upstream', 'origin', 'HEAD'], env);
-        return true;
-    } catch {
-        return false;
-    }
+/**
+ * Push to the remote now. False when it failed. Pushes take turns with each other, not with
+ * commits: a push only reads what's committed (and moves origin's ref), so a save never waits on
+ * the network, even in the same project.
+ */
+export function push(projectDir: string): Promise<boolean> {
+    if (!isGitRepo(projectDir)) return Promise.resolve(false);
+    return inRepo(`${projectDir}\0push`, async () => {
+        try {
+            // A branch never pushed has no upstream: the first push sets it, on origin.
+            const env = pushEnv(projectDir);
+            const upstream = await run(projectDir, [
+                'rev-parse',
+                '--abbrev-ref',
+                '--symbolic-full-name',
+                '@{u}'
+            ]).catch(() => '');
+            if (upstream) await run(projectDir, ['push'], env);
+            else await run(projectDir, ['push', '--set-upstream', 'origin', 'HEAD'], env);
+            return true;
+        } catch {
+            return false;
+        }
+    });
+}
+
+/** Quiet time after a commit before its push (`MOTEUR_GIT_PUSH_DELAY_MS`, default 2 s). */
+function pushDelay(): number {
+    const n = Number(process.env.MOTEUR_GIT_PUSH_DELAY_MS);
+    return Number.isFinite(n) && n >= 0 ? n : 2000;
+}
+
+const scheduled = new Map<string, { timer: NodeJS.Timeout; done: ((pushed: boolean) => void)[] }>();
+
+/**
+ * Push soon, in the background: saves never wait on the network. Commits made meanwhile go in
+ * the same push (one per quiet spell, not one per save). `done` hears whether it went.
+ */
+export function schedulePush(projectDir: string, done?: (pushed: boolean) => void): void {
+    const waiting = scheduled.get(projectDir);
+    if (waiting) clearTimeout(waiting.timer);
+    const callbacks = [...(waiting?.done ?? []), ...(done ? [done] : [])];
+    const timer = setTimeout(() => {
+        scheduled.delete(projectDir);
+        void push(projectDir).then(pushed => callbacks.forEach(cb => cb(pushed)));
+    }, pushDelay());
+    timer.unref?.();
+    scheduled.set(projectDir, { timer, done: callbacks });
+}
+
+/** Pushes waiting their turn, sent now (shutting down, tests). */
+export async function flushPushes(): Promise<void> {
+    const waiting = [...scheduled.entries()];
+    scheduled.clear();
+    await Promise.all(
+        waiting.map(async ([dir, { timer, done }]) => {
+            clearTimeout(timer);
+            const pushed = await push(dir);
+            done.forEach(cb => cb(pushed));
+        })
+    );
 }
 
 /** A push never waits for a password prompt, and uses the project's token when it has one. */

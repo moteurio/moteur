@@ -89,7 +89,7 @@ describe('publish & revisions (git integration)', () => {
     async function seedEntry(entry: Entry): Promise<void> {
         await putProjectJson(projectId, entryKey(modelId, entryId), entry);
         const { addAndCommit } = await import('../../src/git/gitService.js');
-        addAndCommit(projDir, [entryKey(modelId, entryId)], 'Seed entry', testUser);
+        await addAndCommit(projDir, [entryKey(modelId, entryId)], 'Seed entry', testUser);
     }
 
     describe('publishEntry', () => {
@@ -125,7 +125,7 @@ describe('publish & revisions (git integration)', () => {
 
             await publishEntry(testUser, projectId, modelId, entryId);
 
-            const log = getLog(projDir, entryKey(modelId, entryId), 10);
+            const log = await getLog(projDir, entryKey(modelId, entryId), 10);
             expect(log.length).toBeGreaterThanOrEqual(3);
             expect(log[0].message).toMatch(/publishedCommit/i);
             expect(log[1].message).toMatch(/Publish/);
@@ -235,9 +235,9 @@ describe('publish & revisions (git integration)', () => {
             entry!.data!.title = 'V2';
             await putProjectJson(projectId, entryKey(modelId, entryId), entry!);
             const { addAndCommit } = await import('../../src/git/gitService.js');
-            addAndCommit(projDir, [entryKey(modelId, entryId)], 'Update to V2', testUser);
+            await addAndCommit(projDir, [entryKey(modelId, entryId)], 'Update to V2', testUser);
 
-            const revisions = getEntryRevisions(projectId, modelId, entryId);
+            const revisions = await getEntryRevisions(projectId, modelId, entryId);
 
             expect(revisions.length).toBeGreaterThanOrEqual(2);
             expect(revisions[0].number).toBeGreaterThan(revisions[1].number);
@@ -251,7 +251,7 @@ describe('publish & revisions (git integration)', () => {
             await fs.mkdir(noGitProjDir, { recursive: true });
             vi.stubEnv('DATA_ROOT', noGitDir);
             try {
-                const revisions = getEntryRevisions('no-git', 'model', 'entry');
+                const revisions = await getEntryRevisions('no-git', 'model', 'entry');
                 expect(revisions).toEqual([]);
             } finally {
                 await fs.rm(noGitDir, { recursive: true, force: true }).catch(() => {});
@@ -266,13 +266,18 @@ describe('publish & revisions (git integration)', () => {
                 entry!.data!.title = `V${i}`;
                 await putProjectJson(projectId, entryKey(modelId, entryId), entry!);
                 const { addAndCommit } = await import('../../src/git/gitService.js');
-                addAndCommit(projDir, [entryKey(modelId, entryId)], `Update to V${i}`, testUser);
+                await addAndCommit(
+                    projDir,
+                    [entryKey(modelId, entryId)],
+                    `Update to V${i}`,
+                    testUser
+                );
             }
 
-            const all = getEntryRevisions(projectId, modelId, entryId);
+            const all = await getEntryRevisions(projectId, modelId, entryId);
             expect(all.length).toBeGreaterThanOrEqual(5);
 
-            const limited = getEntryRevisions(projectId, modelId, entryId, 2);
+            const limited = await getEntryRevisions(projectId, modelId, entryId, 2);
             expect(limited.length).toBe(2);
         });
     });
@@ -284,23 +289,23 @@ describe('publish & revisions (git integration)', () => {
             entry!.data!.title = 'V2';
             await putProjectJson(projectId, entryKey(modelId, entryId), entry!);
             const { addAndCommit } = await import('../../src/git/gitService.js');
-            addAndCommit(projDir, [entryKey(modelId, entryId)], 'Update to V2', testUser);
+            await addAndCommit(projDir, [entryKey(modelId, entryId)], 'Update to V2', testUser);
 
-            const [latest, first] = getEntryRevisions(projectId, modelId, entryId);
-            expect(getEntryAtRevision(projectId, modelId, entryId, first.id)?.data?.title).toBe(
-                'Hello World'
-            );
-            expect(getEntryAtRevision(projectId, modelId, entryId, latest.id)?.data?.title).toBe(
-                'V2'
-            );
+            const [latest, first] = await getEntryRevisions(projectId, modelId, entryId);
+            expect(
+                (await getEntryAtRevision(projectId, modelId, entryId, first.id))?.data?.title
+            ).toBe('Hello World');
+            expect(
+                (await getEntryAtRevision(projectId, modelId, entryId, latest.id))?.data?.title
+            ).toBe('V2');
         });
 
         it('refuses anything but a commit hash', async () => {
             await seedEntry(makeEntry());
             for (const rev of ['HEAD', 'HEAD~1', '"; touch pwned; "', '../x', 'zzzzzzz']) {
-                expect(getEntryAtRevision(projectId, modelId, entryId, rev)).toBeNull();
+                expect(await getEntryAtRevision(projectId, modelId, entryId, rev)).toBeNull();
             }
-            expect(getEntryAtRevision(projectId, modelId, entryId, 'abcdef1')).toBeNull();
+            expect(await getEntryAtRevision(projectId, modelId, entryId, 'abcdef1')).toBeNull();
             await expect(fs.access(path.join(projDir, 'pwned'))).rejects.toThrow();
         });
     });

@@ -69,7 +69,7 @@ describe('review workflow', () => {
         });
         const entry: Entry = { id: 'e1', type: 'article', status: 'draft', data: { title: 'v1' } };
         await putProjectJson(projectId, entryKey('article', 'e1'), entry);
-        addAndCommit(projDir, ['.'], 'seed', admin);
+        await addAndCommit(projDir, ['.'], 'seed', admin);
     });
 
     afterEach(async () => {

@@ -58,19 +58,19 @@ describe('schemaRevisions', () => {
             fields: { title: { type: 'text', label: 'Title' } }
         };
         await putProjectJson(projectId, modelKey('article'), v1);
-        addAndCommit(projDir, [modelKey('article')], 'Create model article', testUser);
+        await addAndCommit(projDir, [modelKey('article')], 'Create model article', testUser);
 
         const v2 = { ...v1, label: 'Article v2' };
         await putProjectJson(projectId, modelKey('article'), v2);
-        addAndCommit(projDir, [modelKey('article')], 'Update model article', testUser);
+        await addAndCommit(projDir, [modelKey('article')], 'Update model article', testUser);
 
         const gitPath = await projectSchemaGitPath(projectId, 'model', 'article');
         expect(gitPath).toBe(modelKey('article'));
 
-        const revisions = getSchemaRevisions(projectId, 'model', 'article', gitPath!, 10);
+        const revisions = await getSchemaRevisions(projectId, 'model', 'article', gitPath!, 10);
         expect(revisions.length).toBeGreaterThanOrEqual(2);
 
-        const old = getSchemaAtRevision(projectId, gitPath!, revisions[1].id);
+        const old = await getSchemaAtRevision(projectId, gitPath!, revisions[1].id);
         expect(old?.label).toBe('Article');
     });
 
@@ -81,7 +81,7 @@ describe('schemaRevisions', () => {
             fields: { title: { type: 'text', label: 'Title' } }
         };
         await putProjectJson(projectId, modelKey('page'), v1);
-        addAndCommit(projDir, [modelKey('page')], 'Create model page', testUser);
+        await addAndCommit(projDir, [modelKey('page')], 'Create model page', testUser);
 
         const v2 = {
             ...v1,
@@ -91,10 +91,10 @@ describe('schemaRevisions', () => {
             }
         };
         await putProjectJson(projectId, modelKey('page'), v2);
-        addAndCommit(projDir, [modelKey('page')], 'Add body field', testUser);
+        await addAndCommit(projDir, [modelKey('page')], 'Add body field', testUser);
 
         const gitPath = (await projectSchemaGitPath(projectId, 'model', 'page'))!;
-        const [, first] = getSchemaRevisions(projectId, 'model', 'page', gitPath, 10);
+        const [, first] = await getSchemaRevisions(projectId, 'model', 'page', gitPath, 10);
         await restoreSchemaAtRevision(testUser, projectId, 'model', 'page', gitPath, first.id);
         const current = await import('../src/models.js').then(m =>
             m.getModelSchema(testUser, projectId, 'page')

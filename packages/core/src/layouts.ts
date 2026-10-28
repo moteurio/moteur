@@ -148,7 +148,11 @@ export async function restoreLayoutAtRevision(
 ): Promise<Restored<Layout>> {
     assertCanWrite(user);
     const current = await getLayout(user, projectId, id);
-    const snapshot = getFileAtRevision(projectId, layoutKey(id), revisionId) as Layout | null;
+    const snapshot = (await getFileAtRevision(
+        projectId,
+        layoutKey(id),
+        revisionId
+    )) as Layout | null;
     if (!snapshot) throw new Error('Revision not found');
     // The whole version: keys added since are cleared (undefined drops out of the JSON).
     const cleared = Object.fromEntries(Object.keys(current).map(k => [k, undefined]));

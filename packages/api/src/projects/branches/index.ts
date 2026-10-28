@@ -87,7 +87,7 @@ router.post('/switch', requireBranchWrite, async (req: Request, res: Response) =
             checkoutBranch(dir, branch);
             (await getContentIndex()).invalidate(projectId);
         });
-        if (!push(dir)) {
+        if (!(await push(dir))) {
             log(
                 toActivityEvent(projectId, 'git', 'repo', 'git_push_failed', req.user, undefined, {
                     context: 'branch_switch',
@@ -118,7 +118,7 @@ router.post('/merge', requireBranchWrite, async (req: Request, res: Response) =>
             mergeBranch(dir, sourceBranch, author);
             (await getContentIndex()).invalidate(projectId);
         });
-        if (!push(dir)) {
+        if (!(await push(dir))) {
             log(
                 toActivityEvent(projectId, 'git', 'repo', 'git_push_failed', req.user, undefined, {
                     context: 'branch_merge',

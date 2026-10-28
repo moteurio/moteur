@@ -49,7 +49,7 @@ export function createContentRevisionRouter(options: ContentRevisionMountOptions
             }
             try {
                 await options.assertExists(req);
-                const revisions = getFileRevisions(
+                const revisions = await getFileRevisions(
                     projectId,
                     options.gitPath(projectId, id),
                     parseMax(req.query.max)
@@ -73,7 +73,7 @@ export function createContentRevisionRouter(options: ContentRevisionMountOptions
             }
             try {
                 await options.assertExists(req);
-                const body = getFileAtRevision(
+                const body = await getFileAtRevision(
                     projectId,
                     options.gitPath(projectId, id),
                     revisionId

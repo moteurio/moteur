@@ -62,7 +62,7 @@ router.post('/push', requireProjectAdmin, async (req: Request, res: Response) =>
             return void res
                 .status(400)
                 .json({ error: 'The project has no Git address to push to' });
-        const pushed = push(dir);
+        const pushed = await push(dir);
         return void res.json({ pushed, ...statusOf(projectId) });
     } catch (err: unknown) {
         return void sendApiError(res, req, err);
@@ -117,7 +117,7 @@ router.get('/log', requireProjectAccess, async (req: Request, res: Response) => 
             if (underRoot.startsWith('..') || path.isAbsolute(underRoot)) {
                 return void res.status(400).json({ error: 'Path escapes project directory' });
             }
-            commits = getLog(dir, underRoot.replace(/\\/g, '/'), max);
+            commits = await getLog(dir, underRoot.replace(/\\/g, '/'), max);
         } else {
             commits = getRepoLog(dir, max);
         }

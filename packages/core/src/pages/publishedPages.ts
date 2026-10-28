@@ -42,13 +42,13 @@ async function commitHolding(
     const dir = projectDir(projectId);
     const key = pageKey(page.id);
     try {
-        const last = getLog(dir, key, 1)[0]?.hash;
+        const last = (await getLog(dir, key, 1))[0]?.hash;
         if (last) {
             const raw = (await readBlobs(dir, [`${last}:${key}`])).get(`${last}:${key}`);
             if (raw != null && sameContent(JSON.parse(raw), page)) return last;
         }
         const message = `Publish page ${page.label || page.id} — ${user.name ?? user.id}`;
-        return addAndCommit(dir, [key], message, user) || null;
+        return (await addAndCommit(dir, [key], message, user)) || null;
     } catch {
         return null;
     }

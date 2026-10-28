@@ -6,7 +6,7 @@ import { onEvent } from '../utils/eventBus.js';
 import { getProjectById } from '../projects.js';
 import { projectDir } from '../utils/pathUtils.js';
 import { log, toActivityEvent } from '../activityLogger.js';
-import { addAndCommit, GITIGNORE_LINES, hasRemote, isGitRepo, push } from './gitService.js';
+import { addAndCommit, GITIGNORE_LINES, hasRemote, isGitRepo, schedulePush } from './gitService.js';
 import type { User } from '@moteurio/types/User.js';
 import { runGitCommitHooks } from '../plugins/gitHooks.js';
 import { batchFor } from '../contentBatch.js';
@@ -52,7 +52,7 @@ export async function commitContentChange(
 
     let commitHash: string;
     try {
-        commitHash = addAndCommit(dir, paths, message, user);
+        commitHash = await addAndCommit(dir, paths, message, user);
     } catch (err) {
         console.warn(
             `[Moteur] Git commit error for project "${projectId}":`,
@@ -81,8 +81,9 @@ export async function commitContentChange(
 
     // A project without a remote keeps its history locally; there is nothing to push or report.
     if (!hasRemote(dir)) return commitHash || undefined;
-    const pushed = push(dir);
-    if (!pushed) {
+    // Pushed in the background, with any commits that follow soon: the save doesn't wait on it.
+    schedulePush(dir, pushed => {
+        if (pushed) return;
         console.warn(
             `[Moteur] Git push skipped or failed for project "${projectId}" (no remote, auth, or network).`
         );
@@ -93,7 +94,7 @@ export async function commitContentChange(
                 reason: 'push_skipped_or_failed'
             })
         );
-    }
+    });
     return commitHash || undefined;
 }
 
