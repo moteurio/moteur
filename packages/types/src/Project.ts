@@ -43,6 +43,13 @@ export interface ProjectSchema {
     siteUrl?: string;
 
     /**
+     * Where Studio's Preview opens a draft: the address of the site's preview route, which renders
+     * pages as they are now (e.g. https://example.com/preview). The page's path and a short-lived
+     * `?preview=` token are added. Default: `siteUrl`, for a site that renders on request.
+     */
+    previewUrl?: string;
+
+    /**
      * How a page's address shows its language. `others` (the default): the default language has
      * no prefix and the others do (/about, /fr/a-propos). `all`: every language has one (/en/about).
      * `none`: no prefix, languages differ by their slugs alone (/about, /a-propos).

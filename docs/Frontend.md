@@ -89,6 +89,34 @@ Channel reads then use the **latest** entry view (drafts included per channel st
 
 A token made for one entry (`entryId`) or one page (`pageId`) shows only that one as it is now: in lists, and read by id or slug. Everything else comes back as published, so a preview link can't be used to read the project's other drafts. A token with neither shows every draft, for previewing the whole site. Draft pages never appear in navigation or menus.
 
+### Studio's Preview
+
+Preview makes a token for the page or entry, and opens the page's address under the project's **preview address** with `?preview=<token>`. That address is set in Setup › Project; when it's empty, Preview uses the site address.
+
+- **A site that renders on request** reads `?preview=` on any page, so its site address is enough.
+- **A static site** has nothing to render a draft with, so it adds one on-demand route and sets the preview address to it.
+
+In Astro (`@moteurio/astro`), that route reuses the site's views:
+
+```astro
+---
+// src/pages/preview/[...path].astro   → preview address: https://example.com/preview
+export const prerender = false;
+import { previewPage } from '@moteurio/astro';
+import type { MoteurSchema } from '../../moteur';
+import { views } from '../../views';
+
+const page = await previewPage<MoteurSchema>(Astro);
+if (!page) return new Response('This preview link has expired.', { status: 404 });
+const View = views.for(page)!;
+---
+<View page={page} />
+```
+
+- **Everything else stays static.** The host's adapter (Netlify, Vercel, Node…) serves this one route.
+- **Never cached or indexed:** the answer is sent with `Cache-Control: private, no-store` and `X-Robots-Tag: noindex`.
+- **A stale link** (without a token, with an expired one, or at an address no page has) gets the 404.
+
 ## Starters
 
 Official stacks live in [moteur-starters](https://github.com/moteurio/moteur-starters). See [Starters.md](Starters.md). Use `create-moteur-app` for a new project with a wired frontend scaffold.
