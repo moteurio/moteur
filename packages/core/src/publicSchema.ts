@@ -22,6 +22,7 @@ import { listBlocks } from './blocks.js';
 import { findStructure, listStructures } from './structures.js';
 import { getProjectById } from './projects.js';
 import { generateTypes } from './typegen.js';
+import { childFieldsOf } from './fieldWalk.js';
 import { listProjectKeys } from './utils/projectStorage.js';
 import { modelListPrefix } from './utils/storageKeys.js';
 
@@ -76,12 +77,6 @@ const PUBLIC_OPTIONS = new Set([
 
 const textOf = (v: unknown): Localizable | undefined =>
     typeof v === 'string' || (v && typeof v === 'object') ? (v as Localizable) : undefined;
-
-/** The fields of an object field, wherever the schema keeps them. */
-const childFieldsOf = (f: Field): Fields | undefined =>
-    (f.data as Fields | undefined) ??
-    (f.fields as Fields | undefined) ??
-    (f.properties as Fields | undefined);
 
 /** A schema's fields, without what isn't public. */
 export function publicFields(fields: Fields | undefined): Record<string, PublicField> {
@@ -293,6 +288,7 @@ export function schemaTypes(schema: PublicSchema): string {
         projectId: schema.projectId,
         defaultLocale: schema.defaultLocale,
         locales: schema.locales,
+        channelId: schema.channelId,
         models: Object.values(schema.models),
         templates: Object.values(schema.templates),
         blocks: schema.blocks,

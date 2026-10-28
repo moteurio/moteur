@@ -224,6 +224,8 @@ Publishing captures the git commit hash as `publishedCommit`. When the public AP
 
 When `revision > publishedRevision`, the entry has **unpublished changes**. The studio shows an "N unpublished changes" badge.
 
+Pages keep their published version too, but record it differently: `publishedCommit` and `publishedAt` sit at the top of the page file, with no revision counter, and the pointer is saved without a commit of its own (the page's next commit carries it). Whether a live page has waiting changes is found by comparing it with that commit's version. See [Pages and navigation](Pages%20and%20navigation.md).
+
 ### Public API behaviour
 
 The public API reads `entry.json` and checks `publishedCommit` and `publishedRevision`:

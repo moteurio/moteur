@@ -279,6 +279,34 @@ describe('types --check', () => {
         );
         await expect(execute(typesCmd, { check: true }, session)).rejects.toThrow(/needs --out/);
     });
+
+    it('passes when only the line endings differ', async () => {
+        const out = file(current.replace(/\n/g, '\r\n'));
+        await expect(execute(typesCmd, { out, check: true }, session)).resolves.toMatch(
+            /up to date/
+        );
+    });
+
+    it('writes the command that made the file in its header, and checks it the same way', async () => {
+        const header =
+            '// Make it again after a schema changes: moteur types --channel site --out <file>\n';
+        const own = {
+            ...session,
+            client: async () => ({ request: async () => header + current }) as never
+        };
+        const out = file();
+        await execute(typesCmd, { out, channel: 'site' }, own);
+        expect(fs.readFileSync(out, 'utf8')).toContain(
+            `moteur types --channel site --out ${/\s/.test(out) ? JSON.stringify(out) : out}\n`
+        );
+        await expect(
+            execute(typesCmd, { out, channel: 'site', check: true }, own)
+        ).resolves.toMatch(/up to date/);
+        fs.writeFileSync(out, header);
+        await expect(execute(typesCmd, { out, channel: 'site', check: true }, own)).rejects.toThrow(
+            /Make it again: moteur types --channel site --out /
+        );
+    });
 });
 
 describe('typesDiff', () => {

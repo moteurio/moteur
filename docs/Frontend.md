@@ -53,6 +53,8 @@ The types come from the channel's schema, so the site's read-only key is enough:
 MOTEUR_API_KEY=… moteur types --channel site --out src/moteur.ts --check
 ```
 
+The check compares the file as written, apart from line endings, so leave it out of Prettier and other formatters (a `.prettierignore` line does it). Its header gives the command that made it.
+
 ## Pages and their addresses
 
 A delivered page has `path`, its address in the language read (`?locale=`, otherwise the default language), and `paths`, its address in each language. A route needs nothing else: `getStaticPaths` is one read, and `paths` gives the `hreflang` alternates.

@@ -30,9 +30,15 @@ export const GLOBAL_ARGS: ArgSpec[] = [
     { name: 'help', type: 'boolean', description: 'Show this help' }
 ];
 
-/** Every argument a command takes here: its own, --file/--data for a JSON body, the global ones. */
+/**
+ * Every argument a command takes here: its own, --file/--data for a JSON body (unless the
+ * command gives one of those names its own meaning), the global ones.
+ */
 export function argsOf(command: CommandSpec): ArgSpec[] {
-    return [...(command.args ?? []), ...(command.body === 'json' ? BODY_ARGS : []), ...GLOBAL_ARGS];
+    const own = command.args ?? [];
+    const body =
+        command.body === 'json' ? BODY_ARGS.filter(b => !own.some(a => a.name === b.name)) : [];
+    return [...own, ...body, ...GLOBAL_ARGS];
 }
 
 /** The command's arguments from the command line: options by name, words by position. */

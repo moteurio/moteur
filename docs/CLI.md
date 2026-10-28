@@ -2689,7 +2689,6 @@ The bundle comes from a file, or as the JSON body. { "$ref": "page:<ref>" } (or 
 | `--file <string>`    | The bundle (JSON) on this machine                                            |
 | `--dry-run`          | Check everything as if saving, then keep nothing                             |
 | `--wait <number>`    | Seconds to wait for the end before answering (0–60)                          |
-| `--file <string>`    | Read the JSON body from this file                                            |
 | `--data <string>`    | The JSON body, inline                                                        |
 
 ```bash

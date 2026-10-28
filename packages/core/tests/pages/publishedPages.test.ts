@@ -137,6 +137,19 @@ describe('a live page and its changes', () => {
         expect(await live(page.id)).toBe('One');
     });
 
+    it('publishes what was approved, even with a save coming in during the approval', async () => {
+        const page = await about();
+        await updatePage(projectId, writer, page.id, { fields: { headline: 'Two' } } as never);
+        const review = await submitForPageReview(projectId, writer, page.id);
+        const approving = approveReview(projectId, reviewer, review.id);
+        const sneaky = updatePage(projectId, writer, page.id, {
+            fields: { headline: 'Sneaky' }
+        } as never);
+        await Promise.all([approving, sneaky]);
+        expect(await live(page.id)).toBe('Two');
+        expect(await headline(getPage(projectId, page.id))).toBe('Sneaky');
+    });
+
     it('lets someone who can publish change a live page at once', async () => {
         const page = await about();
         await updatePage(projectId, admin, page.id, { fields: { headline: 'Now' } } as never);

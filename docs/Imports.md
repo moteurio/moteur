@@ -68,7 +68,7 @@ Imports and exports are for the project's admins: a bundle can change its models
 - **Ids:** pages and entries keep the `id` they are given, so importing again changes them instead of adding copies. A page without an id gets one.
 - **`existing`:** what to do with something already there (same id, type, handle or `from`): `update` it (the default; an entry's data is merged), `skip` it, or `fail` (and keep nothing).
 - **Files:** from a public HTTPS address (the server downloads it, refusing private network addresses) or inline in base64 with `name`. A file the library already has is used again, not added twice.
-- **Drafts:** pages and entries are saved as drafts. A page that is already live stays live as published, and the import's changes wait in it. With `"publish": true` they then go live in a second step, unless the person or agent needs approval (an agent, or a project whose workflow requires review): the import then waits as `awaiting_approval`, and one person approves it all with `moteur imports approve <id>` (`POST /imports/:id/approve`). An agent can't approve.
+- **Drafts:** pages and entries are saved as drafts. A page that is already live stays live as published, and the import's changes wait in it. With `"publish": true` they then go live in a second step, unless the person or agent needs approval (an agent, or a project whose workflow requires review): the import then waits as `awaiting_approval`, and one person approves it all with `moteur imports approve <id>` (`POST /imports/:id/approve`). An agent can't approve. Menus are live as soon as they're saved, so an agent's menus always wait for that approval, with `publish` or without.
 
 ## Jobs
 

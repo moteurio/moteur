@@ -14,7 +14,8 @@ import type {
     ImportIssue,
     ImportItemKind,
     ImportItemResult,
-    ImportPage
+    ImportPage,
+    ImportToPublish
 } from '@moteurio/types/Import.js';
 import { needsApproval } from '@moteurio/types';
 import { runInBatch, type ContentBatch } from '../contentBatch.js';
@@ -68,7 +69,9 @@ export type ImportOutcome = {
     items: ImportItemResult[];
     issues: ImportIssue[];
     commit?: string;
-    toPublish?: { pages: string[]; entries: { modelId: string; id: string }[] };
+    toPublish?: ImportToPublish;
+    /** On the way out of the save: an agent's menus, which become `toPublish.menus`. */
+    waitingMenus?: NonNullable<ImportToPublish['menus']>;
 };
 
 class ImportError extends Error {
@@ -283,6 +286,8 @@ type Context = {
     createdAssets: string[];
     batch: ContentBatch;
     tick: () => void;
+    /** An agent's menus, kept for the approval (a menu is live once saved). */
+    waitingMenus: NonNullable<ImportToPublish['menus']>;
 };
 
 /**
@@ -482,9 +487,13 @@ async function saveAll(ctx: Context): Promise<void> {
                       ? String((rest as { name?: unknown }).name)
                       : handle;
             const current = await getNavigationByHandle(projectId, handle);
+            if (current && whenExisting(ctx, `Menu "${handle}"`) === 'skip')
+                return { id: handle, action: 'skip' };
+            if (user.agent?.reviewOnly) {
+                ctx.waitingMenus.push({ handle, name, data: rest as Record<string, unknown> });
+                return { id: handle, action: current ? 'update' : 'create' };
+            }
             if (current) {
-                if (whenExisting(ctx, `Menu "${handle}"`) === 'skip')
-                    return { id: handle, action: 'skip' };
                 await updateNavigation(projectId, user, current.id, { ...rest, name } as never);
                 return { id: handle, action: 'update' };
             }
@@ -582,6 +591,7 @@ export async function importBundle(
                 issues: [],
                 createdAssets: [],
                 batch,
+                waitingMenus: [],
                 tick: () => {
                     options.onProgress?.(++done, total);
                     options.onTouched?.([...batch.paths]);
@@ -623,6 +633,7 @@ export async function importBundle(
             dryRun,
             items: saved.ctx.items,
             issues: [],
+            waitingMenus: saved.ctx.waitingMenus,
             ...(commit && { commit })
         };
     });
@@ -634,8 +645,11 @@ export async function importBundle(
             commit: outcome.commit
         })
     );
-    const toPublish = bundle.publish
+    const { waitingMenus, ...result } = outcome;
+    const menus = waitingMenus?.length ? { menus: waitingMenus } : {};
+    const toPublish: ImportToPublish | undefined = bundle.publish
         ? {
+              ...menus,
               // Folders have nothing to publish: publishImport passes them by.
               pages: outcome.items
                   .filter(i => i.kind === 'page' && i.action !== 'skip')
@@ -644,13 +658,15 @@ export async function importBundle(
                   .filter(i => i.kind === 'entry' && i.action !== 'skip')
                   .map(i => ({ modelId: i.id.split('/')[0]!, id: i.id.split('/')[1]! }))
           }
-        : undefined;
-    if (toPublish && needsApproval(user, project))
-        return { ...outcome, status: 'awaiting_approval', toPublish };
+        : waitingMenus?.length
+          ? { pages: [], entries: [], ...menus }
+          : undefined;
+    if (toPublish && (needsApproval(user, project) || toPublish.menus))
+        return { ...result, status: 'awaiting_approval', toPublish };
     const published = toPublish ? await publishImport(user, projectId, toPublish) : [];
     await afterImport(projectId, outcome.items, outcome.commit);
     return {
-        ...outcome,
+        ...result,
         ...(toPublish && { toPublish }),
         issues: published
     };
@@ -664,10 +680,20 @@ export async function importBundle(
 export async function publishImport(
     user: User,
     projectId: string,
-    toPublish: NonNullable<ImportOutcome['toPublish']>
+    toPublish: ImportToPublish
 ): Promise<ImportIssue[]> {
     const issues: ImportIssue[] = [];
     await withProjectWriteLock(projectId, async () => {
+        for (const { handle, name, data } of toPublish.menus ?? []) {
+            try {
+                const current = await getNavigationByHandle(projectId, handle);
+                if (current)
+                    await updateNavigation(projectId, user, current.id, { ...data, name } as never);
+                else await createNavigation(projectId, user, { ...data, name, handle } as never);
+            } catch (err) {
+                issues.push({ path: `menu:${handle}`, message: messageOf(err) });
+            }
+        }
         // A page's published version is the commit holding it: pages are not batched.
         for (const id of toPublish.pages) {
             try {

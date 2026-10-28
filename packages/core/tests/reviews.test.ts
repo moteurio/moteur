@@ -112,7 +112,8 @@ describe('review workflow', () => {
         await expect(createNavigation(projectId, translator, menu)).rejects.toMatchObject(
             forbidden
         );
-        const made = await createNavigation(projectId, agent, menu);
+        await expect(createNavigation(projectId, agent, menu)).rejects.toMatchObject(forbidden);
+        const made = await createNavigation(projectId, admin, menu);
         await expect(deleteNavigation(projectId, agent, made.id)).rejects.toMatchObject(forbidden);
 
         await expect(querySubmissions(translator, projectId, 'contact')).rejects.toMatchObject(
