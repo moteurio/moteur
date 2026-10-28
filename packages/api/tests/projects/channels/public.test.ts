@@ -54,6 +54,7 @@ import {
     resolveNavigation
 } from '@moteurio/core/navigations.js';
 import { getProjectById } from '@moteurio/core/projects.js';
+import { clearDeliveryCache, touchProject } from '@moteurio/core/deliveryCache.js';
 import { channelSchema } from '@moteurio/core/publicSchema.js';
 import channelsPublicRouter from '../../../src/projects/channels/public.js';
 import {
@@ -61,6 +62,9 @@ import {
     apiKeyAuth,
     requireChannelOrProjectAccess
 } from '../../../src/middlewares/auth.js';
+
+// Each test mocks its own content at the same addresses: nothing kept from the one before.
+beforeEach(() => clearDeliveryCache());
 
 const app = express();
 app.use(express.json());
@@ -326,6 +330,89 @@ describe('GET /projects/:projectId/channels/:channelId/:resourceId/entries', () 
             { id: 'n', type: 'articles', status: 'draft', data: { title: 'New' } }
         ]);
         expect(res.headers['x-total-count']).toBe('2');
+    });
+
+    it('keeps a site’s answers until the project changes, per API key', async () => {
+        vi.mocked(getPublishedEntryForProject).mockResolvedValue({
+            id: 'a',
+            type: 'articles',
+            status: 'published',
+            data: { title: 'One' }
+        });
+        const read = (key = 'key') =>
+            request(app).get('/projects/demo/channels/c1/articles/entries/a').set('x-api-key', key);
+        const first = await read();
+        expect(first.headers['x-moteur-cache']).toBe('miss');
+        const again = await read();
+        expect(again.headers['x-moteur-cache']).toBe('hit');
+        expect(again.body.data.title).toBe('One');
+        expect(getPublishedEntryForProject).toHaveBeenCalledTimes(1);
+
+        // Another key has its own answers (its channel limits may differ).
+        vi.mocked(verifyProjectApiKey).mockResolvedValue({
+            ok: true,
+            keyId: 'k2',
+            policy: { channelAllowlist: null, allowSiteWideReads: true }
+        });
+        expect((await read('other')).headers['x-moteur-cache']).toBe('miss');
+
+        // Any change to the project: answered afresh.
+        vi.mocked(getPublishedEntryForProject).mockResolvedValue({
+            id: 'a',
+            type: 'articles',
+            status: 'published',
+            data: { title: 'Two' }
+        });
+        touchProject('demo');
+        const changed = await read('other');
+        expect(changed.headers['x-moteur-cache']).toBe('miss');
+        expect(changed.body.data.title).toBe('Two');
+    });
+
+    it('works an answer out once when readers ask for it together', async () => {
+        let calls = 0;
+        vi.mocked(getPublishedEntryForProject).mockImplementation(async () => {
+            calls++;
+            await new Promise(r => globalThis.setTimeout(r, 30));
+            return { id: 'a', type: 'articles', status: 'published', data: { title: 'One' } };
+        });
+        const read = () =>
+            request(app)
+                .get('/projects/demo/channels/c1/articles/entries/a')
+                .set('x-api-key', 'key');
+        const [one, two] = await Promise.all([read(), read()]);
+        expect(calls).toBe(1);
+        expect([one.headers['x-moteur-cache'], two.headers['x-moteur-cache']].sort()).toEqual([
+            'miss',
+            'shared'
+        ]);
+        expect(two.body.data.title).toBe('One');
+    });
+
+    it('never keeps a preview, or an answer that failed', async () => {
+        vi.mocked(verifyPreviewToken).mockResolvedValue({ ok: true, tokenId: 'pt1' });
+        vi.mocked(getEntryForProject).mockResolvedValue({
+            id: 'a',
+            type: 'articles',
+            status: 'draft',
+            data: {}
+        });
+        for (let i = 0; i < 2; i++) {
+            const res = await request(app)
+                .get('/projects/demo/channels/c1/articles/entries/a')
+                .set('x-api-key', 'key')
+                .set('x-preview-token', 'mpv_testtoken');
+            expect(res.headers['x-moteur-cache']).toBeUndefined();
+        }
+        vi.mocked(verifyPreviewToken).mockResolvedValue({ ok: false });
+        vi.mocked(getPublishedEntryForProject).mockResolvedValue(null);
+        for (let i = 0; i < 2; i++) {
+            const res = await request(app)
+                .get('/projects/demo/channels/c1/articles/entries/missing')
+                .set('x-api-key', 'key');
+            expect(res.status).toBe(404);
+            expect(res.headers['x-moteur-cache']).toBeUndefined();
+        }
     });
 
     it('sends no notes for the editors', async () => {

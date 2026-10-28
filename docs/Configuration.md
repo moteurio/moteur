@@ -112,7 +112,8 @@ Project and content are stored locally (git-native). See the main [README](../RE
 | `PROJECTS_DIR`   | Projects directory (default `data/projects` relative to `DATA_ROOT`). Each project is a directory with `project.json`, content files, and optionally `.moteur/` and `user-data/` (gitignored).                                                                  |
 | `BLUEPRINTS_DIR` | Blueprints directory (default `data/blueprints` relative to `DATA_ROOT`).                                                                                                                                                                                       |
 
-- **Git**: Content is committed on every save when the project is a Git repo; `.moteur/` and `user-data/` are never committed on the main branch. See [Git integration](Git.md) for snapshots, branches, and the snapshot scheduler.
+- **Git**: Content is committed on every save when the project is a Git repo; `.moteur/` and `user-data/` are never committed on the main branch. Git runs beside the API, never stopping it, and a project with a remote pushes in the background a moment after its last commit, several commits in one push (`MOTEUR_GIT_PUSH_DELAY_MS`, default `2000`). See [Git integration](Git.md) for snapshots, branches, and the snapshot scheduler.
+- **What sites read** is kept in memory until the project changes, at most `MOTEUR_DELIVERY_CACHE_SECONDS` (default `5`; `0` turns it off): published content read with an API key only, never previews or members. Any change Moteur makes to a project (a save, a publish, a schema) clears its answers at once; the age limit covers files changed outside Moteur.
 - **Snapshot scheduler**: Runs in-process; per-project schedule is stored in `.moteur/snapshot-schedule.json` (`enabled`, `cron`). No environment variables are required for the scheduler.
 
 ## Content index

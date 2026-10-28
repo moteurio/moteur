@@ -14,6 +14,7 @@ import type { PageNode } from '@moteurio/types/Page.js';
 import { User } from '@moteurio/types/User.js';
 import type { Asset } from '@moteurio/types/Asset.js';
 import type { FormSchema, FormSubmission } from '@moteurio/types/Form.js';
+import { touchProject } from '../deliveryCache.js';
 import type { Schedule } from '@moteurio/types/Schedule.js';
 
 // Event context uses explicit resource keys (like { project, user }) for clarity.
@@ -199,7 +200,26 @@ export function onEvent<K extends keyof EventMap>(
 }
 
 // Trigger an event with context
+/** The project an event is about, whatever its shape. */
+function projectOf(context: unknown): string | undefined {
+    const c = context as { projectId?: unknown; project?: { id?: unknown } } | null;
+    const id = c?.projectId ?? c?.project?.id;
+    return typeof id === 'string' && id ? id : undefined;
+}
+
 export async function triggerEvent<K extends keyof EventMap>(eventName: K, context: EventMap[K]) {
+    // Any event about a project changes what its sites may be sent: before the handlers (a
+    // `.before` event precedes its write) and after them (what they wrote).
+    const projectId = projectOf(context);
+    if (projectId) touchProject(projectId);
+    try {
+        await runHandlers(eventName, context);
+    } finally {
+        if (projectId) touchProject(projectId);
+    }
+}
+
+async function runHandlers<K extends keyof EventMap>(eventName: K, context: EventMap[K]) {
     const cbs = listeners[eventName] || [];
     for (const cb of cbs) {
         if (String(eventName).includes('.before')) {
