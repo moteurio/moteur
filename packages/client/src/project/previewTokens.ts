@@ -2,6 +2,8 @@ import type { MoteurClient } from '../client.js';
 
 export type PreviewTokenCreateBody = {
     ttlSeconds?: number;
+    /** With `entryId`: the entry's model (required with it). */
+    modelId?: string;
     entryId?: string;
     pageId?: string;
     channelId?: string;
@@ -14,6 +16,8 @@ export type PreviewTokenCreateResponse = {
     expiresAt: string;
     rawToken: string;
     message: string;
+    /** With `entryId`: the entry's model (required with it). */
+    modelId?: string;
     entryId?: string;
     pageId?: string;
     channelId?: string;

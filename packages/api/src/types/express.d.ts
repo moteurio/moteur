@@ -25,6 +25,7 @@ declare global {
             previewAuth?: boolean;
             previewTokenId?: string;
             previewChannelId?: string;
+            previewModelId?: string;
             previewEntryId?: string;
             previewPageId?: string;
             /** Set by request classification middleware for usage/rate-limit logic. */

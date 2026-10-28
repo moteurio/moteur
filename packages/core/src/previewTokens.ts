@@ -33,7 +33,7 @@ function toMeta(entry: PreviewTokenEntry): PreviewTokenMeta {
         prefix: entry.prefix,
         createdAt: entry.createdAt,
         expiresAt: entry.expiresAt,
-        ...(entry.entryId ? { entryId: entry.entryId } : {}),
+        ...(entry.entryId ? { modelId: entry.modelId, entryId: entry.entryId } : {}),
         ...(entry.pageId ? { pageId: entry.pageId } : {}),
         ...(entry.channelId ? { channelId: entry.channelId } : {})
     };
@@ -56,6 +56,7 @@ export type VerifyPreviewTokenResult =
     | {
           ok: true;
           tokenId: string;
+          modelId?: string;
           entryId?: string;
           pageId?: string;
           channelId?: string;
@@ -75,7 +76,7 @@ export async function verifyPreviewToken(
     return {
         ok: true,
         tokenId: matched.id,
-        ...(matched.entryId ? { entryId: matched.entryId } : {}),
+        ...(matched.entryId ? { modelId: matched.modelId, entryId: matched.entryId } : {}),
         ...(matched.pageId ? { pageId: matched.pageId } : {}),
         ...(matched.channelId ? { channelId: matched.channelId } : {})
     };
@@ -88,6 +89,10 @@ export async function createPreviewToken(
 ): Promise<PreviewTokenCreateResult> {
     // A preview link shows drafts: for the people who write them.
     assertCanEdit(user);
+    if (input.entryId && !input.modelId)
+        throw Object.assign(new Error('A preview link for an entry needs its model (modelId).'), {
+            status: 400
+        });
     await getProject(user, projectId);
     const ttl = Math.min(MAX_TTL_SEC, Math.max(60, input.ttlSeconds ?? DEFAULT_TTL_SEC));
     const now = Date.now();
@@ -100,7 +105,7 @@ export async function createPreviewToken(
         createdAt: new Date(now).toISOString(),
         expiresAt,
         createdBy: user.id,
-        ...(input.entryId ? { entryId: input.entryId } : {}),
+        ...(input.entryId ? { modelId: input.modelId, entryId: input.entryId } : {}),
         ...(input.pageId ? { pageId: input.pageId } : {}),
         ...(input.channelId ? { channelId: input.channelId } : {})
     };

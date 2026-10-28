@@ -260,7 +260,10 @@ export type BreadcrumbItem = {
     entryId?: string;
 };
 
-/** Resolve the URL and breadcrumb trail for a specific page node, or for a specific entry within a collection page, in one language when given. */
+/**
+ * Resolve the URL and breadcrumb trail for a specific page node, or for a specific entry within a
+ * collection page, in one language when given. A draft page, or one under a draft, has none.
+ */
 export function resolveBreadcrumb(
     nodeId: string,
     nodeMap: Map<string, PageNode>,
@@ -268,9 +271,10 @@ export function resolveBreadcrumb(
     lang?: UrlLanguage
 ): { url: string; breadcrumb: BreadcrumbItem[] } {
     const node = nodeMap.get(nodeId);
-    if (!node) return { url: '', breadcrumb: [] };
+    if (!node || !isShown(node)) return { url: '', breadcrumb: [] };
 
     const ancestors = getAncestors(nodeId, nodeMap);
+    if (!ancestors.every(isShown)) return { url: '', breadcrumb: [] };
     const breadcrumb: BreadcrumbItem[] = [];
     let pathSoFar = '';
     const add = (n: PageNode) => {

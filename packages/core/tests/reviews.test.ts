@@ -119,6 +119,12 @@ describe('review workflow', () => {
             forbidden
         );
         await expect(createPreviewToken(projectId, billing)).rejects.toMatchObject(forbidden);
+        // A link for one entry names its model, so it opens no entry of another model.
+        await expect(createPreviewToken(projectId, admin, { entryId: 'e1' })).rejects.toMatchObject(
+            {
+                status: 400
+            }
+        );
 
         await publishEntry(admin, projectId, 'article', 'e1');
         await expect(

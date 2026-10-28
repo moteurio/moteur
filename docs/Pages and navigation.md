@@ -81,6 +81,6 @@ Pass `locale` when selecting localized labels. Channel permissions and API-key r
 
 ## Site outputs and previews
 
-The engine also exposes project sitemap XML/JSON, derived navigation, URL and breadcrumb outputs. Project keys restricted to channels may be denied these site-wide routes unless `allowSiteWideReads` is enabled. Prefer a channel when an application should see only a subset of the site.
+The engine also exposes project sitemap XML/JSON, derived navigation, URL and breadcrumb outputs. A draft page, or one under a draft, has no breadcrumb. Project keys restricted to channels may be denied these site-wide routes unless `allowSiteWideReads` is enabled. Prefer a channel when an application should see only a subset of the site.
 
 Authoring routes return the current editable data. Public delivery depends on publication and channel configuration; a successful draft save does not make it live. Keep preview requests on a trusted server using member credentials rather than exposing a user JWT in browser code. See [REST API](REST%20API.md), [Workflows](Workflows.md) and [Scheduling](Scheduling.md).

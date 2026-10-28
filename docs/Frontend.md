@@ -87,7 +87,7 @@ const client = createMoteurPublicClient({
 
 Channel reads then use the **latest** entry view (drafts included per channel status filters).
 
-A token made for one entry (`entryId`) or one page (`pageId`) shows only that one as it is now: in lists, and read by id or slug. Everything else comes back as published, so a preview link can't be used to read the project's other drafts. A token with neither shows every draft, for previewing the whole site. Draft pages never appear in navigation or menus.
+A token made for one entry (`modelId` and `entryId`, both required) or one page (`pageId`) shows only that one as it is now: in lists, and read by id or slug. Everything else comes back as published, what it links to and the entries it inlines included, so a preview link can't be used to read the project's other drafts. A token with neither shows every draft, for previewing the whole site. Draft pages never appear in navigation or menus.
 
 ### Studio's Preview
 

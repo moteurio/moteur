@@ -6,8 +6,6 @@ import { resolveEntryAssets } from '@moteurio/core/assets/assetResolver.js';
 import { resolveEntryUrl } from '@moteurio/core/pages.js';
 import type { OpenAPIV3 } from 'openapi-types';
 import { requireProjectAccess } from '../middlewares/auth.js';
-import { listBlocks } from '@moteurio/core/blocks.js';
-import { stripEditorialBlocksFromPayload } from '../utils/stripBlockSchema.js';
 import { sendApiError } from '../utils/apiError.js';
 import type { EntryQuery } from '@moteurio/core/contentIndex/index.js';
 import { entryQueryParameters, parseEntryQuery } from '../utils/entryQuery.js';
@@ -44,9 +42,8 @@ router.get('/', requireProjectAccess, async (req: Request, res: Response) => {
                 })
             );
         }
-        const filtered = stripEditorialBlocksFromPayload(entries, listBlocks(projectId));
         return void res.json({
-            entries: filtered,
+            entries,
             total: result.total,
             ...(result.facets && { facets: result.facets }),
             ...(result.missingCounts && { missingCounts: result.missingCounts })

@@ -90,7 +90,7 @@ Content-Type: application/json
 - **resourceType** is `model`, `page`, `layout`, `form` or `menu`.
 - **resourceId** for a model is the model id (e.g. `blog-post`), or `"models"` for every model. For pages use `"pages"` (all) or a template id. For menus use a menu handle (e.g. `main`), or `"menus"` for every menu. Layouts and forms work the same way (`"layouts"`, `"forms"`).
 - **fields**: only these keys from `entry.data` are returned; omit for all.
-- **resolve**: `0` = no expansion of references; `1` or `2` = expand reference-like `{ id, type }` values that many levels.
+- **resolve**: `0` = no expansion of references; `1` or `2` = inline the entries that relation fields point to, that many levels.
 
 ---
 
@@ -164,7 +164,7 @@ x-api-key: mk_live_xxxxxxxx...
 - **`?resolveUrl=1`** on entry list/get — adds computed `resolvedUrl` when a collection page defines a URL pattern for that model.
 - **`?resolveAssets=1`** on entry/page reads — inlines each media field's asset (`_resolved`, with `url` and, for images, `resizeUrl`), and `cropUrl` for fields set to crop, at any depth (blocks, lists, structures, variants). Sizes, crops and `srcset`: see [Images](Images.md).
 - **`?locale=`** on entry/page reads — every multilingual value comes down to that language, at any depth, falling back to the project's default language. Link labels, the fields of a page relation and the entries a relation inlined come down too.
-- **Relations to entries** are inlined up to the channel resource's `resolve` depth, wherever they sit and whether they are stored as a plain id (as Studio keeps them) or as `{ id }`. Entries the reader can't see keep their id.
+- **Relations to entries** are inlined up to the channel resource's `resolve` depth, wherever they sit and whether they are stored as a plain id (as Studio keeps them) or as `{ id }`. Entries the reader can't see keep their id, and so do entries of a model the channel doesn't give: an inlined entry comes with that model's field allowlist applied. A relation field set to one model only points there. Editorial blocks (notes for the editors) are left out of everything a channel sends, wherever they sit.
 - **Links to pages and page relations** are always filled in, on entries and pages, at any depth (blocks, lists, structures, variants): a `core/link` with a `pageId` gets the page's `url`, and a relation with `target: "pages"` becomes `{ id, label, url, fields }`. With **`?locale=`** each address is the one in that language; without, one per language. A page the reader can't see (gone, a folder, a draft outside preview, or outside the channel's page filter) leaves the link with `missing: true` and drops it from relations. See [Fields](Fields.md#core-link).
 - Entry lists also support **`limit`**, **`offset`**, and **`sort`** (`id`, `createdAt`, `updatedAt`, `publishedAt`, prefix `-` for descending).
 

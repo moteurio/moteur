@@ -12,15 +12,16 @@ router.post('/', requireProjectAccess, async (req: Request, res: Response) => {
     if (!projectId) return void res.status(400).json({ error: 'Missing projectId' });
     try {
         const body = req.body ?? {};
-        const { ttlSeconds, entryId, pageId, channelId } = body as {
+        const { ttlSeconds, modelId, entryId, pageId, channelId } = body as {
             ttlSeconds?: number;
+            modelId?: string;
             entryId?: string;
             pageId?: string;
             channelId?: string;
         };
         const { rawToken, token } = await createPreviewToken(projectId, req.user!, {
             ...(ttlSeconds !== undefined ? { ttlSeconds } : {}),
-            ...(entryId ? { entryId } : {}),
+            ...(entryId ? { modelId, entryId } : {}),
             ...(pageId ? { pageId } : {}),
             ...(channelId ? { channelId } : {})
         });
@@ -50,6 +51,10 @@ export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
                             type: 'object',
                             properties: {
                                 ttlSeconds: { type: 'integer', minimum: 60, maximum: 3600 },
+                                modelId: {
+                                    type: 'string',
+                                    description: 'The model of `entryId`, required with it'
+                                },
                                 entryId: { type: 'string' },
                                 pageId: { type: 'string' },
                                 channelId: { type: 'string' }
