@@ -205,6 +205,8 @@ async function createNavigationUnlocked(
     const project = await getProject(user, projectId);
     assertUserCanAccessProject(user, project);
     assertCanWrite(user);
+    // A menu is live once saved.
+    assertNotReviewOnly(user, 'change live menus');
 
     const handle = data.handle.trim().toLowerCase();
     if (!isHandleUrlSafe(handle)) {

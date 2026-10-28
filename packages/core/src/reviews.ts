@@ -18,6 +18,7 @@ import { sendReviewEmail } from './emailNotifier.js';
 import { getProjectUsers, getUserById } from './users.js';
 import { dispatch as webhookDispatch } from './webhooks/webhookService.js';
 import { publishEntry } from './entries.js';
+import { withProjectWriteLock } from './utils/projectWriteLock.js';
 import { pinPublishedPage } from './pages/publishedPages.js';
 import { assertPageReady, publishReviewedPage } from './pages.js';
 
@@ -248,6 +249,15 @@ export async function submitForReview(
  * Approve a review. Only users with 'reviewer' or 'admin' role. Sets entry to published (auto_publish mode).
  */
 export async function approveReview(
+    projectId: string,
+    user: User,
+    reviewId: string
+): Promise<Review> {
+    // Checked and published with no save in between: what goes live is what was approved.
+    return withProjectWriteLock(projectId, () => approveReviewUnlocked(projectId, user, reviewId));
+}
+
+async function approveReviewUnlocked(
     projectId: string,
     user: User,
     reviewId: string

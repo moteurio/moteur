@@ -44,10 +44,11 @@ In one run the workflow:
 
 1. Sets the calendar release line on all published `packages/*/package.json` (see [scripts/set-release-version-from-date.mjs](scripts/set-release-version-from-date.mjs)).
 2. Prepends a `## <line>` section to [CHANGELOG.md](CHANGELOG.md) with `git log` entries since the latest `moteur@*` tag (by tag date), or a capped bootstrap list when no `moteur@*` tag exists yet (see [scripts/prepend-release-changelog.mjs](scripts/prepend-release-changelog.mjs)).
-3. Commits those changes and pushes to the branch you ran the workflow from.
-4. Creates and pushes tag `moteur@<line>` (same string as the npm release line).
-5. **Stages** packages on npm (`npm stage publish`) in the order below — versions are not public until approved (see above).
-6. Creates a [GitHub Release](https://docs.github.com/en/repositories/releasing-projects-on-github/about-releases) for `moteur@<line>` using the same notes as the new changelog section.
+3. Checks the versions against the release line policy (`scripts/validate-release-versions.mjs`), before anything is pushed.
+4. Commits those changes and pushes to the branch you ran the workflow from.
+5. Creates and pushes tag `moteur@<line>` (same string as the npm release line).
+6. **Stages** packages on npm (`npm stage publish`) in the order below — versions are not public until approved (see above).
+7. Creates a [GitHub Release](https://docs.github.com/en/repositories/releasing-projects-on-github/about-releases) for `moteur@<line>` using the same notes as the new changelog section.
 
 Re-running for an unchanged release line fails: [CHANGELOG.md](CHANGELOG.md) already contains that `##` section.
 

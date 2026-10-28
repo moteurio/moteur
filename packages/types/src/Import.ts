@@ -108,6 +108,16 @@ export type ImportStatus =
     /** Saved as drafts; a person approves to put them live. */
     | 'awaiting_approval';
 
+/**
+ * What an import puts live: its pages and entries (with `publish`), and the menus an agent that
+ * works for review brought (a menu is live once saved, so they wait for a person).
+ */
+export interface ImportToPublish {
+    pages: string[];
+    entries: { modelId: string; id: string }[];
+    menus?: { handle: string; name: string; data: Record<string, unknown> }[];
+}
+
 export interface ImportJob {
     id: string;
     projectId: string;
@@ -123,6 +133,6 @@ export interface ImportJob {
     /** The commit holding everything the import saved. */
     commit?: string;
     /** What goes live on approval (or went live). */
-    toPublish?: { pages: string[]; entries: { modelId: string; id: string }[] };
+    toPublish?: ImportToPublish;
     approvedBy?: { id: string; name?: string };
 }

@@ -28,7 +28,8 @@ export type FieldVisitor = (
 
 type Fields = Record<string, Field>;
 
-const childFieldsOf = (field: Field): Fields | undefined =>
+/** The fields of an object field, wherever the schema keeps them. */
+export const childFieldsOf = (field: Field): Fields | undefined =>
     (field.data as Fields | undefined) ??
     ((field as Field & { fields?: Fields }).fields as Fields | undefined) ??
     ((field as Field & { properties?: Fields }).properties as Fields | undefined);

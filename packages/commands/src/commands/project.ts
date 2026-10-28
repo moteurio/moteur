@@ -665,18 +665,23 @@ export const types = group('types', [
             if (ctx.args.check && !out) throw new Error('--check needs --out: the file to check.');
             if (!out) return text;
             if (!ctx.local) throw new Error('Files can’t be written here: leave out out.');
+            // The header says how to make the file again: with this file.
+            const again = `--out ${/\s/.test(out) ? JSON.stringify(out) : out}`;
+            const written = text.replace('--out <file>', again);
             if (ctx.args.check) {
-                const onFile = fs.existsSync(out) ? fs.readFileSync(out, 'utf8') : '';
-                if (onFile === text) return `${out} is up to date.`;
-                const changed = onFile ? typesDiff(onFile, text) : [];
+                // Line endings are the checkout's (git may turn LF into CRLF), not a difference.
+                const lf = (s: string) => s.replace(/\r\n/g, '\n');
+                const onFile = fs.existsSync(out) ? lf(fs.readFileSync(out, 'utf8')) : '';
+                if (onFile === lf(written)) return `${out} is up to date.`;
+                const changed = onFile ? typesDiff(onFile, lf(written)) : [];
                 throw new Error(
                     (onFile ? `${out} is out of date` : `${out} doesn’t exist`) +
                         (changed.length ? `:\n  ${changed.join('\n  ')}` : '.') +
-                        `\nMake it again: moteur types --out ${out}`
+                        `\nMake it again: moteur types${channel ? ` --channel ${channel}` : ''} ${again}`
                 );
             }
             fs.mkdirSync(path.dirname(out), { recursive: true });
-            fs.writeFileSync(out, text);
+            fs.writeFileSync(out, written);
             return `Wrote ${out}.`;
         },
         covers: [`GET ${P}/types`, `GET ${P}/channels/{channelId}/types`],

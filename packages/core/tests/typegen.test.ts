@@ -162,6 +162,31 @@ describe('generateTypes', () => {
         expect(out).toContain('/** Screenshot */');
     });
 
+    it('gives each schema names no other schema makes', () => {
+        const out = generateTypes({
+            ...input,
+            structures: {},
+            blocks: { 'moteur-io/foo': { label: 'Foo', fields: {} } },
+            models: [{ id: 'foo-block', label: 'Foo block', fields: {} }],
+            templates: [{ id: 'any', label: 'Any', fields: {} }]
+        });
+        // The block makes FooBlock and FooBlockData: the model can't have FooBlockData.
+        expect(out).toContain('export interface FooBlockData<');
+        expect(out).toContain('export interface FooBlock2Data<');
+        expect(out).toContain('export type FooBlock2Entry<');
+        // AnyPage is taken, so the template's page isn't AnyPage.
+        expect(out).toContain('export type Any2Page<');
+        const names = [...out.matchAll(/^export (?:type|interface) (\w+)/gm)].map(m => m[1]);
+        expect(names.length).toBe(new Set(names).size);
+    });
+
+    it('says how to make the file again, and not to format it', () => {
+        expect(generateTypes(input)).toContain('moteur types --out <file>');
+        const channel = generateTypes({ ...input, channelId: 'site' });
+        expect(channel).toContain('moteur types --channel site --out <file>');
+        expect(channel).toContain("Don't edit or format this file");
+    });
+
     it('lists the blocks content can hold, for one component each', () => {
         // The home page's list takes any block: both.
         expect(generateTypes(input)).toContain(

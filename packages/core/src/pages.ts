@@ -10,6 +10,7 @@ import type {
 } from '@moteurio/types/Page.js';
 import { ValidationResult } from '@moteurio/types/ValidationResult.js';
 import { isValidId } from './utils/idUtils.js';
+import { withProjectWriteLock } from './utils/projectWriteLock.js';
 import { approvalMessage, needsApproval } from '@moteurio/types';
 import { User } from '@moteurio/types/User.js';
 import {
@@ -466,6 +467,19 @@ export async function updatePage(
     id: string,
     patch: Partial<PageNode>,
     /** `asDraft`: an import's save; on a live page its changes wait for the import's publish step. */
+    options?: { restoredFrom?: string; asDraft?: boolean }
+): Promise<PageNode> {
+    // One at a time with other saves and approvals, so an approval publishes what it checked.
+    return withProjectWriteLock(projectId, () =>
+        updatePageUnlocked(projectId, user, id, patch, options)
+    );
+}
+
+async function updatePageUnlocked(
+    projectId: string,
+    user: User,
+    id: string,
+    patch: Partial<PageNode>,
     options?: { restoredFrom?: string; asDraft?: boolean }
 ): Promise<PageNode> {
     let current = await getPageWithAuth(user, projectId, id);

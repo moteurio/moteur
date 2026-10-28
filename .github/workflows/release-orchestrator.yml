@@ -91,6 +91,10 @@ jobs:
                   echo "RELEASE_NOTES_FILE=$RELEASE_NOTES_FILE" >> "$GITHUB_ENV"
                   node scripts/prepend-release-changelog.mjs
 
+            # Before anything is pushed: a line that breaks the policy leaves no commit or tag behind.
+            - name: Validate release line policy
+              run: node scripts/validate-release-versions.mjs
+
             - name: Commit release and push
               env:
                   RELEASE_PAT: ${{ secrets.RELEASE_PAT }}
@@ -118,9 +122,6 @@ jobs:
                   AUTH_REMOTE="https://x-access-token:${RELEASE_PAT}@github.com/${GITHUB_REPOSITORY}.git"
                   git -c credential.helper= tag "moteur@${EXPECTED_MOTEUR_LINE}"
                   git -c credential.helper= push "${AUTH_REMOTE}" "refs/tags/moteur@${EXPECTED_MOTEUR_LINE}"
-
-            - name: Validate release line policy
-              run: node scripts/validate-release-versions.mjs
 
             - name: Stage @moteurio/types on npm
               run: node scripts/stage-publish.mjs @moteurio/types

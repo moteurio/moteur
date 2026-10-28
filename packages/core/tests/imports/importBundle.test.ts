@@ -6,6 +6,7 @@ import { execFileSync } from 'child_process';
 import '../../src/fields/index.js';
 import '../../src/assets/index.js';
 import { initRepo } from '../../src/git/index.js';
+import { listNavigations } from '../../src/navigations.js';
 import { registerContentCommitHook } from '../../src/git/contentCommitHook.js';
 import { importBundle } from '../../src/imports/importBundle.js';
 import {
@@ -307,8 +308,12 @@ describe('importing a bundle', () => {
         expect(job.status).toBe('awaiting_approval');
         expect((await getPage(other, 'home')).status).toBe('draft');
         await expect(approveImport(agent, other, job.id)).rejects.toThrow(/person/);
+        // A menu is live once saved: the agent's wait for the approval too.
+        expect(job.toPublish?.menus?.length).toBeGreaterThan(0);
+        expect(await listNavigations(other)).toEqual([]);
         const approved = await approveImport(admin, other, job.id);
         expect(approved).toMatchObject({ status: 'done', approvedBy: { id: 'u1' } });
+        expect((await listNavigations(other)).length).toBe(job.toPublish!.menus!.length);
         expect((await getPage(other, 'home')).status).toBe('published');
         expect((await getImport(other, job.id))!.status).toBe('done');
     });
