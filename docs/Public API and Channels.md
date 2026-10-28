@@ -178,6 +178,7 @@ x-api-key: mk_live_xxxxxxxx...
 - **Published by default:** When using the key alone, only **published** content is returned. With JWT, the channel’s status filter is respected.
 - **Base path:** If your API uses a base path (e.g. `API_BASE_PATH=/api`), prefix all paths with it: `/api/projects/...`, `/api/auth/...`. Global **studio** routes (usage, seed, asset migration) use `/studio/...` — see [REST API](REST%20API.md).
 - **404:** If the URL’s `resourceId` or `channelId` is not in the channel, you get **404**.
+- **Kept answers:** Published reads with a key are kept until the project changes (a few seconds at most otherwise); `X-Moteur-Cache` says `hit`, `shared` (asked by several readers at once, worked out once) or `miss`. A change in Moteur shows in the next read.
 
 For full endpoint and option details, see [REST API](REST%20API.md). For TypeScript/JavaScript clients, use [`@moteurio/client`](../packages/client/README.md).
 

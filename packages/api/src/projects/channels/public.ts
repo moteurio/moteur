@@ -49,6 +49,12 @@ import {
 import { toPublicForm } from '../../utils/publicForm.js';
 import { stripEditorialBlocksFromPayload } from '../../utils/stripBlockSchema.js';
 import { listBlocks } from '@moteurio/core/blocks.js';
+import {
+    cachedAnswer,
+    deliveryCacheEnabled,
+    keepAnswer,
+    projectVersion
+} from '@moteurio/core/deliveryCache.js';
 import { getProjectJson, listProjectKeys } from '@moteurio/core/utils/projectStorage.js';
 import {
     layoutKey,
@@ -96,6 +102,73 @@ const previewsOneItem = (req: Request): boolean =>
 
 router.use((req, _res, next) => {
     previewing(req);
+    next();
+});
+
+/** Answers being worked out now, by what they answer: others asking the same wait for them. */
+const inFlight = new Map<
+    string,
+    Promise<{ body: string; headers: Record<string, string> } | undefined>
+>();
+
+/**
+ * What sites read again and again is kept until the project changes (core/deliveryCache.ts):
+ * published content read with an API key only, the same for every reader with that key. The
+ * key is part of what's kept, so its channel limits hold for answers served from memory. The
+ * schema and OpenAPI routes answer with their own ETag and aren't kept here.
+ */
+router.use((req, res, next) => {
+    const projectId = (req.params as Record<string, string>).projectId;
+    if (
+        req.method !== 'GET' ||
+        !projectId ||
+        !req.apiKeyAuth ||
+        !req.apiKeyId ||
+        req.user ||
+        req.previewTokenId ||
+        !deliveryCacheEnabled() ||
+        /\/(schema|types|openapi(\.json)?)$/.test(req.path)
+    )
+        return next();
+    const request = `${req.apiKeyId}\0${req.originalUrl}`;
+    const version = projectVersion(projectId);
+    const send = (answer: { body: string; headers: Record<string, string> }, how: string) => {
+        for (const [name, value] of Object.entries(answer.headers)) res.setHeader(name, value);
+        res.setHeader('X-Moteur-Cache', how);
+        res.type('application/json').send(answer.body);
+    };
+    const kept = cachedAnswer(projectId, version, request);
+    if (kept) return void send(kept, 'hit');
+    // Someone is already working this answer out (right after a change, everyone misses at
+    // once): wait for theirs rather than doing it again.
+    const flightKey = `${projectId}\0${version}\0${request}`;
+    const flying = inFlight.get(flightKey);
+    if (flying) return void flying.then(answer => (answer ? send(answer, 'shared') : next()), next);
+    let land!: (answer: { body: string; headers: Record<string, string> } | undefined) => void;
+    inFlight.set(flightKey, new Promise(resolve => (land = resolve)));
+    const done = (answer?: { body: string; headers: Record<string, string> }) => {
+        if (inFlight.has(flightKey)) {
+            inFlight.delete(flightKey);
+            land(answer);
+        }
+    };
+    // Whatever happens (an error, a 404), those waiting go on by themselves.
+    res.on('close', () => done());
+    const json = res.json.bind(res);
+    res.json = (body: unknown) => {
+        if (res.statusCode === 200) {
+            const text = JSON.stringify(body);
+            const total = res.getHeader('X-Total-Count');
+            const headers: Record<string, string> =
+                total != null ? { 'X-Total-Count': String(total) } : {};
+            keepAnswer(projectId, version, request, text, headers);
+            done({ body: text, headers });
+            res.setHeader('X-Moteur-Cache', 'miss');
+            return res.type('application/json').send(text);
+        }
+        done();
+        return json(body);
+    };
     next();
 });
 
