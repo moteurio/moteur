@@ -120,6 +120,8 @@ export interface AssetRef<M extends LocaleMode = 'all'> {
         mimeType?: string;
         width?: number;
         height?: number;
+        /** Where crops center, 0–1 from the top left. */
+        focalPoint?: { x: number; y: number };
         [key: string]: unknown;
     };
     /** For a field that crops: the picture in that shape (add \`&w=\`). */
