@@ -63,7 +63,7 @@ export interface PublicSchema {
     models: Record<string, PublicModel>;
     /** By template id. */
     templates: Record<string, PublicTemplate>;
-    /** By block type (`moteur-io/hero`). */
+    /** By block type (`www-moteur/hero`). */
     blocks: Record<string, PublicBlock>;
     /** By structure type. */
     structures: Record<string, PublicStructure>;

@@ -28,7 +28,7 @@ Plugin **frontend companions** (`@moteurio/frontend-plugin-*`) ship web componen
 
 ## Types
 
-`moteur types --out src/moteur.ts` writes TypeScript types for the project's content: an entry type per model (`ArticleEntry`), a page type per template (`HomePage`), and a type per block (`HeroBlock`, with `AnyBlock` for all of them) and per structure (`CtaStructure`). Lists, objects, variants, links and page relations are typed all the way down. Project blocks and structures drop their namespace (`moteur-io/hero` is `HeroBlock`).
+`moteur types --out src/moteur.ts` writes TypeScript types for the project's content: an entry type per model (`ArticleEntry`), a page type per template (`HomePage`), and a type per block (`HeroBlock`, with `AnyBlock` for all of them) and per structure (`CtaStructure`). Lists, objects, variants, links and page relations are typed all the way down. Project blocks and structures drop their namespace (`www-moteur/hero` is `HeroBlock`).
 
 Each type takes a locale mode. `'all'` (the default) is content as stored, a value per language. `'one'` is content read with `?locale=`:
 

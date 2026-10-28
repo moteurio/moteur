@@ -21,8 +21,8 @@ import type { RadarGraph } from '@moteurio/types/Radar.js';
 /** A project with a "cta" structure, a "feature" block, and articles relating to authors. */
 const schemas: LocaleSchemas = {
     structures: {
-        'moteur-io/cta': {
-            type: 'moteur-io/cta',
+        'www-moteur/cta': {
+            type: 'www-moteur/cta',
             label: 'CTA',
             fields: {
                 label: { type: 'core/text', label: 'Label', options: { multilingual: true } },
@@ -31,8 +31,8 @@ const schemas: LocaleSchemas = {
         }
     },
     blocks: {
-        'moteur-io/feature': {
-            type: 'moteur-io/feature',
+        'www-moteur/feature': {
+            type: 'www-moteur/feature',
             label: 'Feature',
             fields: {
                 title: { type: 'core/text', label: 'Title', options: { multilingual: true } },
@@ -40,7 +40,7 @@ const schemas: LocaleSchemas = {
                 cta: {
                     type: 'core/structure',
                     label: 'CTA',
-                    options: { structure: 'moteur-io/cta' }
+                    options: { structure: 'www-moteur/cta' }
                 },
                 author: { type: 'core/relation', label: 'Author', options: { model: 'author' } }
             }
@@ -85,7 +85,7 @@ const article: Entry = {
         author: 'ada',
         body: [
             {
-                type: 'moteur-io/feature',
+                type: 'www-moteur/feature',
                 data: {
                     title: { en: 'Inbox', fr: 'Boîte' },
                     shot: { assetId: 'inbox' },
@@ -105,7 +105,7 @@ describe('project structures in validation', () => {
     const field: Field = {
         type: 'core/structure',
         label: 'CTA',
-        options: { structure: 'moteur-io/cta' }
+        options: { structure: 'www-moteur/cta' }
     };
 
     it('finds a project structure given in the context', () => {
@@ -243,7 +243,7 @@ describe('one language at any depth', () => {
             _resolved: { id: 'inbox', alt: { en: 'The inbox', fr: 'La boîte' } }
         };
         const out = await localizeEntry(
-            { ...article, data: { body: [{ type: 'moteur-io/feature', data: { shot } }] } },
+            { ...article, data: { body: [{ type: 'www-moteur/feature', data: { shot } }] } },
             schemas,
             { locale: 'fr', fallback: 'en' }
         );

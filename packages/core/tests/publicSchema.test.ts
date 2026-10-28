@@ -23,7 +23,7 @@ import { listStructures } from '../src/structures.js';
 import { channelSchema, schemaTypes } from '../src/publicSchema.js';
 
 const channel = (resources: unknown[]) =>
-    ({ id: 'site', projectId: 'moteur-io', label: 'Site', resources }) as never;
+    ({ id: 'site', projectId: 'www-moteur', label: 'Site', resources }) as never;
 
 const rival = {
     id: 'rival',
@@ -49,43 +49,43 @@ const rival = {
 };
 
 const blocks = {
-    'moteur-io/hero': {
-        type: 'moteur-io/hero',
+    'www-moteur/hero': {
+        type: 'www-moteur/hero',
         label: 'Hero',
         fields: {
             title: { type: 'core/text', label: 'Title', options: { multilingual: true } },
             primary: {
                 type: 'core/structure',
                 label: 'Button',
-                options: { structure: 'moteur-io/cta' }
+                options: { structure: 'www-moteur/cta' }
             }
         }
     },
-    'moteur-io/faq': { type: 'moteur-io/faq', label: 'FAQ', fields: {} },
+    'www-moteur/faq': { type: 'www-moteur/faq', label: 'FAQ', fields: {} },
     'core/note': { type: 'core/note', label: 'Note', editorial: true, fields: {} }
 };
 
 const structures = {
-    'moteur-io/cta': {
-        type: 'moteur-io/cta',
+    'www-moteur/cta': {
+        type: 'www-moteur/cta',
         label: 'Call to action',
         fields: {
             label: { type: 'core/text', label: 'Label' },
             link: { type: 'core/link', label: 'Link' }
         }
     },
-    'moteur-io/unused': { type: 'moteur-io/unused', label: 'Unused', fields: {} }
+    'www-moteur/unused': { type: 'www-moteur/unused', label: 'Unused', fields: {} }
 };
 
 const page = {
     id: 'page',
-    projectId: 'moteur-io',
+    projectId: 'www-moteur',
     label: 'Page',
     fields: {
         blocks: {
             type: 'core/block-list',
             label: 'Blocks',
-            options: { allowedBlockTypes: ['moteur-io/hero', 'core/note'], ui: 'cards' }
+            options: { allowedBlockTypes: ['www-moteur/hero', 'core/note'], ui: 'cards' }
         }
     }
 };
@@ -105,7 +105,7 @@ describe('a channel’s public schema', () => {
         vi.mocked(getChannel).mockResolvedValue(
             channel([{ resourceType: 'model', resourceId: 'rival', fields: ['name', 'pricing'] }])
         );
-        const s = (await channelSchema('moteur-io', 'site'))!;
+        const s = (await channelSchema('www-moteur', 'site'))!;
         expect(s.locales).toEqual(['en', 'fr']);
         expect(s.models.rival).toEqual({
             id: 'rival',
@@ -127,34 +127,34 @@ describe('a channel’s public schema', () => {
         vi.mocked(getChannel).mockResolvedValue(
             channel([{ resourceType: 'page', resourceId: 'page' }])
         );
-        const s = (await channelSchema('moteur-io', 'site'))!;
+        const s = (await channelSchema('www-moteur', 'site'))!;
         expect(Object.keys(s.templates)).toEqual(['page']);
         expect(s.templates.page!.fields.blocks!.options).toEqual({
-            allowedBlockTypes: ['moteur-io/hero']
+            allowedBlockTypes: ['www-moteur/hero']
         });
         // The hero only: the FAQ isn't allowed, the note is editorial.
-        expect(Object.keys(s.blocks)).toEqual(['moteur-io/hero']);
-        expect(Object.keys(s.structures)).toEqual(['moteur-io/cta']);
+        expect(Object.keys(s.blocks)).toEqual(['www-moteur/hero']);
+        expect(Object.keys(s.structures)).toEqual(['www-moteur/cta']);
     });
 
     it('gives every template for every page, and a version that follows the schemas', async () => {
         vi.mocked(getChannel).mockResolvedValue(
             channel([{ resourceType: 'page', resourceId: 'pages' }])
         );
-        const before = (await channelSchema('moteur-io', 'site'))!;
+        const before = (await channelSchema('www-moteur', 'site'))!;
         expect(Object.keys(before.templates)).toEqual(['legal', 'page']);
-        expect((await channelSchema('moteur-io', 'site'))!.version).toBe(before.version);
+        expect((await channelSchema('www-moteur', 'site'))!.version).toBe(before.version);
 
         vi.mocked(listStructures).mockResolvedValue({
             ...structures,
-            'moteur-io/cta': { ...structures['moteur-io/cta'], label: 'Button' }
+            'www-moteur/cta': { ...structures['www-moteur/cta'], label: 'Button' }
         } as never);
-        expect((await channelSchema('moteur-io', 'site'))!.version).not.toBe(before.version);
+        expect((await channelSchema('www-moteur', 'site'))!.version).not.toBe(before.version);
     });
 
     it('is null for a channel that does not exist', async () => {
         vi.mocked(getChannel).mockResolvedValue(null);
-        expect(await channelSchema('moteur-io', 'nope')).toBeNull();
+        expect(await channelSchema('www-moteur', 'nope')).toBeNull();
     });
 
     it('makes the same kind of types as the project’s schemas', async () => {
@@ -164,7 +164,7 @@ describe('a channel’s public schema', () => {
                 { resourceType: 'page', resourceId: 'page' }
             ])
         );
-        const ts = schemaTypes((await channelSchema('moteur-io', 'site'))!);
+        const ts = schemaTypes((await channelSchema('www-moteur', 'site'))!);
         expect(ts).toContain('export interface HeroBlockData');
         expect(ts).toContain('export interface CtaStructure');
         expect(ts).toContain('pricing?: "seat"');
