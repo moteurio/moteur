@@ -28,6 +28,8 @@ function getDataRoot(): string {
     return cwd;
 }
 
+let projectsDirMemo: { key: string; dir: string } | undefined;
+
 /** Resolve a path relative to the data root. */
 function resolveFromRoot(relativePath: string): string {
     const normalized = path.normalize(relativePath);
@@ -53,7 +55,10 @@ export const storageConfig = {
      */
     get projectsDir(): string {
         const raw = process.env.PROJECTS_DIR || 'data/projects';
-        return resolveFromRoot(raw);
+        // Asked for every file a request reads: worked out again only when the setting changes.
+        const key = `${raw}\0${process.env.DATA_ROOT ?? ''}\0${process.cwd()}`;
+        if (projectsDirMemo?.key !== key) projectsDirMemo = { key, dir: resolveFromRoot(raw) };
+        return projectsDirMemo.dir;
     },
 
     /**

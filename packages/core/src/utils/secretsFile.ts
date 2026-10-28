@@ -1,4 +1,5 @@
 import fs from 'fs';
+import { readTextCachedSync } from './fileCache.js';
 import path from 'path';
 
 /**
@@ -16,7 +17,7 @@ export function secretsFilePath(projectDir: string): string {
 
 export function readSecretsFile(projectDir: string): SecretsFile {
     try {
-        const parsed = JSON.parse(fs.readFileSync(secretsFilePath(projectDir), 'utf8'));
+        const parsed = JSON.parse(readTextCachedSync(secretsFilePath(projectDir)));
         return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
     } catch {
         return {};

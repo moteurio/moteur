@@ -17,6 +17,7 @@ import { structureKey, structureListPrefix } from './utils/storageKeys.js';
 import { checkCountRoom } from './planLimits.js';
 import { countOf } from './projectCounts.js';
 import { triggerEvent } from './utils/eventBus.js';
+import { readTextCachedSync } from './utils/fileCache.js';
 import { builtinStructureSchemas } from './plugins/builtinContent.js';
 
 function systemUser(): User {
@@ -63,7 +64,7 @@ function loadFromDir(dirPath: string, registry: Record<string, StructureSchema>)
 
     for (const file of files) {
         try {
-            const raw = fs.readFileSync(path.join(dirPath, file), 'utf-8');
+            const raw = readTextCachedSync(path.join(dirPath, file));
             const parsed = JSON.parse(raw) as StructureSchema & { id?: string };
             // Core structure files name themselves with "id"; accept it as the type.
             const schema: StructureSchema = { ...parsed, type: parsed.type ?? parsed.id ?? '' };

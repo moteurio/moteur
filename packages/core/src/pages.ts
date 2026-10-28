@@ -109,12 +109,10 @@ function parsePageIds(listResult: string[]): string[] {
 async function loadAllPages(projectId: string): Promise<PageNode[]> {
     const raw = await listProjectKeys(projectId, pageListPrefix());
     const ids = parsePageIds(raw);
-    const pages: PageNode[] = [];
-    for (const id of ids) {
-        const page = await getProjectJson<PageNode>(projectId, pageKey(id));
-        if (page) pages.push(page);
-    }
-    return pages;
+    const pages = await Promise.all(
+        ids.map(id => getProjectJson<PageNode>(projectId, pageKey(id)))
+    );
+    return pages.filter((p): p is PageNode => p != null);
 }
 
 /** What sites see: each page's published version (see pages/publishedPages.ts). */
