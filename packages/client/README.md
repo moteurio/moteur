@@ -265,6 +265,16 @@ const og = imageUrl(cover, 1200, { ratio: '16:9', format: 'jpg' });
 `imageSrcset`, `focalPosition`, `IMAGE_WIDTHS` and `IMAGE_RATIOS` too. Parameters, crops and
 caching: [docs/Images.md](../../docs/Images.md).
 
+### Rich text: HTML
+
+A `core/rich-text` field, read in one language, as the HTML Studio's editor shows. Text is escaped, and links that would run code (`javascript:`…) are dropped:
+
+```ts
+import { richTextHtml } from '@moteurio/client';
+
+const html = richTextHtml(post.data.body); // "<p>Bonjour <strong>Louise</strong></p>"
+```
+
 ### Example: sitemap and nav in a build step
 
 ```ts
