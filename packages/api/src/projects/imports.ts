@@ -239,7 +239,19 @@ export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
                 'Its own structures and blocks, models, templates, files (by address), pages, entries, menus and redirects people made. Imported into another project, it makes the same one.',
             tags: ['Imports'],
             parameters: [P],
-            responses: { '200': { description: 'The bundle' } }
+            responses: {
+                '200': {
+                    description: 'The bundle',
+                    content: {
+                        'application/json': {
+                            schema: {
+                                type: 'object',
+                                description: 'An import bundle (see POST /imports)'
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
 };

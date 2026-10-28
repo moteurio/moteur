@@ -328,7 +328,21 @@ const formsOpenapi: Record<string, OpenAPIV3.PathItemObject> = {
             parameters: [
                 { name: 'projectId', in: 'path', required: true, schema: { type: 'string' } }
             ],
-            responses: { '200': { description: '`{ actions }`' } }
+            responses: {
+                '200': {
+                    description: '`{ actions }`',
+                    content: {
+                        'application/json': {
+                            schema: {
+                                type: 'object',
+                                properties: {
+                                    actions: { type: 'array', items: { type: 'object' } }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
         }
     },
     '/projects/{projectId}/forms': {
