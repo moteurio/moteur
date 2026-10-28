@@ -98,7 +98,7 @@ function validateKind(kind: unknown, batchSeconds: unknown): void {
             batchSeconds < 0 ||
             batchSeconds > 600)
     )
-        throw new Error('batchSeconds must be a whole number from 0 to 600');
+        throw new Error('The wait (batchSeconds) must be a whole number of seconds from 0 to 600');
 }
 
 function validateFilters(filters: WebhookFilter[] | undefined): void {
@@ -282,7 +282,8 @@ export async function createWebhook(
     projectId: string,
     user: string,
     data: {
-        name: string;
+        /** Default: "Rebuild the site" for a deploy hook, else the address's host. */
+        name?: string;
         url: string;
         secret?: string;
         events?: WebhookEvent[];
@@ -302,7 +303,8 @@ async function createWebhookUnlocked(
     projectId: string,
     user: string,
     data: {
-        name: string;
+        /** Default: "Rebuild the site" for a deploy hook, else the address's host. */
+        name?: string;
         url: string;
         secret?: string;
         events?: WebhookEvent[];
@@ -326,7 +328,7 @@ async function createWebhookUnlocked(
     const webhook: Webhook = {
         id: randomUUID(),
         projectId,
-        name: data.name.trim(),
+        name: data.name?.trim() || (deploy ? 'Rebuild the site' : new URL(data.url.trim()).host),
         ...(deploy && {
             kind: 'deploy' as const,
             batchSeconds: data.batchSeconds ?? DEFAULT_BATCH_SECONDS

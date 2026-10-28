@@ -146,6 +146,10 @@ When creating or updating a webhook you can set **filters** so it only receives 
 
 A static site rebuilds on its host. Make a webhook a deploy hook with `kind: "deploy"` (Studio: Setup › Webhooks › Rebuild the site) and give it the host's build hook address: Vercel (Settings › Git › Deploy Hooks), Netlify (Site configuration › Build hooks), Cloudflare Pages and others take a POST.
 
+```bash
+moteur webhooks create --kind deploy --url "$DEPLOY_HOOK"
+```
+
 - Without `events`, it listens to what goes live: entries and pages published, unpublished or deleted, a live page saved or moved, files changed or deleted, menus and redirects.
 - Changes close together start one build. The first change waits `batchSeconds` (0 to 600, default 30); changes until that call goes out join it. A change after it went out starts the next build.
 - It is signed and retried like any webhook, and the wait survives a restart.
@@ -160,9 +164,10 @@ The persisted delivery log is also the retry outbox. On startup and periodic swe
 
 ## Registering a webhook
 
-- **REST API:** `POST {basePath}/projects/:projectId/webhooks` with JWT. Body: `{ name, url, secret?, events?, filters?, headers?, enabled?, kind?, batchSeconds? }`. URL must be HTTPS (or HTTP localhost in development). Secret is optional (one is generated if omitted); it is returned only in the create response.
+- **REST API:** `POST {basePath}/projects/:projectId/webhooks` with JWT. Body: `{ url, name?, secret?, events?, filters?, headers?, enabled?, kind?, batchSeconds? }`. URL must be HTTPS (or HTTP localhost in development). Secret is optional (one is generated if omitted); it is returned only in the create response.
 - **`@moteurio/client`:** use the admin client’s project-scoped webhooks methods (see [client README](../packages/client/README.md)).
 - **Embedded `@moteurio/core`:** `Moteur.webhooks.create(projectId, user, { … })` and related methods—see [Embedded core API](Developer%20API.md).
+- **CLI:** `moteur webhooks create --url … [--events a,b] [--kind deploy] [--wait 30] [--name …]`. Without a name, a deploy hook is "Rebuild the site" and another hook takes its address's host.
 - **Studio:** Project → Webhooks → add endpoint, set URL, events, and optional filters.
 
 Other operations: list, get, update, delete, **rotate secret**, **test** (sends a test ping), **delivery log**, **retry** a failed delivery. See [REST API](REST%20API.md#-webhooks-outbound).
