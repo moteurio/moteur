@@ -162,6 +162,34 @@ describe('generateTypes', () => {
         expect(out).toContain('/** Screenshot */');
     });
 
+    it('lists the blocks content can hold, for one component each', () => {
+        // The home page's list takes any block: both.
+        expect(generateTypes(input)).toContain(
+            "export type HeldBlock<M extends LocaleMode = 'all'> = FeatureBlock<M> | CoreTextBlock<M>;"
+        );
+        // Only lists limited to the feature: the text block is never delivered.
+        const home = input.templates[0]!;
+        const limited: TypegenInput = {
+            ...input,
+            templates: [
+                {
+                    ...home,
+                    fields: {
+                        ...(home.fields as object),
+                        blocks: {
+                            type: 'core/block-list',
+                            label: 'Blocks',
+                            options: { allowedBlockTypes: ['moteur-io/feature'] }
+                        }
+                    }
+                }
+            ] as TypegenInput['templates']
+        };
+        expect(generateTypes(limited)).toContain(
+            "export type HeldBlock<M extends LocaleMode = 'all'> = FeatureBlock<M>;"
+        );
+    });
+
     it('compiles, and describes content as delivered', () => {
         expect(
             check(`

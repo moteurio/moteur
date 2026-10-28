@@ -194,6 +194,50 @@ export interface Block<T extends string, D> {
 };
 
 /** Writes the types: one name per schema, each a generic over the locale mode. */
+/**
+ * The block types the channel's pages and entries can hold: what each block list allows, inside
+ * fields, structures and the blocks themselves. A list that allows any block means every one.
+ */
+function blocksHeld(input: TypegenInput): Set<string> {
+    const all = Object.keys(input.blocks);
+    const held = new Set<string>();
+    const seenStructures = new Set<unknown>();
+    const todo: unknown[] = [
+        ...input.models.map(m => m.fields),
+        ...input.templates.map(t => t.fields)
+    ];
+    const hold = (type: string) => {
+        if (held.has(type) || !input.blocks[type]) return;
+        held.add(type);
+        todo.push(input.blocks[type]!.fields);
+    };
+    while (todo.length) {
+        const value = todo.pop();
+        if (Array.isArray(value)) {
+            todo.push(...value);
+            continue;
+        }
+        if (!value || typeof value !== 'object') continue;
+        const f = value as Field;
+        if (f.type === 'core/block-list') {
+            const allowed = f.options?.allowedBlockTypes as string[] | undefined;
+            (allowed?.length ? allowed : all).forEach(hold);
+        }
+        if (f.type === 'core/structure' && typeof f.options?.structure === 'string') {
+            const s = findStructure(
+                input.structures as Record<string, StructureSchema>,
+                f.options.structure
+            );
+            if (s && !seenStructures.has(s)) {
+                seenStructures.add(s);
+                todo.push(s.fields);
+            }
+        }
+        todo.push(...Object.values(value));
+    }
+    return held;
+}
+
 export function generateTypes(input: TypegenInput): string {
     const locale = input.defaultLocale;
     const used = new Set<string>([
@@ -211,6 +255,7 @@ export function generateTypes(input: TypegenInput): string {
         'Page',
         'Block',
         'AnyBlock',
+        'HeldBlock',
         'AnyPage',
         'Models',
         'Templates',
@@ -381,6 +426,13 @@ export function generateTypes(input: TypegenInput): string {
         };\n`
     );
 
+    const held = [...blocksHeld(input)].filter(type => blockNames.has(type));
+    out.push(
+        `/** The blocks the channel's pages and entries can hold: one component each on the site. */\nexport type HeldBlock<M extends LocaleMode = 'all'> = ${
+            held.map(type => `${blockNames.get(type)}<M>`).join(' | ') || 'never'
+        };\n`
+    );
+
     out.push('// Models\n');
     for (const m of input.models) {
         const name = modelNames.get(m.id)!;
@@ -390,7 +442,7 @@ export function generateTypes(input: TypegenInput): string {
         );
     }
     out.push(
-        `/** Each model's entries, by model id. */\nexport interface Models<M extends LocaleMode = 'all'> {\n${input.models
+        `/** Each model's entries, by model id. */\nexport interface Models<${input.models.length ? 'M' : '_M'} extends LocaleMode = 'all'> {\n${input.models
             .map(m => `    ${key(m.id)}: ${entryName(m.id)}<M>;`)
             .join('\n')}\n}\n`
     );
@@ -404,7 +456,7 @@ export function generateTypes(input: TypegenInput): string {
         );
     }
     out.push(
-        `/** Each template's pages, by template id. */\nexport interface Templates<M extends LocaleMode = 'all'> {\n${input.templates
+        `/** Each template's pages, by template id. */\nexport interface Templates<${input.templates.length ? 'M' : '_M'} extends LocaleMode = 'all'> {\n${input.templates
             .map(
                 t => `    ${key(t.id)}: ${templateNames.get(t.id)!.replace(/Fields$/, '')}Page<M>;`
             )
@@ -421,7 +473,8 @@ export function generateTypes(input: TypegenInput): string {
 export interface MoteurContent<M extends LocaleMode = 'all'> {
     models: Models<M>;
     pages: AnyPage<M>;
-    blocks: AnyBlock<M>;
+    /** The blocks its content can hold (not every block type the project has). */
+    blocks: HeldBlock<M>;
 }
 
 /**

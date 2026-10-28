@@ -50,29 +50,28 @@ Use `@moteurio/react` `usePreview` or server `withPreview` on the public client.
 
 ## `moteur-starter-astro`
 
-**Astro · .astro components · Islands architecture**
+**Astro · static · typed from the project**
 
-The content-first starter. Astro's philosophy matches Moteur's — structured
-content drives everything, JavaScript is opt-in. Pages are fully static HTML
-by default. Only the parts that need interactivity ship any JS at all.
+A static site in two languages, built the way `@moteurio/astro` intends:
 
-The lang switcher is a native web component (`<lang-toggle>`), demonstrating
-that you don't always need a framework for interactive UI. Full-text search
-is powered by Pagefind — the search index is built at compile time, the search
-UI hydrates as an island on `client:idle`.
+- **Pages:** content loaders read every page once per build. One `[...path].astro` makes them all, each drawn by its template's view (`defineTemplates`).
+- **Blocks:** one component per block the pages can hold (`defineBlocks`).
+- **Types:** generated from the project (`moteur types`), so `astro check` fails on a missing view or component, or a field that doesn't exist.
+- **Pictures and rich text:** `<MoteurImage>` and `<RichText>`.
 
 ```bash
 git clone https://github.com/moteurio/moteur-starters
 cd moteur-starters/packages/astro
+moteur imports run moteur/starter.json --project <your-project>   # its content model
+cp .env.example .env                                              # MOTEUR_API_KEY: the site key
+npm install && npm run types && npm run dev
 ```
 
-**Best for:** Developers who prioritise performance, content-heavy sites,
-teams who want to avoid shipping a JS framework to the browser.
+**Best for:** content sites that should ship no JavaScript, and a reference for wiring any Astro site to Moteur.
 
-**Rendering:** Static site generation — full static output, deploy anywhere.
+**Rendering:** static. Publishing rebuilds the site through the host's deploy hook. An optional on-demand route shows drafts (see its README).
 
-**Unique feature:** Pagefind search island — instant full-text search across
-all articles, built at compile time, zero server required.
+**Content model:** `moteur/starter.json`, a bundle with blocks `hero`, `text` and `picture`, templates `home` and `page`, and two pages. Imported into any project, its blocks become the project's own.
 
 ---
 
