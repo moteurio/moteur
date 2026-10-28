@@ -6,6 +6,7 @@ import { isValidId } from './utils/idUtils.js';
 import { isExistingProjectId, writeJson } from './utils/fileUtils.js';
 import { normalizeType } from './utils/normalizeType.js';
 import { builtinBlockSchemas } from './plugins/builtinContent.js';
+import { readTextCachedSync } from './utils/fileCache.js';
 import { assertCountRoom, getCountLimit } from './planLimits.js';
 
 const isTestEnv = (): boolean => process.env.NODE_ENV === 'test' || process.env.VITEST === 'true';
@@ -41,7 +42,7 @@ function loadBlocksFromDir(
         const files = fs.readdirSync(root).filter(file => file.endsWith('.json'));
         for (const file of files) {
             try {
-                const content = fs.readFileSync(path.join(root, file), 'utf-8');
+                const content = readTextCachedSync(path.join(root, file));
                 const schema = JSON.parse(content) as BlockSchema;
                 if (!schema || !schema.type) {
                     if (!isTestEnv)
@@ -64,10 +65,6 @@ function loadBlocksFromDir(
 export function listBlocks(projectId?: string): Record<string, BlockSchema> {
     const registry: Record<string, BlockSchema> = {};
     const testEnv = isTestEnv();
-
-    if (!testEnv) {
-        console.log(`Loading blocks for project: ${projectId || 'all'}`);
-    }
 
     // Shipped blocks first. A file in data/core, then a project block, overrides the same type.
     Object.assign(registry, pluginBlockRegistry);

@@ -3,6 +3,7 @@ import { constants as fsConstants } from 'fs';
 import path from 'path';
 import { projectDir } from './pathUtils.js';
 import { writeJsonAtomicAsync } from './fileUtils.js';
+import { readTextCached } from './fileCache.js';
 import { getContentIndex, parseEntryKey } from '../contentIndex/index.js';
 import type { Entry } from '@moteurio/types/Model.js';
 import { isValidId } from './idUtils.js';
@@ -61,7 +62,7 @@ export async function getProjectJson<T = unknown>(
     key: string
 ): Promise<T | null> {
     try {
-        const data = await fs.readFile(fullPath(projectId, key), ENCODING);
+        const data = await readTextCached(fullPath(projectId, key));
         const parsed = JSON.parse(data) as T;
         if (key !== PROJECT_FILE || !parsed) return parsed;
         return mergeProjectSecrets(
@@ -133,7 +134,7 @@ export async function listProjectKeys(projectId: string, prefix?: string): Promi
 
     if (useFileMode) {
         try {
-            const data = await fs.readFile(possibleFile, ENCODING);
+            const data = await readTextCached(possibleFile);
             const json = JSON.parse(data);
             if (Array.isArray(json)) return json.map((_, idx) => `${idx}`);
             if (json && typeof json === 'object') return Object.keys(json);
