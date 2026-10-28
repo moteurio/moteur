@@ -1,4 +1,4 @@
-import { createHmac, randomBytes, timingSafeEqual } from 'crypto';
+import { createHash, createHmac, randomBytes, timingSafeEqual } from 'crypto';
 import { URL, URLSearchParams } from 'url';
 
 /**
@@ -154,12 +154,27 @@ export function beginOAuth(req: OAuthRequest, res: OAuthResponse, provider: stri
     return `${body}.${sign(body)}`;
 }
 
+/**
+ * PKCE: the verifier is a keyed hash of the browser's nonce, so it never travels in a URL, and a
+ * code taken from one sign-in can't be redeemed in another browser's.
+ */
+function verifierFor(nonce: string): string {
+    return createHmac('sha256', stateKey()).update(`pkce:${nonce}`).digest('base64url');
+}
+
+/** The `code_challenge` (method S256) to send with this `state` to the provider. */
+export function oauthChallenge(state: string): string {
+    const body = state.split('.')[0] ?? '';
+    const { n } = JSON.parse(Buffer.from(body, 'base64url').toString('utf8')) as { n: string };
+    return createHash('sha256').update(verifierFor(n)).digest('base64url');
+}
+
 /** On the callback: where to go next, or null when `state` is missing, forged, stale or from another browser. */
 export function completeOAuth(
     req: OAuthRequest,
     res: OAuthResponse,
     provider: string
-): { next: string; link?: true } | null {
+): { next: string; link?: true; verifier: string } | null {
     const state = req.query.state;
     const nonce = readCookie(req);
     setCookie(req, res, '', 0);
@@ -181,7 +196,9 @@ export function completeOAuth(
     if (typeof payload.exp !== 'number' || payload.exp < Date.now() / 1000) return null;
     return {
         next: safeNext(payload.next),
-        ...(payload.link === true ? { link: true as const } : {})
+        ...(payload.link === true ? { link: true as const } : {}),
+        // The `code_verifier` for the token request.
+        verifier: verifierFor(nonce)
     };
 }
 
@@ -269,14 +286,17 @@ export async function discoverOidcIssuer(issuer: string): Promise<OidcDiscovery>
 export async function exchangeAuthorizationCode(
     tokenUrl: string,
     config: OAuthConfig,
-    code: string
+    code: string,
+    /** `completeOAuth`'s verifier, when the sign-in sent `oauthChallenge(state)`. */
+    verifier?: string
 ): Promise<{ access_token: string; id_token?: string }> {
     const body = new URLSearchParams({
         grant_type: 'authorization_code',
         client_id: config.clientId,
         client_secret: config.clientSecret,
         redirect_uri: config.redirectUri,
-        code
+        code,
+        ...(verifier && { code_verifier: verifier })
     });
     const res = await fetch(tokenUrl, {
         method: 'POST',

@@ -1,7 +1,9 @@
+import { createHash } from 'crypto';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
     beginOAuth,
     completeOAuth,
+    oauthChallenge,
     oauthConfig,
     readOAuthConfig,
     redirectAfterLogin,
@@ -80,7 +82,7 @@ describe('OAuth state', () => {
         const cookie = String(start.headers['set-cookie']).split(';')[0];
         expect(
             completeOAuth({ headers: { cookie }, query: { state } }, response(), 'google')
-        ).toEqual({ next: '/account/security', link: true });
+        ).toEqual({ next: '/account/security', link: true, verifier: expect.any(String) });
         const out = response();
         redirectProviderSignIn({ headers: {}, query: {}, secure: true }, out, {
             pending: { ticket: 'public-ticket', browserToken: 'private-browser-proof' }
@@ -97,9 +99,23 @@ describe('OAuth state', () => {
         expect(String(start.headers['set-cookie'])).toMatch(/HttpOnly; SameSite=Lax/);
         const back = response();
         expect(completeOAuth({ headers: { cookie }, query: { state } }, back, 'github')).toEqual({
-            next: '/projects/atelier'
+            next: '/projects/atelier',
+            verifier: expect.any(String)
         });
         expect(String(back.headers['set-cookie'])).toMatch(/Max-Age=0/);
+    });
+
+    it('proves the code with PKCE: the challenge sent is the hash of the verifier given back', () => {
+        const { state, cookie } = roundTrip('/projects/atelier');
+        const done = completeOAuth({ headers: { cookie }, query: { state } }, response(), 'github');
+        expect(done?.verifier).toMatch(/^[A-Za-z0-9_-]{43}$/);
+        expect(state).not.toContain(done!.verifier);
+        expect(oauthChallenge(state)).toBe(
+            createHash('sha256').update(done!.verifier).digest('base64url')
+        );
+        // Another sign-in, another verifier.
+        const other = roundTrip('/projects/atelier');
+        expect(oauthChallenge(other.state)).not.toBe(oauthChallenge(state));
     });
 
     it('refuses a callback without the cookie (another browser)', () => {

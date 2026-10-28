@@ -57,10 +57,14 @@ export function authApi(client: MoteurClient) {
         }): Promise<{ sent: true }> {
             return client.post('/auth/email/code', input);
         },
-        /** Trade the code for a session (`isNew` for a new account), or a two-step ticket. */
+        /**
+         * Trade the code, or the email link's `token`, for a session (`isNew` for a new account),
+         * or a two-step ticket.
+         */
         verifyEmailCode(input: {
             email: string;
-            code: string;
+            code?: string;
+            token?: string;
             name?: string;
         }): Promise<{ token: string; isNew: boolean } | { twoFactor: true; ticket: string }> {
             return client.post('/auth/email/verify', input);
