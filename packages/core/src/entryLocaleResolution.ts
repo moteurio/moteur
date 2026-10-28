@@ -190,11 +190,30 @@ export type LocaleSchemas = FieldWalkSchemas & {
 };
 
 const RELATION_TYPES = ['core/relation', 'core/relations'];
+const ASSET_TYPES = ['core/asset', 'core/image', 'core/audio', 'core/video', 'core/asset-list'];
+
+/** A picture's alt and caption, which may be one per language whatever the field's options. */
+function localizeAssetTexts(value: unknown, choice: LocaleChoice): unknown {
+    if (Array.isArray(value)) return value.map(v => localizeAssetTexts(v, choice));
+    if (!isPlainObject(value) || typeof value.assetId !== 'string') return value;
+    const out: Record<string, unknown> = { ...value };
+    for (const key of ['alt', 'caption']) {
+        if (isPlainObject(out[key]))
+            out[key] =
+                pickFromLocaleMap(
+                    out[key] as Record<string, unknown>,
+                    choice.locale,
+                    choice.fallback
+                ) ?? '';
+    }
+    return out;
+}
 
 /**
  * Every multilingual value of a record down to one language, at any depth: in blocks, lists,
  * objects, structures and variants, and in the entries its relations inlined (`depth` levels).
- * A link's url and label always come down to one language when they are given per language.
+ * A link's url and label, and a picture's alt and caption, always come down to one language when
+ * they are given per language.
  */
 export async function localizeFields(
     values: Record<string, unknown> | undefined,
@@ -215,6 +234,7 @@ export async function localizeFields(
     return walkFields(values, fields, schemas, async (value, field) => {
         if (field.type === 'core/link')
             return pick({ ...field, options: { ...field.options, multilingual: true } }, value);
+        if (ASSET_TYPES.includes(field.type)) return localizeAssetTexts(value, choice);
         if (field.options?.multilingual === true || field.type === 'core/layout') {
             const picked = pick(field, value);
             return picked === value ? undefined : picked;

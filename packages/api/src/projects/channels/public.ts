@@ -189,28 +189,36 @@ async function deliveryFor(
     };
 }
 
-/** A page as delivered: links and page relations filled in, then one language, then pictures. */
+/**
+ * A page as delivered: links and page relations filled in, then pictures (whose alt may come
+ * from the asset), then one language.
+ */
 async function deliverPage(page: PageNode, d: Delivery): Promise<PageNode> {
     if (page.type === 'folder') return page;
     const template = d.links.templates?.get(page.templateId);
     if (!template) return page;
     const own = template.fields as ModelSchema['fields'];
-    let fields = (await resolvePageLinks(page.fields, own, d.links, d.linkOptions)) ?? page.fields;
-    if (d.choice) fields = (await localizeFields(fields, own, d.schemas, d.choice)) ?? fields;
+    const linked =
+        (await resolvePageLinks(page.fields, own, d.links, d.linkOptions)) ?? page.fields;
+    let out = { ...page, fields: linked };
+    if (d.resolveAssets) out = await resolvePageAssets(d.projectId, out, template, d.schemas);
+    const fields = d.choice
+        ? ((await localizeFields(out.fields, own, d.schemas, d.choice)) ?? out.fields)
+        : out.fields;
     // Where it lives, so a page is all a site's route needs.
     const paths = d.links.urls(page.id);
     const path = paths[d.choice?.locale ?? d.links.defaultLocale] ?? paths[d.links.defaultLocale];
-    const out = { ...page, path, paths, fields };
-    return d.resolveAssets ? resolvePageAssets(d.projectId, out, template, d.schemas) : out;
+    const delivered = { ...out, path, paths, fields };
+    return delivered;
 }
 
-/** An entry as delivered, after its references are inlined: links, one language, pictures. */
+/** An entry as delivered, after its references are inlined: links, pictures, one language. */
 async function deliverEntry(entry: Entry, schema: ModelSchema | null, d: Delivery): Promise<Entry> {
     if (!schema) return entry;
     const data = await resolvePageLinks(entry.data, schema.fields, d.links, d.linkOptions);
     let out: Entry = { ...entry, data: data ?? entry.data };
-    if (d.choice) out = await localizeEntry(out, d.schemas, d.choice);
-    return d.resolveAssets ? resolveEntryAssets(d.projectId, out, schema, d.schemas) : out;
+    if (d.resolveAssets) out = await resolveEntryAssets(d.projectId, out, schema, d.schemas);
+    return d.choice ? localizeEntry(out, d.schemas, d.choice) : out;
 }
 
 /** Relations resolve by the model's schema, wherever they sit and however they are stored. */

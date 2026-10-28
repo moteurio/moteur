@@ -207,6 +207,26 @@ describe('one language at any depth', () => {
         expect(feature.cta.label).toBe('Essayer');
     });
 
+    it("brings a picture's alt and caption down to the language, wherever it sits", async () => {
+        const shot = {
+            assetId: 'inbox',
+            alt: { en: 'The inbox', fr: 'La boîte' },
+            caption: { en: 'Today' },
+            _resolved: { id: 'inbox', alt: { en: 'The inbox', fr: 'La boîte' } }
+        };
+        const out = await localizeEntry(
+            { ...article, data: { body: [{ type: 'moteur-io/feature', data: { shot } }] } },
+            schemas,
+            { locale: 'fr', fallback: 'en' }
+        );
+        expect(out.data.body[0].data.shot).toMatchObject({
+            assetId: 'inbox',
+            alt: 'La boîte',
+            caption: 'Today',
+            _resolved: { id: 'inbox' }
+        });
+    });
+
     it('falls back to the default language', async () => {
         const out = await localizeFields(
             { title: { en: 'Only English' } },

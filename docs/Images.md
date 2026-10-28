@@ -126,6 +126,25 @@ focalPosition(cover); //                → "30% 70%" (for CSS object-position)
 
 `IMAGE_WIDTHS` and `IMAGE_RATIOS` list what the server makes.
 
+### In Astro: `<MoteurImage>`
+
+`@moteurio/astro` wraps these in a component:
+
+```astro
+---
+import MoteurImage from '@moteurio/astro/MoteurImage.astro';
+---
+<MoteurImage image={page.fields.cover} sizes="(min-width: 60rem) 50vw, 100vw" priority />
+<MoteurImage image={author.data.portrait} ratio="1:1" sizes="8rem" />
+```
+
+- **Markup:** it writes a `<picture>`, with AVIF as a `<source>` and WebP in the `<img>`.
+- **Sizes and shape:** both formats get the full `srcset`, plus `width` and `height`. It keeps the field's crop, or uses `ratio`.
+- **Focal point:** it sets `object-position` to the focal point, so a CSS `object-fit: cover` crops around it.
+- **Alt text:** `alt` is in the page's language (`Astro.currentLocale`, or `locale`).
+- **Loading:** pictures load lazily. `priority` loads the one the page opens on first.
+- **Other props:** `widths`, `formats`, and any `<img>` attribute.
+
 ### Without the client
 
 The same in a template, with nothing but string joining:
@@ -135,9 +154,11 @@ The same in a template, with nothing but string joining:
     src="{{ cover.cropUrl }}&w=1024"
     srcset="{{ cover.cropUrl }}&w=480 480w, {{ cover.cropUrl }}&w=1024 1024w, {{ cover.cropUrl }}&w=1600 1600w"
     sizes="100vw"
-    alt="{{ cover.alt.fr }}"
+    alt="{{ cover.alt }}"
 />
 ```
+
+With `?locale=`, a picture's `alt` and `caption` come in that language, like every other text.
 
 ---
 
