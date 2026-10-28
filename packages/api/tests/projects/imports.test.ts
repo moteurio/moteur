@@ -3,7 +3,7 @@ import express from 'express';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 vi.mock('../../src/middlewares/auth', () => ({
-    requireProjectAccess: (req: any, _res: any, next: any) => {
+    requireProjectAdmin: (req: any, _res: any, next: any) => {
         req.user = { id: 'u1', roles: ['admin'] };
         next();
     }

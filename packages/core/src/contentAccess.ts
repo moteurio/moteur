@@ -1,5 +1,5 @@
 import type { User } from '@moteurio/types/User.js';
-import { canTranslate, canWrite, translatorOnly } from '@moteurio/types';
+import { canTranslate, canWrite, hasRole, translatorOnly } from '@moteurio/types';
 
 /** A refusal the API turns into HTTP 403. */
 export function contentForbidden(message: string): Error {
@@ -10,6 +10,11 @@ export function contentForbidden(message: string): Error {
 
 export function assertCanWrite(user: User): void {
     if (!canWrite(user)) throw contentForbidden('You cannot change content in this project.');
+}
+
+/** What changes the whole project at once (its schemas, a bundle of everything): its admins. */
+export function assertProjectAdmin(user: User, doing: string): void {
+    if (!hasRole(user, 'admin')) throw contentForbidden(`Only the project's admins can ${doing}.`);
 }
 
 export function assertCanEdit(user: User): void {
