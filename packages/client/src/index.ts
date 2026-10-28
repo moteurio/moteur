@@ -100,6 +100,9 @@ export type {
     ImageAttributes
 } from './images.js';
 
+export { richTextHtml } from './richText.js';
+export type { DastDocument, DastNode, DastMark } from './richText.js';
+
 export { createMoteurAdminClient } from './admin/adminClient.js';
 export { createMoteurPublicClient } from './public/createPublicClient.js';
 export { t, siblingPath, localeFromPathname } from './delivery/locale.js';
