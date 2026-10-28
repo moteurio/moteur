@@ -2482,22 +2482,6 @@ Show one webhook
 
 Calls `GET /projects/{project}/webhooks/{id}`.
 
-### `moteur webhooks create`
-
-Create a webhook from its JSON
-
-| Option               |                                                                              |
-| -------------------- | ---------------------------------------------------------------------------- |
-| `--project <string>` | Project id (default: MOTEUR_PROJECT, .moteur.json, or `moteur projects use`) |
-| `--file <string>`    | Read the JSON body from this file                                            |
-| `--data <string>`    | The JSON body, inline                                                        |
-
-Calls `POST /projects/{project}/webhooks`.
-
-```bash
-moteur webhooks create --file=webhook.json
-```
-
 ### `moteur webhooks update <id>`
 
 Change part of a webhook (JSON with the fields to change)
@@ -2521,6 +2505,30 @@ Delete a webhook Asks first (or `--yes`).
 | `--id <string>`      | webhook id (required)                                                        |
 
 Calls `DELETE /projects/{project}/webhooks/{id}`.
+
+### `moteur webhooks create`
+
+Call an address when content changes: a build hook, or any service
+
+A deploy hook (`--kind deploy`) is a host's build hook (Vercel, Netlify, Cloudflare Pages…): it waits for more changes, then calls once, when what's live changes. Without --events, a deploy hook listens to what goes live; any other hook to every event.
+
+| Option                     |                                                                              |
+| -------------------------- | ---------------------------------------------------------------------------- |
+| `--project <string>`       | Project id (default: MOTEUR_PROJECT, .moteur.json, or `moteur projects use`) |
+| `--url <string>`           | The address to call (https)                                                  |
+| `--kind <webhook\|deploy>` | deploy: a build hook, called once per round of changes                       |
+| `--events <list>`          | Only these events: page.published,entry.published…                           |
+| `--name <string>`          | What it is for (default: its address)                                        |
+| `--wait <number>`          | A deploy hook: seconds to wait for more changes (default 30)                 |
+| `--file <string>`          | Read the JSON body from this file                                            |
+| `--data <string>`          | The JSON body, inline                                                        |
+
+Calls `POST /projects/{project}/webhooks`.
+
+```bash
+moteur webhooks create --kind deploy --url "$DEPLOY_HOOK"
+moteur webhooks create --url https://example.com/hook --events form.submitted
+```
 
 ### `moteur webhooks test <id>`
 

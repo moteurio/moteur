@@ -64,6 +64,16 @@ describe('deploy hooks', () => {
         ).rejects.toThrow('batchSeconds');
     });
 
+    it('names a hook when it is not given a name', async () => {
+        const deploy = await createWebhook(projectId, 'u1', {
+            url: 'https://api.netlify.com/build_hooks/abc',
+            kind: 'deploy'
+        });
+        const plain = await createWebhook(projectId, 'u1', { url: 'https://hooks.example.com/x' });
+        expect(deploy.name).toBe('Rebuild the site');
+        expect(plain.name).toBe('hooks.example.com');
+    });
+
     it('starts one build for changes close together', async () => {
         const deploy = await createWebhook(projectId, 'u1', {
             name: 'Netlify',

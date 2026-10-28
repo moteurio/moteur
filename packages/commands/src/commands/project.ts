@@ -406,6 +406,7 @@ export const webhooks = group('webhooks', [
         noun: 'webhook',
         base: `${P}/webhooks`,
         pick: 'webhooks',
+        skip: ['create'],
         table: [
             { key: 'id', header: 'id' },
             { key: 'url', header: 'address' },
@@ -413,6 +414,48 @@ export const webhooks = group('webhooks', [
             { key: 'enabled', header: 'on' }
         ]
     }),
+    {
+        name: 'create',
+        summary: 'Call an address when content changes: a build hook, or any service',
+        description:
+            "A deploy hook (`--kind deploy`) is a host's build hook (Vercel, Netlify, Cloudflare Pages…): it waits for more changes, then calls once, when what's live changes. Without --events, a deploy hook listens to what goes live; any other hook to every event.",
+        args: [
+            project,
+            { name: 'url', description: 'The address to call (https)', in: 'body' },
+            {
+                name: 'kind',
+                description: 'deploy: a build hook, called once per round of changes',
+                choices: ['webhook', 'deploy'],
+                in: 'body'
+            },
+            {
+                name: 'events',
+                type: 'list',
+                description: 'Only these events: page.published,entry.published…',
+                in: 'body'
+            },
+            { name: 'name', description: 'What it is for (default: its address)', in: 'body' },
+            {
+                name: 'wait',
+                type: 'number',
+                description: 'A deploy hook: seconds to wait for more changes (default 30)',
+                in: 'body',
+                key: 'batchSeconds'
+            }
+        ],
+        body: 'json',
+        http: `POST ${P}/webhooks`,
+        examples: [
+            'moteur webhooks create --kind deploy --url "$DEPLOY_HOOK"',
+            'moteur webhooks create --url https://example.com/hook --events form.submitted'
+        ],
+        done: r => {
+            const w = r as { id: string; kind?: string; secret?: string };
+            return w.kind === 'deploy'
+                ? `Made ${w.id}: the site rebuilds when what's live changes.`
+                : `Made ${w.id}. Its signing secret, shown once: ${w.secret}`;
+        }
+    },
     {
         name: 'test',
         summary: 'Send a test call',
