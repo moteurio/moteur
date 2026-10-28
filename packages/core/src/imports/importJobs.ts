@@ -11,6 +11,7 @@ import { restoreProjectFile } from '../utils/projectStorage.js';
 import { projectDir } from '../utils/pathUtils.js';
 import { show } from '../git/gitService.js';
 import { getProject } from '../projects.js';
+import { assertNotReviewOnly, assertProjectAdmin } from '../contentAccess.js';
 import { afterImport, countItems, importBundle, publishImport } from './importBundle.js';
 
 const KEY = '.moteur/imports.json';
@@ -21,6 +22,8 @@ type StoredJob = ImportJob & { touched?: string[] };
 
 /** Jobs running in this process. One still "running" in the file but not here was cut short. */
 const running = new Map<string, Promise<ImportJob>>();
+/** Imports being approved right now. */
+const approving = new Set<string>();
 const queues = new Map<string, Promise<unknown>>();
 
 /** One change to a project's jobs at a time. */
@@ -70,6 +73,7 @@ export async function startImport(
     options: { dryRun?: boolean } = {}
 ): Promise<{ job: ImportJob; finished: Promise<ImportJob> }> {
     await getProject(user, projectId);
+    assertProjectAdmin(user, 'import');
     const job: StoredJob = {
         id: randomUUID(),
         projectId,
@@ -135,6 +139,27 @@ export async function getImport(projectId: string, id: string): Promise<ImportJo
  */
 export async function approveImport(user: User, projectId: string, id: string): Promise<ImportJob> {
     const project = await getProject(user, projectId);
+    assertProjectAdmin(user, 'approve an import');
+    assertNotReviewOnly(user, 'approve an import');
+    // One approval at a time: a second click doesn't publish it twice.
+    if (approving.has(id))
+        throw Object.assign(new Error('This import is already being approved.'), {
+            statusCode: 409
+        });
+    approving.add(id);
+    try {
+        return await approveWaitingImport(user, project, projectId, id);
+    } finally {
+        approving.delete(id);
+    }
+}
+
+async function approveWaitingImport(
+    user: User,
+    project: Awaited<ReturnType<typeof getProject>>,
+    projectId: string,
+    id: string
+): Promise<ImportJob> {
     const job = await getImport(projectId, id);
     if (!job) throw Object.assign(new Error('No such import.'), { statusCode: 404 });
     if (job.status !== 'awaiting_approval' || !job.toPublish)

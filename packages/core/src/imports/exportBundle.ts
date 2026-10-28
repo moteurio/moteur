@@ -8,6 +8,7 @@ import type { ImportBundle, ImportPage } from '@moteurio/types/Import.js';
 import type { StructureSchema } from '@moteurio/types/Structure.js';
 import type { BlockSchema } from '@moteurio/types/Block.js';
 import { getProject } from '../projects.js';
+import { assertProjectAdmin } from '../contentAccess.js';
 import { listModelSchemas } from '../models.js';
 import { listTemplates } from '../templates.js';
 import { listBlocks } from '../blocks.js';
@@ -42,6 +43,7 @@ const textOf = (v: unknown) =>
 
 export async function exportBundle(user: User, projectId: string): Promise<ImportBundle> {
     await getProject(user, projectId);
+    assertProjectAdmin(user, 'export the project');
     const structures: StructureSchema[] = [];
     for (const id of await listProjectKeys(projectId, structureListPrefix())) {
         const s = await getProjectJson<StructureSchema>(projectId, structureKey(id));

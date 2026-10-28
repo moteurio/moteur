@@ -10,10 +10,11 @@ import {
     startImport
 } from '@moteurio/core/imports/importJobs.js';
 import { exportBundle } from '@moteurio/core/imports/exportBundle.js';
-import { requireProjectAccess } from '../middlewares/auth.js';
+import { requireProjectAdmin } from '../middlewares/auth.js';
 import { queryFlag } from '../utils/queryFlag.js';
 import { sendApiError } from '../utils/apiError.js';
 
+// Imports and exports touch the whole project, schemas included: its admins'.
 const router: Router = Router({ mergeParams: true });
 
 /** How long a request waits for its import before answering 202 with the job to follow. */
@@ -22,7 +23,7 @@ function waitOf(req: Request): number {
     return Number.isFinite(asked) ? Math.min(Math.max(asked, 0), 60) * 1000 : 20_000;
 }
 
-router.post('/imports', requireProjectAccess, async (req: Request, res: Response) => {
+router.post('/imports', requireProjectAdmin, async (req: Request, res: Response) => {
     const { projectId } = req.params as Record<string, string>;
     try {
         const { job, finished } = await startImport(
@@ -47,7 +48,7 @@ router.post('/imports', requireProjectAccess, async (req: Request, res: Response
     }
 });
 
-router.get('/imports', requireProjectAccess, async (req: Request, res: Response) => {
+router.get('/imports', requireProjectAdmin, async (req: Request, res: Response) => {
     const { projectId } = req.params as Record<string, string>;
     try {
         return void res.json(await listImports(projectId!));
@@ -56,7 +57,7 @@ router.get('/imports', requireProjectAccess, async (req: Request, res: Response)
     }
 });
 
-router.get('/imports/:id', requireProjectAccess, async (req: Request, res: Response) => {
+router.get('/imports/:id', requireProjectAdmin, async (req: Request, res: Response) => {
     const { projectId, id } = req.params as Record<string, string>;
     try {
         const job = await getImport(projectId!, id!);
@@ -67,7 +68,7 @@ router.get('/imports/:id', requireProjectAccess, async (req: Request, res: Respo
     }
 });
 
-router.post('/imports/:id/approve', requireProjectAccess, async (req: Request, res: Response) => {
+router.post('/imports/:id/approve', requireProjectAdmin, async (req: Request, res: Response) => {
     const { projectId, id } = req.params as Record<string, string>;
     try {
         return void res.json(await approveImport(req.user!, projectId!, id!));
@@ -76,7 +77,7 @@ router.post('/imports/:id/approve', requireProjectAccess, async (req: Request, r
     }
 });
 
-router.get('/export', requireProjectAccess, async (req: Request, res: Response) => {
+router.get('/export', requireProjectAdmin, async (req: Request, res: Response) => {
     const { projectId } = req.params as Record<string, string>;
     try {
         res.setHeader('Cache-Control', 'no-store');

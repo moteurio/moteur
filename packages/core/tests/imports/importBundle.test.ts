@@ -16,6 +16,7 @@ import {
 } from '../../src/imports/importJobs.js';
 import { exportBundle } from '../../src/imports/exportBundle.js';
 import { getPage, listPages } from '../../src/pages.js';
+import { publicPage } from '../../src/pages/publishedPages.js';
 import { getEntryForProject } from '../../src/entries.js';
 import { listAssets } from '../../src/assets/assetService.js';
 import { getNavigationByHandle } from '../../src/navigations.js';
@@ -310,6 +311,43 @@ describe('importing a bundle', () => {
         expect(approved).toMatchObject({ status: 'done', approvedBy: { id: 'u1' } });
         expect((await getPage(other, 'home')).status).toBe('published');
         expect((await getImport(other, job.id))!.status).toBe('done');
+    });
+
+    it('is for admins, and keeps a block type to its folder', async () => {
+        const writer = { ...admin, roles: ['writer'] } as User;
+        await expect(startImport(writer, projectId, site())).rejects.toThrow(/admins/);
+        await expect(exportBundle(writer, projectId)).rejects.toThrow(/admins/);
+
+        const activity = path.join(dirOf(projectId), '.moteur', 'activity.json');
+        await fs.mkdir(path.dirname(activity), { recursive: true });
+        await fs.writeFile(activity, '[]');
+        const sly = { version: 1, blocks: [{ type: '../.moteur/activity', label: 'X' }] } as never;
+        for (const dryRun of [true, false]) {
+            const out = await importBundle(admin, projectId, sly, { dryRun });
+            expect(out.issues[0]!.message).toMatch(/not a block type/);
+            expect(await fs.readFile(activity, 'utf8')).toBe('[]');
+        }
+    });
+
+    it("leaves a live page as published until the import's publish step; a dry run, as it was", async () => {
+        await importBundle(admin, projectId, site({ publish: true }));
+        const live = async () =>
+            ((await publicPage(projectId, await getPage(projectId, 'home'))) as any)?.label;
+        expect(await live()).toBe('Home');
+
+        const changed = site();
+        changed.pages![0]!.label = 'Changed';
+        const before = commits(projectId);
+        await importBundle(admin, projectId, changed, { dryRun: true });
+        expect((await getPage(projectId, 'home')).label).toBe('Home');
+        expect(commits(projectId)).toBe(before);
+
+        await importBundle(admin, projectId, changed);
+        expect((await getPage(projectId, 'home')).label).toBe('Changed');
+        expect(await live()).toBe('Home');
+
+        await importBundle(admin, projectId, { ...changed, publish: true });
+        expect(await live()).toBe('Changed');
     });
 
     it('exports a project as a bundle that makes it again', async () => {

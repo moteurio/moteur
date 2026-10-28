@@ -314,6 +314,9 @@ function whenExisting(ctx: Context, what: string): 'update' | 'skip' {
     return rule;
 }
 
+/** A project block's file name, as `createProjectBlock` makes it. */
+const BLOCK_SLUG = /^[a-z0-9][a-z0-9-_]*$/;
+
 async function saveAll(ctx: Context): Promise<void> {
     const { user, projectId, bundle, refs } = ctx;
 
@@ -332,16 +335,18 @@ async function saveAll(ctx: Context): Promise<void> {
     for (const [i, b] of (bundle.blocks ?? []).entries())
         await step(ctx, `blocks[${i}]`, 'block', async () => {
             const slug = b.type.includes('/') ? b.type.slice(b.type.indexOf('/') + 1) : b.type;
+            if (!BLOCK_SLUG.test(slug)) throw new Error(`"${b.type}" is not a block type.`);
             const key = `blocks/${slug}.json`;
-            // Block files are not content events: the batch is told of them here.
-            ctx.batch.paths.add(key);
             if (fs.existsSync(path.join(projectDir(projectId), key))) {
                 if (whenExisting(ctx, `Block "${b.type}"`) === 'skip')
                     return { id: b.type, action: 'skip' };
                 updateProjectBlock(projectId, slug, b, 'replace');
+                // Block files are not content events: the batch is told of them, once written.
+                ctx.batch.paths.add(key);
                 return { id: b.type, action: 'update' };
             }
             const made = createProjectBlock(projectId, b);
+            ctx.batch.paths.add(key);
             return { id: made.type, action: 'create' };
         });
 
@@ -411,7 +416,21 @@ async function saveAll(ctx: Context): Promise<void> {
             const parentId = parentRef ? refs.get(parentRef) : null;
             if (parentRef && !parentId)
                 throw new ImportError(`${where}.parent`, `No page "${parentRef}".`);
-            const { id, ref: _ref, parent: _parent, fields, ...rest } = p;
+            // An import saves drafts: going live is its `publish` step, never a page's own fields.
+            const {
+                id,
+                ref: _ref,
+                parent: _parent,
+                fields,
+                status: _status,
+                publishedCommit: _commit,
+                publishedAt: _at,
+                ...rest
+            } = p as typeof p & {
+                status?: unknown;
+                publishedCommit?: unknown;
+                publishedAt?: unknown;
+            };
             const data = {
                 ...rest,
                 type: p.type ?? 'static',
@@ -422,7 +441,8 @@ async function saveAll(ctx: Context): Promise<void> {
             } as Partial<PageNode> & { type: PageNode['type']; label: string; slug: string };
             if (await hasProjectKey(projectId, pageKey(id))) {
                 if (whenExisting(ctx, `Page "${id}"`) === 'skip') return { id, action: 'skip' };
-                await updatePage(projectId, user, id, data);
+                // A live page keeps its published version: the import's changes wait in it.
+                await updatePage(projectId, user, id, data, { asDraft: true });
                 return { id, action: 'update' };
             }
             await createPage(projectId, user, { ...data, id, status: 'draft' } as typeof data);
@@ -637,8 +657,9 @@ export async function importBundle(
 }
 
 /**
- * Puts an import's pages and entries live: the pages in one commit, each entry as publishing
- * makes it (it records its own commit). What can't go live is reported, not undone.
+ * Puts an import's pages and entries live: each page as publishing makes it (its own commit, its
+ * waiting changes included), then the entries in one commit. What can't go live is reported, not
+ * undone.
  */
 export async function publishImport(
     user: User,
@@ -647,16 +668,17 @@ export async function publishImport(
 ): Promise<ImportIssue[]> {
     const issues: ImportIssue[] = [];
     await withProjectWriteLock(projectId, async () => {
-        const paths = await runInBatch(projectId, async batch => {
-            for (const id of toPublish.pages) {
-                try {
-                    const page = await getPage(projectId, id);
-                    if (page.type !== 'folder')
-                        await updatePage(projectId, user, id, { status: 'published' });
-                } catch (err) {
-                    issues.push({ path: `page:${id}`, message: messageOf(err) });
-                }
+        // A page's published version is the commit holding it: pages are not batched.
+        for (const id of toPublish.pages) {
+            try {
+                const page = await getPage(projectId, id);
+                if (page.type !== 'folder')
+                    await updatePage(projectId, user, id, { status: 'published' });
+            } catch (err) {
+                issues.push({ path: `page:${id}`, message: messageOf(err) });
             }
+        }
+        const paths = await runInBatch(projectId, async batch => {
             for (const e of toPublish.entries) {
                 try {
                     await publishEntry(user, projectId, e.modelId, e.id);
@@ -669,7 +691,7 @@ export async function publishImport(
         await commitContentChange({
             projectId,
             paths,
-            message: `Publish ${toPublish.pages.length} pages and ${toPublish.entries.length} entries — ${user.name ?? user.id}`,
+            message: `Publish ${toPublish.entries.length} entries — ${user.name ?? user.id}`,
             user
         });
     });
