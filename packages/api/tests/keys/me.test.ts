@@ -26,7 +26,7 @@ const ok = (channelAllowlist: string[] | null, extra: Record<string, unknown> = 
 describe('GET /keys/me', () => {
     beforeEach(() => {
         vi.clearAllMocks();
-        vi.mocked(findProjectForApiKey).mockReturnValue('moteur-io');
+        vi.mocked(findProjectForApiKey).mockReturnValue('www-moteur');
         vi.mocked(listChannels).mockResolvedValue([{ id: 'site' }, { id: 'blog' }] as never);
     });
 
@@ -35,13 +35,13 @@ describe('GET /keys/me', () => {
         const res = await request(app).get('/keys/me').set('x-api-key', 'mk_live_x');
         expect(res.status).toBe(200);
         expect(res.body).toEqual({
-            projectId: 'moteur-io',
+            projectId: 'www-moteur',
             keyId: 'k1',
             channels: ['blog'],
             channel: 'blog',
             siteWide: true
         });
-        expect(verifyProjectApiKey).toHaveBeenCalledWith('moteur-io', 'mk_live_x');
+        expect(verifyProjectApiKey).toHaveBeenCalledWith('www-moteur', 'mk_live_x');
     });
 
     it('gives "site" for a key that reads every channel, and no channel when there is doubt', async () => {
@@ -57,7 +57,7 @@ describe('GET /keys/me', () => {
         expect((await request(app).get('/keys/me')).status).toBe(401);
         vi.mocked(findProjectForApiKey).mockReturnValue(null);
         expect((await request(app).get('/keys/me').set('x-api-key', 'k')).status).toBe(401);
-        vi.mocked(findProjectForApiKey).mockReturnValue('moteur-io');
+        vi.mocked(findProjectForApiKey).mockReturnValue('www-moteur');
         vi.mocked(verifyProjectApiKey).mockResolvedValue({ ok: false, reason: 'expired' });
         const expired = await request(app).get('/keys/me').set('x-api-key', 'k');
         expect(expired.status).toBe(401);

@@ -18,7 +18,7 @@ export interface ContentShape {
 
 export interface SchemaShape {
     locale: string;
-    /** The project id, which its own block types start with (`moteur-io/hero`). */
+    /** The project id, which its own block types start with (`www-moteur/hero`). */
     namespace?: string;
     all: ContentShape;
     one: ContentShape;

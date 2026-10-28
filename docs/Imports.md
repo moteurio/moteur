@@ -20,7 +20,7 @@ Imports and exports are for the project's admins: a bundle can change its models
     "existing": "update",
     "publish": false,
     "structures": [{ "type": "cta", "label": "CTA", "fields": { "...": {} } }],
-    "blocks": [{ "type": "moteur-io/hero", "label": "Hero", "fields": { "...": {} } }],
+    "blocks": [{ "type": "www-moteur/hero", "label": "Hero", "fields": { "...": {} } }],
     "models": [{ "id": "post", "label": "Post", "fields": { "...": {} } }],
     "templates": [{ "id": "page", "label": "Page", "fields": { "...": {} } }],
     "assets": [
@@ -36,7 +36,7 @@ Imports and exports are for the project's admins: a bundle can change its models
             "fields": {
                 "blocks": [
                     {
-                        "type": "moteur-io/hero",
+                        "type": "www-moteur/hero",
                         "data": {
                             "shot": { "assetId": { "$ref": "asset:inbox" } },
                             "cta": {

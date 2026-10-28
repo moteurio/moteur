@@ -7,12 +7,12 @@ import ts from 'typescript';
 import { generateTypes, type TypegenInput } from '../src/typegen.js';
 
 const input: TypegenInput = {
-    projectId: 'moteur-io',
+    projectId: 'www-moteur',
     defaultLocale: 'en',
     locales: ['fr'],
     structures: {
-        'moteur-io/cta': {
-            type: 'moteur-io/cta',
+        'www-moteur/cta': {
+            type: 'www-moteur/cta',
             label: 'Call to action',
             fields: {
                 label: {
@@ -25,8 +25,8 @@ const input: TypegenInput = {
         }
     },
     blocks: {
-        'moteur-io/feature': {
-            type: 'moteur-io/feature',
+        'www-moteur/feature': {
+            type: 'www-moteur/feature',
             label: { en: 'Feature', fr: 'Fonction' },
             fields: {
                 title: { type: 'core/text', label: 'Title', options: { multilingual: true } },
@@ -34,7 +34,7 @@ const input: TypegenInput = {
                 cta: {
                     type: 'core/structure',
                     label: 'CTA',
-                    options: { structure: 'moteur-io/cta' }
+                    options: { structure: 'www-moteur/cta' }
                 },
                 exhibit: {
                     type: 'core/variant',
@@ -86,7 +86,7 @@ const input: TypegenInput = {
                 body: {
                     type: 'core/block-list',
                     label: 'Body',
-                    options: { allowedBlockTypes: ['moteur-io/feature'] }
+                    options: { allowedBlockTypes: ['www-moteur/feature'] }
                 },
                 'reading-time': { type: 'core/number', label: 'Reading time' }
             }
@@ -166,7 +166,7 @@ describe('generateTypes', () => {
         const out = generateTypes({
             ...input,
             structures: {},
-            blocks: { 'moteur-io/foo': { label: 'Foo', fields: {} } },
+            blocks: { 'www-moteur/foo': { label: 'Foo', fields: {} } },
             models: [{ id: 'foo-block', label: 'Foo block', fields: {} }],
             templates: [{ id: 'any', label: 'Any', fields: {} }]
         });
@@ -204,7 +204,7 @@ describe('generateTypes', () => {
                         blocks: {
                             type: 'core/block-list',
                             label: 'Blocks',
-                            options: { allowedBlockTypes: ['moteur-io/feature'] }
+                            options: { allowedBlockTypes: ['www-moteur/feature'] }
                         }
                     }
                 }
@@ -230,7 +230,7 @@ const stored: ArticleEntry = {
         'reading-time': 4,
         body: [
             {
-                type: 'moteur-io/feature',
+                type: 'www-moteur/feature',
                 data: {
                     title: { en: 'Inbox' },
                     shot: { assetId: 'inbox' },
@@ -248,7 +248,7 @@ const french: ArticleEntry<'one'> = {
     data: {
         title: 'Bonjour',
         author: { id: 'ada', type: 'author', data: { name: 'Ada' } },
-        body: [{ type: 'moteur-io/feature', data: { cta: { label: 'Essayer', link: { url: '/fr/tarifs' } } } }]
+        body: [{ type: 'www-moteur/feature', data: { cta: { label: 'Essayer', link: { url: '/fr/tarifs' } } } }]
     }
 };
 
@@ -278,7 +278,7 @@ const wrong: ArticleEntry<'one'> = {
     type: 'article',
     data: {
         title: { en: 'Not one language' },
-        body: [{ type: 'moteur-io/feature', data: { exhibit: { kind: 'code', language: 'python' } } }]
+        body: [{ type: 'www-moteur/feature', data: { exhibit: { kind: 'code', language: 'python' } } }]
     }
 };
 export { wrong };
@@ -294,7 +294,7 @@ import type { MoteurSchema } from './moteur';
 
 const moteur = createMoteurPublicClient<MoteurSchema>({
     baseURL: 'https://api.moteur.io',
-    auth: { type: 'apiKey', apiKey: 'k', projectId: 'moteur-io' }
+    auth: { type: 'apiKey', apiKey: 'k', projectId: 'www-moteur' }
 });
 
 export async function build() {
@@ -313,7 +313,7 @@ export async function build() {
         if (page.templateId === 'home') {
             const seo: string | undefined = page.fields.seo?.title;
             const blocks = page.fields.blocks ?? [];
-            for (const block of blocks) if (block.type === 'moteur-io/feature') block.data.title;
+            for (const block of blocks) if (block.type === 'www-moteur/feature') block.data.title;
         }
     const menus = await fr.menus.list();
     const urls = await moteur.locale('fr').site.urls();
