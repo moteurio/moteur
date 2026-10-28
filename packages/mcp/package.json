@@ -1,6 +1,6 @@
 {
     "name": "@moteurio/mcp",
-    "version": "2026.10.24",
+    "version": "2026.10.28",
     "description": "Moteur for AI agents: an MCP server with a tool for everything the Moteur API can do",
     "type": "module",
     "bin": {
