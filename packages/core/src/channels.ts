@@ -2,28 +2,14 @@ import { randomUUID } from 'crypto';
 import type { Channel, ChannelResource } from '@moteurio/types/Channel.js';
 import type { User } from '@moteurio/types/User.js';
 import { getProject } from './projects.js';
-import { deleteProjectKey, getProjectJson, putProjectJson } from './utils/projectStorage.js';
-import { CHANNELS_KEY, LEGACY_CHANNELS_KEY } from './utils/storageKeys.js';
+import { getProjectJson, putProjectJson } from './utils/projectStorage.js';
+import { CHANNELS_KEY } from './utils/storageKeys.js';
 import { triggerEvent } from './utils/eventBus.js';
 import { isValidId } from './utils/idUtils.js';
 import { assertCountRoom } from './planLimits.js';
-import { systemActor } from './utils/systemActor.js';
 
 async function loadChannels(projectId: string): Promise<Channel[]> {
-    const list = await getProjectJson<Channel[]>(projectId, CHANNELS_KEY);
-    if (list) return list;
-    // Channels were called collections: a project saved before keeps them under the old name.
-    const legacy = await getProjectJson<Channel[]>(projectId, LEGACY_CHANNELS_KEY);
-    if (!legacy) return [];
-    await putProjectJson(projectId, CHANNELS_KEY, legacy);
-    await deleteProjectKey(projectId, LEGACY_CHANNELS_KEY);
-    triggerEvent('content.saved', {
-        projectId,
-        paths: [CHANNELS_KEY, LEGACY_CHANNELS_KEY],
-        message: 'Rename api-collections.json to channels.json',
-        user: systemActor('_moteur', 'Moteur')
-    });
-    return legacy;
+    return (await getProjectJson<Channel[]>(projectId, CHANNELS_KEY)) ?? [];
 }
 
 async function saveChannels(projectId: string, list: Channel[]): Promise<void> {

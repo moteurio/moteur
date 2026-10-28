@@ -22,7 +22,14 @@ import { modelKey } from '../src/utils/storageKeys.js';
 import { createSubmission, fillIn, getSubmission } from '../src/formSubmissions.js';
 
 const projectId = 'form-emails';
-const user: User = { id: 'u1', name: 'Ada', isActive: true, email: '', roles: [], projects: [] };
+const user: User = {
+    id: 'u1',
+    name: 'Ada',
+    isActive: true,
+    email: '',
+    roles: ['writer'],
+    projects: []
+};
 const form = {
     id: 'contact',
     label: 'Contact',

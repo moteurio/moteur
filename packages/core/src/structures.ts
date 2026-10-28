@@ -20,7 +20,14 @@ import { triggerEvent } from './utils/eventBus.js';
 import { builtinStructureSchemas } from './plugins/builtinContent.js';
 
 function systemUser(): User {
-    return { id: 'system', name: 'System', isActive: true, email: '', roles: [], projects: [] };
+    return {
+        id: 'system',
+        name: 'System',
+        isActive: true,
+        email: '',
+        roles: ['writer'],
+        projects: []
+    };
 }
 
 /** Core structures live next to core blocks: {dataRoot}/data/core/structures. */

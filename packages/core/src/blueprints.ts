@@ -26,7 +26,14 @@ export function registerBlueprint(blueprint: BlueprintSchema): void {
 }
 
 function systemUser(): User {
-    return { id: 'system', name: 'System', isActive: true, email: '', roles: [], projects: [] };
+    return {
+        id: 'system',
+        name: 'System',
+        isActive: true,
+        email: '',
+        roles: ['writer'],
+        projects: []
+    };
 }
 
 function kindSubdir(kind: BlueprintKind): string {

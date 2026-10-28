@@ -40,12 +40,7 @@ function toMeta(entry: PreviewTokenEntry): PreviewTokenMeta {
 }
 
 async function loadTokens(projectId: string): Promise<PreviewTokenEntry[]> {
-    const list = (await getProjectJson<PreviewTokenEntry[]>(projectId, STORAGE_KEY)) ?? [];
-    // Channels were called collections: a token made before is still limited to its channel.
-    return list.map(e => {
-        const { collectionId, ...rest } = e as PreviewTokenEntry & { collectionId?: string };
-        return collectionId && !rest.channelId ? { ...rest, channelId: collectionId } : rest;
-    });
+    return (await getProjectJson<PreviewTokenEntry[]>(projectId, STORAGE_KEY)) ?? [];
 }
 
 async function saveTokens(projectId: string, list: PreviewTokenEntry[]): Promise<void> {

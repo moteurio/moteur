@@ -21,25 +21,25 @@ export const team = {
         id: 'journal-marguerite',
         name: 'Marguerite Fontaine',
         email: 'marguerite@moteur-journal.test',
-        roles: []
+        roles: ['writer']
     },
     sophie: {
         id: 'journal-sophie',
         name: 'Sophie Marchand',
         email: 'sophie@moteur-journal.test',
-        roles: []
+        roles: ['writer']
     },
     jf: {
         id: 'journal-jf',
         name: 'Jean-François Côté',
         email: 'jf@moteur-journal.test',
-        roles: []
+        roles: ['writer']
     },
     unit7: {
         id: 'journal-unit7',
         name: 'Unit 7-PASCAL',
         email: 'unit7@moteur-journal.test',
-        roles: []
+        roles: ['writer']
     },
     theo: {
         id: 'journal-theo',

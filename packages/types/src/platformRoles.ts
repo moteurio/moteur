@@ -4,7 +4,7 @@
  * A higher role is not also stored as the roles it implies.
  *
  * Developer implies Admin. Admin, Reviewer and Developer imply Writer. Translator and Billing
- * imply nothing. An empty list is a Writer, for people saved before Writer was stored.
+ * imply nothing. Roles are always stored: an account made without any is stored as a Writer.
  *
  * No role, on an account or in a project, reaches beyond the projects someone belongs to. Running
  * the whole server is for operators, who are not users (see @moteurio/core/operators).
@@ -64,10 +64,8 @@ export function inProject<T extends { id: string; roles?: readonly string[] | nu
 /** Whether this person has `role`, counting what a stored role implies. */
 export function hasRole(user: WithRoles, role: string): boolean {
     const roles = storedRoles(user);
-    const empty = roles.length === 0;
     if (role === 'writer') {
         return (
-            empty ||
             roles.includes('writer') ||
             roles.includes('reviewer') ||
             roles.includes('admin') ||

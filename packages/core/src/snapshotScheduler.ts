@@ -19,7 +19,7 @@ const SCHEDULER_USER = {
     name: 'Snapshot Scheduler',
     isActive: true,
     email: '',
-    roles: [] as string[],
+    roles: ['writer'] as string[],
     projects: [] as string[]
 };
 

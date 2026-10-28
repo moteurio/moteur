@@ -3,7 +3,7 @@ import fs from 'fs/promises';
 import os from 'os';
 import path from 'path';
 import { getProjectJson, putProjectJson } from '../../src/utils/projectStorage.js';
-import { loadProjects, moveProjectSecretsOutOfGit } from '../../src/projects.js';
+import { loadProjects } from '../../src/projects.js';
 import { redactProjectSecrets } from '../../src/assets/mediaSettings.js';
 
 const projectId = 'secrets';
@@ -81,14 +81,5 @@ describe('credentials stay out of project.json', () => {
         expect(Object.keys(JSON.parse(sealed).project)).not.toContain(
             'assetConfig.adapterConfig.secretAccessKey'
         );
-    });
-
-    it('moves the credentials of a project saved before', async () => {
-        await fs.writeFile(file(), JSON.stringify(project));
-        expect(await moveProjectSecretsOutOfGit()).toEqual([projectId]);
-        expect(await fs.readFile(file(), 'utf8')).not.toContain('super-secret-key');
-        expect(await getProjectJson(projectId, 'project.json')).toEqual(project);
-        // Once is enough.
-        expect(await moveProjectSecretsOutOfGit()).toEqual([]);
     });
 });

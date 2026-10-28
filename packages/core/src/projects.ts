@@ -6,18 +6,13 @@ import { User } from '@moteurio/types/User.js';
 import { ValidationResult } from '@moteurio/types/ValidationResult.js';
 import { isValidId } from './utils/idUtils.js';
 import { isExistingProjectId } from './utils/fileUtils.js';
-import { projectDir, baseProjectsDir, projectFilePath } from './utils/pathUtils.js';
+import { projectDir, baseProjectsDir } from './utils/pathUtils.js';
 import { assertUserCanAccessProject, assertUserCanCreateProject } from './utils/access.js';
 import { triggerEvent } from './utils/eventBus.js';
 import { validateProject } from './validators/validateProject.js';
 import { getProjectJson, listProjectKeys, putProjectJson } from './utils/projectStorage.js';
 import { PROJECT_KEY, pageKey, pageListPrefix } from './utils/storageKeys.js';
-import {
-    mergeProjectSecrets,
-    readProjectSecrets,
-    splitProjectSecrets
-} from './utils/projectSecrets.js';
-import { systemActor } from './utils/systemActor.js';
+import { mergeProjectSecrets, readProjectSecrets } from './utils/projectSecrets.js';
 import { ensureWorkspace } from './utils/workspaceStore.js';
 import { getContentIndex } from './contentIndex/index.js';
 import { ensureUserData } from './utils/userDataStore.js';
@@ -30,24 +25,6 @@ import type { BlueprintTemplate } from '@moteurio/types/Blueprint.js';
 import { createModelSchema } from './models.js';
 import { createLayout } from './layouts.js';
 import { createStructure } from './structures.js';
-
-/**
- * Channels were called collections: a key saved before says `allowedCollectionIds`. Read under
- * the new name, so its limit still applies; the next save writes it so.
- */
-function withChannelNames(project: ProjectSchema): ProjectSchema {
-    if (!project.apiKeys?.some(k => 'allowedCollectionIds' in k)) return project;
-    return {
-        ...project,
-        apiKeys: project.apiKeys.map(k => {
-            if (!('allowedCollectionIds' in k)) return k;
-            const { allowedCollectionIds, ...rest } = k as typeof k & {
-                allowedCollectionIds?: string[];
-            };
-            return { ...rest, allowedChannelIds: rest.allowedChannelIds ?? allowedCollectionIds };
-        })
-    };
-}
 
 export function loadProjects(): ProjectSchema[] {
     const root = baseProjectsDir();
@@ -68,7 +45,7 @@ export function loadProjects(): ProjectSchema[] {
                     JSON.parse(raw) as ProjectSchema,
                     readProjectSecrets(path.join(root, dir))
                 );
-                return { ...withChannelNames(schema), id: dir };
+                return { ...schema, id: dir };
             } catch (err) {
                 console.error(`[Moteur] Failed to load project config for "${dir}"`, err);
                 return null;
@@ -96,33 +73,11 @@ export async function getProject(user: User, projectId: string): Promise<Project
         throw new Error(`Project "${projectId}" not found`);
     }
 
-    let project = await getProjectJson<ProjectSchema>(projectId, PROJECT_KEY);
+    const project = await getProjectJson<ProjectSchema>(projectId, PROJECT_KEY);
     if (!project || !project.id) {
         throw new Error(`Project "${projectId}" not found`);
     }
 
-    // Backfill audit for projects created before audit plugin or without meta.audit
-    const audit = project.meta?.audit;
-    const needsAuditBackfill = !audit?.createdAt || !audit?.updatedAt;
-    if (needsAuditBackfill) {
-        const fallback = getAuditFallbackTimestamp(projectId);
-        project = {
-            ...project,
-            meta: {
-                ...project.meta,
-                audit: {
-                    createdAt: audit?.createdAt ?? fallback,
-                    updatedAt: audit?.updatedAt ?? fallback,
-                    createdBy: audit?.createdBy,
-                    updatedBy: audit?.updatedBy,
-                    revision: audit?.revision ?? 1
-                }
-            }
-        };
-        await putProjectJson(projectId, PROJECT_KEY, project);
-    }
-
-    project = withChannelNames(project);
     assertUserCanAccessProject(user, { ...project, id: projectId });
     return { ...project, id: projectId };
 }
@@ -136,18 +91,7 @@ export async function getProjectById(projectId: string): Promise<ProjectSchema |
     if (!isExistingProjectId(projectId)) return null;
     const project = await getProjectJson<ProjectSchema>(projectId, PROJECT_KEY);
     if (!project || !project.id) return null;
-    return { ...withChannelNames(project), id: projectId };
-}
-
-/** Returns ISO timestamp for audit backfill (file mtime or now). */
-function getAuditFallbackTimestamp(projectId: string): string {
-    try {
-        const filePath = projectFilePath(projectId);
-        const stat = fs.statSync(filePath);
-        return stat.mtime.toISOString();
-    } catch {
-        return new Date().toISOString();
-    }
+    return { ...project, id: projectId };
 }
 
 export function listProjects(user: User): ProjectSchema[] {
@@ -478,7 +422,7 @@ export async function copyProjectForNewUser(
         name: userId,
         isActive: true,
         email: '',
-        roles: [],
+        roles: ['writer'],
         projects: []
     };
     addAllAndCommit(destDir, `Copy from ${sourceProjectId} — ${userId}`, userForCommit);
@@ -486,35 +430,4 @@ export async function copyProjectForNewUser(
     await addProjectToUser(userId, newProjectId);
 
     return { ...updated, id: newProjectId };
-}
-
-/**
- * Projects saved before credentials moved out of project.json still have them there: save each
- * such project once, so they go to the secrets file and the commit removes them from project.json.
- * Earlier commits still hold them: rotate those keys. Returns the projects moved.
- */
-export async function moveProjectSecretsOutOfGit(): Promise<string[]> {
-    const moved: string[] = [];
-    const root = baseProjectsDir();
-    if (!fs.existsSync(root)) return moved;
-    for (const dir of fs.readdirSync(root)) {
-        const file = path.join(root, dir, 'project.json');
-        if (!fs.existsSync(file)) continue;
-        try {
-            const raw = JSON.parse(fs.readFileSync(file, 'utf-8')) as ProjectSchema;
-            if (!Object.keys(splitProjectSecrets(raw).secrets).length) continue;
-            const project = await getProjectJson<ProjectSchema>(dir, PROJECT_KEY);
-            await putProjectJson(dir, PROJECT_KEY, project);
-            triggerEvent('content.saved', {
-                projectId: dir,
-                paths: [PROJECT_KEY],
-                message: 'Move credentials out of project.json',
-                user: systemActor('moteur', 'Moteur')
-            });
-            moved.push(dir);
-        } catch (err) {
-            console.error(`[Moteur] Could not move credentials out of "${dir}":`, err);
-        }
-    }
-    return moved;
 }

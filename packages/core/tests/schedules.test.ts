@@ -38,7 +38,7 @@ const editor: User = {
     name: 'Editor',
     isActive: true,
     email: 'e@test.com',
-    roles: [],
+    roles: ['writer'],
     projects: []
 };
 const reviewer: User = { ...editor, id: 'u2', name: 'Reviewer', roles: ['reviewer'] };

@@ -118,7 +118,7 @@ const SYSTEM_USER = {
     name: 'System',
     isActive: true,
     email: '',
-    roles: [] as string[],
+    roles: ['writer'] as string[],
     projects: [] as string[]
 };
 
