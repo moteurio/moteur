@@ -164,7 +164,7 @@ The persisted delivery log is also the retry outbox. On startup and periodic swe
 
 ## Registering a webhook
 
-- **REST API:** `POST {basePath}/projects/:projectId/webhooks` with JWT. Body: `{ url, name?, secret?, events?, filters?, headers?, enabled?, kind?, batchSeconds? }`. URL must be HTTPS (or HTTP localhost in development). Secret is optional (one is generated if omitted); it is returned only in the create response.
+- **REST API:** `POST {basePath}/projects/:projectId/webhooks` with JWT. Body: `{ url, name?, secret?, events?, filters?, headers?, enabled?, kind?, batchSeconds? }`. URL must be HTTPS (or HTTP localhost in development, with `MOTEUR_ALLOW_LOOPBACK_URLS=1`). Secret is optional (one is generated if omitted); it is returned only in the create response.
 - **`@moteurio/client`:** use the admin client’s project-scoped webhooks methods (see [client README](../packages/client/README.md)).
 - **Embedded `@moteurio/core`:** `Moteur.webhooks.create(projectId, user, { … })` and related methods—see [Embedded core API](Developer%20API.md).
 - **CLI:** `moteur webhooks create --url … [--events a,b] [--kind deploy] [--wait 30] [--name …]`. Without a name, a deploy hook is "Rebuild the site" and another hook takes its address's host.
@@ -177,6 +177,6 @@ Other operations: list, get, update, delete, **rotate secret**, **test** (sends 
 ## Security
 
 - Store the webhook **secret** securely; use it only for signature verification.
-- Use a final public **HTTPS** URL; HTTP is allowed only for localhost outside production. Private/restricted destinations are rejected, and the validated IP is pinned for the connection.
+- Use a final public **HTTPS** URL; HTTP is allowed only for localhost outside production, when `MOTEUR_ALLOW_LOOPBACK_URLS=1` is set. Private/restricted destinations are rejected, and the validated IP is pinned for the connection.
 - Redirects are not followed. The request deadline covers DNS, connection and response reading (10 seconds); the log retains at most 1,000 response bytes.
 - Secrets can be stored encrypted at rest when `MOTEUR_ENCRYPTION_KEY` is set.

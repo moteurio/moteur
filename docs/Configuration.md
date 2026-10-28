@@ -50,10 +50,11 @@ This page lists environment variables used by the Moteur API. Details (rate limi
 
 ## Security (Helmet)
 
-| Variable              | Description                                                                                                    |
-| --------------------- | -------------------------------------------------------------------------------------------------------------- |
-| `HELMET_DISABLED`     | Set to `1` to disable Helmet when `NODE_ENV` is not `production` (e.g. local API docs). Ignored in production. |
-| `HELMET_CSP_DISABLED` | Set to `1` to disable only Content-Security-Policy.                                                            |
+| Variable                     | Description                                                                                                                                                      |
+| ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `HELMET_DISABLED`            | Set to `1` to disable Helmet when `NODE_ENV` is not `production` (e.g. local API docs). Ignored in production.                                                   |
+| `HELMET_CSP_DISABLED`        | Set to `1` to disable only Content-Security-Policy.                                                                                                              |
+| `MOTEUR_ALLOW_LOOPBACK_URLS` | Set to `1` to let webhooks and other outgoing addresses use plain HTTP to `localhost` or `127.0.0.1`, for a site running on your machine. Ignored in production. |
 
 ---
 

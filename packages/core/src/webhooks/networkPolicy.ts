@@ -1,12 +1,21 @@
 import dns from 'node:dns/promises';
 import { isIPv4, isIPv6 } from 'node:net';
 
+/**
+ * Plain HTTP to this machine, for developing against a local site: only when asked for
+ * (MOTEUR_ALLOW_LOOPBACK_URLS=1) and never in production, so a server whose NODE_ENV is unset
+ * still refuses it.
+ */
+function loopbackAllowed(): boolean {
+    return process.env.MOTEUR_ALLOW_LOOPBACK_URLS === '1' && process.env.NODE_ENV !== 'production';
+}
+
 function isHttpsOrLocalhost(urlStr: string): boolean {
     try {
         const u = new URL(urlStr);
         if (u.protocol === 'https:') return true;
         if (u.protocol === 'http:' && (u.hostname === 'localhost' || u.hostname === '127.0.0.1')) {
-            return process.env.NODE_ENV !== 'production';
+            return loopbackAllowed();
         }
         return false;
     } catch {
@@ -107,7 +116,7 @@ function isRestrictedAddress(address: string, family: 4 | 6, allowLoopback: bool
 
 function devLocalHttpAllowsLoopback(u: URL): boolean {
     return (
-        process.env.NODE_ENV !== 'production' &&
+        loopbackAllowed() &&
         u.protocol === 'http:' &&
         (u.hostname === 'localhost' || u.hostname === '127.0.0.1')
     );

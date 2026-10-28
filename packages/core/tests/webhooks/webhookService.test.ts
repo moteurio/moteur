@@ -97,12 +97,14 @@ describe('webhookService', () => {
             ).rejects.toThrow(/HTTPS/);
         });
 
-        it('accepts http localhost in non-production', async () => {
+        it('accepts http localhost in non-production, when asked for', async () => {
+            vi.stubEnv('MOTEUR_ALLOW_LOOPBACK_URLS', '1');
             const created = await createWebhook(projectId, USER, {
                 name: 'Local',
                 url: 'http://localhost:3000/hook'
             });
             expect(created.url).toBe('http://localhost:3000/hook');
+            vi.unstubAllEnvs();
         });
 
         it('validates invalid event', async () => {

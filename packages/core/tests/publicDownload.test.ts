@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import http from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { downloadPublicFile } from '../src/utils/publicDownload.js';
@@ -31,10 +31,15 @@ const server = http.createServer((req, res) => {
 });
 
 beforeAll(async () => {
+    // The test server is on this machine.
+    vi.stubEnv('MOTEUR_ALLOW_LOOPBACK_URLS', '1');
     await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve));
     base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
 });
-afterAll(() => new Promise<void>(resolve => server.close(() => resolve())));
+afterAll(() => {
+    vi.unstubAllEnvs();
+    return new Promise<void>(resolve => server.close(() => resolve()));
+});
 
 describe('downloadPublicFile', () => {
     it('downloads a file, named after its address, typed by its server', async () => {

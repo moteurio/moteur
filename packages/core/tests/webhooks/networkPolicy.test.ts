@@ -35,8 +35,11 @@ describe('outbound address policy', () => {
             family: 4
         });
     });
-    it('allows explicit HTTP localhost only in development', async () => {
+    it('allows HTTP localhost only when asked for, outside production', async () => {
         vi.stubEnv('NODE_ENV', 'development');
+        await expect(validateUrl('http://127.0.0.1/hook')).rejects.toThrow('HTTPS');
+        vi.stubEnv('NODE_ENV', '');
+        vi.stubEnv('MOTEUR_ALLOW_LOOPBACK_URLS', '1');
         await expect(validateUrl('http://127.0.0.1/hook')).resolves.toMatchObject({
             address: '127.0.0.1',
             family: 4
