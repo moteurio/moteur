@@ -17,8 +17,10 @@ A published page has a published version, like an entry: publishing commits the 
 - Someone who may publish (an admin, or anyone when the project doesn't ask for reviews) edits a live page and the change is live as saved.
 - Someone who needs a review edits a live page and the change waits in the page, while sites keep the published version. A request to publish doesn't bypass it. Sending the page for review keeps it live; approving publishes what was sent; rejecting leaves the page live as it was.
 - An approval publishes once. The reviewer approves what was sent: a change after sending answers **409** `REVIEW_STALE` on approval, and needs a fresh look. The same holds for entries.
+- Publishing a live page that has changes waiting (`status: "published"`, by someone who may publish, or a schedule) puts them live. A changed address leaves a redirect, as it does when a review is approved.
+- A page goes live on approval only when its required fields are filled.
 - Unpublishing (status `draft`) removes the published version. Previews (a preview token) and member requests see the page as saved.
-- A project without Git keeps no published copy and serves the page as saved.
+- A project without Git keeps no published copy and serves the page as saved, so changes can't wait on a live page there: they are refused for anyone who needs a review.
 
 Manage the tree through `/projects/:projectId/pages` with a member JWT. Page templates live under `/projects/:projectId/templates`. A collection page's `modelId` selects its entries; `urlPattern` overrides the model's default pattern. Patterns can use entry fields, for example `[slug]`. Review the [Page types](../packages/types/src/Page.ts) and the host's OpenAPI document for required fields and supported operations.
 

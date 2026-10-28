@@ -10,8 +10,8 @@ import { projectDir, baseProjectsDir, projectFilePath } from './utils/pathUtils.
 import { assertUserCanAccessProject, assertUserCanCreateProject } from './utils/access.js';
 import { triggerEvent } from './utils/eventBus.js';
 import { validateProject } from './validators/validateProject.js';
-import { getProjectJson, putProjectJson } from './utils/projectStorage.js';
-import { PROJECT_KEY } from './utils/storageKeys.js';
+import { getProjectJson, listProjectKeys, putProjectJson } from './utils/projectStorage.js';
+import { PROJECT_KEY, pageKey, pageListPrefix } from './utils/storageKeys.js';
 import {
     mergeProjectSecrets,
     readProjectSecrets,
@@ -465,6 +465,14 @@ export async function copyProjectForNewUser(
         memberRoles: { [userId]: [...PROJECT_CREATOR_ROLES] }
     };
     await putProjectJson(newProjectId, PROJECT_KEY, updated);
+    // A page's published version is a commit of the source's history: the copy starts its own,
+    // and pins its live pages again when changes first wait on them.
+    for (const pageId of await listProjectKeys(newProjectId, pageListPrefix())) {
+        const page = await getProjectJson<Record<string, unknown>>(newProjectId, pageKey(pageId));
+        if (!page || !('publishedCommit' in page)) continue;
+        const { publishedCommit: _c, publishedAt: _a, ...rest } = page;
+        await putProjectJson(newProjectId, pageKey(pageId), rest);
+    }
     const userForCommit = {
         id: userId,
         name: userId,

@@ -5,6 +5,7 @@ import * as publishedCache from '../git/publishedContentCache.js';
 import { getProjectById } from '../projects.js';
 import { putProjectJson } from '../utils/projectStorage.js';
 import { sameContent } from '../utils/sameContent.js';
+import { contentForbidden } from '../contentAccess.js';
 import { projectDir } from '../utils/pathUtils.js';
 import { pageKey } from '../utils/storageKeys.js';
 
@@ -15,14 +16,16 @@ import { pageKey } from '../utils/storageKeys.js';
  * edits by someone who can publish go live as saved, as they always have.
  *
  * Where a page sits (its parent and order) is always the current one: moving a page in the tree
- * is not content. A project without Git keeps no published copy, and serves the file.
+ * is not content. A project without Git keeps no published copy: it serves the file, so edits to
+ * a live page can't wait there (they are refused, see `pinPublishedPage`).
  */
 
 type ContentPage = StaticPage | CollectionPage;
 
 const hasContent = (page: PageNode): page is ContentPage => page.type !== 'folder';
 
-async function gitOn(projectId: string): Promise<boolean> {
+/** Whether the project can keep a page's published version (it has Git). */
+export async function keepsVersions(projectId: string): Promise<boolean> {
     const project = await getProjectById(projectId);
     return !!project && project.git?.enabled !== false && isGitRepo(projectDir(projectId));
 }
@@ -68,7 +71,7 @@ export async function publishPageVersion(
     const live = { ...content, status: 'published' } as ContentPage;
     await putProjectJson(projectId, pageKey(page.id), live);
     await save();
-    if (!(await gitOn(projectId))) return live;
+    if (!(await keepsVersions(projectId))) return live;
     const commit = await commitHolding(projectId, live, user);
     if (!commit) return live;
     publishedCache.set(commit, pageKey(page.id), JSON.stringify(live));
@@ -78,9 +81,10 @@ export async function publishPageVersion(
 }
 
 /**
- * Before someone who needs a review edits a live page: make sure its public version is pinned,
- * so their edit never becomes it. A page published before pages kept a published copy is
- * pinned to its file as it is now.
+ * Before changes wait on a live page (an edit by someone who needs a review, an import, a review
+ * request): make sure its public version is pinned, so they never become it. A live page without
+ * one (a copied project starts so) is pinned to its file as it is now. Without Git nothing can be
+ * pinned, so the changes are refused.
  */
 export async function pinPublishedPage(
     projectId: string,
@@ -88,6 +92,10 @@ export async function pinPublishedPage(
     page: PageNode
 ): Promise<PageNode> {
     if (!hasContent(page) || page.status !== 'published' || page.publishedCommit) return page;
+    if (!(await keepsVersions(projectId)))
+        throw contentForbidden(
+            'This project has no Git history, so a live page can’t keep its published version while changes wait. Ask someone who can publish.'
+        );
     return publishPageVersion(projectId, user, page);
 }
 
@@ -175,14 +183,14 @@ export async function hasWaitingChanges(projectId: string, page: PageNode): Prom
     if (!hasContent(page) || !page.publishedCommit) return false;
     const [version] = await publicPages(projectId, [page]);
     if (!version) return true;
-    const strip = (p: PageNode) =>
-        JSON.stringify({
-            ...p,
-            parentId: null,
-            order: 0,
-            updatedAt: '',
-            publishedCommit: '',
-            publishedAt: ''
-        });
-    return strip(version) !== strip(page);
+    // Content only: where it sits, its state and the pointer itself aren't changes.
+    const strip = (p: PageNode) => ({
+        ...p,
+        parentId: null,
+        order: 0,
+        status: 'published',
+        publishedCommit: '',
+        publishedAt: ''
+    });
+    return !sameContent(strip(version), strip(page));
 }
