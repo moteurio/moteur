@@ -150,18 +150,25 @@ export async function createProject(
     await triggerEvent('project.beforeCreate', { project: projectWithUsers, user });
 
     const dir = projectDir(projectWithUsers.id);
+    const made = !fs.existsSync(dir);
     fs.mkdirSync(dir, { recursive: true });
 
     const remoteUrl = getEffectiveGitRemoteUrl(projectWithUsers);
-    if (remoteUrl) {
-        await cloneFromRemote(dir, remoteUrl);
-    } else {
-        await initRepo(dir);
-    }
+    try {
+        if (remoteUrl) {
+            await cloneFromRemote(dir, remoteUrl);
+        } else {
+            await initRepo(dir);
+        }
 
-    await putProjectJson(projectWithUsers.id, PROJECT_KEY, projectWithUsers);
-    await ensureWorkspace(projectWithUsers.id);
-    await ensureUserData(projectWithUsers.id);
+        await putProjectJson(projectWithUsers.id, PROJECT_KEY, projectWithUsers);
+        await ensureWorkspace(projectWithUsers.id);
+        await ensureUserData(projectWithUsers.id);
+    } catch (err) {
+        // All or nothing: a half-made folder would keep the id taken by a project nobody has.
+        if (made) fs.rmSync(dir, { recursive: true, force: true });
+        throw err;
+    }
 
     const pathsToCommit = [PROJECT_KEY];
     if (!remoteUrl) pathsToCommit.push('.gitignore');
