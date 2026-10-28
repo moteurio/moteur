@@ -28,7 +28,14 @@ function getGlobalActivityPath(): string {
 }
 
 function systemUser(): User {
-    return { id: 'system', name: 'System', isActive: true, email: '', roles: [], projects: [] };
+    return {
+        id: 'system',
+        name: 'System',
+        isActive: true,
+        email: '',
+        roles: ['writer'],
+        projects: []
+    };
 }
 
 function normalizeUser(user: User | undefined): User {

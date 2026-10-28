@@ -12,8 +12,6 @@ export const PROJECT_KEY = 'project.json';
 export const ASSETS_KEY = 'assets.json';
 
 export const CHANNELS_KEY = 'channels.json';
-/** Where channels were kept when they were called collections (read once, then moved). */
-export const LEGACY_CHANNELS_KEY = 'api-collections.json';
 
 /** Workspace store — gitignored, not committed. Snapshot to orphan branch. */
 const WORKSPACE = '.moteur/';

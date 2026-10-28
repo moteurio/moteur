@@ -24,6 +24,7 @@ const testUser = {
     name: 'Alice',
     email: 'alice@test.com',
     isActive: true,
+    roles: ['writer'],
     projects: [projectId]
 };
 

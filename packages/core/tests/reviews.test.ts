@@ -38,7 +38,7 @@ const admin: User = {
     roles: ['admin'],
     projects: [projectId]
 };
-const editor: User = { ...admin, id: 'editor', name: 'Eddie', roles: [] };
+const editor: User = { ...admin, id: 'editor', name: 'Eddie', roles: ['writer'] };
 const reviewer: User = { ...admin, id: 'reviewer', name: 'Rita', roles: ['reviewer'] };
 
 describe('review workflow', () => {

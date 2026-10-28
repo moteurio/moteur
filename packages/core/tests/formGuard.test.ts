@@ -20,7 +20,7 @@ const user: User = {
     name: 'Test User',
     isActive: true,
     email: 'u1@test.com',
-    roles: [],
+    roles: ['writer'],
     projects: []
 };
 const meta = () => ({ submittedAt: new Date().toISOString() });

@@ -16,8 +16,8 @@ import { translationOnlyChange } from '../src/contentAccess.js';
 const user = (roles: string[]) => ({ roles });
 
 describe('roles', () => {
-    it('treats an empty list as a writer and nothing else', () => {
-        expect(canWrite(user([]))).toBe(true);
+    it('gives no role to an empty list, and stores one as a writer', () => {
+        expect(canWrite(user([]))).toBe(false);
         expect(hasRole(user([]), 'admin')).toBe(false);
         expect(translatorOnly(user([]))).toBe(false);
         expect(normalizeStoredRoles([])).toEqual(['writer']);
