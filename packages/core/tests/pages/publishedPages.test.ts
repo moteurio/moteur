@@ -8,7 +8,11 @@ import { createTemplate } from '../../src/templates.js';
 import { createPage, getNavigation, getPage, resolveAllUrls, updatePage } from '../../src/pages.js';
 import { listRedirects } from '../../src/redirects.js';
 import { createNavigation, resolveNavigation } from '../../src/navigations.js';
-import { hasWaitingChanges, publicPage } from '../../src/pages/publishedPages.js';
+import {
+    hasWaitingChanges,
+    publicPage,
+    withWaitingChanges
+} from '../../src/pages/publishedPages.js';
 import { approveReview, submitForPageReview } from '../../src/reviews.js';
 import { pageKey } from '../../src/utils/storageKeys.js';
 import { putProjectJson } from '../../src/utils/projectStorage.js';
@@ -162,6 +166,23 @@ describe('a live page and its changes', () => {
         await updatePage(projectId, admin, page.id, { status: 'published' } as never);
         expect(await live(page.id)).toBe('Two');
         expect(await hasWaitingChanges(projectId, await getPage(projectId, page.id))).toBe(false);
+    });
+
+    it('tells members which live pages have changes waiting, and never stores it', async () => {
+        const page = await about();
+        const flag = async () =>
+            (await withWaitingChanges(projectId, [await getPage(projectId, page.id)]))[0]!
+                .waitingChanges;
+        expect(await flag()).toBe(false);
+        // Sent back as read: the answer's flag doesn't land in the file.
+        await updatePage(projectId, writer, page.id, {
+            fields: { headline: 'Two' },
+            waitingChanges: false
+        } as never);
+        expect(await flag()).toBe(true);
+        expect('waitingChanges' in (await getPage(projectId, page.id))).toBe(false);
+        await updatePage(projectId, admin, page.id, { status: 'published' } as never);
+        expect(await flag()).toBe(false);
     });
 
     it('approves only a complete page', async () => {

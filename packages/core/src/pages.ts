@@ -484,10 +484,11 @@ async function updatePageUnlocked(
 ): Promise<PageNode> {
     let current = await getPageWithAuth(user, projectId, id);
     assertCanEdit(user);
-    // Set by publishing only.
+    // Set by publishing only (and `waitingChanges` only ever answered, a page sent back as read).
     const {
         publishedCommit: _commit,
         publishedAt: _at,
+        waitingChanges: _waiting,
         ...ownPatch
     } = patch as Partial<StaticPage>;
     patch = ownPatch as Partial<PageNode>;

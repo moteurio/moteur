@@ -15,6 +15,7 @@ import { getTemplate } from '@moteurio/core/templates.js';
 import { pageReferrers } from '@moteurio/core/contentReferences.js';
 import { resolvePageAssets } from '@moteurio/core/assets/assetResolver.js';
 import { submitForPageReview } from '@moteurio/core/reviews.js';
+import { withWaitingChanges } from '@moteurio/core/pages/publishedPages.js';
 import { PlanLimitError } from '@moteurio/core/planLimits.js';
 import type { PageNode } from '@moteurio/types/Page.js';
 import { requireProjectAccess } from '../../middlewares/auth.js';
@@ -35,6 +36,10 @@ router.use(revisionsRouter);
 
 const VALID_PAGE_STATUSES = ['draft', 'published'] as const;
 
+/** One page as members get it: a live page with edits waiting says so. */
+const one = async (projectId: string, page: PageNode) =>
+    (await withWaitingChanges(projectId, [page]))[0]!;
+
 router.get('/', requireProjectAccess, async (req: Request, res: Response) => {
     const { projectId } = req.params as Record<string, string>;
     const templateId = req.query.templateId as string | undefined;
@@ -49,7 +54,7 @@ router.get('/', requireProjectAccess, async (req: Request, res: Response) => {
             status: status as 'draft' | 'published' | undefined,
             type
         });
-        return void res.json(pages);
+        return void res.json(await withWaitingChanges(projectId, pages));
     } catch (err: unknown) {
         return void sendApiError(res, req, err);
     }
@@ -63,7 +68,7 @@ router.get('/by-slug/:slug', requireProjectAccess, async (req: Request, res: Res
         const locale = typeof req.query.locale === 'string' ? req.query.locale : undefined;
         const page = await getPageBySlug(projectId, slug, locale);
         if (!page) return void res.status(404).json({ error: 'Page not found' });
-        return void res.json(page);
+        return void res.json(await one(projectId, page));
     } catch (err: unknown) {
         return void sendApiError(res, req, err);
     }
@@ -79,7 +84,7 @@ router.get('/:id', requireProjectAccess, async (req: Request, res: Response) => 
             const template = await getTemplate(projectId, page.templateId);
             out = await resolvePageAssets(projectId, page, template);
         }
-        return void res.json(out);
+        return void res.json(await one(projectId, out));
     } catch (err: unknown) {
         return void sendApiError(res, req, err);
     }
@@ -151,7 +156,7 @@ router.put('/:id', requireProjectAccess, async (req: Request, res: Response) => 
     if (!projectId || !id) return void res.status(400).json({ error: 'Missing projectId or id' });
     try {
         const page = await updatePage(projectId, req.user!, id, req.body);
-        return void res.json(page);
+        return void res.json(await one(projectId, page));
     } catch (err: unknown) {
         const code =
             (err as { statusCode?: number }).statusCode === 403 ||
@@ -171,7 +176,7 @@ router.patch('/:id', requireProjectAccess, async (req: Request, res: Response) =
     if (!projectId || !id) return void res.status(400).json({ error: 'Missing projectId or id' });
     try {
         const page = await updatePage(projectId, req.user!, id, req.body);
-        return void res.json(page);
+        return void res.json(await one(projectId, page));
     } catch (err: unknown) {
         const code =
             (err as { statusCode?: number }).statusCode === 403 ||
@@ -212,7 +217,7 @@ router.patch('/:id/status', requireProjectAccess, async (req: Request, res: Resp
         const page = await updatePage(projectId, req.user!, id, {
             status: status as 'draft' | 'published'
         });
-        return void res.json(page);
+        return void res.json(await one(projectId, page));
     } catch (err: unknown) {
         const code = getMessage(err)?.includes('requires an approved review')
             ? 403

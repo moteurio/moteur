@@ -34,6 +34,8 @@ export interface StaticPage extends PageNodeBase {
      */
     publishedCommit?: string;
     publishedAt?: string;
+    /** In the members' API answers only (never stored): a live page with edits waiting to go live. */
+    waitingChanges?: boolean;
 }
 
 /** Collection page — bound to a model, resolves to N URLs (one per entry) */
@@ -48,6 +50,8 @@ export interface CollectionPage extends PageNodeBase {
      */
     publishedCommit?: string;
     publishedAt?: string;
+    /** In the members' API answers only (never stored): a live page with edits waiting to go live. */
+    waitingChanges?: boolean;
     modelId: string;
     urlPattern?: string;
     entryStatus?: PageStatus;

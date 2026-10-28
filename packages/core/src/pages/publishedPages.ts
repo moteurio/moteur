@@ -178,19 +178,43 @@ export async function publicPage(projectId: string, page: PageNode): Promise<Pag
     return hasContent(found) && found.status !== 'published' ? null : found;
 }
 
-/** Whether a live page has edits saved since it was published, waiting to go live. */
-export async function hasWaitingChanges(projectId: string, page: PageNode): Promise<boolean> {
-    if (!hasContent(page) || !page.publishedCommit) return false;
-    const [version] = await publicPages(projectId, [page]);
-    if (!version) return true;
-    // Content only: where it sits, its state and the pointer itself aren't changes.
-    const strip = (p: PageNode) => ({
-        ...p,
+/** The pages as the members' API answers them: a live page with waiting edits says so. */
+export async function withWaitingChanges<T extends PageNode>(
+    projectId: string,
+    pages: T[]
+): Promise<T[]> {
+    const pinned = pages.filter(
+        p => hasContent(p) && p.status === 'published' && p.publishedCommit
+    );
+    if (pinned.length === 0) return pages;
+    const versions = new Map((await publicPages(projectId, pinned)).map(p => [p.id, p]));
+    return pages.map(page => {
+        if (!pinned.includes(page)) return page;
+        const version = versions.get(page.id);
+        return {
+            ...page,
+            waitingChanges: !version || !sameContent(contentOf(version), contentOf(page))
+        };
+    });
+}
+
+/** Content only: where a page sits, its state and the pointer itself aren't changes. */
+const contentOf = (p: PageNode) => {
+    const { waitingChanges: _w, ...rest } = p as PageNode & { waitingChanges?: boolean };
+    return {
+        ...rest,
         parentId: null,
         order: 0,
         status: 'published',
         publishedCommit: '',
         publishedAt: ''
-    });
-    return !sameContent(strip(version), strip(page));
+    };
+};
+
+/** Whether a live page has edits saved since it was published, waiting to go live. */
+export async function hasWaitingChanges(projectId: string, page: PageNode): Promise<boolean> {
+    if (!hasContent(page) || !page.publishedCommit) return false;
+    const [version] = await publicPages(projectId, [page]);
+    if (!version) return true;
+    return !sameContent(contentOf(version), contentOf(page));
 }
