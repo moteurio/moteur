@@ -192,7 +192,21 @@ export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
                 }
             },
             responses: {
-                '200': { description: '`{ hasToken, username?, setAt }`' },
+                '200': {
+                    description: '`{ hasToken, username?, setAt }`',
+                    content: {
+                        'application/json': {
+                            schema: {
+                                type: 'object',
+                                properties: {
+                                    hasToken: { type: 'boolean' },
+                                    username: { type: 'string' },
+                                    setAt: { type: 'string' }
+                                }
+                            }
+                        }
+                    }
+                },
                 '400': { description: 'Not a usable token' },
                 '403': { description: 'Not an admin' }
             }
@@ -203,7 +217,19 @@ export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
             parameters: [
                 { name: 'projectId', in: 'path', required: true, schema: { type: 'string' } }
             ],
-            responses: { '200': { description: '`{ hasToken: false }`' } }
+            responses: {
+                '200': {
+                    description: '`{ hasToken: false }`',
+                    content: {
+                        'application/json': {
+                            schema: {
+                                type: 'object',
+                                properties: { hasToken: { type: 'boolean' } }
+                            }
+                        }
+                    }
+                }
+            }
         }
     },
     '/projects/{projectId}/git/push': {
@@ -216,7 +242,18 @@ export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
                 { name: 'projectId', in: 'path', required: true, schema: { type: 'string' } }
             ],
             responses: {
-                '200': { description: '`pushed` (true or false) and the status' },
+                '200': {
+                    description: '`pushed` (true or false) and the status',
+                    content: {
+                        'application/json': {
+                            schema: {
+                                type: 'object',
+                                properties: { pushed: { type: 'boolean' } },
+                                additionalProperties: true
+                            }
+                        }
+                    }
+                },
                 '400': { description: 'Not a Git repository, or no Git address' }
             }
         }

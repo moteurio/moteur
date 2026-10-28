@@ -537,7 +537,14 @@ const paths: Record<string, OpenAPIV3.PathItemObject> = {
                 { name: 'userId', in: 'path', required: true, schema: { type: 'string' } }
             ],
             responses: {
-                '200': { description: '`{ user }`' },
+                '200': {
+                    description: '`{ user }`',
+                    content: {
+                        'application/json': {
+                            schema: { type: 'object', properties: { user: { type: 'object' } } }
+                        }
+                    }
+                },
                 '404': { description: 'No such user' }
             }
         }

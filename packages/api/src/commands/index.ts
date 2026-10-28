@@ -30,7 +30,21 @@ export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
                     schema: { type: 'string', enum: ['cli', 'mcp'] }
                 }
             ],
-            responses: { '200': { description: 'Plugin command specs' } }
+            responses: {
+                '200': {
+                    description: 'Plugin command specs',
+                    content: {
+                        'application/json': {
+                            schema: {
+                                type: 'object',
+                                properties: {
+                                    commands: { type: 'array', items: { type: 'object' } }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
 };

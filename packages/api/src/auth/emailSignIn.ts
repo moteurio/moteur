@@ -133,7 +133,10 @@ export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
                 }
             }),
             responses: {
-                '200': { description: 'Sent, if the address can use one' },
+                '200': {
+                    description: 'Sent, if the address can use one',
+                    ...json({ type: 'object', properties: { sent: { type: 'boolean' } } })
+                },
                 '400': { description: 'Not an email address (`EMAIL_INVALID`)' },
                 '429': {
                     description: 'Too soon, or too many (`EMAIL_CODE_WAIT`, `EMAIL_CODE_LIMIT`)'
@@ -196,7 +199,12 @@ export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
                     finished: { type: 'boolean' }
                 }
             }),
-            responses: { '200': { description: '`{ onboarding }`' } }
+            responses: {
+                '200': {
+                    description: '`{ onboarding }`',
+                    ...json({ type: 'object', properties: { onboarding: { type: 'object' } } })
+                }
+            }
         }
     },
     '/auth/me/demo': {
@@ -205,7 +213,10 @@ export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
             tags: ['Auth'],
             security: [{ bearerAuth: [] }],
             responses: {
-                '200': { description: '`{ projectId }`' },
+                '200': {
+                    description: '`{ projectId }`',
+                    ...json({ type: 'object', properties: { projectId: { type: 'string' } } })
+                },
                 '404': { description: 'This server has no demo project (`NO_DEMO`)' }
             }
         }

@@ -118,6 +118,10 @@ const codeBody = (description: string): OpenAPIV3.RequestBodyObject => ({
 });
 const APP_CODE = 'The six digits the authenticator app shows, or a recovery code';
 
+const json = (schema: OpenAPIV3.SchemaObject) => ({ content: { 'application/json': { schema } } });
+const str = { type: 'string' } as const;
+const codes = { type: 'array', items: str } as const;
+
 export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
     '/auth/two-factor/verify': {
         post: {
@@ -142,7 +146,17 @@ export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
                 }
             },
             responses: {
-                '200': { description: '`{ token, user, usedRecovery }`' },
+                '200': {
+                    description: '`{ token, user, usedRecovery }`',
+                    ...json({
+                        type: 'object',
+                        properties: {
+                            token: str,
+                            user: { type: 'object' },
+                            usedRecovery: { type: 'boolean' }
+                        }
+                    })
+                },
                 '401': { description: 'Wrong code (TWO_FACTOR_INVALID) or expired ticket' }
             }
         }
@@ -151,7 +165,18 @@ export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
         get: {
             summary: 'Whether two-step sign-in is on, and how many recovery codes are left',
             tags: ['Auth'],
-            responses: { '200': { description: '`{ enabled, recoveryCodesLeft? }`' } }
+            responses: {
+                '200': {
+                    description: '`{ enabled, recoveryCodesLeft? }`',
+                    ...json({
+                        type: 'object',
+                        properties: {
+                            enabled: { type: 'boolean' },
+                            recoveryCodesLeft: { type: 'integer' }
+                        }
+                    })
+                }
+            }
         }
     },
     '/auth/two-factor/setup': {
@@ -161,7 +186,13 @@ export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
                 'A new secret, its otpauth link and a QR code (SVG) for the authenticator app. It turns on only once a code confirms it.',
             tags: ['Auth'],
             responses: {
-                '200': { description: '`{ secret, otpauth, qr }`' },
+                '200': {
+                    description: '`{ secret, otpauth, qr }`',
+                    ...json({
+                        type: 'object',
+                        properties: { secret: str, otpauth: str, qr: str }
+                    })
+                },
                 '409': { description: 'Already on' }
             }
         }
@@ -172,7 +203,10 @@ export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
             tags: ['Auth'],
             requestBody: codeBody('The six digits the app shows'),
             responses: {
-                '200': { description: '`{ recoveryCodes }`: ten codes, shown this once' },
+                '200': {
+                    description: '`{ recoveryCodes }`: ten codes, shown this once',
+                    ...json({ type: 'object', properties: { recoveryCodes: codes } })
+                },
                 '400': { description: 'Wrong code' }
             }
         }
@@ -182,7 +216,12 @@ export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
             summary: 'Turn two-step sign-in off',
             tags: ['Auth'],
             requestBody: codeBody(APP_CODE),
-            responses: { '200': { description: '`{ enabled: false }`' } }
+            responses: {
+                '200': {
+                    description: '`{ enabled: false }`',
+                    ...json({ type: 'object', properties: { enabled: { type: 'boolean' } } })
+                }
+            }
         }
     },
     '/auth/two-factor/recovery-codes': {
@@ -190,7 +229,12 @@ export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
             summary: 'New recovery codes (the old ones stop working)',
             tags: ['Auth'],
             requestBody: codeBody(APP_CODE),
-            responses: { '200': { description: '`{ recoveryCodes }`' } }
+            responses: {
+                '200': {
+                    description: '`{ recoveryCodes }`',
+                    ...json({ type: 'object', properties: { recoveryCodes: codes } })
+                }
+            }
         }
     }
 };

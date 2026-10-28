@@ -64,7 +64,28 @@ export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
                 }
             },
             responses: {
-                '201': { description: 'Preview token created' },
+                '201': {
+                    description: 'Preview token created',
+                    content: {
+                        'application/json': {
+                            schema: {
+                                type: 'object',
+                                properties: {
+                                    id: { type: 'string' },
+                                    prefix: { type: 'string' },
+                                    createdAt: { type: 'string' },
+                                    expiresAt: { type: 'string' },
+                                    modelId: { type: 'string' },
+                                    entryId: { type: 'string' },
+                                    pageId: { type: 'string' },
+                                    channelId: { type: 'string' },
+                                    rawToken: { type: 'string' },
+                                    message: { type: 'string' }
+                                }
+                            }
+                        }
+                    }
+                },
                 '401': { description: 'Unauthorized' },
                 '403': { description: 'Forbidden' }
             }

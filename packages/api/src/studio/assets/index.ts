@@ -562,7 +562,7 @@ export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
                 }
             },
             responses: {
-                '201': { description: 'The asset' },
+                '201': { description: 'The asset', ...assetJson },
                 '413': { description: 'The file is too large' },
                 '415': { description: 'A kind of file the project does not allow' },
                 '422': { description: 'The address could not be downloaded, or is not allowed' }
