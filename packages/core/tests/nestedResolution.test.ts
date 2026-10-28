@@ -162,6 +162,34 @@ describe('relations stored as plain ids', () => {
         expect(out.data.body[0].data.author).toMatchObject({ id: 'bob' });
     });
 
+    it('point only at the model their field names', async () => {
+        const out = await resolveEntryReferences(
+            { ...article, data: { ...article.data, author: { id: 'secret', type: 'other' } } },
+            'p',
+            'article',
+            1,
+            new Set(),
+            ['published'],
+            async (_p, modelId, id) => ({ id, type: modelId, status: 'published', data: { x: 1 } }),
+            references
+        );
+        expect(out.data.author).toEqual({ id: 'secret', type: 'other' });
+    });
+
+    it('are only the relation fields when the model has a schema', async () => {
+        const out = await resolveEntryReferences(
+            { ...article, data: { ...article.data, title: { id: 'secret', type: 'other' } } },
+            'p',
+            'article',
+            1,
+            new Set(),
+            ['published'],
+            async (_p, modelId, id) => ({ id, type: modelId, status: 'published', data: { x: 1 } }),
+            references
+        );
+        expect(out.data.title).toEqual({ id: 'secret', type: 'other' });
+    });
+
     it('stay as they are without a schema', async () => {
         const out = await resolveEntryReferences(
             article,

@@ -47,7 +47,10 @@ export function stripEditorialBlocksFromPayload<T>(
             item => item != null && typeof item === 'object' && 'type' in item && 'data' in item
         );
         if (isBlockArray && arr.length > 0) {
-            return stripEditorialBlocks(arr as Block[], blockSchemas) as T;
+            // A kept block can hold blocks of its own.
+            return stripEditorialBlocks(arr as Block[], blockSchemas).map(b =>
+                stripEditorialBlocksFromPayload(b, blockSchemas)
+            ) as T;
         }
         return arr.map(item => stripEditorialBlocksFromPayload(item, blockSchemas)) as T;
     }

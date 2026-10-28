@@ -289,7 +289,12 @@ describe('GET /projects/:projectId/channels/:channelId/:resourceId/entries', () 
     });
 
     it('a preview link for one entry shows that entry as it is now, the rest as published', async () => {
-        vi.mocked(verifyPreviewToken).mockResolvedValue({ ok: true, tokenId: 'pt1', entryId: 'n' });
+        vi.mocked(verifyPreviewToken).mockResolvedValue({
+            ok: true,
+            tokenId: 'pt1',
+            modelId: 'articles',
+            entryId: 'n'
+        });
         vi.mocked(getEntryForProject).mockResolvedValue({
             id: 'n',
             type: 'articles',
@@ -323,8 +328,110 @@ describe('GET /projects/:projectId/channels/:channelId/:resourceId/entries', () 
         expect(res.headers['x-total-count']).toBe('2');
     });
 
+    it('sends no notes for the editors', async () => {
+        vi.mocked(getPublishedEntryForProject).mockResolvedValue({
+            id: 'a',
+            type: 'articles',
+            status: 'published',
+            data: {
+                body: [
+                    { type: 'core/note', data: { text: 'Ask legal first' } },
+                    { type: 'core/text', data: { text: 'Hello' } }
+                ]
+            }
+        });
+        const res = await request(app)
+            .get('/projects/demo/channels/c1/articles/entries/a')
+            .set('x-api-key', 'key');
+        expect(res.status).toBe(200);
+        expect(JSON.stringify(res.body)).not.toContain('Ask legal first');
+        expect(res.body.data.body).toEqual([{ type: 'core/text', data: { text: 'Hello' } }]);
+    });
+
+    it('inlines only entries of models the channel gives', async () => {
+        vi.mocked(getChannel).mockResolvedValue({
+            ...channel,
+            resources: [{ resourceType: 'model' as const, resourceId: 'articles', resolve: 1 }]
+        });
+        vi.mocked(getModelSchemaForProject).mockImplementation(async (_p, id) =>
+            id === 'articles'
+                ? {
+                      id: 'articles',
+                      label: 'Articles',
+                      fields: { related: { type: 'core/relation', label: 'Related' } }
+                  }
+                : null
+        );
+        vi.mocked(getPublishedEntryForProject).mockImplementation(async (_p, modelId, id) => ({
+            id,
+            type: modelId,
+            status: 'published',
+            data:
+                modelId === 'articles'
+                    ? { related: { id: 'pay', type: 'salaries' } }
+                    : { amount: 1 }
+        }));
+        const res = await request(app)
+            .get('/projects/demo/channels/c1/articles/entries/a')
+            .set('x-api-key', 'key');
+        expect(res.status).toBe(200);
+        expect(res.body.data.related).toEqual({ id: 'pay', type: 'salaries' });
+    });
+
+    it('a preview link for one entry shows what it points to as published', async () => {
+        vi.mocked(verifyPreviewToken).mockResolvedValue({
+            ok: true,
+            tokenId: 'pt1',
+            modelId: 'articles',
+            entryId: 'n'
+        });
+        vi.mocked(getChannel).mockResolvedValue({
+            ...channel,
+            resources: [{ resourceType: 'model' as const, resourceId: 'articles', resolve: 1 }]
+        });
+        vi.mocked(getModelSchemaForProject).mockImplementation(async (_p, id) =>
+            id === 'articles'
+                ? {
+                      id: 'articles',
+                      label: 'Articles',
+                      fields: {
+                          title: { type: 'core/text', label: 'Title' },
+                          related: {
+                              type: 'core/relation',
+                              label: 'Related',
+                              options: { model: 'articles' }
+                          }
+                      }
+                  }
+                : null
+        );
+        vi.mocked(getEntryForProject).mockImplementation(async (_p, _m, id) => ({
+            id,
+            type: 'articles',
+            status: 'draft',
+            data: { title: 'Unpublished edit', related: id === 'n' ? 'b' : undefined }
+        }));
+        vi.mocked(getPublishedEntryForProject).mockImplementation(async (_p, _m, id) =>
+            id === 'b'
+                ? { id, type: 'articles', status: 'published', data: { title: 'Live' } }
+                : null
+        );
+        const res = await request(app)
+            .get('/projects/demo/channels/c1/articles/entries/n')
+            .set('x-api-key', 'key')
+            .set('x-preview-token', 'mpv_testtoken');
+        expect(res.status).toBe(200);
+        expect(res.body.data.title).toBe('Unpublished edit');
+        expect(res.body.data.related).toMatchObject({ id: 'b', data: { title: 'Live' } });
+    });
+
     it('a preview link for one entry does not open another', async () => {
-        vi.mocked(verifyPreviewToken).mockResolvedValue({ ok: true, tokenId: 'pt1', entryId: 'n' });
+        vi.mocked(verifyPreviewToken).mockResolvedValue({
+            ok: true,
+            tokenId: 'pt1',
+            modelId: 'articles',
+            entryId: 'n'
+        });
         vi.mocked(getPublishedEntryForProject).mockResolvedValue(null);
         const other = await request(app)
             .get('/projects/demo/channels/c1/articles/entries/a')
@@ -345,6 +452,29 @@ describe('GET /projects/:projectId/channels/:channelId/:resourceId/entries', () 
             .set('x-preview-token', 'mpv_testtoken');
         expect(own.status).toBe(200);
         expect(own.body.id).toBe('n');
+    });
+
+    it('a preview link for one entry does not open an entry of another model with its id', async () => {
+        vi.mocked(verifyPreviewToken).mockResolvedValue({
+            ok: true,
+            tokenId: 'pt1',
+            modelId: 'articles',
+            entryId: 'n'
+        });
+        vi.mocked(getChannel).mockResolvedValue({
+            ...channel,
+            resources: [
+                { resourceType: 'model' as const, resourceId: 'articles' },
+                { resourceType: 'model' as const, resourceId: 'notes' }
+            ]
+        });
+        vi.mocked(getPublishedEntryForProject).mockResolvedValue(null);
+        const res = await request(app)
+            .get('/projects/demo/channels/c1/notes/entries/n')
+            .set('x-api-key', 'key')
+            .set('x-preview-token', 'mpv_testtoken');
+        expect(res.status).toBe(404);
+        expect(getEntryForProject).not.toHaveBeenCalled();
     });
 
     it.each([

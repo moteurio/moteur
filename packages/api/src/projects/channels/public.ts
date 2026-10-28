@@ -47,6 +47,8 @@ import {
     resolveNavigation
 } from '@moteurio/core/navigations.js';
 import { toPublicForm } from '../../utils/publicForm.js';
+import { stripEditorialBlocksFromPayload } from '../../utils/stripBlockSchema.js';
+import { listBlocks } from '@moteurio/core/blocks.js';
 import { getProjectJson, listProjectKeys } from '@moteurio/core/utils/projectStorage.js';
 import {
     layoutKey,
@@ -55,6 +57,7 @@ import {
     formListPrefix
 } from '@moteurio/core/utils/storageKeys.js';
 import type { Layout } from '@moteurio/types/Layout.js';
+import type { BlockSchema } from '@moteurio/types/Block.js';
 import type { FormSchema } from '@moteurio/types/Form.js';
 import type { ChannelResource } from '@moteurio/types/Channel.js';
 import type { Entry, EntryStatus, ModelSchema } from '@moteurio/types/Model.js';
@@ -74,15 +77,22 @@ const router: Router = Router({ mergeParams: true });
  * made for the whole project shows every draft; one made for an entry or a page shows that one
  * as it is now, and everything else as published.
  */
-function previewing(req: Request, item?: { entryId?: string; pageId?: string }): boolean {
+function previewing(
+    req: Request,
+    item?: { modelId?: string; entryId?: string; pageId?: string }
+): boolean {
     if (!req.previewTokenId) return (req.previewAuth = false);
-    const { previewEntryId: entryId, previewPageId: pageId } = req;
+    const { previewModelId: modelId, previewEntryId: entryId, previewPageId: pageId } = req;
     req.previewAuth =
         (!entryId && !pageId) ||
-        (!!entryId && item?.entryId === entryId) ||
+        (!!entryId && item?.modelId === modelId && item?.entryId === entryId) ||
         (!!pageId && item?.pageId === pageId);
     return req.previewAuth;
 }
+
+/** A preview link made for one entry or page: what's around it (its references, links) is as published. */
+const previewsOneItem = (req: Request): boolean =>
+    !!req.previewTokenId && !!(req.previewEntryId || req.previewPageId);
 
 router.use((req, _res, next) => {
     previewing(req);
@@ -116,11 +126,14 @@ function parseLocaleQuery(req: Request): string | undefined {
     return s || undefined;
 }
 
-/** Published-only snapshot when using a bare API key without preview or JWT. */
+/**
+ * Published-only snapshot for a bare API key, or a preview link outside what it previews
+ * (a link made for one entry or page), without JWT.
+ */
 function isPublishedOnlyDelivery(req: Request): boolean {
     if (req.user) return false;
     if (req.previewAuth) return false;
-    return Boolean(req.apiKeyAuth);
+    return Boolean(req.apiKeyAuth || req.previewTokenId);
 }
 
 function getStatusFilter(
@@ -141,11 +154,15 @@ function getStatusFilter(
  * The pages a link or a page relation may lead this reader to: those the channel gives (by its
  * page filter), or published pages when it gives none, with drafts too in a preview.
  */
-function pageLinkOptions(channel: { resources: ChannelResource[] }, req: Request): PageLinkOptions {
+function pageLinkOptions(
+    channel: { resources: ChannelResource[] },
+    req: Request,
+    drafts: boolean
+): PageLinkOptions {
     const pageResource = channel.resources.find(r => r.resourceType === 'page');
     const statuses: string[] = pageResource
-        ? getStatusFilter(pageResource, isPublishedOnlyDelivery(req), req.previewAuth)
-        : req.previewAuth
+        ? getStatusFilter(pageResource, !drafts && isPublishedOnlyDelivery(req), drafts)
+        : drafts
           ? ['draft', 'published']
           : ['published'];
     return { isLive: page => statuses.includes(page.status), locale: parseLocaleQuery(req) };
@@ -169,24 +186,31 @@ async function deliveryFor(
     req: Request
 ): Promise<Delivery> {
     const resource = channel.resources.find(r => r.resourceType === 'page');
+    const drafts = !!req.previewAuth && !previewsOneItem(req);
     const links = await pageLinkContext(projectId, {
         published:
-            !req.previewAuth &&
-            (!resource ||
-                usePublishedEntryView(
-                    req,
-                    getStatusFilter(resource, isPublishedOnlyDelivery(req), req.previewAuth)
-                ))
+            previewsOneItem(req) ||
+            (!drafts &&
+                (!resource ||
+                    usePublishedEntryView(
+                        req,
+                        getStatusFilter(resource, isPublishedOnlyDelivery(req), req.previewAuth)
+                    )))
     });
     const locale = parseLocaleQuery(req);
     return {
         projectId,
         schemas: await localeSchemas(projectId, links.schemas.blocks),
         links,
-        linkOptions: pageLinkOptions(channel, req),
+        linkOptions: pageLinkOptions(channel, req, drafts),
         choice: locale ? { locale, fallback: links.defaultLocale } : undefined,
         resolveAssets: queryFlag(req.query.resolveAssets)
     };
+}
+
+/** Content as sites get it: blocks for the editors only (notes) left out, wherever they sit. */
+function sendContent(res: Response, blocks: Record<string, BlockSchema>, payload: unknown): void {
+    res.json(stripEditorialBlocksFromPayload(payload, blocks));
 }
 
 /**
@@ -237,6 +261,24 @@ function findResource(
     resourceId: string
 ): ChannelResource | undefined {
     return channel.resources.find(r => r.resourceId === resourceId);
+}
+
+/**
+ * References as the channel shows them: an entry of a model the channel exposes, with that
+ * model's fields only. Anything else stays a plain reference.
+ */
+function channelResolver(
+    channel: { resources: ChannelResource[] },
+    resolve: EntryResolver
+): EntryResolver {
+    return async (projectId, modelId, entryId) => {
+        const resource =
+            findResource(channel, modelId) ??
+            channel.resources.find(r => r.resourceType === 'model' && r.resourceId === 'models');
+        if (resource?.resourceType !== 'model') return null;
+        const entry = await resolve(projectId, modelId, entryId);
+        return entry && resource.fields?.length ? selectFields(entry, resource.fields) : entry;
+    };
 }
 
 function filterChannelsForApiKey<T extends { id: string }>(req: Request, list: T[]): T[] {
@@ -311,7 +353,7 @@ async function withPreviewedEntry(
     found: { items: Entry[]; total: number }
 ): Promise<{ items: Entry[]; total: number }> {
     const id = req.previewEntryId;
-    if (!id || req.previewAuth) return found;
+    if (!id || req.previewAuth || req.previewModelId !== modelId) return found;
     const draft = await getEntryForProject(projectId, modelId, id).catch(() => null);
     if (!draft) return found;
     const { items: latest } = await queryEntriesForProject(projectId, modelId, {
@@ -474,7 +516,7 @@ router.get('/:channelId/pages', async (req: Request, res: Response) => {
         pages = await withPreviewedPage(req, projectId, pageResource, pages);
         const delivery = await deliveryFor(projectId, channel, req);
         pages = await Promise.all(pages.map(p => deliverPage(p, delivery)));
-        return void res.json(pages);
+        return void sendContent(res, delivery.schemas.blocks, pages);
     } catch (err: unknown) {
         return void sendApiError(res, req, err);
     }
@@ -504,7 +546,8 @@ router.get('/:channelId/pages/by-slug/:slug', async (req: Request, res: Response
         if (!stored) return void res.status(404).json({ error: 'Page not found' });
         if (!('status' in stored) || !statuses.includes((stored as any).status))
             return void res.status(404).json({ error: 'Page not found' });
-        return void res.json(await deliverPage(stored, await deliveryFor(projectId, channel, req)));
+        const delivery = await deliveryFor(projectId, channel, req);
+        return void sendContent(res, delivery.schemas.blocks, await deliverPage(stored, delivery));
     } catch (err: unknown) {
         return void sendApiError(res, req, err);
     }
@@ -532,7 +575,8 @@ router.get('/:channelId/pages/:id', async (req: Request, res: Response) => {
         if (!stored) return void res.status(404).json({ error: 'Page not found' });
         if (!('status' in stored) || !statuses.includes((stored as any).status))
             return void res.status(404).json({ error: 'Page not found' });
-        return void res.json(await deliverPage(stored, await deliveryFor(projectId, channel, req)));
+        const delivery = await deliveryFor(projectId, channel, req);
+        return void sendContent(res, delivery.schemas.blocks, await deliverPage(stored, delivery));
     } catch (err: unknown) {
         return void sendApiError(res, req, err);
     }
@@ -581,7 +625,7 @@ router.get('/:channelId/:resourceId/entries', async (req: Request, res: Response
             usePublished ? getPublishedEntryForProject : getEntryForProject
         );
         entries.forEach(entry => readBudget.include(entry));
-        const resolver: EntryResolver = readBudget.resolve;
+        const resolver = channelResolver(channel, readBudget.resolve);
         const delivery = await deliveryFor(projectId, channel, req);
         const references = referenceSchemas(delivery);
         const schema = await getModelSchemaForProject(projectId, resourceId);
@@ -613,7 +657,7 @@ router.get('/:channelId/:resourceId/entries', async (req: Request, res: Response
                 })
             );
         }
-        return void res.json(projected);
+        return void sendContent(res, delivery.schemas.blocks, projected);
     } catch (err: unknown) {
         return void sendApiError(res, req, err);
     }
@@ -633,7 +677,7 @@ router.get('/:channelId/:resourceId/entries/:id', async (req: Request, res: Resp
             channel.resources.find(r => r.resourceType === 'model' && r.resourceId === 'models');
         if (!resource || resource.resourceType !== 'model')
             return void res.status(404).json({ error: 'Resource not found in channel' });
-        previewing(req, { entryId: id });
+        previewing(req, { modelId: resourceId, entryId: id });
         const apiKeyOnly = isPublishedOnlyDelivery(req);
         const statuses = getStatusFilter(resource, apiKeyOnly, req.previewAuth);
         const usePublished = usePublishedEntryView(req, statuses);
@@ -644,11 +688,13 @@ router.get('/:channelId/:resourceId/entries/:id', async (req: Request, res: Resp
         if (!statuses.includes((entry.status ?? 'draft') as EntryStatus))
             return void res.status(404).json({ error: 'Entry not found' });
         const depth = (resource.resolve ?? 0) as 0 | 1 | 2;
+        // A link made for this entry shows it as it is now, and what it points to as published.
+        const around = previewsOneItem(req);
         const readBudget = new EntryReadBudget(
-            usePublished ? getPublishedEntryForProject : getEntryForProject
+            usePublished || around ? getPublishedEntryForProject : getEntryForProject
         );
         readBudget.include(entry);
-        const singleResolver: EntryResolver = readBudget.resolve;
+        const singleResolver = channelResolver(channel, readBudget.resolve);
         const delivery = await deliveryFor(projectId, channel, req);
         const resolved = await deliverEntry(
             await resolveEntryReferences(
@@ -657,7 +703,7 @@ router.get('/:channelId/:resourceId/entries/:id', async (req: Request, res: Resp
                 resourceId,
                 depth,
                 new Set(),
-                statuses,
+                around ? ['published'] : statuses,
                 singleResolver,
                 referenceSchemas(delivery)
             ),
@@ -671,7 +717,7 @@ router.get('/:channelId/:resourceId/entries/:id', async (req: Request, res: Resp
             const url = await resolveEntryUrl(projectId, id, resourceId, localeOne);
             projected = { ...projected, ...(url != null && { resolvedUrl: url }) };
         }
-        return void res.json(projected);
+        return void sendContent(res, delivery.schemas.blocks, projected);
     } catch (err: unknown) {
         return void sendApiError(res, req, err);
     }
@@ -702,7 +748,7 @@ router.get('/:channelId/layouts', async (req: Request, res: Response) => {
             );
             layouts = layout ? [layout] : [];
         }
-        return void res.json(layouts);
+        return void sendContent(res, listBlocks(projectId), layouts);
     } catch (err: unknown) {
         return void sendApiError(res, req, err);
     }
@@ -724,7 +770,7 @@ router.get('/:channelId/layouts/:id', async (req: Request, res: Response) => {
             return void res.status(404).json({ error: 'Layout not found in channel' });
         const layout = await getProjectJson<Layout>(projectId, layoutKey(id));
         if (!layout) return void res.status(404).json({ error: 'Layout not found' });
-        return void res.json(layout);
+        return void sendContent(res, listBlocks(projectId), layout);
     } catch (err: unknown) {
         return void sendApiError(res, req, err);
     }

@@ -36,13 +36,18 @@ const RELATION_TYPES = ['core/relation', 'core/relations'];
 export const pointsAtEntries = (field: Field | undefined): field is Field =>
     !!field && RELATION_TYPES.includes(field.type) && field.options?.target !== 'pages';
 
-/** The model and id a stored relation value names: a plain id, or `{ id }` / `{ id, type }`. */
+/**
+ * The model and id a stored relation value names: a plain id, or `{ id }` / `{ id, type }`. A
+ * field set to one model points only there: a value naming another model is no reference.
+ */
 export function referenceOf(value: unknown, field: Field): { modelId: string; id: string } | null {
     const model = typeof field.options?.model === 'string' ? field.options.model : undefined;
     if (typeof value === 'string' && value.trim() && model) return { modelId: model, id: value };
     if (value && typeof value === 'object' && typeof (value as { id?: unknown }).id === 'string') {
         const type = (value as { type?: unknown }).type;
-        const modelId = typeof type === 'string' ? type : model;
+        const named = typeof type === 'string' ? type : undefined;
+        if (model && named && named !== model) return null;
+        const modelId = model ?? named;
         if (modelId) return { modelId, id: (value as { id: string }).id };
     }
     return null;
@@ -78,11 +83,6 @@ export async function resolveEntryReferences(
     if (depth === 0 || !entry.data) return { ...entry, data: { ...entry.data } };
 
     const schema = schemas ? await schemas.model(currentModelId) : null;
-    const relationKeys = new Set(
-        Object.entries(schema?.fields ?? {})
-            .filter(([, field]) => pointsAtEntries(field))
-            .map(([key]) => key)
-    );
     let source: Record<string, any> = entry.data;
     if (schema && schemas) {
         const inline = async (value: unknown, field: Field): Promise<unknown> => {
@@ -118,12 +118,13 @@ export async function resolveEntryReferences(
         )) as Record<string, any>;
     }
 
+    // With the model's schema, its relation fields are the only references: a `{ id, type }`
+    // stored anywhere else is content.
+    if (schema) return { ...entry, data: source };
+
     const data: Record<string, any> = {};
     for (const [key, value] of Object.entries(source)) {
-        // Already resolved by its schema above (an inlined entry also has an id and a type).
-        if (relationKeys.has(key)) {
-            data[key] = value;
-        } else if (isReferenceLike(value)) {
+        if (isReferenceLike(value)) {
             const refKey = `${value.type}:${value.id}`;
             if (visited.has(refKey)) {
                 data[key] = value;

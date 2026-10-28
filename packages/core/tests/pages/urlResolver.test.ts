@@ -179,6 +179,15 @@ describe('urlResolver', () => {
             expect(result.url).toBe('');
             expect(result.breadcrumb).toEqual([]);
         });
+
+        it('gives nothing for a draft, or a page under one', () => {
+            const r = staticNode({ id: 'r', parentId: null, slug: '', label: 'Home' });
+            const draft = staticNode({ id: 'd', parentId: 'r', slug: 'soon', status: 'draft' });
+            const under = staticNode({ id: 'u', parentId: 'd', slug: 'inside' });
+            const map = buildNodeMap([r, draft, under]);
+            expect(resolveBreadcrumb('d', map)).toEqual({ url: '', breadcrumb: [] });
+            expect(resolveBreadcrumb('u', map)).toEqual({ url: '', breadcrumb: [] });
+        });
     });
 
     describe('buildNavigationTree', () => {

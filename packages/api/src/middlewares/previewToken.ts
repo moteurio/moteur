@@ -38,7 +38,10 @@ export function previewTokenAuth(req: Request, res: Response, next: NextFunction
             req.previewAuth = true;
             req.previewTokenId = result.tokenId;
             if (result.channelId) req.previewChannelId = result.channelId;
-            if (result.entryId) req.previewEntryId = result.entryId;
+            if (result.entryId) {
+                req.previewModelId = result.modelId;
+                req.previewEntryId = result.entryId;
+            }
             if (result.pageId) req.previewPageId = result.pageId;
             next();
         })

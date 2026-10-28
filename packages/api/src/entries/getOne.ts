@@ -7,8 +7,6 @@ import { getModelSchema } from '@moteurio/core/models.js';
 import { resolveEntryAssets } from '@moteurio/core/assets/assetResolver.js';
 import { resolveEntryUrl } from '@moteurio/core/pages.js';
 import { requireProjectAccess } from '../middlewares/auth.js';
-import { listBlocks } from '@moteurio/core/blocks.js';
-import { stripEditorialBlocksFromPayload } from '../utils/stripBlockSchema.js';
 import { sendApiError } from '../utils/apiError.js';
 import { queryFlag } from '../utils/queryFlag.js';
 import { entryVersion } from '@moteurio/core/utils/entryVersion.js';
@@ -40,8 +38,7 @@ router.get('/:entryId', requireProjectAccess, async (req: Request, res: Response
             ...entry,
             ...(resolvedUrl != null && { resolvedUrl: resolvedUrl ?? undefined })
         };
-        const filtered = stripEditorialBlocksFromPayload(payload, listBlocks(projectId));
-        return void res.json({ entry: filtered, version });
+        return void res.json({ entry: payload, version });
     } catch (err: unknown) {
         return void sendApiError(res, req, err);
     }
