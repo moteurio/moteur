@@ -45,6 +45,7 @@ import {
 import { log, toActivityEvent } from '../activityLogger.js';
 import { dispatch as webhookDispatch } from '../webhooks/webhookService.js';
 import { runFullScan } from '../radar/index.js';
+import { withOwnBlocks } from './ownBlocks.js';
 
 /** The asset list is undone by taking out what was added, not by putting the file back. */
 const ASSETS_KEY = 'assets.json';
@@ -554,7 +555,7 @@ export async function importBundle(
             const ctx: Context = {
                 user,
                 projectId,
-                bundle,
+                bundle: withOwnBlocks(bundle, projectId),
                 dryRun,
                 refs: new Map(),
                 items: [],

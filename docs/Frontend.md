@@ -13,14 +13,14 @@ Never put member JWTs in browser bundles. See [Pages and navigation](Pages%20and
 
 ## Packages
 
-| Package             | Repo                                                           | Use                                                                                            |
-| ------------------- | -------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
-| `@moteurio/client`  | [moteur](https://github.com/moteurio/moteur)                   | Public + admin HTTP client; `t`, block registry, preview session helpers                       |
-| `@moteurio/react`   | [moteur-frontend](https://github.com/moteurio/moteur-frontend) | `MoteurProvider`, `Blocks`, `usePreview`                                                       |
-| `@moteurio/vue`     | moteur-frontend                                                | `createMoteurPlugin`, `MoteurBlocks.vue`, composables                                          |
-| `@moteurio/astro`   | moteur-frontend                                                | `createMoteur()`, content loaders, typed `defineTemplates` and `defineBlocks`, `<MoteurImage>` |
-| `@moteurio/vanilla` | moteur-frontend                                                | ESM helpers + block registry                                                                   |
-| `moteurio/php`      | [moteur-starters](https://github.com/moteurio/moteur-starters) | Guzzle client, preview middleware (Composer)                                                   |
+| Package             | Repo                                                           | Use                                                                                                                         |
+| ------------------- | -------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| `@moteurio/client`  | [moteur](https://github.com/moteurio/moteur)                   | Public + admin HTTP client; `t`, block registry, preview session helpers                                                    |
+| `@moteurio/react`   | [moteur-frontend](https://github.com/moteurio/moteur-frontend) | `MoteurProvider`, `Blocks`, `usePreview`                                                                                    |
+| `@moteurio/vue`     | moteur-frontend                                                | `createMoteurPlugin`, `MoteurBlocks.vue`, composables                                                                       |
+| `@moteurio/astro`   | moteur-frontend                                                | `createMoteur()`, content loaders, typed `defineTemplates` and `defineBlocks`, `<MoteurImage>`, `<RichText>`, `previewPage` |
+| `@moteurio/vanilla` | moteur-frontend                                                | ESM helpers + block registry                                                                                                |
+| `moteurio/php`      | [moteur-starters](https://github.com/moteurio/moteur-starters) | Guzzle client, preview middleware (Composer)                                                                                |
 
 Framework adapters are **not** host plugins — they are npm packages for your site. Optional `@moteurio/frontend-plugin-*` companions ship with **moteur-plugins-extra** for specific block types.
 
