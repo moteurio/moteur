@@ -35,7 +35,7 @@ Authorization: Bearer <token>
 
 OAuth routes are contributed by host plugins (GitHub, Google, Microsoft or generic OIDC), rather than bundled with the engine. For GitHub/Google, the browser flow is:
 
-- `GET {basePath}/auth/github?next=/projects` (or `/auth/google`) — sets a short-lived `moteur_oauth` cookie and redirects to the provider with a signed `state`. `next` is optional and must be a relative path.
+- `GET {basePath}/auth/github?next=/projects` (or `/auth/google`) — sets a short-lived `moteur_oauth` cookie and redirects to the provider with a signed `state` and a PKCE challenge (S256). The verifier is derived from the cookie, so a code from one browser's sign-in can't be redeemed in another's. Plugins use `oauthChallenge(state)` and the `verifier` that `completeOAuth` returns. `next` is optional and must be a relative path.
 - The provider redirects back to `.../auth/github/callback` (or `.../auth/google/callback`). The API checks `state` against the cookie (10 minutes, same browser), then matches the stored provider identity. A new identity needs a verified email and creates an account stored as a Writer (its roles in each project are set there); matching an existing account's email alone does not link it.
 - The API then redirects to the configured `AUTH_REDIRECT_AFTER_LOGIN` with the result in the URL fragment, so it never reaches server logs: `#token=<jwt>&next=/projects`, or `#error=state|email|inactive|failed` (bad or expired state, no verified email, account turned off, anything else).
 
@@ -138,7 +138,8 @@ On the link, `GET {basePath}/invites/:token` describes the invite. Someone signe
 
 Anyone can sign in, or make an account, with an email and a six-digit code: no password to keep. `POST /auth/email/code` sends the code, `POST /auth/email/verify` trades it for a session. A known address gets a code to sign in. A new one gets a code to make an account when the server takes new accounts (`MOTEUR_SIGNUP=open`) or the address has a live invite. The answer is `{ sent: true }` either way, and the email goes out after it, so neither the answer nor its timing tells who has an account.
 
-- A code works once, for 15 minutes, five tries. One code a minute and ten an hour per address. After ten wrong codes in a day, an address gets no more codes that day. The whole server sends at most `MOTEUR_EMAIL_CODES_PER_HOUR` (default 300).
+- A code works once, for 15 minutes, five tries. One code a minute and ten an hour per address. After ten wrong codes in a day, codes for that address are off until the next day.
+- With `STUDIO_URL` set, each email also carries a sign-in link to Studio's `/auth/email` page, with a long token after `#` (so it reaches no server log). Studio sends it as `token` in place of `code`. The link works once, for 15 minutes, and keeps working when wrong codes have turned codes off: someone typing wrong codes for another person's address can't keep them out. Asking again for the address doesn't void a link already sent. Without `STUDIO_URL`, an address with codes off gets nothing that day. The whole server sends at most `MOTEUR_EMAIL_CODES_PER_HOUR` (default 300).
 - Codes are stored as a keyed hash, never as they are.
 - Two-step sign-in still applies: a code gives a ticket for the app's code, like a password does.
 - Accounts made by code have no password: password sign-in refuses them. Email addresses are compared without case.

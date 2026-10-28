@@ -3,6 +3,7 @@ import { copyProjectForNewUser, getDemoProjectId } from './projects.js';
 import { getUserById, updateStoredUser } from './users.js';
 import { isExistingProjectId } from './utils/fileUtils.js';
 import { emailUnavailable, sendEmail } from './emailNotifier.js';
+import { studioUrl } from './utils/studioUrl.js';
 
 /**
  * A new person's first minutes: what they came for, their copy of the demo when they ask to be
@@ -76,12 +77,6 @@ async function copyDemo(userId: string): Promise<string> {
     }));
     await copyProjectForNewUser(source, id, userId);
     return id;
-}
-
-/** The Studio's address, for links in emails (`STUDIO_URL`), when the server knows it. */
-function studioUrl(): string | undefined {
-    const url = process.env.STUDIO_URL?.trim().replace(/\/+$/, '');
-    return url && /^https?:\/\//.test(url) ? url : undefined;
 }
 
 /** A first email that says what to do this week. Never fails the sign-up. */

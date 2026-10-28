@@ -18,13 +18,21 @@ vi.mock('../../src/invites.js', () => ({
 /** Codes go out after the answer: let them. */
 const sent = () => new Promise(resolve => setTimeout(resolve, 0));
 
-const { requestEmailCode, verifyEmailCode } = await import('../../src/emailSignIn.js');
+const { requestEmailCode, verifyEmailCode, verifyEmailLink } =
+    await import('../../src/emailSignIn.js');
 const { getUserByEmail, reloadUsers } = await import('../../src/users.js');
 
 /** The six digits of the last code sent to this address. */
 const lastCode = (email: string) => {
     const m = [...mail.sent].reverse().find(x => x.to[0] === email);
     return m?.subject.match(/^\d{6}/)?.[0] ?? '';
+};
+
+/** The token in the last sign-in link sent to this address. */
+const lastToken = (email: string) => {
+    const m = [...mail.sent].reverse().find(x => x.to[0] === email);
+    const hash = m?.text.match(/\/auth\/email#(\S+)/)?.[1] ?? '';
+    return new URLSearchParams(hash).get('token') ?? '';
 };
 
 describe('signing in and up with an email code', () => {
@@ -168,6 +176,68 @@ describe('signing in and up with an email code', () => {
             }
             await expect(requestEmailCode('louise@agency.test')).rejects.toMatchObject({
                 code: 'EMAIL_CODE_LOCKED'
+            });
+        } finally {
+            vi.useRealTimers();
+        }
+    });
+
+    it('sends a sign-in link with the code when the Studio address is known', async () => {
+        vi.useFakeTimers({ now: Date.parse('2026-10-27T10:00:00Z') });
+        try {
+            await requestEmailCode('louise@agency.test');
+            vi.advanceTimersByTime(1);
+            expect(mail.sent[0].text).not.toContain('/auth/email#');
+            mail.sent.length = 0;
+
+            vi.stubEnv('STUDIO_URL', 'https://studio.moteur.test/');
+            vi.advanceTimersByTime(61_000);
+            await requestEmailCode('louise@agency.test');
+            vi.advanceTimersByTime(1);
+            const text = mail.sent[0].text;
+            expect(text).toContain(
+                'https://studio.moteur.test/auth/email#email=louise%40agency.test&token='
+            );
+            const token = lastToken('louise@agency.test');
+            await expect(
+                verifyEmailLink('louise@agency.test', 'x'.repeat(43))
+            ).rejects.toMatchObject({
+                code: 'EMAIL_LINK_EXPIRED'
+            });
+            const done = await verifyEmailLink('louise@agency.test', token);
+            expect(done).toMatchObject({ isNew: false });
+            // Once only.
+            await expect(verifyEmailLink('louise@agency.test', token)).rejects.toMatchObject({
+                code: 'EMAIL_LINK_EXPIRED'
+            });
+        } finally {
+            vi.useRealTimers();
+        }
+    });
+
+    it('lets the person in by the link when wrong codes have turned codes off', async () => {
+        vi.stubEnv('STUDIO_URL', 'https://studio.moteur.test');
+        vi.useFakeTimers({ now: Date.parse('2026-10-27T10:00:00Z') });
+        try {
+            for (let round = 0; round < 2; round++) {
+                await requestEmailCode('louise@agency.test');
+                for (let i = 0; i < 5; i++)
+                    await verifyEmailCode('louise@agency.test', '999999').catch(() => undefined);
+                vi.advanceTimersByTime(61_000);
+            }
+            // Codes are off for the day, but the person still gets a link.
+            await requestEmailCode('louise@agency.test');
+            vi.advanceTimersByTime(1);
+            const last = mail.sent.at(-1)!;
+            expect(last.subject).toBe('Your Moteur sign-in link');
+            expect(last.subject).not.toMatch(/\d{6}/);
+            const token = lastToken('louise@agency.test');
+
+            // Someone asking again for that address doesn't void the link already sent.
+            vi.advanceTimersByTime(61_000);
+            await requestEmailCode('louise@agency.test');
+            await expect(verifyEmailLink('louise@agency.test', token)).resolves.toMatchObject({
+                isNew: false
             });
         } finally {
             vi.useRealTimers();

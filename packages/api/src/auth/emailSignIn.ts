@@ -4,7 +4,8 @@ import {
     emailCodesAvailable,
     requestEmailCode,
     signupOpen,
-    verifyEmailCode
+    verifyEmailCode,
+    verifyEmailLink
 } from '@moteurio/core/emailSignIn.js';
 import { demoProjectFor, updateOnboarding } from '@moteurio/core/onboarding.js';
 import { requireAuth } from '../middlewares/auth.js';
@@ -50,14 +51,13 @@ router.post('/email/verify', verificationRateLimiter, async (req: Request, res: 
     res.setHeader('Cache-Control', 'no-store');
     const body = req.body ?? {};
     try {
-        const result = await verifyEmailCode(
-            text(body.email, 300) ?? '',
-            text(body.code, 20) ?? '',
-            {
-                name: text(body.name, 200),
-                onNewUser: runOnboardingForNewUser
-            }
-        );
+        const email = text(body.email, 300) ?? '';
+        const options = { name: text(body.name, 200), onNewUser: runOnboardingForNewUser };
+        // The email's link sends its token in place of the code.
+        const token = text(body.token, 100);
+        const result = token
+            ? await verifyEmailLink(email, token, options)
+            : await verifyEmailCode(email, text(body.code, 20) ?? '', options);
         if ('twoFactor' in result)
             return void res.json({ twoFactor: true, ticket: result.twoFactor.ticket });
         res.json({ token: result.token, isNew: result.isNew });
@@ -144,17 +144,21 @@ export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
     },
     '/auth/email/verify': {
         post: {
-            summary: 'Trade an email code for a session',
+            summary: "Trade an email code, or the email link's token, for a session",
             description:
-                'Signs in, or makes the account first. `name` names a new account. With two-step sign-in on, answers a ticket for the app code instead (POST /auth/two-factor/verify).',
+                "Signs in, or makes the account first. `name` names a new account. Send `token` (from the email's link, with `STUDIO_URL` set) in place of `code`: it works even when too many wrong codes have turned codes off for the day. With two-step sign-in on, answers a ticket for the app code instead (POST /auth/two-factor/verify).",
             tags: ['Auth'],
             security: [],
             requestBody: json({
                 type: 'object',
-                required: ['email', 'code'],
+                required: ['email'],
                 properties: {
                     email: { type: 'string' },
                     code: { type: 'string' },
+                    token: {
+                        type: 'string',
+                        description: "From the email's link, in place of `code`"
+                    },
                     name: { type: 'string' }
                 }
             }),
@@ -172,7 +176,8 @@ export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
                     })
                 },
                 '400': {
-                    description: 'Wrong or expired code (`EMAIL_CODE_WRONG`, `EMAIL_CODE_EXPIRED`)'
+                    description:
+                        'Wrong or expired code or link (`EMAIL_CODE_WRONG`, `EMAIL_CODE_EXPIRED`, `EMAIL_LINK_EXPIRED`)'
                 },
                 '403': { description: 'The server is not taking new accounts' }
             }

@@ -6,6 +6,7 @@ import { privateStatePath, readPrivateState, writePrivateState } from './utils/p
 import { emailUnavailable, sendCodeEmail } from './emailNotifier.js';
 import { signupOpen } from './signupPolicy.js';
 import { hasLiveInvite } from './invites.js';
+import { studioUrl } from './utils/studioUrl.js';
 
 export { signupOpen } from './signupPolicy.js';
 
@@ -14,6 +15,10 @@ export { signupOpen } from './signupPolicy.js';
  * door for both: a known address gets a code to sign in, a new one a code to make an account
  * (when this server takes new accounts, or the address was invited). Nobody learns who has an
  * account by trying addresses: the answer, and how long it takes, are the same either way.
+ *
+ * With `STUDIO_URL` set, each email also carries a sign-in link: a long token nobody can guess. Too
+ * many wrong codes stop typed codes for that address for a day, but the link still works, so
+ * someone typing wrong codes for another person's address can't keep them out.
  */
 
 const CODE_MINUTES = 15;
@@ -40,6 +45,11 @@ type Pending = {
     /** When wrong codes came in for this address, the last day's. */
     wrong: number[];
     attempts: number;
+    /**
+     * Sign-in links sent and not yet expired, their tokens hashed. A new request keeps the earlier
+     * ones, so asking again for someone's address can't void the link they're about to open.
+     */
+    links?: { hash: string; expiresAt: number }[];
     context?: SignupContext;
 };
 type Store = { pending: Pending[]; sent: number[] };
@@ -70,9 +80,10 @@ function load(now = Date.now()): Store {
             .map(p => ({
                 ...p,
                 sends: (p.sends ?? []).filter(t => t > now - HOUR),
-                wrong: (p.wrong ?? []).filter(t => t > now - DAY)
+                wrong: (p.wrong ?? []).filter(t => t > now - DAY),
+                links: (p.links ?? []).filter(l => l.expiresAt > now)
             }))
-            .filter(p => p.expiresAt > now || p.sends.length || p.wrong.length)
+            .filter(p => p.expiresAt > now || p.sends.length || p.wrong.length || p.links.length)
     };
 }
 
@@ -99,31 +110,56 @@ export function emailCodesAvailable(): boolean {
 const WORDS = {
     en: {
         subject: (code: string) => `${code} is your Moteur code`,
+        linkSubject: 'Your Moteur sign-in link',
         signin: 'Here is your code to sign in to Moteur',
         signup: 'Here is your code to finish making your Moteur account',
-        after: `It works once, for ${CODE_MINUTES} minutes. If you didn't ask for it, ignore this email: nothing happens without the code.`
+        orLink: 'Or open this link',
+        linkOnly:
+            'Too many wrong codes were typed for this address today, so codes are off until tomorrow. Open this link to go on',
+        after: `It works once, for ${CODE_MINUTES} minutes. If you didn't ask for it, ignore this email: nothing happens without it.`
     },
     fr: {
         subject: (code: string) => `${code} est votre code Moteur`,
+        linkSubject: 'Votre lien de connexion Moteur',
         signin: 'Voici votre code pour vous connecter à Moteur',
         signup: 'Voici votre code pour terminer la création de votre compte Moteur',
-        after: `Il ne sert qu’une fois, pendant ${CODE_MINUTES} minutes. Si vous ne l’avez pas demandé, ignorez ce courriel\u202f: rien ne se passe sans le code.`
+        orLink: 'Ou ouvrez ce lien',
+        linkOnly:
+            'Trop de codes erronés ont été saisis pour cette adresse aujourd’hui, les codes sont donc désactivés jusqu’à demain. Ouvrez ce lien pour continuer',
+        after: `Il ne sert qu’une fois, pendant ${CODE_MINUTES} minutes. Si vous ne l’avez pas demandé, ignorez ce courriel\u202f: rien ne se passe sans lui.`
     }
 };
 
+/** Where the link opens: the Studio's page, with what it needs after `#`, so it reaches no server log. */
+function signInLink(email: string, token: string): string | undefined {
+    const studio = studioUrl();
+    if (!studio) return undefined;
+    return `${studio}/auth/email#${new URLSearchParams({ email, token }).toString()}`;
+}
+
 /** Sends after the answer has gone: delivery time never tells whether the address has an account. */
-function deliverLater(email: string, code: string, purpose: Purpose, locale?: string) {
+function deliverLater(
+    email: string,
+    code: string | null,
+    purpose: Purpose,
+    locale?: string,
+    link?: string
+) {
     const w = locale?.toLowerCase().startsWith('fr') ? WORDS.fr : WORDS.en;
-    const spaced = `${code.slice(0, 3)} ${code.slice(3)}`;
+    const text = code
+        ? `${w[purpose]}:\n\n    ${code.slice(0, 3)} ${code.slice(3)}\n\n${link ? `${w.orLink}:\n\n${link}\n\n` : ''}${w.after}`
+        : `${w.linkOnly}:\n\n${link}\n\n${w.after}`;
     setTimeout(() => {
         if (codesToLog()) {
-            console.info(`[moteur] Email code for ${email} (${purpose}): ${code}`);
+            console.info(
+                `[moteur] Email code for ${email} (${purpose}): ${code ?? 'none'}${link ? ` ${link}` : ''}`
+            );
             return;
         }
         sendCodeEmail({
             to: [email],
-            subject: w.subject(code),
-            text: `${w[purpose]}:\n\n    ${spaced}\n\n${w.after}`
+            subject: code ? w.subject(code) : w.linkSubject,
+            text
         }).catch(err => {
             console.error(
                 '[moteur] An email code could not be sent:',
@@ -163,7 +199,9 @@ export async function requestEmailCode(
             429,
             'EMAIL_CODE_LIMIT'
         );
-    if (wrong.length >= WRONG_PER_DAY)
+    // Codes are off for the day; the link still goes when there can be one.
+    const codesOff = wrong.length >= WRONG_PER_DAY;
+    if (codesOff && !studioUrl())
         throw problem(
             'Too many wrong codes for this address. Try again tomorrow.',
             429,
@@ -188,12 +226,20 @@ export async function requestEmailCode(
 
     const code = String(randomInt(0, 1_000_000)).padStart(6, '0');
     const salt = randomBytes(16).toString('hex');
+    const token = randomBytes(32).toString('base64url');
+    const link = purpose ? signInLink(email, token) : undefined;
     const next: Pending = {
         id,
         purpose: purpose ?? 'signin',
         salt,
         // No purpose: a code nobody can use, kept only so limits and timing look alike.
-        codeHash: purpose ? keyed(salt, email, code) : '',
+        codeHash: purpose && !codesOff ? keyed(salt, email, code) : '',
+        links: [
+            ...(previous?.links ?? []),
+            ...(link
+                ? [{ hash: keyed('link', email, token), expiresAt: now + CODE_MINUTES * 60_000 }]
+                : [])
+        ],
         expiresAt: purpose ? now + CODE_MINUTES * 60_000 : now,
         sentAt: now,
         sends: [...sends, now],
@@ -206,7 +252,7 @@ export async function requestEmailCode(
         pending: [...store.pending.filter(p => p.id !== id), next],
         sent: purpose ? [...store.sent, now] : store.sent
     } satisfies Store);
-    if (purpose) deliverLater(email, code, purpose, context.locale);
+    if (purpose) deliverLater(email, codesOff ? null : code, purpose, context.locale, link);
 }
 
 function cleanContext(context: SignupContext): SignupContext {
@@ -265,10 +311,45 @@ export async function verifyEmailCode(
             item.codeHash ? 'EMAIL_CODE_WRONG' : 'EMAIL_CODE_EXPIRED'
         );
     }
+    return useCode(email, item, store, now, options);
+}
+
+/**
+ * Trade a sign-in link's token for a session, as `verifyEmailCode` does for the code. The token
+ * is long and random, so wrong ones count for nothing: the link works even when codes are off.
+ */
+export async function verifyEmailLink(
+    rawEmail: string,
+    rawToken: string,
+    options: { name?: string; onNewUser?: (user: User) => Promise<void> } = {}
+): Promise<EmailCodeResult> {
+    const email = normalise(rawEmail);
+    const now = Date.now();
+    const store = load(now);
+    const item = store.pending.find(p => p.id === addressId(email));
+    const given = Buffer.from(keyed('link', email, String(rawToken)));
+    const matches = (hash: string) => {
+        const expected = Buffer.from(hash);
+        return given.length === expected.length && timingSafeEqual(given, expected);
+    };
+    if (!item?.links?.some(l => l.expiresAt > now && matches(l.hash)))
+        throw problem('This link has expired. Ask for a new one.', 400, 'EMAIL_LINK_EXPIRED');
+    return useCode(email, item, store, now, options);
+}
+
+/** The code or link was right: it's used up, then the person signs in (or their account is made). */
+async function useCode(
+    email: string,
+    item: Pending,
+    store: Store,
+    now: number,
+    options: { name?: string; onNewUser?: (user: User) => Promise<void> }
+): Promise<EmailCodeResult> {
     // Used: gone, whatever happens next.
     item.codeHash = '';
+    item.links = [];
     item.expiresAt = now;
-    save();
+    writePrivateState(file(), store);
 
     reloadUsers();
     let user = getUserByEmail(email);

@@ -172,6 +172,7 @@ export type {
 export {
     beginOAuth,
     completeOAuth,
+    oauthChallenge,
     oauthConfig,
     readOAuthConfig,
     redirectAfterLogin,
