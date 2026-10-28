@@ -6,6 +6,7 @@ import { initRepo } from '../../src/git/index.js';
 import { registerContentCommitHook } from '../../src/git/contentCommitHook.js';
 import { createTemplate } from '../../src/templates.js';
 import { createPage, getNavigation, getPage, resolveAllUrls, updatePage } from '../../src/pages.js';
+import { listRedirects } from '../../src/redirects.js';
 import { createNavigation, resolveNavigation } from '../../src/navigations.js';
 import { hasWaitingChanges, publicPage } from '../../src/pages/publishedPages.js';
 import { approveReview, submitForPageReview } from '../../src/reviews.js';
@@ -116,6 +117,9 @@ describe('a live page and its changes', () => {
         await approveReview(projectId, reviewer, review.id);
         expect(await live(page.id)).toBe('Two');
         expect((await resolveAllUrls(projectId)).map(u => u.url)).toEqual(['/about-us']);
+        expect((await listRedirects(projectId)).map(r => [r.from, r.to])).toEqual([
+            ['/about', '/about-us']
+        ]);
 
         // That approval is used: the next change waits again.
         await updatePage(projectId, writer, page.id, { fields: { headline: 'Three' } } as never);
@@ -139,11 +143,60 @@ describe('a live page and its changes', () => {
         expect(await live(page.id)).toBe('Now');
     });
 
-    it('pins a page published before pages kept a published version', async () => {
+    it('lets someone who can publish put waiting changes live', async () => {
         const page = await about();
-        const { publishedCommit: _c, publishedAt: _a, ...old } = page as StaticPage;
-        await putProjectJson(projectId, pageKey(page.id), old);
+        await updatePage(projectId, writer, page.id, { fields: { headline: 'Two' } } as never);
+        await updatePage(projectId, admin, page.id, { status: 'published' } as never);
+        expect(await live(page.id)).toBe('Two');
+        expect(await hasWaitingChanges(projectId, await getPage(projectId, page.id))).toBe(false);
+    });
+
+    it('approves only a complete page', async () => {
+        await createTemplate(projectId, admin, {
+            id: 'strict',
+            label: 'Strict',
+            fields: {
+                headline: { type: 'core/text', label: 'Headline', options: { required: true } }
+            }
+        } as never);
+        const page = await createPage(projectId, writer, {
+            type: 'static',
+            label: 'Empty',
+            slug: 'empty',
+            templateId: 'strict',
+            fields: {}
+        } as never);
+        const review = await submitForPageReview(projectId, writer, page.id);
+        await expect(approveReview(projectId, reviewer, review.id)).rejects.toThrow(/headline/i);
+        expect(await live(page.id)).toBeUndefined();
+    });
+
+    it('pins a live page that has no published version yet (a copied project starts so)', async () => {
+        const page = await about();
+        const { publishedCommit: _c, publishedAt: _a, ...copied } = page as StaticPage;
+        await putProjectJson(projectId, pageKey(page.id), copied);
         await updatePage(projectId, writer, page.id, { fields: { headline: 'Two' } } as never);
         expect(await live(page.id)).toBe('One');
+
+        await putProjectJson(projectId, pageKey(page.id), {
+            ...copied,
+            fields: { headline: 'One' }
+        });
+        await submitForPageReview(projectId, writer, page.id);
+        expect(await live(page.id)).toBe('One');
+    });
+
+    it("refuses changes that would wait on a live page when there's no Git to keep its version", async () => {
+        const page = await about();
+        const { publishedCommit: _c, publishedAt: _a, ...bare } = page as StaticPage;
+        await putProjectJson(projectId, pageKey(page.id), bare);
+        await fs.rm(path.join(tempDir, 'data', 'projects', projectId, '.git'), {
+            recursive: true,
+            force: true
+        });
+        await expect(
+            updatePage(projectId, writer, page.id, { fields: { headline: 'Two' } } as never)
+        ).rejects.toThrow(/Git/);
+        expect(await headline(getPage(projectId, page.id))).toBe('One');
     });
 });

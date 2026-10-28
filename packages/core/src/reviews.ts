@@ -18,7 +18,8 @@ import { sendReviewEmail } from './emailNotifier.js';
 import { getProjectUsers, getUserById } from './users.js';
 import { dispatch as webhookDispatch } from './webhooks/webhookService.js';
 import { publishEntry } from './entries.js';
-import { publishPageVersion } from './pages/publishedPages.js';
+import { pinPublishedPage } from './pages/publishedPages.js';
+import { assertPageReady, publishReviewedPage } from './pages.js';
 
 /**
  * What a review is about, as a fingerprint: an entry's data, or a page's content and settings
@@ -266,19 +267,16 @@ export async function approveReview(
             throw new Error('Review is not pending');
         }
         // The reviewer approves what was sent: an edit since then needs a fresh look.
-        if (review.submittedVersion) {
-            const sent =
-                review.resourceType === 'page' && review.pageId
-                    ? await getProjectJson<PageNode>(projectId, pageKey(review.pageId))
-                    : review.modelId && review.entryId
-                      ? await getProjectJson<Entry>(
-                            projectId,
-                            entryKey(review.modelId, review.entryId)
-                        )
-                      : null;
-            if (sent && contentVersion(sent) !== review.submittedVersion)
-                throw changedSinceSubmitted();
-        }
+        const sent =
+            review.resourceType === 'page' && review.pageId
+                ? await getProjectJson<PageNode>(projectId, pageKey(review.pageId))
+                : review.modelId && review.entryId
+                  ? await getProjectJson<Entry>(projectId, entryKey(review.modelId, review.entryId))
+                  : null;
+        if (sent && contentVersion(sent) !== review.submittedVersion) throw changedSinceSubmitted();
+        // A page goes live on approval: it must be complete first.
+        if (review.resourceType === 'page' && sent)
+            await assertPageReady(projectId, sent as PageNode);
 
         const now = new Date().toISOString();
         const reviewedByName = normalizeUserName(user);
@@ -303,7 +301,7 @@ export async function approveReview(
                 });
             if (page) {
                 // Approving publishes what was reviewed: it becomes the page's public version.
-                await publishPageVersion(projectId, user, page, recordSave);
+                await publishReviewedPage(projectId, user, page, recordSave);
                 await useApprovals(projectId, { pageId: review.pageId });
             } else void recordSave();
             log(toActivityEvent(projectId, 'page', review.pageId, 'approved', user));
@@ -476,7 +474,9 @@ export async function rejectReview(
         if (review.resourceType === 'page' && review.pageId) {
             const page = await getProjectJson<PageNode>(projectId, pageKey(review.pageId));
             if (page) {
-                // A live page stays live with its published version; its changes wait, refused.
+                // A live page stays live with its published version. The refused changes stay in
+                // the page, for its writer to rework: they are not live, and go live only when
+                // someone publishes the page again.
                 const live = !!(page as { publishedCommit?: string }).publishedCommit;
                 await putProjectJson(projectId, pageKey(review.pageId), {
                     ...page,
@@ -678,11 +678,11 @@ export async function submitForPageReview(
         throw new Error('Review workflow is not enabled for this project');
     }
 
-    const page = await getProjectJson<PageNode>(projectId, pageKey(pageId));
-    if (!page) {
+    const found = await getProjectJson<PageNode>(projectId, pageKey(pageId));
+    if (!found) {
         throw new Error(`Page "${pageId}" not found in project "${projectId}".`);
     }
-    if (page.type === 'folder') {
+    if (found.type === 'folder') {
         throw new Error('Folder pages cannot be submitted for review.');
     }
 
@@ -695,6 +695,9 @@ export async function submitForPageReview(
     if (pendingForPage) {
         throw new Error('This page already has a pending review');
     }
+
+    // A live page stays live while in review: its published version is pinned first.
+    const page = (await pinPublishedPage(projectId, user, found)) as typeof found;
 
     const requestedByName = normalizeUserName(user);
     const review: Review = {

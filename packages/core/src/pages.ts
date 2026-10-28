@@ -27,6 +27,7 @@ import { getModelSchemaForProject } from './models.js';
 import { hasApprovedReviewForPage, useApprovals } from './reviews.js';
 import {
     pinPublishedPage,
+    hasWaitingChanges,
     publishPageVersion,
     publicPages,
     withoutPublishedVersion
@@ -464,7 +465,8 @@ export async function updatePage(
     user: User,
     id: string,
     patch: Partial<PageNode>,
-    options?: { restoredFrom?: string }
+    /** `asDraft`: an import's save; on a live page its changes wait for the import's publish step. */
+    options?: { restoredFrom?: string; asDraft?: boolean }
 ): Promise<PageNode> {
     let current = await getPageWithAuth(user, projectId, id);
     assertCanEdit(user);
@@ -485,8 +487,14 @@ export async function updatePage(
         throw contentForbidden(approvalMessage(user, project));
     // On a live page, the edits of someone who needs a review wait in the page: sites keep its
     // published version until a review approves them (or someone who can publishes).
-    const waiting = live && !mayPublish && (asked === undefined || asked === 'published');
+    const waiting =
+        live &&
+        (options?.asDraft === true ||
+            (!mayPublish && (asked === undefined || asked === 'published')));
     if (waiting) current = await pinPublishedPage(projectId, user, current);
+    // Publishing a live page that has changes waiting puts them live, even with nothing new.
+    const publishesWaiting =
+        live && !waiting && asked === 'published' && (await hasWaitingChanges(projectId, current));
     if (
         (patch as { status?: string }).status &&
         (patch as { status?: string }).status !== 'published' &&
@@ -570,10 +578,13 @@ export async function updatePage(
     }
 
     // Nothing to save: no commit, no hooks, no webhooks.
-    if (sameContent(current, updated)) return current;
+    if (sameContent(current, updated) && !publishesWaiting) return current;
 
     await triggerEvent('page.beforeUpdate', { page: updated, user, projectId });
-    const before = addressChanged && !waiting ? await liveAddresses(projectId) : undefined;
+    const before =
+        (addressChanged && !waiting) || publishesWaiting
+            ? await liveAddresses(projectId)
+            : undefined;
     const goesLive = !waiting && updated.type !== 'folder' && updated.status === 'published';
     const recordSave = () =>
         triggerEvent('content.saved', {
@@ -991,6 +1002,28 @@ export async function resolvePath(
 async function liveAddresses(projectId: string): Promise<Map<string, string>> {
     const urls = await resolveAllUrls(projectId);
     return new Map(urls.map(u => [`${u.nodeId}|${u.entryId ?? ''}|${u.locale ?? ''}`, u.url]));
+}
+
+/**
+ * A page approved in review goes live as it was sent: its required fields are checked before the
+ * approval counts (`assertPageReady`), then it is published (`publishReviewedPage`), with a
+ * redirect from each address it leaves.
+ */
+export async function assertPageReady(projectId: string, page: PageNode): Promise<void> {
+    if (page.type === 'folder') return;
+    assertPageComplete(page as StaticPage, await getTemplate(projectId, page.templateId));
+}
+
+export async function publishReviewedPage(
+    projectId: string,
+    user: User,
+    page: PageNode,
+    recordSave: () => Promise<unknown>
+): Promise<PageNode> {
+    const before = await liveAddresses(projectId);
+    const saved = await publishPageVersion(projectId, user, page, recordSave);
+    await redirectMoved(projectId, user, before);
+    return saved;
 }
 
 /** After a save, a redirect from each live address that changed to where it went. */
