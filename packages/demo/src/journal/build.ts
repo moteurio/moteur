@@ -88,7 +88,7 @@ export async function buildJournal(opts: JournalOptions): Promise<ValidationRepo
     // createProjectBlock writes block definitions without committing them.
     const { projectDir } = await import('@moteurio/core/utils/pathUtils.js');
     const { addAndCommit } = await import('@moteurio/core/git/index.js');
-    addAndCommit(
+    await addAndCommit(
         projectDir(JOURNAL_ID),
         ['blocks'],
         `Add Journal blocks — ${team.theo.name}`,

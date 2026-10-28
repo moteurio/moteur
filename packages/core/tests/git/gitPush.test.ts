@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import fs from 'fs/promises';
 import os from 'os';
 import path from 'path';
@@ -7,7 +7,10 @@ import {
     addAllAndCommit,
     gitStatus,
     initRepo,
+    flushPushes,
+    gitIdle,
     push,
+    schedulePush,
     setRemoteOrigin
 } from '../../src/git/index.js';
 
@@ -26,13 +29,16 @@ describe('pushing the content history', () => {
         spawnSync('git', ['init', '--bare', remote]);
         await initRepo(repo);
         await fs.writeFile(path.join(repo, 'a.json'), '{}');
-        addAllAndCommit(repo, 'First', user as never);
+        await addAllAndCommit(repo, 'First', user as never);
     });
     afterEach(async () => {
+        vi.unstubAllEnvs();
+        await flushPushes();
+        await gitIdle();
         await fs.rm(tempDir, { recursive: true, force: true }).catch(() => {});
     });
 
-    it('says nothing is owed without a remote', () => {
+    it('says nothing is owed without a remote', async () => {
         expect(gitStatus(repo)).toMatchObject({ remoteUrl: null, unpushed: null });
         expect(gitStatus(repo).lastCommit?.message).toBe('First');
     });
@@ -41,19 +47,56 @@ describe('pushing the content history', () => {
         setRemoteOrigin(repo, remote);
         expect(gitStatus(repo)).toMatchObject({ remoteUrl: remote, unpushed: 1 });
 
-        expect(push(repo)).toBe(true);
+        expect(await push(repo)).toBe(true);
         expect(gitStatus(repo).unpushed).toBe(0);
 
         await fs.writeFile(path.join(repo, 'b.json'), '{}');
-        addAllAndCommit(repo, 'Second', user as never);
+        await addAllAndCommit(repo, 'Second', user as never);
         expect(gitStatus(repo).unpushed).toBe(1);
-        expect(push(repo)).toBe(true);
+        expect(await push(repo)).toBe(true);
         expect(gitStatus(repo).unpushed).toBe(0);
     });
 
     it('reports a failed push, and keeps counting', async () => {
         setRemoteOrigin(repo, path.join(tempDir, 'nowhere.git'));
-        expect(push(repo)).toBe(false);
+        expect(await push(repo)).toBe(false);
         expect(gitStatus(repo).unpushed).toBe(1);
+    });
+
+    it('pushes in the background, once for the commits made close together', async () => {
+        vi.stubEnv('MOTEUR_GIT_PUSH_DELAY_MS', '50');
+        setRemoteOrigin(repo, remote);
+        const heard: boolean[] = [];
+        schedulePush(repo, pushed => heard.push(pushed));
+        await fs.writeFile(path.join(repo, 'b.json'), '{}');
+        await addAllAndCommit(repo, 'Second', user as never);
+        schedulePush(repo, pushed => heard.push(pushed));
+        // Nothing waited on the network: still owed right after scheduling.
+        expect(gitStatus(repo).unpushed).toBe(2);
+        await vi.waitFor(() => expect(heard).toEqual([true, true]));
+        expect(gitStatus(repo).unpushed).toBe(0);
+    });
+
+    it('keeps the server answering while a push is slow', async () => {
+        // A remote that takes a moment to accept, as one across the network does.
+        const slow = path.join(tempDir, 'slow-receive.sh');
+        await fs.writeFile(slow, `#!/bin/sh\nsleep 0.5\nexec git-receive-pack "$@"\n`, {
+            mode: 0o755
+        });
+        setRemoteOrigin(repo, remote);
+        spawnSync('git', ['config', 'remote.origin.receivepack', `"${slow}"`], { cwd: repo });
+        let ticks = 0;
+        const timer = setInterval(() => ticks++, 10);
+        let pushDone = false;
+        const pushing = push(repo).then(ok => ((pushDone = true), ok));
+        // A save in the same project meanwhile: its commit doesn't wait for the push.
+        await fs.writeFile(path.join(repo, 'b.json'), '{}');
+        await addAllAndCommit(repo, 'During the push', user as never);
+        expect(pushDone).toBe(false);
+        const pushed = await pushing;
+        clearInterval(timer);
+        expect(pushed).toBe(true);
+        // A blocking push would leave the event loop no turn at all.
+        expect(ticks).toBeGreaterThan(20);
     });
 });

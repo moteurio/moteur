@@ -42,7 +42,7 @@ describe('the Git token', () => {
         expect(gitAuthEnv(dir)).toBeUndefined();
     });
 
-    it('refuses to keep a token in clear on a production server', () => {
+    it('refuses to keep a token in clear on a production server', async () => {
         vi.stubEnv('NODE_ENV', 'production');
         vi.stubEnv('MOTEUR_ENCRYPTION_KEY', '');
         expect(() => setGitToken(projectId, admin, { token: 'ghp_secret123' })).toThrow(
@@ -50,7 +50,7 @@ describe('the Git token', () => {
         );
     });
 
-    it('refuses anyone but an admin, and a token that could forge a header', () => {
+    it('refuses anyone but an admin, and a token that could forge a header', async () => {
         expect(() => setGitToken(projectId, writer, { token: 'ghp_secret123' })).toThrow(
             'Only an admin'
         );
@@ -79,11 +79,11 @@ describe('the Git token', () => {
                 host.once('error', reject);
             });
             await fs.writeFile(path.join(dir, 'a.json'), '{}');
-            addAllAndCommit(dir, 'First', admin);
+            await addAllAndCommit(dir, 'First', admin);
             setRemoteOrigin(dir, `http://127.0.0.1:${port}/client/site.git`);
             setGitToken(projectId, admin, { token: 'glpat-secret123', username: 'oauth2' });
 
-            expect(push(dir)).toBe(false);
+            expect(await push(dir)).toBe(false);
             const seen = (await fs.readFile(log, 'utf8')).split('\n');
             expect(seen).toContain(
                 `Basic ${Buffer.from('oauth2:glpat-secret123').toString('base64')}`

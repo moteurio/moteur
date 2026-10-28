@@ -107,13 +107,13 @@ export async function buildScale(opts: { count: number; log: Log }): Promise<voi
     };
 
     for (let i = 0; i < count; i++) write(entry(i, false));
-    const commit = addAllAndCommit(dir, `Add ${count} articles`, asUser(bot));
+    const commit = await addAllAndCommit(dir, `Add ${count} articles`, asUser(bot));
     log(`${count} articles written`);
     let edited = 0;
     for (let i = 0; i < count; i += 5) {
         write(entry(i, true, commit));
         edited++;
     }
-    addAllAndCommit(dir, `Edit ${edited} articles after publishing`, asUser(bot));
+    await addAllAndCommit(dir, `Edit ${edited} articles after publishing`, asUser(bot));
     log(`${edited} edited after publishing`);
 }

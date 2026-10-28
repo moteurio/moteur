@@ -16,7 +16,7 @@ import { mergeProjectSecrets, readProjectSecrets } from './utils/projectSecrets.
 import { ensureWorkspace } from './utils/workspaceStore.js';
 import { getContentIndex } from './contentIndex/index.js';
 import { ensureUserData } from './utils/userDataStore.js';
-import { initRepo, cloneFromRemote, addAllAndCommit, push } from './git/index.js';
+import { initRepo, cloneFromRemote, addAllAndCommit, schedulePush } from './git/index.js';
 import { getEffectiveGitRemoteUrl, applyProjectGitSideEffects } from './utils/projectGit.js';
 import { removeProjectFromAllUsers, addProjectToUser, removeProjectFromUser } from './users.js';
 import { assertPeopleRoom, assertProjectRoom } from './planLimits.js';
@@ -432,8 +432,8 @@ export async function copyProjectForNewUser(
         roles: ['writer'],
         projects: []
     };
-    addAllAndCommit(destDir, `Copy from ${sourceProjectId} — ${userId}`, userForCommit);
-    push(destDir);
+    await addAllAndCommit(destDir, `Copy from ${sourceProjectId} — ${userId}`, userForCommit);
+    schedulePush(destDir);
     await addProjectToUser(userId, newProjectId);
 
     return { ...updated, id: newProjectId };

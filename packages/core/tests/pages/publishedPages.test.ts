@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { gitIdle } from '../../src/git/index.js';
 import fs from 'fs/promises';
 import os from 'os';
 import path from 'path';
@@ -61,6 +62,8 @@ describe('a live page and its changes', () => {
     });
     afterEach(async () => {
         vi.unstubAllEnvs();
+        // Commits finish in the background: let them before removing the folder.
+        await gitIdle();
         await fs.rm(tempDir, { recursive: true, force: true });
     });
 
@@ -224,6 +227,8 @@ describe('a live page and its changes', () => {
         const page = await about();
         const { publishedCommit: _c, publishedAt: _a, ...bare } = page as StaticPage;
         await putProjectJson(projectId, pageKey(page.id), bare);
+        // Commits finish in the background: let them before removing the folder.
+        await gitIdle();
         await fs.rm(path.join(tempDir, 'data', 'projects', projectId, '.git'), {
             recursive: true,
             force: true

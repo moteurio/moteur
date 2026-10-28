@@ -70,7 +70,7 @@ describe('restoreEntryAtRevision', () => {
 
     async function save(e: Entry, message: string): Promise<void> {
         await putProjectJson(projectId, entryKey(modelId, entryId), e);
-        addAndCommit(projDir, [entryKey(modelId, entryId)], message, user);
+        await addAndCommit(projDir, [entryKey(modelId, entryId)], message, user);
     }
 
     it('puts the old content back as a new save and keeps the later ones', async () => {
@@ -86,7 +86,7 @@ describe('restoreEntryAtRevision', () => {
             ),
             'Create articles/post-1 — Alice'
         );
-        const [first] = getEntryRevisions(projectId, modelId, entryId);
+        const [first] = await getEntryRevisions(projectId, modelId, entryId);
         await save(
             entry(
                 { title: 'Second', summary: 'Added later' },
@@ -117,7 +117,7 @@ describe('restoreEntryAtRevision', () => {
         expect(stored?.data).toEqual({ title: 'First' });
         expect(messages).toEqual([`Restore articles/post-1 from ${first.id.slice(0, 7)} — Alice`]);
         // Nothing was rewritten: both earlier saves are still in the history.
-        expect(getLog(projDir, entryKey(modelId, entryId), 10)).toHaveLength(2);
+        expect(await getLog(projDir, entryKey(modelId, entryId), 10)).toHaveLength(2);
     });
 
     it('refuses a revision the entry was never saved in', async () => {
@@ -129,7 +129,7 @@ describe('restoreEntryAtRevision', () => {
 
     it('lets no translator restore', async () => {
         await save(entry({ title: 'First' }), 'Create articles/post-1 — Alice');
-        const [first] = getEntryRevisions(projectId, modelId, entryId);
+        const [first] = await getEntryRevisions(projectId, modelId, entryId);
         const translator = { ...user, roles: ['translator'] } as User;
         await expect(
             restoreEntryAtRevision(translator, projectId, modelId, entryId, first.id)

@@ -54,7 +54,7 @@ export function createSchemaRevisionRouter(options: SchemaRevisionMountOptions):
                 if (!gitPath) {
                     return void res.json([]);
                 }
-                const revisions = getSchemaRevisions(
+                const revisions = await getSchemaRevisions(
                     projectId,
                     kind,
                     schemaId,
@@ -84,7 +84,7 @@ export function createSchemaRevisionRouter(options: SchemaRevisionMountOptions):
                 if (!gitPath) {
                     return void res.status(404).json({ error: 'Revision not found' });
                 }
-                const schema = getSchemaAtRevision(projectId, gitPath, revisionId);
+                const schema = await getSchemaAtRevision(projectId, gitPath, revisionId);
                 if (!schema) {
                     return void res.status(404).json({ error: 'Revision not found' });
                 }

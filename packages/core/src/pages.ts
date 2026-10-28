@@ -686,7 +686,11 @@ export async function restorePageAtRevision(
     revisionId: string
 ): Promise<Restored<PageNode>> {
     const current = await getPageWithAuth(user, projectId, id);
-    const snapshot = getFileAtRevision(projectId, pageKey(id), revisionId) as PageNode | null;
+    const snapshot = (await getFileAtRevision(
+        projectId,
+        pageKey(id),
+        revisionId
+    )) as PageNode | null;
     if (!snapshot) throw new Error('Revision not found');
     if (snapshot.type !== current.type) {
         throw new Error(

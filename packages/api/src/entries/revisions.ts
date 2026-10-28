@@ -29,7 +29,7 @@ router.get('/:entryId/revisions', requireProjectAccess, async (req: Request, res
                   ? rawMax[0]
                   : '20';
         const max = Math.min(parseInt(maxStr, 10) || 20, 100);
-        const revisions = getEntryRevisions(projectId, modelId, entryId, max);
+        const revisions = await getEntryRevisions(projectId, modelId, entryId, max);
         return void res.json(revisions);
     } catch (err: unknown) {
         return void sendApiError(res, req, err);
@@ -49,7 +49,7 @@ router.get(
             if (!(await getEntry(req.user!, projectId, modelId, entryId))) {
                 return void res.status(404).json({ error: 'Entry not found' });
             }
-            const entry = getEntryAtRevision(projectId, modelId, entryId, revisionId);
+            const entry = await getEntryAtRevision(projectId, modelId, entryId, revisionId);
             if (!entry) {
                 return void res.status(404).json({ error: 'Revision not found' });
             }
@@ -70,7 +70,7 @@ router.post(
         }
         try {
             const current = await getEntry(req.user!, projectId, modelId, entryId);
-            const snapshot = getEntryAtRevision(projectId, modelId, entryId, revisionId);
+            const snapshot = await getEntryAtRevision(projectId, modelId, entryId, revisionId);
             if (!snapshot) {
                 return void res.status(404).json({ error: 'Revision not found' });
             }

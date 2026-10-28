@@ -55,7 +55,9 @@ async function recover(projectId: string, job: StoredJob): Promise<void> {
     const dir = projectDir(projectId);
     for (const key of job.touched ?? []) {
         if (key === 'assets.json') continue;
-        await restoreProjectFile(projectId, key, show(dir, 'HEAD', key)).catch(() => undefined);
+        await restoreProjectFile(projectId, key, await show(dir, 'HEAD', key)).catch(
+            () => undefined
+        );
     }
     Object.assign(job, {
         status: 'failed',

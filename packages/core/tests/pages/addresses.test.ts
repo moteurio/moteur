@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { gitIdle } from '../../src/git/index.js';
 import fs from 'fs/promises';
 import os from 'os';
 import path from 'path';
@@ -119,6 +120,8 @@ describe('page addresses in every language', () => {
     });
     afterEach(async () => {
         vi.unstubAllEnvs();
+        // Commits finish in the background: let them before removing the folder.
+        await gitIdle();
         await fs.rm(tempDir, { recursive: true, force: true });
     });
 
@@ -283,6 +286,8 @@ describe('redirects by hand', () => {
     });
     afterEach(async () => {
         vi.unstubAllEnvs();
+        // Commits finish in the background: let them before removing the folder.
+        await gitIdle();
         await fs.rm(tempDir, { recursive: true, force: true });
     });
 

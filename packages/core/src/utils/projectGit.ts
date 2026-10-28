@@ -1,7 +1,13 @@
 import type { ProjectSchema } from '@moteurio/types/Project.js';
 import type { User } from '@moteurio/types/User.js';
 import { projectDir } from './pathUtils.js';
-import { initRepo, isGitRepo, addAllAndCommit, push, setRemoteOrigin } from '../git/index.js';
+import {
+    initRepo,
+    isGitRepo,
+    addAllAndCommit,
+    schedulePush,
+    setRemoteOrigin
+} from '../git/index.js';
 
 /** Git remote URL lives only under `project.git.remoteUrl`. */
 export function getEffectiveGitRemoteUrl(project: ProjectSchema): string {
@@ -53,11 +59,11 @@ export async function applyProjectGitSideEffects(
             return;
         }
         await initRepo(dir);
-        addAllAndCommit(dir, `Initial repository — ${user.name ?? user.id}`, user);
+        await addAllAndCommit(dir, `Initial repository — ${user.name ?? user.id}`, user);
         if (nextRemote) {
             try {
                 setRemoteOrigin(dir, nextRemote);
-                push(dir);
+                schedulePush(dir);
             } catch {
                 /* push may fail without credentials */
             }
@@ -68,7 +74,7 @@ export async function applyProjectGitSideEffects(
     if (nextRemote && nextRemote !== prevRemote) {
         try {
             setRemoteOrigin(dir, nextRemote);
-            push(dir);
+            schedulePush(dir);
         } catch {
             /* non-fatal */
         }

@@ -522,10 +522,11 @@ async function undo(projectId: string, batch: ContentBatch, createdAssets: strin
     await discardImportedAssets(projectId, createdAssets);
     const dir = projectDir(projectId);
     for (const key of batch.paths) {
-        if (key !== ASSETS_KEY) await restoreProjectFile(projectId, key, show(dir, 'HEAD', key));
+        if (key !== ASSETS_KEY)
+            await restoreProjectFile(projectId, key, await show(dir, 'HEAD', key));
     }
     // A list the import began, empty again: as if it never was.
-    const before = show(dir, 'HEAD', ASSETS_KEY);
+    const before = await show(dir, 'HEAD', ASSETS_KEY);
     if (before === null && (await listAssets(projectId, { includeBinned: true })).length === 0)
         await restoreProjectFile(projectId, ASSETS_KEY, null);
 }

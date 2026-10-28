@@ -1,4 +1,5 @@
 import { beforeEach, afterEach, describe, it, expect, vi } from 'vitest';
+import { gitIdle } from '../../src/git/index.js';
 import fs from 'fs/promises';
 import { existsSync } from 'fs';
 import path from 'path';
@@ -80,12 +81,14 @@ for (const adapter of ['sqlite', 'files'] as const) {
         afterEach(async () => {
             await resetContentIndex();
             vi.unstubAllEnvs();
+            // Commits finish in the background: let them before removing the folder.
+            await gitIdle();
             await fs.rm(tempDir, { recursive: true, force: true });
         });
 
         async function seed(entries: Entry[]): Promise<void> {
             for (const e of entries) await putProjectJson(projectId, entryKey(modelId, e.id), e);
-            addAndCommit(projDir, ['models'], 'seed', user);
+            await addAndCommit(projDir, ['models'], 'seed', user);
         }
 
         it('uses the configured adapter', async () => {
@@ -200,6 +203,8 @@ for (const adapter of ['sqlite', 'files'] as const) {
                 ['z', 'z']
             ]);
 
+            // Commits finish in the background: let them before removing the folder.
+            await gitIdle();
             await fs.rm(path.join(dir, 'z'), { recursive: true });
             (await getContentIndex()).invalidate(projectId);
             expect((await queryEntriesForProject(projectId, modelId)).items.map(e => e.id)).toEqual(
@@ -438,6 +443,8 @@ for (const adapter of ['sqlite', 'files'] as const) {
                     'notitle'
                 ]);
 
+                // Commits finish in the background: let them before removing the folder.
+                await gitIdle();
                 await fs.rm(path.join(projDir, entryKey(modelId, 'zebre')));
                 (await getContentIndex()).invalidate(projectId);
                 const r = await queryEntriesForProject(projectId, modelId, {
@@ -482,6 +489,8 @@ describe('sqlite content index', () => {
     afterEach(async () => {
         await resetContentIndex();
         vi.unstubAllEnvs();
+        // Commits finish in the background: let them before removing the folder.
+        await gitIdle();
         await fs.rm(tempDir, { recursive: true, force: true });
     });
 
@@ -525,7 +534,11 @@ describe('sqlite content index', () => {
         await queryEntriesForProject(projectId, modelId);
         await resetContentIndex();
         await fs.writeFile(dbFile(), 'this is not a database');
+        // Commits finish in the background: let them before removing the folder.
+        await gitIdle();
         await fs.rm(`${dbFile()}-wal`, { force: true });
+        // Commits finish in the background: let them before removing the folder.
+        await gitIdle();
         await fs.rm(`${dbFile()}-shm`, { force: true });
         const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
         expect((await queryEntriesForProject(projectId, modelId)).total).toBe(1);
@@ -537,6 +550,8 @@ describe('sqlite content index', () => {
         await writeEntryFile(entry('a', 'draft', '2025-01-01T00:00:00Z'));
         expect((await queryEntriesForProject(projectId, modelId)).total).toBe(1);
 
+        // Commits finish in the background: let them before removing the folder.
+        await gitIdle();
         await fs.rm(projDir, { recursive: true });
         await fs.mkdir(path.join(projDir, 'models', modelId), { recursive: true });
         await writeEntryFile(entry('fresh', 'draft', '2025-01-01T00:00:00Z'));
@@ -568,10 +583,10 @@ describe('readBlobs', () => {
         try {
             await initRepo(dir);
             await fs.writeFile(path.join(dir, 'a.json'), '{"v":1}');
-            const first = addAndCommit(dir, ['a.json'], 'one', user);
+            const first = await addAndCommit(dir, ['a.json'], 'one', user);
             await fs.writeFile(path.join(dir, 'a.json'), '{"v":2}\n');
             await fs.writeFile(path.join(dir, 'b.json'), 'é');
-            const second = addAndCommit(dir, ['a.json', 'b.json'], 'two', user);
+            const second = await addAndCommit(dir, ['a.json', 'b.json'], 'two', user);
 
             const blobs = await readBlobs(dir, [
                 `${first}:a.json`,
@@ -592,6 +607,8 @@ describe('readBlobs', () => {
             expect(manyBlobs.get(`${first}:a.json`)).toBe('{"v":1}');
             expect(manyBlobs.get('bad-rev:a.json')).toBeNull();
         } finally {
+            // Commits finish in the background: let them before removing the folder.
+            await gitIdle();
             await fs.rm(dir, { recursive: true, force: true });
         }
     });

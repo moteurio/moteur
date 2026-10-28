@@ -83,7 +83,7 @@ export async function createProjectFor(
         });
         await ensureWorkspace(project.id);
         await ensureUserData(project.id);
-        addAllAndCommit(dir, `Initial project — ${lead.name}`, asUser(lead));
+        await addAllAndCommit(dir, `Initial project — ${lead.name}`, asUser(lead));
     } else {
         const result = await createProject(asUser(lead), withUsers);
         if (result.validation) {

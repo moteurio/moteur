@@ -81,24 +81,24 @@ export async function projectSchemaGitPath(
     }
 }
 
-export function getSchemaRevisions(
+export async function getSchemaRevisions(
     projectId: string,
     kind: ProjectSchemaKind,
     schemaId: string,
     gitPath: string,
     maxCount = 20
-): SchemaRevision[] {
-    const commits = getLog(projectDir(projectId), gitPath, maxCount);
+): Promise<SchemaRevision[]> {
+    const commits = await getLog(projectDir(projectId), gitPath, maxCount);
     return revisionsFromLog(commits);
 }
 
-export function getSchemaAtRevision(
+export async function getSchemaAtRevision(
     projectId: string,
     gitPath: string,
     revisionId: string
-): Record<string, unknown> | null {
+): Promise<Record<string, unknown> | null> {
     if (!/^[0-9a-f]{7,40}$/i.test(revisionId)) return null;
-    const raw = show(projectDir(projectId), revisionId, gitPath);
+    const raw = await show(projectDir(projectId), revisionId, gitPath);
     if (!raw) return null;
     try {
         const parsed = JSON.parse(raw) as Record<string, unknown>;
@@ -116,7 +116,7 @@ export async function restoreSchemaAtRevision(
     gitPath: string,
     revisionId: string
 ): Promise<Record<string, unknown>> {
-    const snapshot = getSchemaAtRevision(projectId, gitPath, revisionId);
+    const snapshot = await getSchemaAtRevision(projectId, gitPath, revisionId);
     if (!snapshot) {
         throw new Error('Revision not found');
     }

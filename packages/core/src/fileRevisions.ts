@@ -22,22 +22,22 @@ function revisionsFromLog(commits: CommitInfo[]): FileRevision[] {
     }));
 }
 
-export function getFileRevisions(
+export async function getFileRevisions(
     projectId: string,
     relativePath: string,
     maxCount = 20
-): FileRevision[] {
-    const commits = getLog(projectDir(projectId), relativePath, maxCount);
+): Promise<FileRevision[]> {
+    const commits = await getLog(projectDir(projectId), relativePath, maxCount);
     return revisionsFromLog(commits);
 }
 
-export function getFileAtRevision(
+export async function getFileAtRevision(
     projectId: string,
     relativePath: string,
     revisionId: string
-): Record<string, unknown> | null {
+): Promise<Record<string, unknown> | null> {
     if (!/^[0-9a-f]{7,40}$/i.test(revisionId)) return null;
-    const raw = show(projectDir(projectId), revisionId, relativePath);
+    const raw = await show(projectDir(projectId), revisionId, relativePath);
     if (!raw) return null;
     try {
         const parsed = JSON.parse(raw) as Record<string, unknown>;

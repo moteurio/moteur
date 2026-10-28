@@ -25,8 +25,10 @@ const user = {
 
 /** Saves are committed by a hook; wait until the history has `count` of them. */
 async function history(key: string, count: number) {
-    await vi.waitFor(() => expect(getFileRevisions(projectId, key)).toHaveLength(count));
-    return getFileRevisions(projectId, key);
+    await vi.waitFor(async () =>
+        expect(await getFileRevisions(projectId, key)).toHaveLength(count)
+    );
+    return await getFileRevisions(projectId, key);
 }
 
 describe('restoring pages and layouts', () => {
@@ -134,7 +136,7 @@ describe('restoring pages and layouts', () => {
         const { changed } = await restorePageAtRevision(projectId, user, page.id, first.id);
         expect(changed).toBe(false);
         await new Promise(r => setTimeout(r, 100));
-        expect(getFileRevisions(projectId, pageKey(page.id))).toHaveLength(2);
+        expect(await getFileRevisions(projectId, pageKey(page.id))).toHaveLength(2);
     });
 
     it('skips a save that changes nothing', async () => {
@@ -151,6 +153,6 @@ describe('restoring pages and layouts', () => {
             updatedAt: new Date().toISOString()
         } as never);
         await new Promise(r => setTimeout(r, 100));
-        expect(getFileRevisions(projectId, pageKey(page.id))).toHaveLength(1);
+        expect(await getFileRevisions(projectId, pageKey(page.id))).toHaveLength(1);
     });
 });
