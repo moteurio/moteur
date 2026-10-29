@@ -29,7 +29,7 @@ declare global {
             previewEntryId?: string;
             previewPageId?: string;
             /** Set by request classification middleware for usage/rate-limit logic. */
-            apiRequestType?: 'studio' | 'public' | null;
+            apiRequestType?: 'studio' | 'public' | 'image' | null;
             /** Project id inferred by request classification middleware for public routes. */
             apiRequestProjectId?: string;
             /** Raw JSON body string for webhook signature verification. */

@@ -56,6 +56,19 @@ async function updateContentIndex(projectId: string, key: string, data?: unknown
     }
 }
 
+/**
+ * A project file's text as stored, from the file cache (null when there is none): for a reader
+ * that keeps what it parsed while the text stays the same.
+ */
+export async function getProjectText(projectId: string, key: string): Promise<string | null> {
+    try {
+        return await readTextCached(fullPath(projectId, key));
+    } catch (err: unknown) {
+        if ((err as NodeJS.ErrnoException)?.code === 'ENOENT') return null;
+        throw err;
+    }
+}
+
 export async function getProjectJson<T = unknown>(
     projectId: string,
     key: string

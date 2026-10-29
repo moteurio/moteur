@@ -2,7 +2,7 @@ import type { Request, Response } from 'express';
 import fs from 'fs';
 import path from 'path';
 
-export type ApiRequestType = 'studio' | 'public' | null;
+export type ApiRequestType = 'studio' | 'public' | 'image' | null;
 
 export interface RequestLogEntry {
     timestamp: string;

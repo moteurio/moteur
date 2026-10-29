@@ -1,4 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
+import { recordImageTraffic } from '@moteurio/core/metering.js';
 import { recordStudioRequest, recordPublicRequest } from '../usage/usageStore.js';
 import { logRequest } from '../usage/requestLogger.js';
 
@@ -18,6 +19,11 @@ export function usageLogging(req: Request, res: Response, next: NextFunction): v
             recordStudioRequest();
         } else if (type === 'public' && projectId && !res.locals.overQuota) {
             recordPublicRequest(projectId);
+        } else if (type === 'image' && projectId && req.method === 'GET') {
+            // What was sent: an image, or part of one (a video's range). A 304 sent nothing.
+            const sent = Number(res.getHeader('content-length'));
+            if ((res.statusCode === 200 || res.statusCode === 206) && sent > 0)
+                recordImageTraffic(projectId, sent);
         }
         logRequest(req, res, type, projectId, startTime);
     }

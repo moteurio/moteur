@@ -29,11 +29,12 @@ export type CountKind = (typeof COUNT_KINDS)[number];
 export type CountLimit = (projectId: string, kind: CountKind) => number | null;
 
 export type PlanLimitKind =
-    'people' | 'storage' | 'requests' | 'submissions' | 'projects' | CountKind;
+    'people' | 'storage' | 'requests' | 'imageTraffic' | 'submissions' | 'projects' | CountKind;
 
 let peopleLimit: ProjectLimit | null = null;
 let storageLimit: ProjectLimit | null = null;
 let requestQuota: ProjectLimit | null = null;
+let imageTrafficQuota: ProjectLimit | null = null;
 let submissionQuota: ProjectLimit | null = null;
 let projectsLimit: ProjectsLimit | null = null;
 let countLimit: CountLimit | null = null;
@@ -51,6 +52,14 @@ export function setStorageLimit(fn: ProjectLimit | null): void {
 /** Set (or clear) the public API requests a project may answer each calendar month (UTC). */
 export function setRequestQuota(fn: ProjectLimit | null): void {
     requestQuota = fn;
+}
+
+/**
+ * Set (or clear) the bytes of images a project may send each calendar month (UTC): originals and
+ * sizes, and the other files stored with them, as sites and browsers download them.
+ */
+export function setImageTrafficQuota(fn: ProjectLimit | null): void {
+    imageTrafficQuota = fn;
 }
 
 /** Set (or clear) the form submissions a project may receive each calendar month (UTC). */
@@ -89,6 +98,10 @@ export function getStorageLimit(projectId: string): number | null {
 
 export function getRequestQuota(projectId: string): number | null {
     return ask(requestQuota, projectId, 'request');
+}
+
+export function getImageTrafficQuota(projectId: string): number | null {
+    return ask(imageTrafficQuota, projectId, 'image traffic');
 }
 
 export function getSubmissionQuota(projectId: string): number | null {
@@ -139,6 +152,8 @@ function limitMessage(limit: PlanLimitKind, max: number): string {
             return `This project's plan allows ${formatBytes(max)} of files. Upgrade the plan or delete some files first.`;
         case 'requests':
             return `This project has answered the ${max} API requests its plan allows this month. Upgrade the plan to answer more.`;
+        case 'imageTraffic':
+            return `This project has sent the ${formatBytes(max)} of images and files its plan allows this month. Upgrade the plan to send more.`;
         case 'submissions':
             return `This project's forms have received the ${max} submissions its plan allows this month. Upgrade the plan to receive more.`;
         case 'projects':
@@ -186,6 +201,12 @@ export function assertStorageRoom(projectId: string, used: number, adding: numbe
 export function assertRequestRoom(projectId: string, answered: number): void {
     const max = getRequestQuota(projectId);
     if (max !== null && answered >= max) throw new PlanLimitError('requests', max);
+}
+
+/** Throws PlanLimitError when `sent` bytes of images this month already use up the quota. */
+export function assertImageTrafficRoom(projectId: string, sent: number): void {
+    const max = getImageTrafficQuota(projectId);
+    if (max !== null && sent >= max) throw new PlanLimitError('imageTraffic', max);
 }
 
 /** Throws PlanLimitError when `received` submissions this month already use up the quota. */

@@ -6,6 +6,7 @@ import {
     creditBalance,
     currentPeriod,
     getMeteringStore,
+    imageTraffic,
     periodBounds,
     recentPeriods,
     submissionCount
@@ -14,6 +15,7 @@ import { listInvites } from '@moteurio/core/invites.js';
 import {
     COUNT_KINDS,
     getCountLimits,
+    getImageTrafficQuota,
     getPeopleLimit,
     getRequestQuota,
     getStorageLimit,
@@ -30,7 +32,7 @@ const router: Router = Router({ mergeParams: true });
 
 const HISTORY_MONTHS = 6;
 
-/** This month's requests, AI credits, seats and storage for a project, with the months before. */
+/** This month's requests, image traffic, AI credits, seats and storage for a project, with the months before. */
 export async function projectUsage(projectId: string) {
     const store = getMeteringStore();
     const period = currentPeriod();
@@ -52,6 +54,10 @@ export async function projectUsage(projectId: string) {
         requests: {
             public: store.requestTotals(period).projects[projectId]?.publicRequests ?? 0,
             max: getRequestQuota(projectId)
+        },
+        images: {
+            ...imageTraffic(projectId, period),
+            max: getImageTrafficQuota(projectId)
         },
         submissions: {
             received: submissionCount(projectId, period),
@@ -78,6 +84,7 @@ export async function projectUsage(projectId: string) {
         history: recentPeriods(HISTORY_MONTHS, period).map(p => ({
             period: p,
             publicRequests: store.requestTotals(p).projects[projectId]?.publicRequests ?? 0,
+            imageBytes: store.imageTraffic(p, projectId).bytes,
             creditsUsed: store.creditTotals(projectId, p).used
         }))
     };
@@ -106,6 +113,7 @@ router.get('/:projectId/limits', requireProjectAccess, (req: Request, res: Respo
             people: getPeopleLimit(projectId),
             storage: getStorageLimit(projectId),
             requests: getRequestQuota(projectId),
+            imageTraffic: getImageTrafficQuota(projectId),
             submissions: getSubmissionQuota(projectId),
             ...getCountLimits(projectId)
         }
@@ -117,7 +125,7 @@ export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
         get: {
             summary: "What a project's plan allows",
             description:
-                'Each limit is a number, or null for no limit: `people`, `storage` (bytes), `requests` (public, a month), `submissions` (form submissions, a month), and how many `channels`, `models`, `entries`, `forms`, `structures`, `blocks`, `templates` and `pages` it may have. Any member.',
+                'Each limit is a number, or null for no limit: `people`, `storage` (bytes), `requests` (public, a month), `imageTraffic` (bytes of images and files sent, a month), `submissions` (form submissions, a month), and how many `channels`, `models`, `entries`, `forms`, `structures`, `blocks`, `templates` and `pages` it may have. Any member.',
             tags: ['Usage'],
             security: [{ bearerAuth: [] }],
             parameters: [
@@ -143,7 +151,7 @@ export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
     '/projects/{projectId}/usage': {
         get: {
             summary: "A project's usage this month",
-            description: `Public API requests and AI credits for this calendar month (UTC), what the credits went on (\`byReason\`), and the last ${HISTORY_MONTHS} months. \`allowance\` and \`remaining\` are null when credits are unlimited. Admin or Billing role in the project.`,
+            description: `Public API requests, image traffic and AI credits for this calendar month (UTC), what the credits went on (\`byReason\`), and the last ${HISTORY_MONTHS} months. \`allowance\` and \`remaining\` are null when credits are unlimited. Admin or Billing role in the project.`,
             tags: ['Usage'],
             security: [{ bearerAuth: [] }],
             parameters: [
@@ -175,6 +183,7 @@ export const schemas: OpenAPIV3.ComponentsObject['schemas'] = {
             'people',
             'storage',
             'requests',
+            'imageTraffic',
             'submissions',
             'channels',
             'models',
@@ -192,6 +201,11 @@ export const schemas: OpenAPIV3.ComponentsObject['schemas'] = {
                 type: 'integer',
                 nullable: true,
                 description: 'Public API requests a month'
+            },
+            imageTraffic: {
+                type: 'integer',
+                nullable: true,
+                description: 'Bytes of images and files sent a month'
             },
             submissions: {
                 type: 'integer',
@@ -215,6 +229,7 @@ export const schemas: OpenAPIV3.ComponentsObject['schemas'] = {
             'start',
             'end',
             'requests',
+            'images',
             'submissions',
             'people',
             'storage',
@@ -234,6 +249,20 @@ export const schemas: OpenAPIV3.ComponentsObject['schemas'] = {
                         type: 'integer',
                         nullable: true,
                         description: 'Monthly quota of public requests. Null: no limit'
+                    }
+                }
+            },
+            images: {
+                type: 'object',
+                description:
+                    'Images and files sent to sites and browsers this month (originals and sizes); a browser or CDN asking again for one it has (304) is not counted.',
+                properties: {
+                    requests: { type: 'integer' },
+                    bytes: { type: 'integer' },
+                    max: {
+                        type: 'integer',
+                        nullable: true,
+                        description: 'Monthly quota of bytes. Null: no limit'
                     }
                 }
             },
@@ -292,6 +321,7 @@ export const schemas: OpenAPIV3.ComponentsObject['schemas'] = {
                     properties: {
                         period: { type: 'string' },
                         publicRequests: { type: 'integer' },
+                        imageBytes: { type: 'integer' },
                         creditsUsed: { type: 'integer' }
                     }
                 }

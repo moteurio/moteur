@@ -8,11 +8,12 @@ export class WorkBudget {
         private readonly concurrency: number,
         private readonly maxQueued: number
     ) {}
-    async run<T>(work: () => Promise<T>): Promise<T> {
+    /** `maxQueued`: how many may wait before this caller is turned away (the budget's own by default). */
+    async run<T>(work: () => Promise<T>, maxQueued = this.maxQueued): Promise<T> {
         if (this.held.getStore()?.active) return work();
         if (this.active < this.concurrency) this.active++;
         else {
-            if (this.waiting.length >= this.maxQueued)
+            if (this.waiting.length >= maxQueued)
                 throw Object.assign(new Error('Server is busy. Try again shortly.'), {
                     status: 429,
                     code: 'WORK_CAPACITY'

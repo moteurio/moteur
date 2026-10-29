@@ -124,7 +124,7 @@ export function mountResizedImages(app: Express, basePath: string): void {
                 return;
             }
             try {
-                const { buffer, format } = await getResizedImage(projectId, assetId, request);
+                const { buffer, format, etag } = await getResizedImage(projectId, assetId, request);
                 res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
                 res.setHeader('Content-Type', resizeContentType(format));
                 // `v` changes when the crops do; without it, an answer may change: an hour.
@@ -134,10 +134,25 @@ export function mountResizedImages(app: Express, basePath: string): void {
                         ? 'public, max-age=31536000, immutable'
                         : 'public, max-age=3600'
                 );
+                // A browser or CDN that has it already asks with its tag: nothing to send.
+                res.setHeader('ETag', etag);
+                if (req.fresh) {
+                    res.status(304).end();
+                    return;
+                }
+                // Set, not left to Node: it's what the image traffic counts (usageLogging).
+                res.setHeader('Content-Length', buffer.length);
                 res.end(buffer);
             } catch (err) {
                 if (err instanceof ResizeNotFound) {
                     res.status(404).end();
+                    return;
+                }
+                if ((err as { code?: string }).code === 'WORK_CAPACITY') {
+                    // Too many sizes being made at once: an answer, not an error to log.
+                    res.setHeader('Retry-After', '2');
+                    res.setHeader('Cache-Control', 'no-store');
+                    res.status(503).json({ error: (err as Error).message });
                     return;
                 }
                 console.error('[moteur] resize failed', projectId, assetId, err);

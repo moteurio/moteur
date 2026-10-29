@@ -79,6 +79,7 @@ export interface PluginContributions {
         people?: boolean;
         storageBytes?: boolean;
         apiRequests?: boolean;
+        imageTraffic?: boolean;
         formSubmissions?: boolean;
         projectsPerUser?: boolean;
         counts?: PlanLimitKind[];
