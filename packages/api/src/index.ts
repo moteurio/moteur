@@ -80,7 +80,8 @@ import { logUnloggedErrors, requestIdMiddleware } from './middlewares/requestId.
 import { requestClassifier } from './middlewares/requestClassifier.js';
 import { usageLogging } from './middlewares/usageLogging.js';
 import { requestQuota } from './middlewares/requestQuota.js';
-import { studioRateLimiter, publicRateLimitGate } from './middlewares/rateLimit.js';
+import { studioRateLimiter } from './middlewares/rateLimit.js';
+import { fairShare } from './middlewares/fairShare.js';
 import { bootstrapApi } from './openapi/bootstrapApi.js';
 import { trustProxySetting } from './utils/trustProxy.js';
 // Ensure asset storage adapters (e.g. local) are registered before any asset routes run
@@ -198,7 +199,8 @@ app.use(express.json({ limit: bodyLimit }));
 app.use(basePath, requestClassifier);
 app.use(basePath, usageLogging);
 app.use(basePath + '/studio', studioRateLimiter);
-app.use(basePath, publicRateLimitGate);
+// What sites ask for: each project its fair share of the server, a burst waiting its turn.
+app.use(basePath, fairShare);
 app.use(basePath, requestQuota);
 
 const router: Router = express.Router();

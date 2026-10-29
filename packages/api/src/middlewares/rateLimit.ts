@@ -1,25 +1,17 @@
 import rateLimit, { ipKeyGenerator } from 'express-rate-limit';
-import { Request, Response, NextFunction } from 'express';
+import { Request } from 'express';
 
 function ipKey(req: Request): string {
     return ipKeyGenerator(req.ip || 'unknown');
 }
 
 const STUDIO_WINDOW_MS = 15 * 60 * 1000; // 15 minutes
-const PUBLIC_WINDOW_MS = 15 * 60 * 1000;
 
 function getStudioMax(): number {
     const v = (process.env.API_RATE_LIMIT_STUDIO_MAX ?? '').trim();
     if (v === '' || v === '0') return 10000; // effectively no limit
     const n = parseInt(v, 10);
     return Number.isFinite(n) && n > 0 ? n : 10000;
-}
-
-function getPublicMax(): number {
-    const v = (process.env.API_RATE_LIMIT_PUBLIC_MAX ?? '').trim();
-    if (v === '' || v === '0') return 1000; // default per project per window
-    const n = parseInt(v, 10);
-    return Number.isFinite(n) && n > 0 ? n : 1000;
 }
 
 function getFormsSubmitMax(): number {
@@ -62,45 +54,20 @@ export const verificationRateLimiter = rateLimit({
 });
 
 /**
- * Rate limiter for `/studio/*` routes (usage, seed, asset migration).
- * Key: IP. Default: high limit; set API_RATE_LIMIT_STUDIO_MAX to enforce.
+ * Rate limiter for the Studio's routes (`/studio/*`, and what members do under `/projects`).
+ * Key: IP. Default: high limit; set API_RATE_LIMIT_STUDIO_MAX to enforce. What sites ask for
+ * (reads, images) is left out: one site server is one IP for every visitor, and fairShare
+ * already keeps each project to its share.
  */
 export const studioRateLimiter = rateLimit({
     windowMs: STUDIO_WINDOW_MS,
     max: getStudioMax(),
+    skip: (req: Request) => req.apiRequestType === 'public' || req.apiRequestType === 'image',
     standardHeaders: true,
     legacyHeaders: false,
     keyGenerator: (req: Request) => ipKey(req),
     message: { error: 'Too many requests; try again later.', code: 'rate_limited' }
 });
-
-/**
- * Rate limiter for public API (channels, pages, templates).
- * Key: projectId so limits are per project. Set API_RATE_LIMIT_PUBLIC_MAX to limit (default 1000/15min).
- */
-export const publicRateLimiter = rateLimit({
-    windowMs: PUBLIC_WINDOW_MS,
-    max: getPublicMax(),
-    standardHeaders: true,
-    legacyHeaders: false,
-    keyGenerator: (req: Request) => {
-        const projectId = req.apiRequestProjectId;
-        return projectId ? `public:${projectId}` : ipKey(req);
-    },
-    message: { error: 'Too many requests for this project; try again later.', code: 'rate_limited' }
-});
-
-/**
- * Runs the public rate limiter only when the request was classified as public.
- * Must be used after requestClassifier.
- */
-export function publicRateLimitGate(req: Request, res: Response, next: NextFunction): void {
-    if (req.apiRequestType !== 'public') {
-        next();
-        return;
-    }
-    publicRateLimiter(req, res, next);
-}
 
 const FORMS_WINDOW_MS = 15 * 60 * 1000; // 15 minutes
 
