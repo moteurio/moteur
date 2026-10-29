@@ -10,13 +10,14 @@ import { projectDir, baseProjectsDir } from './utils/pathUtils.js';
 import { assertUserCanAccessProject, assertUserCanCreateProject } from './utils/access.js';
 import { triggerEvent } from './utils/eventBus.js';
 import { validateProject } from './validators/validateProject.js';
-import { getProjectJson, listProjectKeys, putProjectJson } from './utils/projectStorage.js';
-import { PROJECT_KEY, pageKey, pageListPrefix } from './utils/storageKeys.js';
+import { getProjectJson, putProjectJson } from './utils/projectStorage.js';
+import { PROJECT_KEY } from './utils/storageKeys.js';
 import { mergeProjectSecrets, readProjectSecrets } from './utils/projectSecrets.js';
 import { ensureWorkspace } from './utils/workspaceStore.js';
 import { getContentIndex } from './contentIndex/index.js';
 import { ensureUserData } from './utils/userDataStore.js';
 import { initRepo, cloneFromRemote, addAllAndCommit, schedulePush } from './git/index.js';
+import { asPublished, pinCopy, renameCopy } from './projectCopyVersions.js';
 import { getEffectiveGitRemoteUrl, applyProjectGitSideEffects } from './utils/projectGit.js';
 import { removeProjectFromAllUsers, addProjectToUser, removeProjectFromUser } from './users.js';
 import { assertPeopleRoom, assertProjectRoom } from './planLimits.js';
@@ -24,6 +25,7 @@ import { getBlueprint } from './blueprints.js';
 import type { BlueprintTemplate } from '@moteurio/types/Blueprint.js';
 import { createModelSchema } from './models.js';
 import { createLayout } from './layouts.js';
+import { readTextCachedSync } from './utils/fileCache.js';
 import { createStructure } from './structures.js';
 
 export function loadProjects(): ProjectSchema[] {
@@ -40,7 +42,7 @@ export function loadProjects(): ProjectSchema[] {
         .map(dir => {
             const configPath = path.join(root, dir, 'project.json');
             try {
-                const raw = fs.readFileSync(configPath, 'utf-8');
+                const raw = readTextCachedSync(configPath);
                 const schema = mergeProjectSecrets(
                     JSON.parse(raw) as ProjectSchema,
                     readProjectSecrets(path.join(root, dir))
@@ -416,14 +418,9 @@ export async function copyProjectForNewUser(
         memberRoles: { [userId]: [...PROJECT_CREATOR_ROLES] }
     };
     await putProjectJson(newProjectId, PROJECT_KEY, updated);
-    // A page's published version is a commit of the source's history: the copy starts its own,
-    // and pins its live pages again when changes first wait on them.
-    for (const pageId of await listProjectKeys(newProjectId, pageListPrefix())) {
-        const page = await getProjectJson<Record<string, unknown>>(newProjectId, pageKey(pageId));
-        if (!page || !('publishedCommit' in page)) continue;
-        const { publishedCommit: _c, publishedAt: _a, ...rest } = page;
-        await putProjectJson(newProjectId, pageKey(pageId), rest);
-    }
+    // The copy starts as its source is published, under its own name (see projectCopyVersions.ts).
+    const published = await asPublished(sourceDir, newProjectId);
+    await renameCopy(newProjectId, sourceProjectId);
     const userForCommit = {
         id: userId,
         name: userId,
@@ -432,7 +429,12 @@ export async function copyProjectForNewUser(
         roles: ['writer'],
         projects: []
     };
-    await addAllAndCommit(destDir, `Copy from ${sourceProjectId} — ${userId}`, userForCommit);
+    const commit = await addAllAndCommit(
+        destDir,
+        `Copy from ${sourceProjectId} — ${userId}`,
+        userForCommit
+    );
+    if (commit) await pinCopy(newProjectId, commit, published);
     schedulePush(destDir);
     await addProjectToUser(userId, newProjectId);
 
