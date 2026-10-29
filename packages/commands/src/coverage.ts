@@ -20,6 +20,12 @@ export const SKIPPED: Record<string, string> = {
     'GET /auth/oidc/callback': 'browser sign-in redirect',
     'POST /auth/login':
         'signing in with a password: the command line’s `moteur auth login`, not a shared command',
+    'GET /auth/signup':
+        'whether codes go by email: the command line’s `moteur auth login` asks before offering one',
+    'POST /auth/email/code':
+        'signing in with a code: the command line’s `moteur auth login`, not a shared command',
+    'POST /auth/email/verify':
+        'signing in with a code: the command line’s `moteur auth login`, not a shared command',
     'POST /mcp': 'the MCP server itself: its tools are these commands',
     'POST /webhooks/stripe': 'received from Stripe',
     'POST /webhooks/github': 'received from GitHub',
