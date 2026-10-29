@@ -37,6 +37,17 @@ describe('copying the demo for someone', () => {
             assetConfig: { adapter: 's3', adapterConfig: { bucket: 'journal' } }
         });
         write('models/article/model.json', { id: 'article', label: 'Article' });
+        write('pages/home.json', {
+            id: 'home',
+            type: 'static',
+            label: 'Home',
+            slug: '',
+            parentId: null,
+            order: 0,
+            templateId: 'page',
+            status: 'published',
+            fields: {}
+        });
         write('.moteur/comments.json', [{ id: 'c1' }]);
         write('.moteur/secrets.json', { git: { token: 'sealed' } });
         write('.moteur/notifications.json', [{ userId: 'louise' }]);
@@ -55,6 +66,10 @@ describe('copying the demo for someone', () => {
         const copy = path.join(projects, 'demo-ada');
         const has = (file: string) => fs.existsSync(path.join(copy, file));
         expect(has('models/article/model.json')).toBe(true);
+        // Live pages come along, pinned in the copy's own history, under its name.
+        const home = JSON.parse(fs.readFileSync(path.join(copy, 'pages/home.json'), 'utf8'));
+        expect(home).toMatchObject({ id: 'home', status: 'published' });
+        expect(home.publishedCommit).toMatch(/^[0-9a-f]{40}$/);
         // Saving the copy may leave its own secrets file, but none of the source's secrets.
         const secrets = path.join(copy, '.moteur/secrets.json');
         if (fs.existsSync(secrets))
