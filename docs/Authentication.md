@@ -143,6 +143,7 @@ Anyone can sign in, or make an account, with an email and a six-digit code: no p
 - Codes are stored as a keyed hash, never as they are.
 - Two-step sign-in still applies: a code gives a ticket for the app's code, like a password does.
 - Accounts made by code have no password: password sign-in refuses them. Email addresses are compared without case.
+- The CLI signs in with a code too: `moteur auth login` sends one when the password is left empty (or with `--email-code`), and takes the code or the email's link pasted in its place. It asks `GET /auth/signup` first, and only offers a code when the server can send one. On an open server, a code for a new address makes the account there, as in Studio.
 - `MOTEUR_EMAIL_SIGNIN=off` turns email codes off, for servers where owning a mailbox must not be enough.
 
 A server is closed by default: without `MOTEUR_SIGNUP=open`, only invited people can make an account, by code, invite link or provider. Moteur Cloud is open.

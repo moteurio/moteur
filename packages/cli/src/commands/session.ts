@@ -2,8 +2,9 @@
  * Commands only the command line has: signing in and out (prompts, the config file), accounts made
  * straight in a local server's files, and checking the setup.
  */
+import { URL, URLSearchParams } from 'node:url';
 import { password as passwordPrompt, text, isCancel } from '@clack/prompts';
-import { createMoteurAdminClient } from '@moteurio/client';
+import { createMoteurAdminClient, type MoteurAdminClient } from '@moteurio/client';
 import {
     clearConfig,
     group,
@@ -22,6 +23,82 @@ async function ask(message: string, secret = false): Promise<string> {
     const value = secret ? await passwordPrompt({ message }) : await text({ message });
     if (isCancel(value)) throw new UsageError('Cancelled.');
     return String(value ?? '').trim();
+}
+
+type Ask = typeof ask;
+
+/** The email and token after the `#` of a code email's sign-in link, when that's what was pasted. */
+export function readSignInLink(value: string): { email: string; token: string } | undefined {
+    if (!/^https?:\/\//i.test(value)) return undefined;
+    try {
+        const params = new URLSearchParams(new URL(value).hash.slice(1));
+        const email = params.get('email');
+        const token = params.get('token');
+        return email && token ? { email, token } : undefined;
+    } catch {
+        return undefined;
+    }
+}
+
+type AuthApi = Pick<
+    MoteurAdminClient['auth'],
+    'login' | 'verifyTwoFactor' | 'signup' | 'emailCode' | 'verifyEmailCode'
+>;
+
+export interface SignInGiven {
+    email?: string;
+    password?: string;
+    /** The authenticator's code, with two-step sign-in. */
+    code?: string;
+    /** Skip the password: get a code by email. */
+    emailCode?: boolean;
+}
+
+/**
+ * Signs in with a password or, left empty, a code sent by email (or the email's link pasted in
+ * its place): accounts made with a code have no password. Two-step sign-in follows either way.
+ * On a server open to sign-ups, a code for a new address makes the account (`isNew`).
+ */
+export async function signIn(
+    auth: AuthApi,
+    given: SignInGiven,
+    prompt: Ask = ask
+): Promise<{ token: string; user?: Record<string, unknown>; isNew: boolean }> {
+    const email = given.email ?? (await prompt('Email:'));
+    let password = given.emailCode ? '' : given.password;
+    if (password === undefined) {
+        // A server without email (or from before codes) answers false, or not at all.
+        const codes = await auth.signup().then(
+            s => s.emailCodes,
+            () => false
+        );
+        password = await prompt(
+            codes ? 'Password (leave empty for a code by email):' : 'Password:',
+            true
+        );
+        if (!password && !codes) throw new UsageError('Password is required');
+    }
+
+    let result: Awaited<ReturnType<AuthApi['login']>> | { token: string; isNew: boolean };
+    let isNew = false;
+    if (password) {
+        result = await auth.login(email, password);
+    } else {
+        await auth.emailCode({ email });
+        const answer = await prompt(`Code sent to ${email} (or paste the email's link):`);
+        const link = readSignInLink(answer);
+        const verified = await auth.verifyEmailCode(
+            link ?? { email, code: answer.replace(/\s+/g, '') }
+        );
+        if ('token' in verified) isNew = verified.isNew;
+        result = verified;
+    }
+    if ('twoFactor' in result) {
+        const code =
+            given.code ?? (await prompt('Code from your authenticator app (or a recovery code):'));
+        result = await auth.verifyTwoFactor(result.ticket, code);
+    }
+    return { token: result.token, user: 'user' in result ? result.user : undefined, isNew };
 }
 
 /**
@@ -117,7 +194,20 @@ export const session = group('auth', [
                 aliases: ['apiUrl']
             },
             { name: 'email', description: 'Your email', in: 'none', aliases: ['username'] },
-            { name: 'password', description: 'Your password (asked when left out)', in: 'none' },
+            {
+                name: 'password',
+                description:
+                    'Your password (asked when left out; leave it empty for a code by email)',
+                in: 'none'
+            },
+            {
+                name: 'email-code',
+                type: 'boolean',
+                description:
+                    'No password: get a code by email (accounts made with a code have none)',
+                in: 'none',
+                aliases: ['emailCode']
+            },
             {
                 name: 'code',
                 description: 'With two-step sign-in: the app’s code (asked when left out)',
@@ -132,23 +222,36 @@ export const session = group('auth', [
             const apiUrl = String(
                 ctx.args['api-url'] ?? config.apiUrl ?? 'http://localhost:3000'
             ).replace(/\/+$/, '');
-            const email = (ctx.args.email as string | undefined) ?? (await ask('Email:'));
-            const password =
-                (ctx.args.password as string | undefined) ?? (await ask('Password:', true));
-            const client = createMoteurAdminClient({ baseURL: apiUrl });
-            let result = await client.auth.login(email, password);
-            if ('twoFactor' in result) {
-                const code =
-                    (ctx.args.code as string | undefined) ??
-                    (await ask('Code from your authenticator app (or a recovery code):'));
-                result = await client.auth.verifyTwoFactor(result.ticket, code);
-            }
-            const { token, user } = result;
+            const signedIn = await signIn(createMoteurAdminClient({ baseURL: apiUrl }).auth, {
+                email: ctx.args.email as string | undefined,
+                password: ctx.args.password as string | undefined,
+                code: ctx.args.code as string | undefined,
+                emailCode: ctx.args['email-code'] === true
+            });
+            const { token, isNew } = signedIn;
+            // A code's answer carries no user: ask with the new session.
+            const user =
+                signedIn.user ??
+                (
+                    await createMoteurAdminClient({
+                        baseURL: apiUrl,
+                        auth: { type: 'bearer', token }
+                    }).auth.me()
+                ).user;
             await saveConfig({ apiUrl, token, projectId: config.projectId });
-            return { apiUrl, user };
+            return { apiUrl, user, isNew };
         },
-        covers: ['POST /auth/login', 'POST /auth/two-factor/verify'],
-        done: r => `Signed in to ${(r as { apiUrl: string }).apiUrl}.`
+        covers: [
+            'POST /auth/login',
+            'POST /auth/two-factor/verify',
+            'GET /auth/signup',
+            'POST /auth/email/code',
+            'POST /auth/email/verify'
+        ],
+        done: r => {
+            const { apiUrl, isNew } = r as { apiUrl: string; isNew: boolean };
+            return isNew ? `Account made, and signed in to ${apiUrl}.` : `Signed in to ${apiUrl}.`;
+        }
     },
     {
         name: 'logout',
