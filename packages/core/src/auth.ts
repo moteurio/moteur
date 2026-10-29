@@ -184,14 +184,14 @@ export function rotatePersonalSession(user: User, previous: AuthSession): string
 
 function tokenForSession(user: User, session: AuthSession, ttlSeconds?: number): string {
     const secret = getJwtSecret();
-    const projects = getProjectIdsForUser(user.id);
+    // No project list: every request reads the person's memberships from the server, and a list
+    // here grew with each project until the header was too large to send (431).
     const payload: JwtPayload = {
         sub: user.id,
         id: user.id,
         email: user.email,
         name: user.name ?? user.email,
         roles: user.roles,
-        projects,
         isActive: user.isActive,
         sid: session.id,
         auth_time: Math.floor(session.authenticatedAt / 1000),
