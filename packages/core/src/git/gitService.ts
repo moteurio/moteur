@@ -187,7 +187,7 @@ export function addAndCommit(
         await run(projectDir, ['add', '-A', '--', ...normalized], env);
         if (await nothingStaged(projectDir, env)) return '';
         await run(projectDir, ['commit', '-m', message], env);
-        return run(projectDir, ['rev-parse', 'HEAD']);
+        return headCommit(projectDir);
     });
 }
 
@@ -215,8 +215,33 @@ export function addAllAndCommit(
         await run(projectDir, ['add', '-A'], env);
         if (!(await nothingStaged(projectDir, env)))
             await run(projectDir, ['commit', '-m', message], env);
-        return run(projectDir, ['rev-parse', 'HEAD']);
+        return headCommit(projectDir);
     });
+}
+
+/**
+ * The commit HEAD points at, read from .git as Git keeps it (a ref file, or packed-refs): asked
+ * after every commit, and starting a process each time costs the server more than the commit.
+ */
+async function headCommit(projectDir: string): Promise<string> {
+    const gitDir = path.join(projectDir, '.git');
+    try {
+        const head = (await fs.readFile(path.join(gitDir, 'HEAD'), 'utf-8')).trim();
+        if (/^[0-9a-f]{40}$/.test(head)) return head;
+        const ref = /^ref: (refs\/\S+)$/.exec(head)?.[1];
+        if (ref && !ref.includes('..')) {
+            const loose = await fs.readFile(path.join(gitDir, ref), 'utf-8').catch(() => '');
+            if (/^[0-9a-f]{40}/.test(loose)) return loose.slice(0, 40);
+            const packed = await fs
+                .readFile(path.join(gitDir, 'packed-refs'), 'utf-8')
+                .catch(() => '');
+            const line = packed.split('\n').find(l => l.endsWith(` ${ref}`));
+            if (line && /^[0-9a-f]{40} /.test(line)) return line.slice(0, 40);
+        }
+    } catch {
+        /* Git says, below */
+    }
+    return run(projectDir, ['rev-parse', 'HEAD']);
 }
 
 export interface CommitInfo {

@@ -6,6 +6,7 @@ import type { ModelSchema } from '@moteurio/types/Model.js';
 import { getModelSchemaForProject } from './models.js';
 import { listStructures } from './structures.js';
 import { walkFields, type FieldWalkSchemas } from './fieldWalk.js';
+import { perVersion } from './deliveryCache.js';
 import { isLikelyLocaleStringMap, isPlainObject } from './validators/fieldValueUtils.js';
 
 function pickFromLocaleMap(
@@ -265,7 +266,17 @@ export async function localizeEntry(
 }
 
 /** The blocks, structures and model schemas of a project, for localizeFields. */
-export async function localeSchemas(
+export function localeSchemas(
+    projectId: string,
+    blockRegistry: Record<string, BlockSchema>
+): Promise<LocaleSchemas> {
+    // Kept with the project's version, like the blocks it's given (deliveryCache.ts).
+    return perVersion(projectId, 'localeSchemas', () =>
+        buildLocaleSchemas(projectId, blockRegistry)
+    );
+}
+
+async function buildLocaleSchemas(
     projectId: string,
     blockRegistry: Record<string, BlockSchema>
 ): Promise<LocaleSchemas> {

@@ -16,6 +16,7 @@ import type { DatabaseSync, StatementSync, SQLInputValue } from 'node:sqlite';
 import type { Asset } from '@moteurio/types/Asset.js';
 import { projectDir, workspaceDir } from '../utils/pathUtils.js';
 import { ASSETS_KEY } from '../utils/storageKeys.js';
+import { busy, closeWhenIdle, INDEX_PRAGMAS } from '../utils/idleIndexes.js';
 import { ASSET_KINDS, fold, kindOf, searchText } from './assetFacts.js';
 
 /** Bump when the table layout changes: an index with another version is rebuilt. */
@@ -74,6 +75,9 @@ type Open = {
     remove: StatementSync;
     /** Serializes syncs for one project. */
     tail: Promise<unknown>;
+    /** When it was last used, and what's queued on it: idle ones are closed (idleIndexes.ts). */
+    used: number;
+    pending: number;
 };
 
 /** The file's identity: a save (written aside, then renamed) always changes the inode. */
@@ -91,7 +95,17 @@ const contains = (words: string) => `%${words.replace(/[\\%_]/g, c => `\\${c}`)}
 
 class SqliteAssetIndex implements AssetIndex {
     private readonly projects = new Map<string, Open>();
-    constructor(private readonly Database: typeof DatabaseSync) {}
+    constructor(private readonly Database: typeof DatabaseSync) {
+        closeWhenIdle(this.projects, dir => {
+            const p = this.projects.get(dir);
+            this.projects.delete(dir);
+            try {
+                p?.db.close();
+            } catch {
+                /* already closed */
+            }
+        });
+    }
 
     async page(projectId: string, q: AssetIndexQuery): Promise<AssetIndexPage> {
         const p = await this.ready(projectId);
@@ -182,9 +196,13 @@ class SqliteAssetIndex implements AssetIndex {
     private async ready(projectId: string): Promise<Open | null> {
         const p = this.open(projectId);
         if (!p) return null;
-        const run = p.tail.then(() => this.sync(projectId, p));
+        const run = busy(
+            p,
+            p.tail.then(() => this.sync(projectId, p))
+        );
         p.tail = run.catch(() => undefined);
         await run;
+        p.used = Date.now();
         return p;
     }
 
@@ -252,7 +270,10 @@ class SqliteAssetIndex implements AssetIndex {
             } catch {
                 /* deleted */
             }
-            if (inode === existing.inode) return existing;
+            if (inode === existing.inode) {
+                existing.used = Date.now();
+                return existing;
+            }
             existing.db.close();
             this.projects.delete(dir);
         }
@@ -281,7 +302,9 @@ class SqliteAssetIndex implements AssetIndex {
                  hash = excluded.hash, search = excluded.search, json = excluded.json`
             ),
             remove: db.prepare('DELETE FROM assets WHERE id = ?'),
-            tail: Promise.resolve()
+            tail: Promise.resolve(),
+            used: Date.now(),
+            pending: 0
         };
         this.projects.set(dir, p);
         return p;
@@ -291,7 +314,8 @@ class SqliteAssetIndex implements AssetIndex {
         const db = new this.Database(dbFile);
         try {
             db.exec(
-                'PRAGMA journal_mode = WAL; PRAGMA synchronous = NORMAL; PRAGMA busy_timeout = 5000;'
+                'PRAGMA journal_mode = WAL; PRAGMA synchronous = NORMAL; PRAGMA busy_timeout = 5000;' +
+                    INDEX_PRAGMAS
             );
             let version: string | undefined;
             try {

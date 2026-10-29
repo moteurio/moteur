@@ -1,3 +1,5 @@
+import { cacheShare } from './utils/cacheBudget.js';
+
 /**
  * Answers to sites' reads, kept per project until the project changes. Every change Moteur makes
  * announces itself on the event bus, and any event about a project moves that project on a
@@ -8,12 +10,44 @@
  * with an API key, never previews or signed-in members.
  */
 
-const MAX_BYTES = 64 * 1024 * 1024;
-
 type Answer = { body: string; headers: Record<string, string>; at: number };
 const answers = new Map<string, Answer>();
 let bytes = 0;
 const versions = new Map<string, number>();
+
+/**
+ * What never reaches a site, so changing it keeps the kept answers: visitors' submissions
+ * (user-data/), the workspace (.moteur/: comments, reviews, notifications) and preview links.
+ * Anything not listed counts as a change: a mistake here costs kept answers, never fresh ones.
+ */
+const NOT_DELIVERED = ['user-data/', '.moteur/', 'preview-tokens'];
+
+/** Whether writing this project file can change what its sites are sent. */
+export function reachesSites(key: string): boolean {
+    const k = key.replace(/\\/g, '/');
+    return !NOT_DELIVERED.some(prefix => k === prefix || k.startsWith(prefix));
+}
+
+/** Events about a project that never change what its sites are sent (see `reachesSites`). */
+const QUIET_EVENTS = new Set([
+    'activity.logged',
+    'comment.added',
+    'comment.resolved',
+    'comment.deleted',
+    'comment.edited',
+    'form.submitted',
+    'form.submission.beforeDelete',
+    'form.submission.afterDelete',
+    'schedule.afterCreate',
+    'schedule.afterCancel',
+    'schedule.afterDelete',
+    'schedule.failed'
+]);
+
+/** Whether an event can change what a project's sites are sent. */
+export function eventReachesSites(eventName: string): boolean {
+    return !QUIET_EVENTS.has(eventName);
+}
 
 /** The project changed: its kept answers no longer count. */
 export function touchProject(projectId: string): void {
@@ -72,14 +106,55 @@ export function keepAnswer(
     answers.set(key, { body, headers, at: Date.now() });
     bytes += body.length;
     for (const [k, a] of answers) {
-        if (bytes <= MAX_BYTES) break;
+        if (bytes <= cacheShare('answers')) break;
         answers.delete(k);
         bytes -= a.body.length;
     }
 }
 
+const derived = new Map<string, { version: number; at: number; value: Promise<unknown> }>();
+
+/**
+ * What every read of a project works out the same way (its pages and their addresses, its
+ * schemas), kept on the same terms as answers: until the project changes, at most the age
+ * limit. The value is shared, so it must be read, never changed.
+ */
+export function perVersion<T>(
+    projectId: string,
+    name: string,
+    compute: () => Promise<T>
+): Promise<T> {
+    if (!deliveryCacheEnabled()) return compute();
+    const key = `${projectId}\0${name}`;
+    const version = projectVersion(projectId);
+    const kept = derived.get(key);
+    if (kept && kept.version === version && Date.now() - kept.at <= maxAgeMs())
+        return kept.value as Promise<T>;
+    const value = compute();
+    derived.set(key, { version, at: Date.now(), value });
+    // A failure isn't kept: the next read tries again.
+    value.catch(() => {
+        if (derived.get(key)?.value === value) derived.delete(key);
+    });
+    return value;
+}
+
+// What's past the age limit would be worked out again anyway: let it go, so memory follows the
+// projects being read now, not every project ever read.
+const sweeper = setInterval(() => {
+    const before = Date.now() - maxAgeMs();
+    for (const [key, kept] of derived) if (kept.at < before) derived.delete(key);
+    for (const [key, answer] of answers)
+        if (answer.at < before) {
+            answers.delete(key);
+            bytes -= answer.body.length;
+        }
+}, 30_000);
+sweeper.unref?.();
+
 /** Forget every kept answer (tests). */
 export function clearDeliveryCache(): void {
     answers.clear();
+    derived.clear();
     bytes = 0;
 }
