@@ -76,20 +76,26 @@ Other modes (e.g. manual publish after approval) may be added later; the API is 
 
 ## Roles and who can do what
 
-| Role         | Stored as    | Implies               | What they can do                                                                                         |
-| ------------ | ------------ | --------------------- | -------------------------------------------------------------------------------------------------------- |
-| `writer`     | `writer`     | —                     | Create and edit entries and pages. Submit for review. Publish only when review allows it.                |
-| `translator` | `translator` | —                     | Edit other languages (including inside blocks) and translated file text. Submit for review. Not publish. |
-| `reviewer`   | `reviewer`   | writer                | Approve and reject, which publishes in `auto_publish`.                                                   |
-| `billing`    | `billing`    | —                     | Project payment, when that screen exists. Does not edit content.                                         |
-| `admin`      | `admin`      | writer                | Setup, people, and publishing without a review. Not the raw tools.                                       |
-| `developer`  | `developer`  | admin (and so writer) | Everything an admin can do, plus JSON, API channels, API keys and webhooks.                              |
+Each role looks after one part of a project. A role brings along the roles it implies, which are not stored again.
 
-Account roles live in `users.json`. A project's `memberRoles[userId]`, when present, replaces those roles for that project. An empty role list still counts as `writer`. Developer implies admin without storing both roles. See [Authentication](Authentication.md#roles-in-a-project).
+| Role (Studio) | Stored as    | Implies                 | What they can do                                                                                         |
+| ------------- | ------------ | ----------------------- | -------------------------------------------------------------------------------------------------------- |
+| Writer        | `writer`     | —                       | Create and edit entries and pages. Submit for review. Publish only when review allows it.                |
+| Translator    | `translator` | —                       | Edit other languages (including inside blocks) and translated file text. Submit for review. Not publish. |
+| Reviewer      | `reviewer`   | writer                  | Approve and reject, which publishes in `auto_publish`.                                                   |
+| Content lead  | `lead`       | reviewer (and writer)   | Publish without review, arrange and delete pages, menus, media settings, delete for good from the bins.  |
+| Builder       | `builder`    | writer                  | Models, block types, structures, page templates, layouts, forms and menus (and their earlier versions).  |
+| Admin         | `admin`      | content lead (and down) | The project's settings, people and invites, imports and exports, deleting the project.                   |
+| Developer     | `developer`  | builder (and writer)    | JSON, API channels, API keys, webhooks, branches and the project's Git remote (token and push).          |
+| Billing       | `billing`    | —                       | The project's plan and payment. Does not edit content.                                                   |
 
-- **Submit for review**: a writer, reviewer, admin, developer, or translator.
-- **Approve / Reject**: `reviewer`, `admin`, or `developer`.
-- **Publish without approval**: when `workflow.requireReview` is `true`, only an **admin** or **developer** can set an entry to `published` without an approved review. Other users get a 403 if they try (e.g. via PATCH entry or PATCH status).
+Admin and Developer are apart: an agency's developer shapes and connects a client's site without running its team, and a client's admin runs the team without changing how the site is built. Someone who does both has both roles. Whoever creates a project gets Admin, Developer and Billing on it.
+
+Account roles live in `users.json`. A project's `memberRoles[userId]`, when present, replaces those roles for that project. An empty role list still counts as `writer`. See [Authentication](Authentication.md#roles-in-a-project).
+
+- **Submit for review**: anyone who writes or translates, content leads and admins included. Skipping review is a choice for those who may, not the only way.
+- **Approve / Reject**: `reviewer`, `lead` or `admin`.
+- **Publish without approval**: when `workflow.requireReview` is `true`, only a **content lead** or an **admin** can set an entry or page to `published` without an approved review. Others get a 403 if they try (e.g. via PATCH entry or PATCH status).
 - **Translator saves**: the API rejects changes to the default locale, plain fields, status (other than submitting for review), and file credit, folder, or focal point.
 
 To grant reviewer rights, add `"reviewer"` to the user’s `roles` in `data/users.json`:

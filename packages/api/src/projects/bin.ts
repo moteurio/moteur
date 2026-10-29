@@ -104,7 +104,7 @@ export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
         },
         delete: {
             summary: 'Empty the bin',
-            description: 'Everything in the bin deleted for good. Admins only.',
+            description: 'Everything in the bin deleted for good. Content leads and admins.',
             tags: ['Bin'],
             security: [{ bearerAuth: [] }],
             parameters: [projectId],
@@ -120,7 +120,7 @@ export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
                         }
                     }
                 },
-                '403': { description: 'Not an admin' }
+                '403': { description: 'Neither a content lead nor an admin' }
             }
         }
     },
@@ -158,13 +158,14 @@ export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
     '/projects/{projectId}/bin/{binId}': {
         delete: {
             summary: 'Delete something in the bin for good',
-            description: 'Admins only. It can’t be undone (Git history keeps what was committed).',
+            description:
+                'Content leads and admins. It can’t be undone (Git history keeps what was committed).',
             tags: ['Bin'],
             security: [{ bearerAuth: [] }],
             parameters: [projectId, binId],
             responses: {
                 '204': { description: 'Deleted for good' },
-                '403': { description: 'Not an admin' },
+                '403': { description: 'Neither a content lead nor an admin' },
                 '404': { description: 'Nothing in the bin has this id' }
             }
         }

@@ -27,7 +27,7 @@ import {
 import { assetUsage } from '@moteurio/core/assets/assetUsage.js';
 import { downloadPublicFile } from '@moteurio/core/utils/publicDownload.js';
 import { PlanLimitError } from '@moteurio/core/planLimits.js';
-import { requireProjectAccess, requireProjectAdmin } from '../../middlewares/auth.js';
+import { requireProjectAccess, requireContentLead } from '../../middlewares/auth.js';
 import type { OpenAPIV3 } from 'openapi-types';
 import type { AssetType } from '@moteurio/types/Asset.js';
 import { sendApiError, getMessage } from '../../utils/apiError.js';
@@ -215,7 +215,7 @@ router.post(
 
 router.post(
     '/regenerate',
-    requireProjectAdmin,
+    requireContentLead,
     async (req: Request<ProjectParams, unknown, RegenerateBody>, res: Response) => {
         const { projectId } = req.params as Record<string, string>;
         const rawIds = req.body?.assetIds;
@@ -374,7 +374,7 @@ router.get('/usage', requireProjectAccess, async (req: Request<ProjectParams>, r
     }
 });
 
-// The bin: deleted assets, restorable until an admin deletes them for good.
+// The bin: deleted assets, restorable until a content lead or an admin deletes them for good.
 router.get('/bin', requireProjectAccess, async (req: Request<ProjectParams>, res: Response) => {
     const { projectId } = req.params as Record<string, string>;
     try {
@@ -973,7 +973,7 @@ export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
             }
         },
         delete: {
-            summary: 'Empty the bin (admins)',
+            summary: 'Empty the bin (content leads and admins)',
             tags: ['Studio Assets'],
             parameters: [
                 { name: 'projectId', in: 'path', required: true, schema: { type: 'string' } }
@@ -987,13 +987,13 @@ export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
                         }
                     }
                 },
-                '403': { description: 'Not an admin' }
+                '403': { description: 'Neither a content lead nor an admin' }
             }
         }
     },
     '/projects/{projectId}/assets/bin/{id}': {
         delete: {
-            summary: 'Delete an asset in the bin for good (admins)',
+            summary: 'Delete an asset in the bin for good (content leads and admins)',
             tags: ['Studio Assets'],
             parameters: [
                 { name: 'projectId', in: 'path', required: true, schema: { type: 'string' } },
@@ -1001,7 +1001,7 @@ export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
             ],
             responses: {
                 '204': { description: 'Deleted for good' },
-                '403': { description: 'Not an admin' },
+                '403': { description: 'Neither a content lead nor an admin' },
                 '404': { description: 'Not in the bin' }
             }
         }

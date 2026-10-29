@@ -10,7 +10,7 @@ moteur export --out site.json            # a project as a bundle
 
 Over HTTP: `POST /projects/:projectId/imports` with the bundle as the body (`?dryRun=1` to check, `?wait=` seconds before answering). MCP clients use the `imports_run` tool with the bundle as `body`.
 
-Imports and exports are for the project's admins: a bundle can change its models, templates and blocks, and an export holds every draft.
+Imports and exports are for the project's admins, since an export holds every draft. A bundle that brings models, structures, blocks or templates also needs the Builder role (Developer implies it), as changing them by hand does.
 
 ## The bundle
 

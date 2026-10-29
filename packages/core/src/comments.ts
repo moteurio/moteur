@@ -197,8 +197,8 @@ export async function deleteComment(
         const idx = list.findIndex(c => c.id === commentId && c.projectId === projectId);
         if (idx === -1) throw new Error('Comment not found');
         const comment = list[idx]!;
-        if (comment.authorId !== user.id && !hasRole(user, 'admin')) {
-            throw new Error('Only the author or an admin can delete this comment');
+        if (comment.authorId !== user.id && !hasRole(user, 'lead')) {
+            throw new Error('Only its author, a content lead or an admin can delete this note');
         }
         list.splice(idx, 1);
         await putProjectJson(projectId, COMMENTS_KEY, list);

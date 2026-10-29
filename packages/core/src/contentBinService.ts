@@ -10,17 +10,17 @@ import type { PageNode } from '@moteurio/types/Page.js';
 
 /**
  * The bin for entries and pages, for people: any member sees it, whoever may write takes things
- * out (back as drafts), and what is deleted for good is the admins' call.
+ * out (back as drafts), and what is deleted for good is a content lead's (or an admin's) call.
  */
 
 /** Who may delete from the bin for good. */
 export function canEmptyContentBin(user: User): boolean {
-    return hasRole(user, 'admin');
+    return hasRole(user, 'lead');
 }
 
 function assertCanEmpty(user: User): void {
     if (!canEmptyContentBin(user))
-        throw contentForbidden('Only an admin can delete content for good.');
+        throw contentForbidden('Only a content lead or an admin can delete content for good.');
 }
 
 /** What is in the project's bin, most recently deleted first. */
@@ -46,7 +46,7 @@ export async function restoreFromContentBin(
     return { kind: 'page', page: await restorePageFromBin(projectId, user, binId) };
 }
 
-/** Deletes one thing in the bin for good. Admins only. */
+/** Deletes one thing in the bin for good. Content leads and admins. */
 export async function deleteFromContentBin(
     projectId: string,
     user: User,
@@ -57,7 +57,7 @@ export async function deleteFromContentBin(
     removeFromBin(projectId, binId);
 }
 
-/** Empties the bin: everything in it deleted for good. Admins only. How many went. */
+/** Empties the bin: everything in it deleted for good. Content leads and admins. How many went. */
 export async function emptyContentBin(projectId: string, user: User): Promise<number> {
     assertCanEmpty(user);
     await getProject(user, projectId);

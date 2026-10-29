@@ -9,7 +9,7 @@ import type { Field } from '@moteurio/types/Field.js';
 import type { User } from '@moteurio/types/User.js';
 import { getProject } from './projects.js';
 import { assertUserCanAccessProject } from './utils/access.js';
-import { assertCanWrite, assertNotReviewOnly } from './contentAccess.js';
+import { assertCanEditMenus, assertNotReviewOnly } from './contentAccess.js';
 import { withProjectWriteLock } from './utils/projectWriteLock.js';
 import { getProjectJson, putProjectJson } from './utils/projectStorage.js';
 import { NAVIGATIONS_KEY } from './utils/storageKeys.js';
@@ -204,7 +204,7 @@ async function createNavigationUnlocked(
 ): Promise<Navigation> {
     const project = await getProject(user, projectId);
     assertUserCanAccessProject(user, project);
-    assertCanWrite(user);
+    assertCanEditMenus(user);
     // A menu is live once saved.
     assertNotReviewOnly(user, 'change live menus');
 
@@ -274,7 +274,7 @@ async function updateNavigationUnlocked(
 ): Promise<Navigation> {
     const project = await getProject(user, projectId);
     assertUserCanAccessProject(user, project);
-    assertCanWrite(user);
+    assertCanEditMenus(user);
     // Menus are live as saved.
     assertNotReviewOnly(user, 'change live menus');
     const list = await loadNavigations(projectId);
@@ -343,7 +343,7 @@ async function updateNavigationUnlocked(
 async function deleteNavigationUnlocked(projectId: string, user: User, id: string): Promise<void> {
     const project = await getProject(user, projectId);
     assertUserCanAccessProject(user, project);
-    assertCanWrite(user);
+    assertCanEditMenus(user);
     // Menus are live as saved.
     assertNotReviewOnly(user, 'change live menus');
     const list = await loadNavigations(projectId);

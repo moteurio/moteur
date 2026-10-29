@@ -297,7 +297,7 @@ describe('comments', () => {
                 body: 'Mine'
             });
             await expect(deleteComment(projectId, otherUser, c.id)).rejects.toThrow(
-                /author or an admin/
+                /its author, a content lead or an admin/
             );
         });
 

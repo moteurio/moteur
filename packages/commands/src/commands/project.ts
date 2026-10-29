@@ -164,7 +164,8 @@ export const members = group('members', [
             {
                 name: 'roles',
                 type: 'list',
-                description: 'writer, translator, reviewer, admin, developer, billing',
+                description:
+                    'writer, translator, reviewer, lead, builder, admin, developer, billing',
                 in: 'body'
             },
             {

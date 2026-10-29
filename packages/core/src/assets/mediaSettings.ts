@@ -31,7 +31,8 @@ function badRequest(message: string, code: string): Error {
 }
 
 function assertAdmin(user: User): void {
-    if (!hasRole(user, 'admin')) throw contentForbidden('Only an admin can change media settings.');
+    if (!hasRole(user, 'lead'))
+        throw contentForbidden('Only a content lead or an admin can change media settings.');
 }
 
 /** Video host settings with every secret shown as `***` (and an empty string when not set). */
@@ -277,7 +278,7 @@ export async function checkStorage(
     }
 }
 
-/** Switches the project to another storage, copying its files there first (admins only). */
+/** Switches the project to another storage, copying its files there first (content leads and admins). */
 export async function moveProjectStorage(
     projectId: string,
     user: User,

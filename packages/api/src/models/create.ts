@@ -1,6 +1,6 @@
 import type { Request, Response } from 'express';
 import { Router } from 'express';
-import { requireProjectAdmin } from '../middlewares/auth.js';
+import { requireBuilder } from '../middlewares/auth.js';
 import { createModelSchema } from '@moteurio/core/models.js';
 import { getBlueprint } from '@moteurio/core/blueprints.js';
 import { validateModel } from '@moteurio/core/validators/validateModel.js';
@@ -10,7 +10,7 @@ import { sendApiError } from '../utils/apiError.js';
 
 const router: Router = Router({ mergeParams: true });
 
-router.post('/', requireProjectAdmin, async (req: Request, res: Response) => {
+router.post('/', requireBuilder, async (req: Request, res: Response) => {
     try {
         const { projectId } = req.params as Record<string, string>;
         if (!projectId) {

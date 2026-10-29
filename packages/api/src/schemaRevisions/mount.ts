@@ -8,7 +8,7 @@ import {
     restoreSchemaAtRevision,
     type ProjectSchemaKind
 } from '@moteurio/core/schemaRevisions.js';
-import { requireProjectAccess, requireProjectAdmin } from '../middlewares/auth.js';
+import { requireProjectAccess, requireBuilder } from '../middlewares/auth.js';
 import { sendApiError } from '../utils/apiError.js';
 
 export type SchemaRevisionMountOptions = {
@@ -97,7 +97,7 @@ export function createSchemaRevisionRouter(options: SchemaRevisionMountOptions):
 
     router.post(
         `/:${idParam}/revisions/:revisionId/restore`,
-        requireProjectAdmin,
+        requireBuilder,
         async (req: Request, res: Response) => {
             const params = req.params as Record<string, string>;
             const { projectId, revisionId } = params;

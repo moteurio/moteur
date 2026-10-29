@@ -56,7 +56,7 @@ There is **no** query parameter on the public channel API to “read entries usi
 
 Paths mirror **entry** revisions: same resource prefix, then `/revisions`.
 
-| Resource  | List                               | Read at commit                               | Restore (project admin)                               |
+| Resource  | List                               | Read at commit                               | Restore (builder)                                     |
 | --------- | ---------------------------------- | -------------------------------------------- | ----------------------------------------------------- |
 | Model     | `GET …/models/{modelId}/revisions` | `GET …/revisions/{revisionId}` → `{ model }` | `POST …/revisions/{revisionId}/restore` → `{ model }` |
 | Structure | `GET …/structures/{id}/revisions`  | `{ structure }`                              | same                                                  |
@@ -78,7 +78,7 @@ In **Moteur Studio** (Setup):
 
 - **Models** and each schema type (structures, blocks, templates, forms) have a **History** tab.
 - Anyone with project access can browse revisions and open read-only JSON at a commit.
-- **Restore** is limited to project **admins** and only for schemas stored in the project tree (not built-in `core/*` copies).
+- **Restore** is limited to **builders** (developers are builders too) and only for schemas stored in the project tree (not built-in `core/*` copies).
 
 Restore writes the chosen snapshot as the **current** schema (new git commit via the normal save pipeline). It does **not** rewrite entry files or migrate content automatically.
 

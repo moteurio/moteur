@@ -1,13 +1,13 @@
 import type { Request, Response } from 'express';
 import { Router } from 'express';
-import { requireProjectAdmin } from '../middlewares/auth.js';
+import { requireBuilder } from '../middlewares/auth.js';
 import { deleteModelSchema } from '@moteurio/core/models.js';
 import type { OpenAPIV3 } from 'openapi-types';
 import { sendApiError } from '../utils/apiError.js';
 
 const router: Router = Router({ mergeParams: true });
 
-router.delete('/:modelId', requireProjectAdmin, async (req: Request, res: Response) => {
+router.delete('/:modelId', requireBuilder, async (req: Request, res: Response) => {
     const { projectId, modelId } = req.params as Record<string, string>;
     if (!projectId || !modelId) {
         return void res.status(400).json({ error: 'Missing projectId or modelId in path' });

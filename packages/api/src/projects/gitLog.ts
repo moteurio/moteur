@@ -6,7 +6,7 @@ import { URL } from 'url';
 import { projectDir } from '@moteurio/core/utils/pathUtils.js';
 import { getLog, getRepoLog, gitStatus, isGitRepo, push } from '@moteurio/core/git/index.js';
 import { gitTokenInfo, removeGitToken, setGitToken } from '@moteurio/core/gitCredentials.js';
-import { requireProjectAccess, requireProjectAdmin } from '../middlewares/auth.js';
+import { requireProjectAccess, requireDeveloper } from '../middlewares/auth.js';
 import { sendApiError } from '../utils/apiError.js';
 
 const router: Router = Router({ mergeParams: true });
@@ -51,8 +51,8 @@ router.get('/status', requireProjectAccess, async (req: Request, res: Response) 
     }
 });
 
-/** Push now (admins): after fixing the remote's access, without waiting for the next save. */
-router.post('/push', requireProjectAdmin, async (req: Request, res: Response) => {
+/** Push now (developers): after fixing the remote's access, without waiting for the next save. */
+router.post('/push', requireDeveloper, async (req: Request, res: Response) => {
     const { projectId } = req.params as Record<string, string>;
     try {
         const dir = projectDir(projectId);
@@ -69,8 +69,8 @@ router.post('/push', requireProjectAdmin, async (req: Request, res: Response) =>
     }
 });
 
-/** The token pushes use (admins): kept encrypted outside Git, never sent back. */
-router.put('/token', requireProjectAdmin, async (req: Request, res: Response) => {
+/** The token pushes use (developers): kept encrypted outside Git, never sent back. */
+router.put('/token', requireDeveloper, async (req: Request, res: Response) => {
     const { projectId } = req.params as Record<string, string>;
     try {
         return void res.json(setGitToken(projectId, req.user!, req.body ?? {}));
@@ -79,7 +79,7 @@ router.put('/token', requireProjectAdmin, async (req: Request, res: Response) =>
     }
 });
 
-router.delete('/token', requireProjectAdmin, async (req: Request, res: Response) => {
+router.delete('/token', requireDeveloper, async (req: Request, res: Response) => {
     const { projectId } = req.params as Record<string, string>;
     try {
         return void res.json(removeGitToken(projectId, req.user!));
@@ -173,7 +173,7 @@ export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
     },
     '/projects/{projectId}/git/token': {
         put: {
-            summary: 'Set the token pushes use (admins)',
+            summary: 'Set the token pushes use (developers)',
             description:
                 'For a private repository: a token with write access to it (GitHub: a fine-grained token with Contents read and write; GitLab: a project access token). Kept encrypted with MOTEUR_ENCRYPTION_KEY in the gitignored workspace, sent to Git only as a header during a push, and never returned. `username` is optional (default `x-access-token`; Bitbucket needs `x-token-auth` or the account name).',
             tags: ['Git'],
@@ -208,11 +208,11 @@ export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
                     }
                 },
                 '400': { description: 'Not a usable token' },
-                '403': { description: 'Not an admin' }
+                '403': { description: 'Not a developer' }
             }
         },
         delete: {
-            summary: 'Remove the token (admins)',
+            summary: 'Remove the token (developers)',
             tags: ['Git'],
             parameters: [
                 { name: 'projectId', in: 'path', required: true, schema: { type: 'string' } }
@@ -234,7 +234,7 @@ export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
     },
     '/projects/{projectId}/git/push': {
         post: {
-            summary: 'Push the content history now (admins)',
+            summary: 'Push the content history now (developers)',
             description:
                 'Pushes to the project’s Git address, as every save does, and answers `pushed` with the status after.',
             tags: ['Git'],

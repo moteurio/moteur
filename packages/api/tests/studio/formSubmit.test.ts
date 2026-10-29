@@ -5,7 +5,8 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 vi.mock('../../src/middlewares/auth.js', () => ({
     requireProjectAccess: (_req: any, _res: any, next: any) => next(),
     optionalProjectAccess: (_req: any, _res: any, next: any) => next(),
-    requireProjectAdmin: (_req: any, _res: any, next: any) => next()
+    requireProjectAdmin: (_req: any, _res: any, next: any) => next(),
+    requireBuilder: (_req: any, _res: any, next: any) => next()
 }));
 vi.mock('../../src/middlewares/rateLimit.js', () => ({
     formsSubmitRateLimiter: (_req: any, _res: any, next: any) => next(),

@@ -12,6 +12,18 @@ export function assertCanWrite(user: User): void {
     if (!canWrite(user)) throw contentForbidden('You cannot change content in this project.');
 }
 
+/** Menus are live as saved: content leads (admins too) and builders change them. */
+export function assertCanEditMenus(user: User): void {
+    if (!hasRole(user, 'lead') && !hasRole(user, 'builder'))
+        throw contentForbidden('Only a content lead, an admin or a builder can change menus.');
+}
+
+/** What only a content lead (or an admin) does: delete for good, media setup, others' notes. */
+export function assertContentLead(user: User, doing: string): void {
+    if (!hasRole(user, 'lead'))
+        throw contentForbidden(`Only a content lead or an admin can ${doing}.`);
+}
+
 /** What changes the whole project at once (its schemas, a bundle of everything): its admins. */
 export function assertProjectAdmin(user: User, doing: string): void {
     if (!hasRole(user, 'admin')) throw contentForbidden(`Only the project's admins can ${doing}.`);

@@ -9,7 +9,14 @@ const SYSTEM_ACTOR = Symbol('moteur.systemActor');
 /** A user for work the engine does by itself: it may act in every project. */
 export function systemActor(id: string, name: string): User {
     return Object.assign(
-        { id, name, isActive: true, email: '', roles: ['admin'], projects: [] } as User,
+        {
+            id,
+            name,
+            isActive: true,
+            email: '',
+            roles: ['admin', 'developer'],
+            projects: []
+        } as User,
         { [SYSTEM_ACTOR]: true }
     );
 }

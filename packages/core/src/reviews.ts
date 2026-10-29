@@ -246,7 +246,7 @@ export async function submitForReview(
 }
 
 /**
- * Approve a review. Only users with 'reviewer' or 'admin' role. Sets entry to published (auto_publish mode).
+ * Approve a review. Reviewers, content leads and admins (canReview). Sets entry to published (auto_publish mode).
  */
 export async function approveReview(
     projectId: string,
@@ -434,7 +434,7 @@ async function approveReviewUnlocked(
 }
 
 /**
- * Reject a review. Only users with 'reviewer' or 'admin' role. Creates a Comment with the reason, sets entry back to draft.
+ * Reject a review. Reviewers, content leads and admins (canReview). Creates a Comment with the reason, sets entry back to draft.
  */
 export async function rejectReview(
     projectId: string,

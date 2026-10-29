@@ -7,11 +7,12 @@ import {
     creatorRoles,
     hasRole,
     inProject,
+    needsApproval,
     normalizeStoredRoles,
     rolesInProject,
     translatorOnly
 } from '@moteurio/types';
-import { translationOnlyChange } from '../src/contentAccess.js';
+import { assertCanEditMenus, translationOnlyChange } from '../src/contentAccess.js';
 
 const user = (roles: string[]) => ({ roles });
 
@@ -23,14 +24,39 @@ describe('roles', () => {
         expect(normalizeStoredRoles([])).toEqual(['writer']);
     });
 
-    it('lets developer act as admin and writer, and reviewer act as writer', () => {
-        expect(hasRole(user(['developer']), 'admin')).toBe(true);
-        expect(canWrite(user(['developer']))).toBe(true);
-        expect(canReview(user(['developer']))).toBe(true);
-        expect(hasRole(user(['developer']), 'developer')).toBe(true);
-        expect(canWrite(user(['reviewer']))).toBe(true);
+    it('follows the ladder: admin brings content lead and review, developer brings builder', () => {
+        // Admin runs the project and its content, not how it is built.
+        expect(hasRole(user(['admin']), 'lead')).toBe(true);
         expect(canReview(user(['admin']))).toBe(true);
+        expect(hasRole(user(['admin']), 'builder')).toBe(false);
         expect(hasRole(user(['admin']), 'developer')).toBe(false);
+        // Developer builds and connects, without running the team or skipping review.
+        expect(hasRole(user(['developer']), 'builder')).toBe(true);
+        expect(canWrite(user(['developer']))).toBe(true);
+        expect(hasRole(user(['developer']), 'admin')).toBe(false);
+        expect(canReview(user(['developer']))).toBe(false);
+        // Content lead reviews and writes; builder writes; reviewer writes.
+        expect(canReview(user(['lead']))).toBe(true);
+        expect(hasRole(user(['lead']), 'admin')).toBe(false);
+        expect(canWrite(user(['builder']))).toBe(true);
+        expect(canReview(user(['builder']))).toBe(false);
+        expect(canWrite(user(['reviewer']))).toBe(true);
+    });
+
+    it('lets content leads, admins and builders change menus, not writers', () => {
+        for (const roles of [['lead'], ['admin'], ['builder'], ['developer']])
+            expect(() => assertCanEditMenus(user(roles) as never)).not.toThrow();
+        for (const roles of [['writer'], ['reviewer'], ['translator']])
+            expect(() => assertCanEditMenus(user(roles) as never)).toThrow(/menus/);
+    });
+
+    it('lets content leads and admins publish without review, unless they ask for one', () => {
+        const project = { workflow: { enabled: true, requireReview: true } };
+        expect(needsApproval(user(['lead']), project)).toBe(false);
+        expect(needsApproval(user(['admin']), project)).toBe(false);
+        expect(needsApproval(user(['reviewer']), project)).toBe(true);
+        expect(needsApproval(user(['developer']), project)).toBe(true);
+        expect(needsApproval(user(['writer']), project)).toBe(true);
     });
 
     it('keeps translator and billing from writing unless a wider role is stored', () => {

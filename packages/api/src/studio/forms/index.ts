@@ -15,7 +15,7 @@ import { listFormActions } from '@moteurio/core/plugins/formExtensions.js';
 import { CAPTCHA_FIELDS, issueFormToken, sentCaptcha } from '@moteurio/core/formGuard.js';
 import { submissionSource } from '@moteurio/core/submissionSource.js';
 import type { FormSubmissionMeta } from '@moteurio/types/Form.js';
-import { requireProjectAccess, requireProjectAdmin } from '../../middlewares/auth.js';
+import { requireProjectAccess, requireBuilder } from '../../middlewares/auth.js';
 import { formsSubmitRateLimiter, formsTokenRateLimiter } from '../../middlewares/rateLimit.js';
 import submissionsRouter, { openapi as submissionsOpenapi } from './submissions.js';
 import { mergePathSpecs } from '../../utils/mergePathSpecs.js';
@@ -157,7 +157,7 @@ router.post(
     }
 );
 
-router.post('/', requireProjectAdmin, async (req: Request, res: Response) => {
+router.post('/', requireBuilder, async (req: Request, res: Response) => {
     const { projectId } = req.params as Record<string, string>;
     if (!projectId) return void res.status(400).json({ error: 'Missing projectId' });
     try {
@@ -176,7 +176,7 @@ router.post('/', requireProjectAdmin, async (req: Request, res: Response) => {
     }
 });
 
-router.patch('/:formId', requireProjectAdmin, async (req: Request, res: Response) => {
+router.patch('/:formId', requireBuilder, async (req: Request, res: Response) => {
     const { projectId, formId } = req.params as Record<string, string>;
     if (!projectId || !formId) {
         return void res.status(400).json({ error: 'Missing projectId or formId' });
@@ -192,7 +192,7 @@ router.patch('/:formId', requireProjectAdmin, async (req: Request, res: Response
     }
 });
 
-router.delete('/:formId', requireProjectAdmin, async (req: Request, res: Response) => {
+router.delete('/:formId', requireBuilder, async (req: Request, res: Response) => {
     const { projectId, formId } = req.params as Record<string, string>;
     if (!projectId || !formId) {
         return void res.status(400).json({ error: 'Missing projectId or formId' });

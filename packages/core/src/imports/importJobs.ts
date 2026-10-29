@@ -5,13 +5,13 @@
 import { randomUUID } from 'crypto';
 import type { User } from '@moteurio/types/User.js';
 import type { ImportBundle, ImportJob } from '@moteurio/types/Import.js';
-import { needsApproval } from '@moteurio/types';
+import { hasRole, needsApproval } from '@moteurio/types';
 import { read, write } from '../utils/workspaceStore.js';
 import { restoreProjectFile } from '../utils/projectStorage.js';
 import { projectDir } from '../utils/pathUtils.js';
 import { show } from '../git/gitService.js';
 import { getProject } from '../projects.js';
-import { assertNotReviewOnly, assertProjectAdmin } from '../contentAccess.js';
+import { assertNotReviewOnly, assertProjectAdmin, contentForbidden } from '../contentAccess.js';
 import { afterImport, countItems, importBundle, publishImport } from './importBundle.js';
 
 const KEY = '.moteur/imports.json';
@@ -76,6 +76,12 @@ export async function startImport(
 ): Promise<{ job: ImportJob; finished: Promise<ImportJob> }> {
     await getProject(user, projectId);
     assertProjectAdmin(user, 'import');
+    // What changes how the project is built is a builder's, by import as by hand.
+    const builds = ['models', 'structures', 'blocks', 'templates'] as const;
+    if (builds.some(k => bundle[k]?.length) && !hasRole(user, 'builder'))
+        throw contentForbidden(
+            'This bundle changes models, structures, blocks or templates: only a builder (or a developer) can import it.'
+        );
     const job: StoredJob = {
         id: randomUUID(),
         projectId,
