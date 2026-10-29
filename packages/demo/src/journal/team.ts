@@ -45,7 +45,8 @@ export const team = {
         id: 'journal-theo',
         name: 'Théo Nguyen',
         email: 'theo@moteur-journal.test',
-        roles: ['admin']
+        // Photographer and layout artist: he shapes the blocks and models, a builder.
+        roles: ['builder']
     }
 } satisfies Record<string, Persona>;
 

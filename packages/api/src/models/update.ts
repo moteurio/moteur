@@ -1,6 +1,6 @@
 import type { Request, Response } from 'express';
 import { Router } from 'express';
-import { requireProjectAdmin } from '../middlewares/auth.js';
+import { requireBuilder } from '../middlewares/auth.js';
 import {
     getModelSchema,
     updateModelSchema,
@@ -12,7 +12,7 @@ import { sendApiError } from '../utils/apiError.js';
 
 const router: Router = Router({ mergeParams: true });
 
-router.patch('/:modelId', requireProjectAdmin, async (req: Request, res: Response) => {
+router.patch('/:modelId', requireBuilder, async (req: Request, res: Response) => {
     const { projectId, modelId } = req.params as Record<string, string>;
     if (!projectId || !modelId) {
         return void res.status(400).json({ error: 'Missing projectId or modelId in path' });

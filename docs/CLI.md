@@ -1409,7 +1409,7 @@ Calls `POST /projects/{project}/assets/{id}/restore`.
 
 ### `moteur media purge <id>`
 
-Delete a binned file for good (admins) Asks first (or `--yes`).
+Delete a binned file for good (content leads and admins) Asks first (or `--yes`).
 
 | Option               |                                                                              |
 | -------------------- | ---------------------------------------------------------------------------- |
@@ -1420,7 +1420,7 @@ Calls `DELETE /projects/{project}/assets/bin/{id}`.
 
 ### `moteur media empty-bin`
 
-Delete everything in the bin for good (admins) Asks first (or `--yes`).
+Delete everything in the bin for good (content leads and admins) Asks first (or `--yes`).
 
 | Option               |                                                                              |
 | -------------------- | ---------------------------------------------------------------------------- |
@@ -2218,7 +2218,7 @@ Change someone’s roles in the project, or turn their access off
 | -------------------- | ---------------------------------------------------------------------------- |
 | `--project <string>` | Project id (default: MOTEUR_PROJECT, .moteur.json, or `moteur projects use`) |
 | `--user <string>`    | Person id (required)                                                         |
-| `--roles <list>`     | writer, translator, reviewer, admin, developer, billing                      |
+| `--roles <list>`     | writer, translator, reviewer, lead, builder, admin, developer, billing       |
 | `--active`           | Access on (--no-active: off)                                                 |
 | `--name <string>`    | Name                                                                         |
 

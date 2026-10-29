@@ -1,6 +1,6 @@
 import type { Request, Response } from 'express';
 import { Router } from 'express';
-import { requireProjectAccess, requireProjectAdmin } from '../middlewares/auth.js';
+import { requireProjectAccess, requireContentLead } from '../middlewares/auth.js';
 import {
     checkStorage,
     forgetVideoHost,
@@ -23,7 +23,7 @@ router.get('/', requireProjectAccess, async (req: Request, res: Response) => {
     }
 });
 
-router.post('/check-storage', requireProjectAdmin, async (req: Request, res: Response) => {
+router.post('/check-storage', requireContentLead, async (req: Request, res: Response) => {
     const { projectId } = req.params as Record<string, string>;
     try {
         return void res.json(await checkStorage(projectId, req.user!, req.body ?? {}));
@@ -32,7 +32,7 @@ router.post('/check-storage', requireProjectAdmin, async (req: Request, res: Res
     }
 });
 
-router.post('/move-storage', requireProjectAdmin, async (req: Request, res: Response) => {
+router.post('/move-storage', requireContentLead, async (req: Request, res: Response) => {
     const { projectId } = req.params as Record<string, string>;
     try {
         return void res.json(await moveProjectStorage(projectId, req.user!, req.body ?? {}));
@@ -42,7 +42,7 @@ router.post('/move-storage', requireProjectAdmin, async (req: Request, res: Resp
 });
 
 // Videos to where new ones go (the project's host, or this server), in the background.
-router.post('/move-videos', requireProjectAdmin, async (req: Request, res: Response) => {
+router.post('/move-videos', requireContentLead, async (req: Request, res: Response) => {
     const { projectId } = req.params as Record<string, string>;
     try {
         return void res.json(await moveProjectVideos(projectId, req.user!, req.body ?? {}));
@@ -52,7 +52,7 @@ router.post('/move-videos', requireProjectAdmin, async (req: Request, res: Respo
 });
 
 // Forget a video host's keys (only once no video is there).
-router.delete('/video-hosts/:host', requireProjectAdmin, async (req: Request, res: Response) => {
+router.delete('/video-hosts/:host', requireContentLead, async (req: Request, res: Response) => {
     const { projectId, host } = req.params as Record<string, string>;
     try {
         return void res.json({
@@ -63,7 +63,7 @@ router.delete('/video-hosts/:host', requireProjectAdmin, async (req: Request, re
     }
 });
 
-router.patch('/', requireProjectAdmin, async (req: Request, res: Response) => {
+router.patch('/', requireContentLead, async (req: Request, res: Response) => {
     const { projectId } = req.params as Record<string, string>;
     if (!projectId) return void res.status(400).json({ error: 'Missing projectId' });
     try {
@@ -113,13 +113,13 @@ export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
         post: {
             summary: 'Try storage settings before saving them',
             description:
-                'Writes a small file, reads it back and deletes it. Answers `{ ok, error? }`. Project admins only.',
+                'Writes a small file, reads it back and deletes it. Answers `{ ok, error? }`. Content leads and admins only.',
             tags: ['Media settings'],
             parameters: [projectParam],
             requestBody: storageBody,
             responses: {
                 '200': jsonRecord('`{ ok: boolean, error?: string }`'),
-                '403': errorResponse('Not a project admin')
+                '403': errorResponse('Neither a content lead nor an admin')
             }
         }
     },
@@ -127,14 +127,14 @@ export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
         post: {
             summary: 'Move every file to another storage and switch to it',
             description:
-                'Checks the storage, copies every stored file there, then saves it as the project storage. Files stay on the old storage. Project admins only.',
+                'Checks the storage, copies every stored file there, then saves it as the project storage. Files stay on the old storage. Content leads and admins only.',
             tags: ['Media settings'],
             parameters: [projectParam],
             requestBody: storageBody,
             responses: {
                 '200': jsonRecord('`{ moved: number }`'),
                 '400': errorResponse('Storage unavailable or check failed'),
-                '403': errorResponse('Not a project admin')
+                '403': errorResponse('Neither a content lead nor an admin')
             }
         }
     },
@@ -142,7 +142,7 @@ export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
         post: {
             summary: 'Move the project’s videos to where new ones go',
             description:
-                'To the project’s video host, or this server when it has none. Videos with a copy on this server are sent in the background (two at a time) and keep playing from where they are until ready; the others stay at their host. With `removeFromOld`, each is deleted at its old host once ready at the new one. Project admins only.',
+                'To the project’s video host, or this server when it has none. Videos with a copy on this server are sent in the background (two at a time) and keep playing from where they are until ready; the others stay at their host. With `removeFromOld`, each is deleted at its old host once ready at the new one. Content leads and admins only.',
             tags: ['Media settings'],
             parameters: [projectParam],
             requestBody: {
@@ -158,7 +158,7 @@ export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
             responses: {
                 '200': jsonRecord('`{ to, moving, staying }`'),
                 '400': errorResponse('The project’s video host is not available'),
-                '403': errorResponse('Not a project admin')
+                '403': errorResponse('Neither a content lead nor an admin')
             }
         }
     },
@@ -166,7 +166,7 @@ export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
         delete: {
             summary: 'Forget a video host’s keys',
             description:
-                'Kept otherwise, so videos still there can be deleted or moved. Refused for the host taking new videos (400 `host_active`) and while any video is there (409 `host_in_use`). Project admins only.',
+                'Kept otherwise, so videos still there can be deleted or moved. Refused for the host taking new videos (400 `host_active`) and while any video is there (409 `host_in_use`). Content leads and admins only.',
             tags: ['Media settings'],
             parameters: [
                 projectParam,
@@ -175,7 +175,7 @@ export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
             responses: {
                 '200': jsonRecord('`{ videoProviders }` as kept, secrets hidden'),
                 '400': errorResponse('Unknown host, or the one taking new videos'),
-                '403': errorResponse('Not a project admin'),
+                '403': errorResponse('Neither a content lead nor an admin'),
                 '409': errorResponse('Videos are still at this host')
             }
         }
@@ -217,7 +217,7 @@ export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
                         }
                     }
                 },
-                '403': errorResponse('Not a project admin'),
+                '403': errorResponse('Neither a content lead nor an admin'),
                 '400': {
                     description: 'Validation error',
                     content: {

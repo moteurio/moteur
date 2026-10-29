@@ -214,7 +214,7 @@ Global templates (project, model, structure, or page template). Stored under `da
 
 ## 🛠 Operator (platform)
 
-Accounts whose own roles include `admin` (`developer` implies it). Project Admin does not. Studio: `/operator`.
+Operators, who sign in apart from accounts (see [Authentication](Authentication.md#operators)). No account or project role reaches these routes. Studio: `/operator`.
 
 | Method | Endpoint                        | Description                                                                                                       |
 | ------ | ------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
@@ -424,7 +424,7 @@ Under a project. JWT + project access. Path param: `projectId`, `modelId`.
 | DELETE | `/projects/:projectId/models/:modelId`                               | Delete.                                                                                                                                                                                                                                                                                                     |
 | GET    | `/projects/:projectId/models/:modelId/revisions`                     | Schema revision history from git (newest first). Query: `?max=N` (default 20, max 100). Returns `[{ id, number, message, savedAt, savedBy }]`. **`id` is the commit hash** (use in read/restore); `number` is display-only. See [Schema revisions](Schema%20revisions.md).                                  |
 | GET    | `/projects/:projectId/models/:modelId/revisions/:revisionId`         | Model schema at that commit. Returns `{ model }`.                                                                                                                                                                                                                                                           |
-| POST   | `/projects/:projectId/models/:modelId/revisions/:revisionId/restore` | Replace live model schema from commit (**project admin**). Returns `{ model }`.                                                                                                                                                                                                                             |
+| POST   | `/projects/:projectId/models/:modelId/revisions/:revisionId/restore` | Replace live model schema from commit (**builder**). Returns `{ model }`.                                                                                                                                                                                                                                   |
 
 The same three revision routes exist under **structures** (`/{id}`), **templates** (`/{id}`), **forms** (`/{formId}`), and **blocks** (`/{slug}`), with response keys `structure`, `template`, `form`, and `block`. Built-in-only schemas return an empty revision list.
 

@@ -111,8 +111,8 @@ router.patch(
 
         try {
             let project = await getProject(account!, projectId);
-            // Developer (keys, webhooks, channels) and Billing (plans, payment) are given or taken
-            // only by someone who has them: Admin implies neither.
+            // Developer (keys, webhooks, channels, Git) and Billing (plans, payment) are given or
+            // taken only by someone who has them: Admin implies neither.
             if (roles) {
                 const target = getProjectUsers(projectId, project).find(u => u.id === userId)!;
                 const before = new Set(target.roles ?? []);

@@ -34,7 +34,8 @@ const admin = {
     id: 'u1',
     name: 'Ada',
     isActive: true,
-    roles: ['admin'],
+    // The project's creator: admin and developer (so a builder too).
+    roles: ['admin', 'developer'],
     projects: [projectId, other]
 } as User;
 const agent = { ...admin, agent: { name: 'Claude', reviewOnly: true } } as User;
@@ -321,6 +322,13 @@ describe('importing a bundle', () => {
     it('is for admins, and keeps a block type to its folder', async () => {
         const writer = { ...admin, roles: ['writer'] } as User;
         await expect(startImport(writer, projectId, site())).rejects.toThrow(/admins/);
+        // An admin who isn't a builder brings content, not models or templates.
+        const adminOnly = { ...admin, roles: ['admin'] } as User;
+        await expect(startImport(adminOnly, projectId, site())).rejects.toThrow(/only a builder/);
+        const contentOnly = { ...site(), structures: [], blocks: [], models: [], templates: [] };
+        const { finished } = await startImport(adminOnly, projectId, contentOnly, { dryRun: true });
+        // Let in: what it finds (its entries' model isn't there) is the import's own report.
+        expect((await finished).issues.some(i => /builder/.test(i.message))).toBe(false);
         await expect(exportBundle(writer, projectId)).rejects.toThrow(/admins/);
 
         const activity = path.join(dirOf(projectId), '.moteur', 'activity.json');

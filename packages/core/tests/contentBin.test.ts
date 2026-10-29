@@ -26,6 +26,7 @@ import type { User } from '@moteurio/types/User.js';
 const admin = { id: 'a1', name: 'Ada', email: 'a@x.dev', isActive: true, roles: ['admin'] } as User;
 const writer = { ...admin, id: 'w1', name: 'Will', roles: ['writer'] } as User;
 const agent = { ...writer, id: 'bot', agent: { name: 'Helper', reviewOnly: true } } as User;
+const lead = { ...writer, id: 'l1', name: 'Lea', roles: ['lead'] } as User;
 const projectId = 'site';
 
 registerContentCommitHook();
@@ -44,7 +45,7 @@ describe('the bin for entries and pages', () => {
                 id: projectId,
                 label: 'Site',
                 defaultLocale: 'en',
-                users: ['a1', 'w1', 'bot']
+                users: ['a1', 'w1', 'bot', 'l1']
             })
         );
         await initRepo(dir);
@@ -173,7 +174,8 @@ describe('the bin for entries and pages', () => {
         });
         await expect(emptyContentBin(projectId, writer)).rejects.toMatchObject({ statusCode: 403 });
 
-        await deleteFromContentBin(projectId, admin, first.id);
+        // A content lead deletes for good without being an admin.
+        await deleteFromContentBin(projectId, lead, first.id);
         expect((await listContentBin(projectId, admin)).map(i => i.id)).toEqual([second.id]);
         expect(await emptyContentBin(projectId, admin)).toBe(1);
         expect(await listContentBin(projectId, admin)).toEqual([]);

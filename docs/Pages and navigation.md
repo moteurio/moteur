@@ -14,7 +14,7 @@ Pages use `parentId`, `slug` and `order` to define their position. Static and co
 
 A published page has a published version, like an entry: publishing commits the page and records that commit (`publishedCommit`, `publishedAt`). Sites get that version from channels, the sitemap, URLs, navigation, breadcrumbs, `/resolve`, menus and page links. Where the page sits in the tree is always the current one: moving a page is not content.
 
-- Someone who may publish (an admin, or anyone when the project doesn't ask for reviews) edits a live page and the change is live as saved.
+- Someone who may publish (a content lead or an admin, or anyone when the project doesn't ask for reviews) edits a live page and the change is live as saved.
 - Someone who needs a review edits a live page and the change waits in the page, while sites keep the published version. A request to publish doesn't bypass it. Sending the page for review keeps it live; approving publishes what was sent; rejecting leaves the page live as it was.
 - An approval publishes once. The reviewer approves what was sent: a change after sending answers **409** `REVIEW_STALE` on approval, and needs a fresh look. The same holds for entries.
 - Publishing a live page that has changes waiting (`status: "published"`, by someone who may publish, or a schedule) puts them live. A changed address leaves a redirect, as it does when a review is approved.

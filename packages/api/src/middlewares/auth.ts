@@ -143,6 +143,26 @@ export function requireProjectAccess(req: Request, res: Response, next: NextFunc
     });
 }
 
+/** Project member who is a Builder there (models, blocks, templates, layouts, structures, forms). */
+export function requireBuilder(req: Request, res: Response, next: NextFunction) {
+    requireProjectAccess(req, res, () => {
+        if (!hasRole(req.user, 'builder')) {
+            return void res.status(403).json({ error: 'Builder access required' });
+        }
+        next();
+    });
+}
+
+/** Project member who is a Content lead there (an Admin is one too). */
+export function requireContentLead(req: Request, res: Response, next: NextFunction) {
+    requireProjectAccess(req, res, () => {
+        if (!hasRole(req.user, 'lead')) {
+            return void res.status(403).json({ error: 'Content lead access required' });
+        }
+        next();
+    });
+}
+
 /** Project member who is an Admin in that project. */
 export function requireProjectAdmin(req: Request, res: Response, next: NextFunction) {
     requireProjectAccess(req, res, () => {

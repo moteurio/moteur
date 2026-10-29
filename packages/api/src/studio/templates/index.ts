@@ -9,7 +9,7 @@ import {
     validateTemplateById
 } from '@moteurio/core/templates.js';
 import { getBlueprint } from '@moteurio/core/blueprints.js';
-import { requireProjectAccess, requireProjectAdmin } from '../../middlewares/auth.js';
+import { requireProjectAccess, requireBuilder } from '../../middlewares/auth.js';
 import type { OpenAPIV3 } from 'openapi-types';
 import { sendApiError } from '../../utils/apiError.js';
 import { mergePathSpecs } from '../../utils/mergePathSpecs.js';
@@ -41,7 +41,7 @@ router.get('/:id', requireProjectAccess, async (req: Request, res: Response) => 
     }
 });
 
-router.post('/', requireProjectAdmin, async (req: Request, res: Response) => {
+router.post('/', requireBuilder, async (req: Request, res: Response) => {
     const { projectId } = req.params as Record<string, string>;
     if (!projectId) return void res.status(400).json({ error: 'Missing projectId' });
     try {
@@ -86,7 +86,7 @@ router.post('/', requireProjectAdmin, async (req: Request, res: Response) => {
     }
 });
 
-router.put('/:id', requireProjectAdmin, async (req: Request, res: Response) => {
+router.put('/:id', requireBuilder, async (req: Request, res: Response) => {
     const { projectId, id } = req.params as Record<string, string>;
     if (!projectId || !id) return void res.status(400).json({ error: 'Missing projectId or id' });
     try {
@@ -97,7 +97,7 @@ router.put('/:id', requireProjectAdmin, async (req: Request, res: Response) => {
     }
 });
 
-router.patch('/:id', requireProjectAdmin, async (req: Request, res: Response) => {
+router.patch('/:id', requireBuilder, async (req: Request, res: Response) => {
     const { projectId, id } = req.params as Record<string, string>;
     if (!projectId || !id) return void res.status(400).json({ error: 'Missing projectId or id' });
     try {
@@ -108,7 +108,7 @@ router.patch('/:id', requireProjectAdmin, async (req: Request, res: Response) =>
     }
 });
 
-router.delete('/:id', requireProjectAdmin, async (req: Request, res: Response) => {
+router.delete('/:id', requireBuilder, async (req: Request, res: Response) => {
     const { projectId, id } = req.params as Record<string, string>;
     if (!projectId || !id) return void res.status(400).json({ error: 'Missing projectId or id' });
     try {

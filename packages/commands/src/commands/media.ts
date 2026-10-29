@@ -328,7 +328,7 @@ export const media = group('media', [
     },
     {
         name: 'purge',
-        summary: 'Delete a binned file for good (admins)',
+        summary: 'Delete a binned file for good (content leads and admins)',
         args: [project, assetArg],
         http: `DELETE ${P}/assets/bin/{id}`,
         destructive: true,
@@ -336,7 +336,7 @@ export const media = group('media', [
     },
     {
         name: 'empty-bin',
-        summary: 'Delete everything in the bin for good (admins)',
+        summary: 'Delete everything in the bin for good (content leads and admins)',
         args: [project],
         http: `DELETE ${P}/assets/bin`,
         destructive: true

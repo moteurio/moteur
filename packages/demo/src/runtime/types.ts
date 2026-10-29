@@ -3,7 +3,7 @@ export type Persona = {
     id: string;
     name: string;
     email: string;
-    /** Platform roles: 'admin' publishes without review, 'reviewer' approves, none = editor. */
+    /** Platform roles: 'admin' and 'lead' publish without review, 'reviewer' approves, none = editor. */
     roles: string[];
 };
 

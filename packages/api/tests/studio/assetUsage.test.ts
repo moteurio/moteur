@@ -10,6 +10,18 @@ vi.mock('../../src/middlewares/auth.js', () => ({
     requireProjectAdmin: (req: any, _res: any, next: any) => {
         req.user = { id: 'user1', roles: ['admin'] };
         next();
+    },
+    requireBuilder: (req: any, _res: any, next: any) => {
+        req.user = { id: 'user1', roles: ['admin'] };
+        next();
+    },
+    requireContentLead: (req: any, _res: any, next: any) => {
+        req.user = { id: 'user1', roles: ['admin'] };
+        next();
+    },
+    requireDeveloper: (req: any, _res: any, next: any) => {
+        req.user = { id: 'user1', roles: ['admin'] };
+        next();
     }
 }));
 

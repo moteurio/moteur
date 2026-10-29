@@ -745,7 +745,8 @@ export async function moveVideosToHost(
     user: User,
     options: { from?: VideoHome; removeFromOld?: boolean } = {}
 ): Promise<{ to: VideoHome; moving: number; staying: number }> {
-    if (!hasRole(user, 'admin')) throw contentForbidden('Only an admin can move videos.');
+    if (!hasRole(user, 'lead'))
+        throw contentForbidden('Only a content lead or an admin can move videos.');
     const project = await getProject(user, projectId);
     const to: VideoHome = project.videoProviders?.active ?? 'local';
     if (to !== 'local' && !(await getProviderForProject(projectId, to)))
@@ -1614,10 +1615,11 @@ export async function restoreAsset(projectId: string, user: User, id: string): P
 }
 
 function assertCanEmptyBin(user: User): void {
-    if (!hasRole(user, 'admin')) throw contentForbidden('Only an admin can delete files for good.');
+    if (!hasRole(user, 'lead'))
+        throw contentForbidden('Only a content lead or an admin can delete files for good.');
 }
 
-/** Deletes an asset in the bin for good: its files, its copies, its video at the host. Admins only. */
+/** Deletes an asset in the bin for good: its files, its copies, its video at the host. Content leads and admins. */
 export async function deleteAssetForever(projectId: string, user: User, id: string): Promise<void> {
     assertCanEmptyBin(user);
     const project = await getProject(user, projectId);
@@ -1697,7 +1699,7 @@ async function eraseAsset(
     await changeAssets(projectId, user, list => removeFrom(list, id));
 }
 
-/** Empties the bin: every asset in it deleted for good. Admins only. */
+/** Empties the bin: every asset in it deleted for good. Content leads and admins. */
 export async function emptyBin(projectId: string, user: User): Promise<number> {
     assertCanEmptyBin(user);
     const binned = (await loadAssetsIndex(projectId)).filter(a => a.deletedAt);
@@ -1748,7 +1750,7 @@ export async function getAssetConfig(projectId: string, user: User) {
     return { ...config, adapterConfig: redactAdapterConfig(config.adapterConfig) };
 }
 
-/** Same as the media settings' `assetConfig` part (admins only, secrets kept when sent back as `***`). */
+/** Same as the media settings' `assetConfig` part (content leads and admins, secrets kept when sent back as `***`). */
 export async function updateAssetConfig(
     projectId: string,
     user: User,

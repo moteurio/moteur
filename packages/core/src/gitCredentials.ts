@@ -33,10 +33,10 @@ function writeSecrets(dir: string, secrets: Secrets): void {
     writeSecretsFile(dir, secrets);
 }
 
-function assertAdmin(user: User, projectId: string): void {
+function assertDeveloper(user: User, projectId: string): void {
     if (!isValidId(projectId)) throw refuse(`Invalid projectId: "${projectId}"`);
-    if (!hasRole(user, 'admin'))
-        throw refuse('Only an admin can change how the project reaches its Git address.', 403);
+    if (!hasRole(user, 'developer'))
+        throw refuse('Only a developer can change how the project reaches its Git address.', 403);
 }
 
 export function gitTokenInfo(projectId: string): GitTokenInfo {
@@ -52,7 +52,7 @@ export function setGitToken(
     user: User,
     input: { token?: unknown; username?: unknown }
 ): GitTokenInfo {
-    assertAdmin(user, projectId);
+    assertDeveloper(user, projectId);
     const token = typeof input?.token === 'string' ? input.token.trim() : '';
     if (!TOKEN.test(token))
         throw refuse('The token must be 8 to 500 characters, with no spaces or line breaks.');
@@ -81,7 +81,7 @@ export function setGitToken(
 }
 
 export function removeGitToken(projectId: string, user: User): GitTokenInfo {
-    assertAdmin(user, projectId);
+    assertDeveloper(user, projectId);
     const dir = projectDir(projectId);
     const secrets = readSecrets(dir);
     if (secrets.git) {

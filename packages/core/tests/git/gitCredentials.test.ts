@@ -7,7 +7,8 @@ import { addAllAndCommit, initRepo, push, setRemoteOrigin } from '../../src/git/
 import { gitAuthEnv, gitTokenInfo, removeGitToken, setGitToken } from '../../src/gitCredentials.js';
 
 const projectId = 'creds';
-const admin = { id: 'a1', name: 'Ada', isActive: true, roles: ['admin'] } as never;
+const developer = { id: 'a1', name: 'Ada', isActive: true, roles: ['developer'] } as never;
+const admin = { id: 'a2', name: 'Al', isActive: true, roles: ['admin'] } as never;
 const writer = { id: 'w1', name: 'Wes', isActive: true, roles: ['writer'] } as never;
 
 describe('the Git token', () => {
@@ -28,7 +29,7 @@ describe('the Git token', () => {
     });
 
     it('is kept encrypted, outside Git, and never shown again', async () => {
-        expect(setGitToken(projectId, admin, { token: 'ghp_secret123' })).toEqual({
+        expect(setGitToken(projectId, developer, { token: 'ghp_secret123' })).toEqual({
             hasToken: true,
             setAt: expect.any(String)
         });
@@ -38,26 +39,27 @@ describe('the Git token', () => {
         expect(ignored).toMatch(/^\.moteur\/?$/m);
         expect(gitTokenInfo(projectId)).not.toHaveProperty('token');
 
-        expect(removeGitToken(projectId, admin)).toEqual({ hasToken: false });
+        expect(removeGitToken(projectId, developer)).toEqual({ hasToken: false });
         expect(gitAuthEnv(dir)).toBeUndefined();
     });
 
     it('refuses to keep a token in clear on a production server', async () => {
         vi.stubEnv('NODE_ENV', 'production');
         vi.stubEnv('MOTEUR_ENCRYPTION_KEY', '');
-        expect(() => setGitToken(projectId, admin, { token: 'ghp_secret123' })).toThrow(
+        expect(() => setGitToken(projectId, developer, { token: 'ghp_secret123' })).toThrow(
             'MOTEUR_ENCRYPTION_KEY'
         );
     });
 
-    it('refuses anyone but an admin, and a token that could forge a header', async () => {
-        expect(() => setGitToken(projectId, writer, { token: 'ghp_secret123' })).toThrow(
-            'Only an admin'
-        );
+    it('refuses anyone but a developer, and a token that could forge a header', async () => {
+        for (const who of [writer, admin])
+            expect(() => setGitToken(projectId, who, { token: 'ghp_secret123' })).toThrow(
+                'Only a developer'
+            );
         for (const token of ['short', 'ghp_x\r\nX-Evil: 1', 'has space inside'])
-            expect(() => setGitToken(projectId, admin, { token })).toThrow('no spaces');
+            expect(() => setGitToken(projectId, developer, { token })).toThrow('no spaces');
         expect(() =>
-            setGitToken(projectId, admin, { token: 'ghp_secret123', username: 'a b' })
+            setGitToken(projectId, developer, { token: 'ghp_secret123', username: 'a b' })
         ).toThrow('user name');
     });
 
@@ -81,7 +83,7 @@ describe('the Git token', () => {
             await fs.writeFile(path.join(dir, 'a.json'), '{}');
             await addAllAndCommit(dir, 'First', admin);
             setRemoteOrigin(dir, `http://127.0.0.1:${port}/client/site.git`);
-            setGitToken(projectId, admin, { token: 'glpat-secret123', username: 'oauth2' });
+            setGitToken(projectId, developer, { token: 'glpat-secret123', username: 'oauth2' });
 
             expect(await push(dir)).toBe(false);
             const seen = (await fs.readFile(log, 'utf8')).split('\n');

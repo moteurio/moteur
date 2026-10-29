@@ -2,6 +2,7 @@ import type { Request, Response } from 'express';
 import { Router } from 'express';
 import { URL } from 'url';
 import type { OpenAPIV3 } from 'openapi-types';
+import { hasRole } from '@moteurio/types';
 import {
     createInvite,
     listInvites,
@@ -119,6 +120,15 @@ router.post('/:projectId/invites', requireProjectAdmin, async (req: Request, res
     const roles = Array.isArray(body.roles)
         ? body.roles.filter((r): r is string => typeof r === 'string')
         : [];
+    // As for members (users.ts): Developer and Billing are given only by someone who has them.
+    const withheld = (['developer', 'billing'] as const).find(
+        role => roles.includes(role) && !hasRole(req.user, role)
+    );
+    if (withheld) {
+        return void res
+            .status(403)
+            .json({ error: `Only someone with the ${withheld} role can give it.` });
+    }
     const email = normalizeInviteEmail(body.email);
     const members = getProjectUsers(projectId);
     if (members.some(u => u.email.toLowerCase() === email)) {

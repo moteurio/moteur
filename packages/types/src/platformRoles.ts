@@ -3,8 +3,19 @@
  * per project (`ProjectSchema.memberRoles`), which then replace the account roles in that project.
  * A higher role is not also stored as the roles it implies.
  *
- * Developer implies Admin. Admin, Reviewer and Developer imply Writer. Translator and Billing
- * imply nothing. Roles are always stored: an account made without any is stored as a Writer.
+ * Each role looks after one part of a project:
+ * - Writer writes and asks for review; Translator edits translations only.
+ * - Reviewer approves reviews. Content lead (`lead`) also publishes without review, deletes for
+ *   good from the bins, sets up media and edits menus.
+ * - Builder shapes the project: models, blocks, templates, layouts, structures, forms and menus.
+ * - Admin runs the project: its settings, people and invites, imports and exports.
+ * - Developer connects it: API channels, keys, webhooks, branches and its Git remote.
+ * - Billing pays for it.
+ *
+ * What a role implies: Reviewer and Builder imply Writer; Content lead implies Reviewer; Admin
+ * implies Content lead; Developer implies Builder. Admin and Developer are apart, so a developer
+ * shapes a client's site without running its team. Translator and Billing imply nothing. Roles
+ * are always stored: an account made without any is stored as a Writer.
  *
  * No role, on an account or in a project, reaches beyond the projects someone belongs to. Running
  * the whole server is for operators, who are not users (see @moteurio/core/operators).
@@ -13,6 +24,8 @@ export const ROLE_SLUGS = [
     'writer',
     'translator',
     'reviewer',
+    'lead',
+    'builder',
     'billing',
     'admin',
     'developer'
@@ -32,6 +45,27 @@ type WithMemberRoles =
  * site (often alone, on day one). They can hand any of these to someone else later.
  */
 export const PROJECT_CREATOR_ROLES: readonly RoleSlug[] = ['admin', 'billing', 'developer'];
+
+/** The roles each role brings along (one step; `hasRole` follows them all the way). */
+const IMPLIES: Record<RoleSlug, readonly RoleSlug[]> = {
+    writer: [],
+    translator: [],
+    reviewer: ['writer'],
+    lead: ['reviewer'],
+    builder: ['writer'],
+    billing: [],
+    admin: ['lead'],
+    developer: ['builder']
+};
+
+/** `role` and every role it implies. */
+function withImplied(role: string): string[] {
+    const out = [role];
+    for (let i = 0; i < out.length; i++)
+        for (const next of IMPLIES[out[i] as RoleSlug] ?? [])
+            if (!out.includes(next)) out.push(next);
+    return out;
+}
 
 function storedRoles(user: WithRoles): string[] {
     return Array.isArray(user?.roles) ? user.roles.filter(r => typeof r === 'string') : [];
@@ -63,21 +97,7 @@ export function inProject<T extends { id: string; roles?: readonly string[] | nu
 
 /** Whether this person has `role`, counting what a stored role implies. */
 export function hasRole(user: WithRoles, role: string): boolean {
-    const roles = storedRoles(user);
-    if (role === 'writer') {
-        return (
-            roles.includes('writer') ||
-            roles.includes('reviewer') ||
-            roles.includes('admin') ||
-            roles.includes('developer')
-        );
-    }
-    if (role === 'admin') return roles.includes('admin') || roles.includes('developer');
-    if (role === 'developer') return roles.includes('developer');
-    if (role === 'reviewer') return roles.includes('reviewer');
-    if (role === 'translator') return roles.includes('translator');
-    if (role === 'billing') return roles.includes('billing');
-    return roles.includes(role);
+    return storedRoles(user).some(stored => withImplied(stored).includes(role));
 }
 
 /** Create and edit entries and pages in every language. */
@@ -98,12 +118,12 @@ export function translatorOnly(user: WithRoles): boolean {
 /** Approve and reject reviews. A review-only agent never can: approving is a person's call. */
 export function canReview(user: WithRoles): boolean {
     if (user?.agent?.reviewOnly) return false;
-    return hasRole(user, 'reviewer') || hasRole(user, 'admin');
+    return hasRole(user, 'reviewer');
 }
 
 /**
  * Whether this person needs an approved review to publish: when the project asks for reviews
- * (admins excepted), and always for a review-only agent.
+ * (content leads and admins excepted), and always for a review-only agent.
  */
 export function needsApproval(
     user: WithRoles,
@@ -113,7 +133,7 @@ export function needsApproval(
     return !!(
         project?.workflow?.enabled &&
         project.workflow.requireReview &&
-        !hasRole(user, 'admin')
+        !hasRole(user, 'lead')
     );
 }
 

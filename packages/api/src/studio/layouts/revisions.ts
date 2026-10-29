@@ -16,7 +16,7 @@ const options = {
         const layoutId = String(req.params.layoutId);
         await getLayout(req.user!, projectId, layoutId);
     },
-    restoreAdminOnly: true,
+    restoreBuilderOnly: true,
     restore: (req: import('express').Request, id: string, revisionId: string) =>
         restoreLayoutAtRevision(req.user!, String(req.params.projectId), id, revisionId),
     restoreDescription:
