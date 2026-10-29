@@ -30,8 +30,8 @@ import { usesListFeatures } from './types.js';
 
 type DatabaseConstructor = typeof DatabaseSync;
 
-/** Bump when the table layout changes: an index with another version is rebuilt from scratch. */
-const SCHEMA_VERSION = '4';
+/** Bump when the table layout, or what a row holds, changes: an index with another version is rebuilt from scratch. */
+const SCHEMA_VERSION = '5';
 
 const SCHEMA = `
 CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);

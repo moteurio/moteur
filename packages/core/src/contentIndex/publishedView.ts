@@ -5,8 +5,8 @@ import type { EntrySortField } from './types.js';
  * The commit holding an entry's public version. A null result may also mean the pointer is
  * missing: callers must check requiresPublishedSnapshot before using the current file.
  *
- * A published entry edited after publishing keeps serving the content committed at publish
- * time (`publishedCommit`) until it is published again. An unpublished entry has no public
+ * A published entry edited after publishing, or sent for review, keeps serving the content
+ * committed at publish time (`publishedCommit`) until it is published again. An unpublished entry has no public
  * version, even though its audit still remembers the last publish.
  */
 export function publishedSnapshotCommit(entry: Entry): string | null {
@@ -17,6 +17,9 @@ export function publishedSnapshotCommit(entry: Entry): string | null {
 export function requiresPublishedSnapshot(entry: Entry): boolean {
     if (entry.status === 'unpublished') return false;
     const audit = entry.meta?.audit;
+    // In review after being published: sites keep the published version until it's approved
+    // (as pages do), whatever the revision count says.
+    if (entry.status === 'in_review' && audit?.publishedCommit) return true;
     if (
         audit?.publishedRevision != null &&
         audit.revision != null &&

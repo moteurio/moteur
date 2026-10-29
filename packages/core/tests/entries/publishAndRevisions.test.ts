@@ -205,6 +205,27 @@ describe('publish & revisions (git integration)', () => {
             const result = await getPublishedEntryForProject(projectId, modelId, 'nope');
             expect(result).toBeNull();
         });
+
+        it('keeps a published entry on sites while its edits are in review', async () => {
+            await seedEntry(makeEntry());
+            await publishEntry(testUser, projectId, modelId, entryId);
+
+            // A writer's edit sent for review: the revision count may not have moved.
+            const asked = await getProjectJson<Entry>(projectId, entryKey(modelId, entryId));
+            await putProjectJson(projectId, entryKey(modelId, entryId), {
+                ...asked!,
+                status: 'in_review',
+                data: { ...asked!.data, title: 'Edit in review' }
+            });
+
+            const result = await getPublishedEntryForProject(projectId, modelId, entryId);
+            expect(result?.status).toBe('published');
+            expect(result?.data?.title).toBe('Hello World');
+            const listed = await listPublishedEntriesForProject(projectId, modelId, {
+                status: 'published'
+            });
+            expect(listed.map(e => [e.id, e.data?.title])).toEqual([[entryId, 'Hello World']]);
+        });
     });
 
     describe('listPublishedEntriesForProject', () => {
