@@ -16,7 +16,12 @@ const DISPLAY_PREFIX_LEN = 10;
 const DEFAULT_TTL_SEC = 1800;
 const MAX_TTL_SEC = 3600;
 const STORAGE_KEY = 'preview-tokens';
-const MAX_ACTIVE_TOKENS = 50;
+/**
+ * Live links each person may have at once, and a project in all. Past the first, the person's
+ * own oldest link ends, never someone else's (a link a colleague sent a client keeps working).
+ */
+const MAX_ACTIVE_PER_PERSON = 50;
+const MAX_ACTIVE_TOKENS = 500;
 
 function hashToken(raw: string): string {
     return crypto.createHash('sha256').update(raw, 'utf8').digest('hex');
@@ -110,9 +115,12 @@ export async function createPreviewToken(
         ...(input.channelId ? { channelId: input.channelId } : {})
     };
     let list = pruneExpired(await loadTokens(projectId));
-    if (list.length >= MAX_ACTIVE_TOKENS) {
-        list = list.slice(-(MAX_ACTIVE_TOKENS - 1));
+    const mine = list.filter(t => t.createdBy === user.id);
+    if (mine.length >= MAX_ACTIVE_PER_PERSON) {
+        const ending = new Set(mine.slice(0, mine.length - MAX_ACTIVE_PER_PERSON + 1));
+        list = list.filter(t => !ending.has(t));
     }
+    if (list.length >= MAX_ACTIVE_TOKENS) list = list.slice(-(MAX_ACTIVE_TOKENS - 1));
     list.push(entry);
     await saveTokens(projectId, list);
     return { rawToken, token: toMeta(entry) };
