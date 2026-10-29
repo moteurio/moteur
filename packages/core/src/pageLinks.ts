@@ -8,6 +8,7 @@ import { listTemplates } from './templates.js';
 import { localizeFields } from './entryLocaleResolution.js';
 import { buildNodeMap, resolveNodePrefix } from './pages/urlResolver.js';
 import { fieldWalkSchemas, walkFields, type FieldWalkSchemas } from './fieldWalk.js';
+import { perVersion } from './deliveryCache.js';
 import { isPlainObject } from './validators/fieldValueUtils.js';
 
 /** A page a link or a relation can point at: one with content, not a folder. */
@@ -38,7 +39,17 @@ export type PageLinkContext = {
     templates?: Map<string, TemplateSchema>;
 };
 
-export async function pageLinkContext(
+export function pageLinkContext(
+    projectId: string,
+    options?: { published?: boolean }
+): Promise<PageLinkContext> {
+    // The same for every read of the project until it changes: worked out once (deliveryCache.ts).
+    return perVersion(projectId, `pageLinks:${options?.published ? 'published' : 'latest'}`, () =>
+        buildPageLinkContext(projectId, options)
+    );
+}
+
+async function buildPageLinkContext(
     projectId: string,
     options?: { published?: boolean }
 ): Promise<PageLinkContext> {

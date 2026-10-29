@@ -25,6 +25,7 @@ import type {
     EntrySortField,
     ReindexStats
 } from './types.js';
+import { busy, closeWhenIdle, INDEX_PRAGMAS } from '../utils/idleIndexes.js';
 import { usesListFeatures } from './types.js';
 
 type DatabaseConstructor = typeof DatabaseSync;
@@ -125,6 +126,9 @@ type ProjectIndex = {
     addLocale: StatementSync;
     /** Serializes writes and re-checks for one project. */
     tail: Promise<unknown>;
+    /** When it was last used, and what's queued on it: idle ones are closed (idleIndexes.ts). */
+    used: number;
+    pending: number;
     checked: boolean;
     dirty: boolean;
     lastCheck: number;
@@ -203,7 +207,9 @@ export class SqliteIndex implements ContentIndex {
     constructor(
         private readonly Database: DatabaseConstructor,
         private readonly recheckMs: number
-    ) {}
+    ) {
+        closeWhenIdle(this.projects, dir => this.closeDir(dir));
+    }
 
     // -- queries ------------------------------------------------------------
 
@@ -432,15 +438,17 @@ export class SqliteIndex implements ContentIndex {
 
     close(projectId?: string): void {
         const dirs = projectId ? [projectDir(projectId)] : [...this.projects.keys()];
-        for (const dir of dirs) {
-            const p = this.projects.get(dir);
-            if (!p) continue;
-            this.projects.delete(dir);
-            try {
-                p.db.close();
-            } catch {
-                /* already closed */
-            }
+        for (const dir of dirs) this.closeDir(dir);
+    }
+
+    private closeDir(dir: string): void {
+        const p = this.projects.get(dir);
+        if (!p) return;
+        this.projects.delete(dir);
+        try {
+            p.db.close();
+        } catch {
+            /* already closed */
         }
     }
 
@@ -488,7 +496,10 @@ export class SqliteIndex implements ContentIndex {
             } catch {
                 /* deleted */
             }
-            if (inode === existing.inode) return existing;
+            if (inode === existing.inode) {
+                existing.used = Date.now();
+                return existing;
+            }
             this.close(projectId);
         }
         if (!options?.create || !fs.existsSync(dir)) return null;
@@ -543,6 +554,8 @@ export class SqliteIndex implements ContentIndex {
                 'INSERT INTO entry_locales (model_id, entry_id, field, locale) VALUES (?, ?, ?, ?)'
             ),
             tail: Promise.resolve(),
+            used: Date.now(),
+            pending: 0,
             checked: false,
             dirty: false,
             lastCheck: 0,
@@ -557,7 +570,8 @@ export class SqliteIndex implements ContentIndex {
         const db = new this.Database(dbFile);
         try {
             db.exec(
-                'PRAGMA journal_mode = WAL; PRAGMA synchronous = NORMAL; PRAGMA busy_timeout = 5000;'
+                'PRAGMA journal_mode = WAL; PRAGMA synchronous = NORMAL; PRAGMA busy_timeout = 5000;' +
+                    INDEX_PRAGMAS
             );
             const version = (() => {
                 try {
@@ -588,7 +602,7 @@ export class SqliteIndex implements ContentIndex {
     }
 
     private serialize<T>(p: ProjectIndex, fn: () => Promise<T>): Promise<T> {
-        const run = p.tail.then(fn, fn);
+        const run = busy(p, p.tail.then(fn, fn));
         p.tail = run.catch(() => {});
         return run;
     }

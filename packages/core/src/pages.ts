@@ -83,6 +83,7 @@ import type { Redirect } from '@moteurio/types/Redirect.js';
 import type { Entry, ModelSchema } from '@moteurio/types/Model.js';
 import type { TemplateSchema } from '@moteurio/types/Template.js';
 import { assertEntryComplete } from './validators/entryComplete.js';
+import { perVersion } from './deliveryCache.js';
 import { dispatch as webhookDispatch } from './webhooks/webhookService.js';
 
 export type { ResolvedUrl, NavigationNode, BreadcrumbItem };
@@ -106,7 +107,16 @@ function parsePageIds(listResult: string[]): string[] {
         .filter(Boolean);
 }
 
+/**
+ * Every page of the project: read once per project version (deliveryCache.ts), then each caller
+ * gets its own copy, free to change.
+ */
 async function loadAllPages(projectId: string): Promise<PageNode[]> {
+    const pages = await perVersion(projectId, 'pages', () => readAllPages(projectId));
+    return pages.map(page => globalThis.structuredClone(page));
+}
+
+async function readAllPages(projectId: string): Promise<PageNode[]> {
     const raw = await listProjectKeys(projectId, pageListPrefix());
     const ids = parsePageIds(raw);
     const pages = await Promise.all(
@@ -117,7 +127,10 @@ async function loadAllPages(projectId: string): Promise<PageNode[]> {
 
 /** What sites see: each page's published version (see pages/publishedPages.ts). */
 export async function loadPublicPages(projectId: string): Promise<PageNode[]> {
-    return publicPages(projectId, await loadAllPages(projectId));
+    const pages = await perVersion(projectId, 'publicPages', async () =>
+        publicPages(projectId, await loadAllPages(projectId))
+    );
+    return pages.map(page => globalThis.structuredClone(page));
 }
 
 export async function listPages(

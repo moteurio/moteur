@@ -99,4 +99,14 @@ describe('pushing the content history', () => {
         // A blocking push would leave the event loop no turn at all.
         expect(ticks).toBeGreaterThan(20);
     });
+
+    it('names the commit HEAD is at, with its refs packed too', async () => {
+        const head = () =>
+            spawnSync('git', ['rev-parse', 'HEAD'], { cwd: repo, encoding: 'utf8' }).stdout.trim();
+        await fs.writeFile(path.join(repo, 'c.json'), '{}');
+        expect(await addAllAndCommit(repo, 'Third', user as never)).toBe(head());
+        spawnSync('git', ['pack-refs', '--all'], { cwd: repo });
+        // Nothing new to commit: HEAD as it is, read from packed-refs.
+        expect(await addAllAndCommit(repo, 'Nothing', user as never)).toBe(head());
+    });
 });

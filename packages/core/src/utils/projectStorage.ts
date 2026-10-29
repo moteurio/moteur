@@ -4,7 +4,7 @@ import path from 'path';
 import { projectDir } from './pathUtils.js';
 import { writeJsonAtomicAsync } from './fileUtils.js';
 import { readTextCached } from './fileCache.js';
-import { touchProject } from '../deliveryCache.js';
+import { reachesSites, touchProject } from '../deliveryCache.js';
 import { getContentIndex, parseEntryKey } from '../contentIndex/index.js';
 import type { Entry } from '@moteurio/types/Model.js';
 import { isValidId } from './idUtils.js';
@@ -88,11 +88,11 @@ export async function putProjectJson(projectId: string, key: string, data: unkno
         const { project, secrets } = splitProjectSecrets(data as Partial<ProjectSchema>);
         writeProjectSecrets(projectDir(projectId), secrets);
         await writeJsonAtomicAsync(fullPath_, project);
-        touchProject(projectId);
+        if (reachesSites(key)) touchProject(projectId);
         return;
     }
     await writeJsonAtomicAsync(fullPath_, data);
-    touchProject(projectId);
+    if (reachesSites(key)) touchProject(projectId);
     await updateContentIndex(projectId, key, data);
 }
 
@@ -115,7 +115,7 @@ export async function deleteProjectKey(projectId: string, key: string): Promise<
                 : undefined;
         if (code !== 'ENOENT') throw err;
     }
-    touchProject(projectId);
+    if (reachesSites(key)) touchProject(projectId);
     await updateContentIndex(projectId, key);
 }
 
@@ -180,13 +180,13 @@ export async function restoreProjectFile(
     const target = fullPath(projectId, key);
     if (text === null) {
         await fs.rm(target, { force: true });
-        touchProject(projectId);
+        if (reachesSites(key)) touchProject(projectId);
         await updateContentIndex(projectId, key);
         return;
     }
     await fs.mkdir(path.dirname(target), { recursive: true });
     await fs.writeFile(target, text, ENCODING);
-    touchProject(projectId);
+    if (reachesSites(key)) touchProject(projectId);
     let data: unknown;
     try {
         data = JSON.parse(text);

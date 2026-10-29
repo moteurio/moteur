@@ -14,7 +14,7 @@ import type { PageNode } from '@moteurio/types/Page.js';
 import { User } from '@moteurio/types/User.js';
 import type { Asset } from '@moteurio/types/Asset.js';
 import type { FormSchema, FormSubmission } from '@moteurio/types/Form.js';
-import { touchProject } from '../deliveryCache.js';
+import { eventReachesSites, touchProject } from '../deliveryCache.js';
 import type { Schedule } from '@moteurio/types/Schedule.js';
 
 // Event context uses explicit resource keys (like { project, user }) for clarity.
@@ -210,7 +210,7 @@ function projectOf(context: unknown): string | undefined {
 export async function triggerEvent<K extends keyof EventMap>(eventName: K, context: EventMap[K]) {
     // Any event about a project changes what its sites may be sent: before the handlers (a
     // `.before` event precedes its write) and after them (what they wrote).
-    const projectId = projectOf(context);
+    const projectId = eventReachesSites(String(eventName)) ? projectOf(context) : undefined;
     if (projectId) touchProject(projectId);
     try {
         await runHandlers(eventName, context);

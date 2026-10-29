@@ -1,5 +1,6 @@
 import fs from 'fs';
 import fsp from 'fs/promises';
+import { cacheShare } from './cacheBudget.js';
 
 /**
  * Small files read again and again (project.json, schemas, pages, the secrets file), kept as
@@ -13,7 +14,7 @@ import fsp from 'fs/promises';
  */
 
 const MAX_FILES = 20_000;
-const MAX_BYTES = 64 * 1024 * 1024;
+const maxBytes = () => cacheShare('files');
 
 type Cached = { signature: string; text: string };
 const files = new Map<string, Cached>();
@@ -37,7 +38,7 @@ function remember(file: string, signature: string, text: string, st: fs.Stats): 
     bytes += text.length;
     // Oldest first (a Map keeps insertion order; a hit moves the file to the end).
     for (const [key, entry] of files) {
-        if (files.size <= MAX_FILES && bytes <= MAX_BYTES) break;
+        if (files.size <= MAX_FILES && bytes <= maxBytes()) break;
         files.delete(key);
         bytes -= entry.text.length;
     }
