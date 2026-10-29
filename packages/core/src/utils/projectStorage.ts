@@ -2,7 +2,7 @@ import fs from 'fs/promises';
 import { constants as fsConstants } from 'fs';
 import path from 'path';
 import { projectDir } from './pathUtils.js';
-import { writeJsonAtomicAsync } from './fileUtils.js';
+import { writeFileAtomicAsync, writeJsonAtomicAsync } from './fileUtils.js';
 import { readTextCached } from './fileCache.js';
 import { reachesSites, touchProject } from '../deliveryCache.js';
 import { getContentIndex, parseEntryKey } from '../contentIndex/index.js';
@@ -18,8 +18,6 @@ import type { ProjectSchema } from '@moteurio/types/Project.js';
 
 /** project.json: its credentials live apart, in the secrets file (see projectSecrets.ts). */
 const PROJECT_FILE = 'project.json';
-
-const ENCODING = 'utf-8';
 
 function fullPath(projectId: string, key: string): string {
     if (!isValidId(projectId))
@@ -185,7 +183,7 @@ export async function restoreProjectFile(
         return;
     }
     await fs.mkdir(path.dirname(target), { recursive: true });
-    await fs.writeFile(target, text, ENCODING);
+    await writeFileAtomicAsync(target, text);
     if (reachesSites(key)) touchProject(projectId);
     let data: unknown;
     try {

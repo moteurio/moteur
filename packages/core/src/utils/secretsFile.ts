@@ -1,5 +1,6 @@
 import fs from 'fs';
 import { readTextCachedSync } from './fileCache.js';
+import { writeFileAtomicSync } from './fileUtils.js';
 import path from 'path';
 
 /**
@@ -27,7 +28,7 @@ export function readSecretsFile(projectDir: string): SecretsFile {
 export function writeSecretsFile(projectDir: string, secrets: SecretsFile): void {
     const file = secretsFilePath(projectDir);
     fs.mkdirSync(path.dirname(file), { recursive: true });
-    fs.writeFileSync(file, JSON.stringify(secrets, null, 2), { mode: 0o600 });
+    writeFileAtomicSync(file, JSON.stringify(secrets, null, 2), 0o600);
 }
 
 /** Change one section, leaving the others as they are. `undefined` removes it. */

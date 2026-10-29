@@ -207,8 +207,16 @@ export function addAndCommit(
     const env = authorEnv(author);
     const normalized = relativePaths.map(p => p.replace(/\\/g, '/'));
     return inRepo(projectDir, async () => {
+        // A path gone from disk is staged only if Git knows it (a deletion to commit): one it
+        // never knew would make `git add` refuse the whole commit.
+        const missing = normalized.filter(p => !existsSync(path.join(projectDir, p)));
+        const known = missing.length
+            ? new Set((await run(projectDir, ['ls-files', '--', ...missing])).split('\n'))
+            : new Set<string>();
+        const staged = normalized.filter(p => !missing.includes(p) || known.has(p));
+        if (staged.length === 0) return '';
         // -A stages additions, modifications, and deletions for the given paths
-        await run(projectDir, ['add', '-A', '--', ...normalized], env);
+        await run(projectDir, ['add', '-A', '--', ...staged], env);
         if (await nothingStaged(projectDir, env)) return '';
         await run(projectDir, ['commit', '-m', message], env);
         return headCommit(projectDir);

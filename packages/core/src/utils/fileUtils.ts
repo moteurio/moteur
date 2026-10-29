@@ -26,7 +26,33 @@ export function readJson(file: string): any {
 }
 
 export function writeJson(file: string, data: any): void {
-    fs.writeFileSync(file, JSON.stringify(data, null, 2), 'utf-8');
+    writeFileAtomicSync(file, JSON.stringify(data, null, 2));
+}
+
+/**
+ * Write a whole file or nothing: to a temporary file beside it, then renamed over it. A write cut
+ * short (a full disk, a crash) leaves the file as it was, never half written, and the temporary
+ * file goes. `mode` for files only their owner may read (secrets).
+ */
+export function writeFileAtomicSync(file: string, data: string | Buffer, mode?: number): void {
+    const tmp = tempPathFor(path.dirname(file), path.basename(file));
+    try {
+        fs.writeFileSync(tmp, data, mode === undefined ? undefined : { mode });
+        fs.renameSync(tmp, file);
+    } finally {
+        fs.rmSync(tmp, { force: true });
+    }
+}
+
+/** `writeFileAtomicSync`, without blocking: for project storage. */
+export async function writeFileAtomicAsync(file: string, data: string | Buffer): Promise<void> {
+    const tmp = tempPathFor(path.dirname(file), path.basename(file));
+    try {
+        await fsp.writeFile(tmp, data);
+        await fsp.rename(tmp, file);
+    } finally {
+        await fsp.rm(tmp, { force: true });
+    }
 }
 
 /**
@@ -44,20 +70,12 @@ function tempPathFor(dir: string, name: string): string {
 }
 
 export function writeJsonAtomic(file: string, data: any): void {
-    const dir = path.dirname(file);
-    const name = path.basename(file);
-    const tmp = tempPathFor(dir, name);
-    fs.writeFileSync(tmp, JSON.stringify(data, null, 2), 'utf-8');
-    fs.renameSync(tmp, file);
+    writeFileAtomicSync(file, JSON.stringify(data, null, 2));
 }
 
 /** Async atomic write for JSON: write to temp file then rename. Use for project storage. */
 export async function writeJsonAtomicAsync(file: string, data: unknown): Promise<void> {
-    const dir = path.dirname(file);
-    const name = path.basename(file);
-    const tmp = tempPathFor(dir, name);
-    await fsp.writeFile(tmp, JSON.stringify(data, null, 2), 'utf-8');
-    await fsp.rename(tmp, file);
+    await writeFileAtomicAsync(file, JSON.stringify(data, null, 2));
 }
 
 /** Check if a project exists (directory) */
