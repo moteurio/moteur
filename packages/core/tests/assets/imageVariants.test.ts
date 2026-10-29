@@ -16,7 +16,11 @@ import {
     uploadAsset,
     whenAssetReady
 } from '../../src/assets/assetService.js';
-import { getResizedImage, parseResizeRequest } from '../../src/assets/resize.js';
+import {
+    clearResizedImages,
+    getResizedImage,
+    parseResizeRequest
+} from '../../src/assets/resize.js';
 import { getProjectJson, putProjectJson } from '../../src/utils/projectStorage.js';
 import { ASSETS_KEY } from '../../src/utils/storageKeys.js';
 import type { Asset } from '@moteurio/types/Asset.js';
@@ -238,14 +242,22 @@ describe('focal point and versioned copies', () => {
         // Moving the point cleared the sizes made before it; only the new crop is stored.
         const folder = path.join(assetsDir(), `r-${pic.id}`);
         expect(await fs.readdir(folder)).toEqual(['w320-ar1x1-f90-50.png']);
-        // Kept: a second ask reads the stored file.
+        // Kept in memory: a second ask is the same answer, with the same tag.
         await fs.writeFile(path.join(folder, 'w320-ar1x1-f90-50.png'), Buffer.from('kept'));
-        const again = await getResizedImage(
-            projectId,
-            pic.id,
-            parseResizeRequest({ w: 320, ar: '1:1', fmt: 'png' })
-        );
+        const ask = () =>
+            getResizedImage(
+                projectId,
+                pic.id,
+                parseResizeRequest({ w: 320, ar: '1:1', fmt: 'png' })
+            );
+        const twice = await ask();
+        expect(twice.buffer).toBe(square.buffer);
+        expect(twice.etag).toBe(square.etag);
+        // Gone from memory (a restart): the stored file is read, not made again.
+        clearResizedImages();
+        const again = await ask();
         expect(again.buffer.toString()).toBe('kept');
+        expect(again.etag).not.toBe(square.etag);
     });
 
     it("clears an image's sizes when its focal point moves or it is deleted for good", async () => {

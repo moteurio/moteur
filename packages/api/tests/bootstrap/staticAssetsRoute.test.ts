@@ -7,6 +7,9 @@ import path from 'path';
 import { securityHeaders } from '../../src/middlewares/security.js';
 import { mountResizedImages, mountStaticAssets } from '../../src/bootstrap/staticAssetsRoute.js';
 import { getResizedImage, ResizeNotFound } from '@moteurio/core/assets/resize.js';
+import { imageTraffic } from '@moteurio/core/metering.js';
+import { requestClassifier } from '../../src/middlewares/requestClassifier.js';
+import { usageLogging } from '../../src/middlewares/usageLogging.js';
 
 vi.mock('@moteurio/core/assets/resize.js', async importOriginal => ({
     ...(await importOriginal<typeof import('@moteurio/core/assets/resize.js')>()),
@@ -48,6 +51,18 @@ describe('static assets route', () => {
         expect(image.headers['x-content-type-options']).toBe('nosniff');
     });
 
+    it("counts files sent as the project's image traffic, a part of one too, not a revalidation", async () => {
+        const counted = express();
+        counted.use(requestClassifier, usageLogging);
+        mountStaticAssets(counted, '');
+        const first = await request(counted).get('/static/assets/p1/thumb/a1.webp');
+        await request(counted)
+            .get('/static/assets/p1/thumb/a1.webp')
+            .set('If-None-Match', first.headers.etag);
+        await request(counted).get('/static/assets/p1/thumb/a1.webp').set('Range', 'bytes=0-3');
+        expect(imageTraffic('p1')).toEqual({ requests: 2, bytes: 12 + 4 });
+    });
+
     it('serves files even when the data root is under a dot-directory', async () => {
         const res = await request(app).get('/static/assets/p1/thumb/a1.webp');
         expect(res.status).toBe(200);
@@ -85,17 +100,55 @@ describe('resized images route', () => {
     it('serves the size with its type, cached for good when versioned', async () => {
         vi.mocked(getResizedImage).mockResolvedValue({
             buffer: Buffer.from('img'),
-            format: 'avif'
+            format: 'avif',
+            etag: '"tag1"'
         });
         const res = await request(app).get('/static/resize/p1/a1?w=600&ar=1:1&fmt=avif&v=abc');
         expect(res.status).toBe(200);
         expect(res.headers['content-type']).toBe('image/avif');
         expect(res.headers['cache-control']).toBe('public, max-age=31536000, immutable');
+        expect(res.headers.etag).toBe('"tag1"');
+        // Asked again by a browser that has it: nothing to send.
+        const again = await request(app)
+            .get('/static/resize/p1/a1?w=600&ar=1:1&fmt=avif&v=abc')
+            .set('If-None-Match', '"tag1"');
+        expect(again.status).toBe(304);
+        expect(again.headers['content-length'] ?? '0').toBe('0');
         expect(getResizedImage).toHaveBeenCalledWith('p1', 'a1', {
             width: 640,
             ratio: '1:1',
             format: 'avif'
         });
+    });
+
+    it("counts what it sends as the project's image traffic", async () => {
+        const counted = express();
+        counted.use(requestClassifier, usageLogging);
+        mountResizedImages(counted, '');
+        vi.mocked(getResizedImage).mockResolvedValue({
+            buffer: Buffer.alloc(300),
+            format: 'webp',
+            etag: '"t"'
+        });
+        await request(counted).get('/static/resize/counted/a1?w=320');
+        await request(counted).get('/static/resize/counted/a1?w=320').set('If-None-Match', '"t"');
+        expect(imageTraffic('counted')).toEqual({ requests: 1, bytes: 300 });
+    });
+
+    it('asks to retry, uncached, when too many sizes are being made', async () => {
+        vi.mocked(getResizedImage).mockRejectedValue(
+            Object.assign(new Error('Server is busy. Try again shortly.'), {
+                status: 429,
+                code: 'WORK_CAPACITY'
+            })
+        );
+        const errors = vi.spyOn(console, 'error').mockImplementation(() => {});
+        const res = await request(app).get('/static/resize/p1/a1?w=600');
+        expect(res.status).toBe(503);
+        expect(res.headers['retry-after']).toBe('2');
+        expect(res.headers['cache-control']).toBe('no-store');
+        expect(errors).not.toHaveBeenCalled();
+        errors.mockRestore();
     });
 
     it('explains bad requests and hides unknown images', async () => {

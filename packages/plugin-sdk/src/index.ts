@@ -73,6 +73,12 @@ export type PluginInitContext = {
      */
     setRequestQuota: (quota: ((projectId: string) => number | null) | null) => void;
     /**
+     * Bytes of images a project may send each calendar month (UTC; null: no limit): originals
+     * and sizes, to sites and browsers. A browser or CDN asking again for an image it has (304)
+     * costs nothing. Once used up, images answer 402 `plan_limit` until the month ends.
+     */
+    setImageTrafficQuota: (quota: ((projectId: string) => number | null) | null) => void;
+    /**
      * Form submissions a project may receive each calendar month (UTC; null: no limit). Past it,
      * submitting answers 402 `plan_limit`; submissions the honeypot catches don't count.
      */

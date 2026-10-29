@@ -3,7 +3,7 @@ import path from 'path';
 import { writeJsonAtomic } from './utils/fileUtils.js';
 
 /**
- * Metering: API requests and AI credits, per project and per calendar month (UTC).
+ * Metering: API requests, image traffic and AI credits, per project and per calendar month (UTC).
  *
  * Credits are spent against a monthly allowance that the host decides (a billing plugin sets it
  * per plan with `setCreditAllowance`; otherwise `MOTEUR_AI_MONTHLY_CREDITS`, default 1000, or
@@ -35,9 +35,20 @@ export type RequestTotals = {
     studio: number;
     projects: Record<
         string,
-        { publicRequests: number; studioRequests: number; submissions?: number }
+        {
+            publicRequests: number;
+            studioRequests: number;
+            submissions?: number;
+            /** Images sent to sites (originals and sizes); 304 answers aren't counted. */
+            imageRequests?: number;
+            /** Their bytes. */
+            imageBytes?: number;
+        }
     >;
 };
+
+/** A project's images sent in a month, and their bytes. */
+export type ImageTraffic = { requests: number; bytes: number };
 
 export interface MeteringStore {
     recordRequests(
@@ -47,6 +58,10 @@ export interface MeteringStore {
         count: number
     ): void;
     requestTotals(period: string): RequestTotals;
+    /** One image of `bytes` sent for a project. */
+    recordImageTraffic(period: string, projectId: string, bytes: number): void;
+    /** One project's image traffic in `period`; asked on every image sent, so keep it cheap. */
+    imageTraffic(period: string, projectId: string): ImageTraffic;
     /** One project's public requests in `period`; asked on every public request, so keep it cheap. */
     publicRequests?(period: string, projectId: string): number;
     appendCredits(entry: CreditEntry): void;
@@ -92,6 +107,17 @@ function addRequest(totals: RequestTotals, projectId: string | null, kind: Reque
     else row.studioRequests += n;
 }
 
+function addImage(totals: RequestTotals, projectId: string, bytes: number) {
+    const row = (totals.projects[projectId] ??= { publicRequests: 0, studioRequests: 0 });
+    row.imageRequests = (row.imageRequests ?? 0) + 1;
+    row.imageBytes = (row.imageBytes ?? 0) + bytes;
+}
+
+function imageRow(totals: RequestTotals | undefined, projectId: string): ImageTraffic {
+    const row = totals?.projects[projectId];
+    return { requests: row?.imageRequests ?? 0, bytes: row?.imageBytes ?? 0 };
+}
+
 function sumCredits(entries: CreditEntry[]): { used: number; granted: number } {
     let used = 0;
     let granted = 0;
@@ -121,6 +147,11 @@ export function createMemoryMeteringStore(): MeteringStore {
             addRequest(requests.get(period)!, projectId, kind, count);
         },
         requestTotals: period => cloneTotals(requests.get(period) ?? emptyTotals()),
+        recordImageTraffic(period, projectId, bytes) {
+            if (!requests.has(period)) requests.set(period, emptyTotals());
+            addImage(requests.get(period)!, projectId, bytes);
+        },
+        imageTraffic: (period, projectId) => imageRow(requests.get(period), projectId),
         publicRequests: (period, projectId) =>
             requests.get(period)?.projects[projectId]?.publicRequests ?? 0,
         appendCredits(entry) {
@@ -205,6 +236,11 @@ export function createFileMeteringStore(dir: string, flushMs = 5000): MeteringSt
             dirty.add(period);
         },
         requestTotals: period => cloneTotals(loadRequests(period)),
+        recordImageTraffic(period, projectId, bytes) {
+            addImage(loadRequests(period), projectId, bytes);
+            dirty.add(period);
+        },
+        imageTraffic: (period, projectId) => imageRow(loadRequests(period), projectId),
         publicRequests: (period, projectId) =>
             loadRequests(period).projects[projectId]?.publicRequests ?? 0,
         appendCredits(entry) {
@@ -232,6 +268,16 @@ export function getMeteringStore(): MeteringStore {
 
 export function recordRequest(kind: RequestKind, projectId?: string | null): void {
     store.recordRequests(currentPeriod(), projectId ?? null, kind, 1);
+}
+
+/** An image of `bytes` sent for a project (an original or a size, to a site or a browser). */
+export function recordImageTraffic(projectId: string, bytes: number): void {
+    store.recordImageTraffic(currentPeriod(), projectId, Math.max(0, Math.floor(bytes)));
+}
+
+/** A project's image traffic this month (or in `period`). */
+export function imageTraffic(projectId: string, period = currentPeriod()): ImageTraffic {
+    return store.imageTraffic(period, projectId);
 }
 
 /** A project's public API requests this month (or in `period`). */

@@ -1,10 +1,13 @@
 import { imageWork } from './workLimits.js';
 import type { ProjectSchema } from '@moteurio/types/Project.js';
 import type { VariantDefinition } from '@moteurio/types/VariantDefinition.js';
-import { getProjectJson } from '../utils/projectStorage.js';
-import { PROJECT_KEY } from '../utils/storageKeys.js';
+import { createHash } from 'node:crypto';
+import type { Asset } from '@moteurio/types/Asset.js';
+import { imageCacheBytes } from '../utils/cacheBudget.js';
+import { getProjectJson, getProjectText } from '../utils/projectStorage.js';
+import { ASSETS_KEY, PROJECT_KEY } from '../utils/storageKeys.js';
 import { getProjectAdapter } from './adapterRegistry.js';
-import { getAsset, resizedFolder } from './assetService.js';
+import { resizedFolder } from './assetService.js';
 import { generateVariants } from './imageTransformer.js';
 
 /**
@@ -49,84 +52,178 @@ export function parseResizeRequest(query: Record<string, unknown>): ResizeReques
 
 export class ResizeNotFound extends Error {}
 
-const inFlight = new Map<string, Promise<Buffer>>();
+/** A size ready to send: its bytes and a tag naming them (`ETag`), so browsers can ask again for free. */
+export type ResizedImage = { buffer: Buffer; format: ResizeFormat; etag: string };
+
+/** What a resize needs to know of an image, read from the project's asset list. */
+type ImageFacts = {
+    path: string;
+    width: number;
+    mimeType: string;
+    focal: { x: number; y: number };
+    version: string;
+};
+
+/**
+ * Each project's images, parsed once while its asset list stays the same (the file cache says
+ * when it changes), for the projects asked about most recently.
+ */
+const indexes = new Map<string, { text: string; images: Map<string, ImageFacts> }>();
+const INDEXES_KEPT = 256;
+
+async function imageFacts(projectId: string, assetId: string): Promise<ImageFacts | undefined> {
+    const text = await getProjectText(projectId, ASSETS_KEY).catch(() => null);
+    if (text == null) return undefined;
+    let kept = indexes.get(projectId);
+    if (kept?.text !== text) {
+        const images = new Map<string, ImageFacts>();
+        let list: Asset[] = [];
+        try {
+            list = JSON.parse(text);
+        } catch {
+            // Damaged: nothing to serve until it's fixed.
+        }
+        for (const a of Array.isArray(list) ? list : []) {
+            if (a.type !== 'image' || !a.path || a.deletedAt) continue;
+            const made = a.variants?.find(v => v.key !== 'original')?.generatedAt;
+            images.set(a.id, {
+                path: a.path,
+                width: a.width ?? 0,
+                mimeType: a.mimeType,
+                focal: a.focalPoint ?? { x: 0.5, y: 0.5 },
+                // Changes when the file is replaced or its copies rebuilt.
+                version: `${a.path}|${a.size}|${a.updatedAt}|${made ?? ''}`
+            });
+        }
+        kept = { text, images };
+    }
+    indexes.delete(projectId);
+    indexes.set(projectId, kept);
+    if (indexes.size > INDEXES_KEPT) indexes.delete(indexes.keys().next().value!);
+    return kept.images.get(assetId);
+}
+
+/** Sizes kept in memory, most recently sent last, within `imageCacheBytes()`. */
+const ready = new Map<string, ResizedImage>();
+let readyBytes = 0;
+
+function keep(key: string, image: ResizedImage) {
+    const budget = imageCacheBytes();
+    if (image.buffer.length > budget / 8) return;
+    const old = ready.get(key);
+    if (old) readyBytes -= old.buffer.length;
+    ready.set(key, image);
+    readyBytes += image.buffer.length;
+    for (const [k, v] of ready) {
+        if (readyBytes <= budget) break;
+        ready.delete(k);
+        readyBytes -= v.buffer.length;
+    }
+}
+
+/** Forget the sizes kept in memory (tests). */
+export function clearResizedImages(): void {
+    ready.clear();
+    indexes.clear();
+    readyBytes = 0;
+}
+
+const tagOf = (buffer: Buffer) =>
+    `"${createHash('sha1').update(buffer).digest('base64url').slice(0, 22)}"`;
+
+/** Making a size waits behind other image work; this many may wait before a request is told to retry. */
+const MAKE_QUEUE = 64;
+
+const inFlight = new Map<string, Promise<ResizedImage>>();
 
 /**
  * An image at a requested size, made once and kept in the project's storage next to its other
- * copies. The file name holds the focal point, so moving it makes new crops.
+ * copies, and the sizes asked for most in memory. The file name holds the focal point, so moving
+ * it makes new crops. Only making a size waits for image work: one already made is just read.
  */
 export async function getResizedImage(
     projectId: string,
     assetId: string,
     request: ResizeRequest
-): Promise<{ buffer: Buffer; format: ResizeFormat }> {
-    const asset = await getAsset(projectId, assetId);
-    if (!asset || asset.type !== 'image' || !asset.path) throw new ResizeNotFound('Not found');
-    const project = await getProjectJson<ProjectSchema>(projectId, PROJECT_KEY);
-    if (!project) throw new ResizeNotFound('Not found');
-    const adapter = getProjectAdapter({ ...project, id: projectId });
+): Promise<ResizedImage> {
+    const facts = await imageFacts(projectId, assetId);
+    if (!facts) throw new ResizeNotFound('Not found');
 
     // Never wider than the original: a small picture is served at its own width.
-    const width = Math.min(request.width, asset.width || request.width);
-    const focal = asset.focalPoint ?? { x: 0.5, y: 0.5 };
+    const width = Math.min(request.width, facts.width || request.width);
     const f = (n: number) => Math.round(n * 100);
     const name = [
         `w${width}`,
         request.ratio ? `ar${request.ratio.replace(':', 'x')}` : '',
-        request.ratio ? `f${f(focal.x)}-${f(focal.y)}` : ''
+        request.ratio ? `f${f(facts.focal.x)}-${f(facts.focal.y)}` : ''
     ]
         .filter(Boolean)
         .join('-');
     const filename = `${name}.${request.format}`;
-    const folder = resizedFolder(asset.id);
+    const folder = resizedFolder(assetId);
     const storedPath = `${projectId}/${folder}/${filename}`;
 
-    const key = `${storedPath}`;
+    const key = `${storedPath}|${facts.version}`;
+    const hit = ready.get(key);
+    if (hit) {
+        ready.delete(key);
+        ready.set(key, hit);
+        return hit;
+    }
     const running = inFlight.get(key);
-    if (running) return { buffer: await running, format: request.format };
+    if (running) return running;
 
-    const job = imageWork(async () => {
+    const job = (async (): Promise<ResizedImage> => {
+        const project = await getProjectJson<ProjectSchema>(projectId, PROJECT_KEY);
+        if (!project) throw new ResizeNotFound('Not found');
+        const adapter = getProjectAdapter({ ...project, id: projectId });
+        let buffer: Buffer | undefined;
         try {
-            return await adapter.download(storedPath);
+            buffer = await adapter.download(storedPath);
         } catch {
             // Not made yet.
         }
-        const original = await adapter.download(asset.path!);
-        const ratio = request.ratio ? RESIZE_RATIOS[request.ratio] : undefined;
-        const def: VariantDefinition = ratio
-            ? {
-                  key: 'resized',
-                  label: 'Resized',
-                  width,
-                  height: Math.round(width / ratio),
-                  fit: 'cover',
-                  format: request.format,
-                  quality: QUALITY
-              }
-            : {
-                  key: 'resized',
-                  label: 'Resized',
-                  width,
-                  fit: 'inside',
-                  format: request.format,
-                  quality: QUALITY
-              };
-        const made = (await generateVariants(original, asset.mimeType, [def], focal)).find(
-            v => v.key === 'resized'
-        );
-        if (!made) throw new Error('The image could not be resized.');
-        await adapter.upload(
-            projectId,
-            filename,
-            made.buffer,
-            `image/${mime(request.format)}`,
-            folder
-        );
-        return made.buffer;
-    });
+        buffer ??= await imageWork(async () => {
+            const original = await adapter.download(facts.path);
+            const ratio = request.ratio ? RESIZE_RATIOS[request.ratio] : undefined;
+            const def: VariantDefinition = ratio
+                ? {
+                      key: 'resized',
+                      label: 'Resized',
+                      width,
+                      height: Math.round(width / ratio),
+                      fit: 'cover',
+                      format: request.format,
+                      quality: QUALITY
+                  }
+                : {
+                      key: 'resized',
+                      label: 'Resized',
+                      width,
+                      fit: 'inside',
+                      format: request.format,
+                      quality: QUALITY
+                  };
+            const made = (
+                await generateVariants(original, facts.mimeType, [def], facts.focal)
+            ).find(v => v.key === 'resized');
+            if (!made) throw new Error('The image could not be resized.');
+            await adapter.upload(
+                projectId,
+                filename,
+                made.buffer,
+                `image/${mime(request.format)}`,
+                folder
+            );
+            return made.buffer;
+        }, MAKE_QUEUE);
+        const image = { buffer, format: request.format, etag: tagOf(buffer) };
+        keep(key, image);
+        return image;
+    })();
     inFlight.set(key, job);
     try {
-        return { buffer: await job, format: request.format };
+        return await job;
     } finally {
         inFlight.delete(key);
     }

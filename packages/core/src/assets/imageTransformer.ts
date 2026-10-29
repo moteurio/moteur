@@ -98,6 +98,16 @@ async function stripImageMetadataUnlimited(buffer: Buffer, mimeType: string): Pr
  * Every variant is turned upright first (its orientation tag is dropped with the rest of the
  * metadata), is never larger than the original, and keeps an animation when its format can.
  */
+/**
+ * AVIF's quality scale isn't JPEG's: at the same number it keeps far more detail, in larger files
+ * that take many times longer to make. Measured on photos, AVIF at 0.7 of a JPEG/WebP quality looks
+ * as good (80 → 56), in about half the bytes of AVIF at 80; effort 2 (of 9) makes it 8 times
+ * faster than the default for files a few percent larger.
+ */
+export function avifOptions(quality: number): { quality: number; effort: number } {
+    return { quality: Math.max(1, Math.round(quality * 0.7)), effort: 2 };
+}
+
 export async function generateVariants(
     buffer: Buffer,
     mimeType: string,
@@ -204,7 +214,7 @@ async function generateVariantsUnlimited(
             } else if (fmt === 'png') {
                 outBuffer = await pipeline.png({ quality: Math.min(100, quality) }).toBuffer();
             } else if (fmt === 'avif') {
-                outBuffer = await pipeline.avif({ quality }).toBuffer();
+                outBuffer = await pipeline.avif(avifOptions(quality)).toBuffer();
             } else {
                 outBuffer = await pipeline.webp({ quality }).toBuffer();
             }

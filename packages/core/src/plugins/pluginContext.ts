@@ -17,6 +17,7 @@ import {
     setCountLimit,
     setPeopleLimit,
     setProjectsLimit,
+    setImageTrafficQuota,
     setRequestQuota,
     setStorageLimit,
     setSubmissionQuota
@@ -92,6 +93,7 @@ export function createPluginContext(): PluginContext {
         setPeopleLimit,
         setStorageLimit,
         setRequestQuota,
+        setImageTrafficQuota,
         setProjectsLimit,
         setCountLimit,
         setSubmissionQuota,
@@ -168,6 +170,10 @@ export function wrapPluginContext(
         setRequestQuota: quota => {
             collector.setPlanLimit('apiRequests');
             ctx.setRequestQuota(quota);
+        },
+        setImageTrafficQuota: quota => {
+            collector.setPlanLimit('imageTraffic');
+            ctx.setImageTrafficQuota(quota);
         },
         setSubmissionQuota: quota => {
             collector.setPlanLimit('formSubmissions');

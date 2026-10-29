@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 
-export type ApiRequestType = 'studio' | 'public' | null;
+export type ApiRequestType = 'studio' | 'public' | 'image' | null;
 
 /**
  * Classifies the request for usage logging and rate limiting.
@@ -13,6 +13,22 @@ export function requestClassifier(req: Request, res: Response, next: NextFunctio
     req.apiRequestType = null;
     req.apiRequestProjectId = undefined;
 
+    // Images sites show (originals and sizes, and the other files stored with them): counted as
+    // the project's image traffic. A malformed name is left to the route to refuse.
+    const image =
+        req.method === 'GET' || req.method === 'HEAD'
+            ? path.match(/\/static\/(?:resize|assets)\/([^/]+)\//)
+            : null;
+    if (image) {
+        try {
+            req.apiRequestProjectId = decodeURIComponent(image[1]);
+            req.apiRequestType = 'image';
+        } catch {
+            // Not a project id.
+        }
+        next();
+        return;
+    }
     // Studio-global routes (usage, seed, asset migration)
     if (path.includes('/studio/')) {
         req.apiRequestType = 'studio';
