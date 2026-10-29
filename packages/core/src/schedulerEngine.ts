@@ -270,6 +270,11 @@ export function stopSweep(): void {
     timeouts.clear();
 }
 
+/** Schedules being carried out now, finished (stopping waits for them rather than cut one off). */
+export async function executionsIdle(): Promise<void> {
+    while (running.size) await Promise.allSettled([...running.values()]);
+}
+
 export async function sweep(): Promise<void> {
     let registered = 0;
     let executed = 0;
