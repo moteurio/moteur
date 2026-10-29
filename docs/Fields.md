@@ -65,7 +65,7 @@ Anchors follow common Markdown slug rules (`core/foo` → `#core-foo`). If a vie
 
 ## Summary tables (picker order)
 
-Studio groups types like `fieldTypes.tsx`. **core/media-image** is documented here but not in the picker—prefer **core/image**.
+Tables follow the order of Studio's field picker. **core/media-image** is documented here but not in the picker—prefer **core/image**.
 
 ### Text
 
@@ -644,14 +644,12 @@ The URLs can point anywhere. To host the files in Moteur, upload them to the ass
 
 **When to use it:** Single downloadable/file pickers when you do not need **core/image**’s layout-focused options.
 
-**Stored value (Studio / typical API):** `{ "assetId": "…", "alt"?: "…", "caption"?: "…" }` (see `FieldAsset.tsx`).
+**Stored value (Studio / typical API):** `{ "assetId": "…", "alt"?: "…", "caption"?: "…" }`.
 
 | Option        | Type   | Default | Description                                                                                                                                                                         |
 | ------------- | ------ | ------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `ui`          | text   | —       | Studio hint (`upload`, `url`, …).                                                                                                                                                   |
 | `aspectRatio` | select | —       | Crop pictures to `1:1`, `4:3`, `3:2`, `16:9`, `21:9`, `3:4`, `2:3` or `9:16` around their focal point: values read with `resolveAssets=1` carry `cropUrl`. See [Images](Images.md). |
-
-**Studio extras (not in core registry file):** implementations often support `accept`, `mockAsset`, `required` on `options` for the picker—check the Studio app when needed.
 
 **Field example**
 
@@ -1518,5 +1516,4 @@ A kind is lowercase letters, digits and hyphens. A variant can't have a field ca
 
 - **Defining fields:** Set `type`, `label`, `required`, and `options` on each field in models, structures, blocks, and templates. See [Blueprints](Blueprints.md), the [REST API](REST%20API.md), and [`@moteurio/client`](../packages/client/README.md).
 - **Implementation:** `packages/core/src/fields/index.ts` loads all registrations; validators live under `packages/core/src/validators/`.
-- **Studio picker:** Order and labels match the Studio front-end’s `src/components/field-builders/fieldTypes.tsx`.
 - **Validation:** [Entry validation](../packages/core/src/validators/validateEntry.ts) and [field validators](../packages/core/src/validators/fields/core) define accepted values. [Content modeling](Content%20modeling.md) explains drafts, required fields and safe updates.
