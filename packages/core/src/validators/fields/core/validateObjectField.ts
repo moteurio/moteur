@@ -43,7 +43,7 @@ export function validateObjectField(
         if (isMissingValue(subValue)) {
             if (isFieldRequired(subField)) {
                 issues.push({
-                    type: 'error',
+                    type: context?.requiredAsWarning ? 'warning' : 'error',
                     code: 'OBJECT_MISSING_REQUIRED_FIELD',
                     message: `Required field "${key}" is missing.`,
                     path: subPath

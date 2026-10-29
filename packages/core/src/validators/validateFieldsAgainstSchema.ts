@@ -32,7 +32,8 @@ function fieldValidationContext(
         projectId: options?.projectId,
         allowHtmlIframe: options?.allowHtmlIframe === true,
         allowHtmlEmbed: options?.allowHtmlEmbed === true,
-        structures: options?.structures
+        structures: options?.structures,
+        requiredAsWarning: options?.requiredAsWarning === true
     };
 }
 

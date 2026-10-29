@@ -37,6 +37,7 @@ export function validateBlockListField(
         projectId: context?.projectId,
         allowHtmlIframe: context?.allowHtmlIframe === true,
         allowHtmlEmbed: context?.allowHtmlEmbed === true,
-        structures: context?.structures
+        structures: context?.structures,
+        requiredAsWarning: context?.requiredAsWarning === true
     });
 }

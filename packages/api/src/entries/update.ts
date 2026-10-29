@@ -57,10 +57,13 @@ router.patch('/:entryId', requireProjectAccess, async (req: Request, res: Respon
     if (!validation.valid) {
         return void res.status(400).json({
             valid: false,
-            errors: validation.issues.map((issue: any) => ({
-                field: issue.path,
-                message: issue.message
-            }))
+            // What stops the save; a draft's empty required fields are only warnings.
+            errors: validation.issues
+                .filter((issue: any) => issue.type === 'error')
+                .map((issue: any) => ({
+                    field: issue.path,
+                    message: issue.message
+                }))
         });
     }
 
