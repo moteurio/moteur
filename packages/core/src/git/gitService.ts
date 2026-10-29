@@ -1,7 +1,7 @@
 import { spawn, spawnSync } from 'child_process';
 import fs from 'fs/promises';
 import path from 'path';
-import { existsSync, readFileSync } from 'fs';
+import { existsSync, readdirSync, readFileSync, rmSync } from 'fs';
 import { gitAuthEnv } from '../gitCredentials.js';
 
 /** Paths to exclude from the repo. Workspace and user data are gitignored; content is tracked. */
@@ -97,6 +97,30 @@ export function isGitRepo(projectDir: string): boolean {
     } catch {
         return false;
     }
+}
+
+/**
+ * Lock files Git leaves when it's stopped mid-command (a crash, a machine killed during a
+ * commit). One left behind makes every later commit in the repository fail. Only for startup,
+ * before any Git work of this process: removing a lock a running Git holds would be worse.
+ * Returns the locks removed.
+ */
+export function removeStaleLocks(projectDir: string): string[] {
+    const gitDir = path.join(projectDir, '.git');
+    if (!existsSync(gitDir)) return [];
+    const candidates = ['index.lock', 'HEAD.lock', 'config.lock', 'packed-refs.lock'];
+    const headsDir = path.join(gitDir, 'refs', 'heads');
+    if (existsSync(headsDir))
+        for (const name of readdirSync(headsDir))
+            if (name.endsWith('.lock')) candidates.push(path.join('refs', 'heads', name));
+    const removed: string[] = [];
+    for (const name of candidates) {
+        const file = path.join(gitDir, name);
+        if (!existsSync(file)) continue;
+        rmSync(file, { force: true });
+        removed.push(name);
+    }
+    return removed;
 }
 
 /**

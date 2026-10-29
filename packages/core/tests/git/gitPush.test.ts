@@ -10,6 +10,7 @@ import {
     flushPushes,
     gitIdle,
     push,
+    removeStaleLocks,
     schedulePush,
     setRemoteOrigin
 } from '../../src/git/index.js';
@@ -108,5 +109,18 @@ describe('pushing the content history', () => {
         spawnSync('git', ['pack-refs', '--all'], { cwd: repo });
         // Nothing new to commit: HEAD as it is, read from packed-refs.
         expect(await addAllAndCommit(repo, 'Nothing', user as never)).toBe(head());
+    });
+
+    it('clears the locks a stopped Git left behind, so commits work again', async () => {
+        await fs.writeFile(path.join(repo, '.git', 'index.lock'), '');
+        await fs.writeFile(path.join(repo, 'd.json'), '{}');
+        await expect(addAllAndCommit(repo, 'Blocked', user as never)).rejects.toThrow(
+            /index\.lock/
+        );
+        expect(removeStaleLocks(repo)).toEqual(['index.lock']);
+        expect(removeStaleLocks(repo)).toEqual([]);
+        await expect(addAllAndCommit(repo, 'Unblocked', user as never)).resolves.toMatch(
+            /^[0-9a-f]{40}$/
+        );
     });
 });
