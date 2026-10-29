@@ -12,6 +12,7 @@ These guides describe the engine in this repository: content modeling, delivery,
 | Run or restore an API host          | [Operations](Operations.md) and [Configuration](Configuration.md)                                                 |
 | Authenticate people or applications | [Authentication](Authentication.md)                                                                               |
 | Work from a terminal or AI client   | [CLI](CLI.md) and [MCP](MCP.md)                                                                                   |
+| Change the engine itself            | [Contributing](Contributing/README.md)                                                                            |
 
 ## Content and editorial work
 
