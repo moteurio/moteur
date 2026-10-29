@@ -3,7 +3,29 @@ import { Router } from 'express';
 import type { OpenAPIV3 } from 'openapi-types';
 import { getReviews, getReview, approveReview, rejectReview } from '@moteurio/core/reviews.js';
 import { requireProjectAccess } from '../../middlewares/auth.js';
-import { getMessage } from '../../utils/apiError.js';
+import { errorFields, getMessage, sendApiError } from '../../utils/apiError.js';
+
+/**
+ * A decision that didn't go through: its own status when it has one (an entry changed since it
+ * was sent is 409 REVIEW_STALE, not a server error), else what its message says; anything else
+ * is a failure, logged with the request.
+ */
+function reviewError(res: Response, req: Request, err: unknown): void {
+    const own =
+        (err as { statusCode?: number; status?: number }).statusCode ??
+        (err as { status?: number }).status;
+    const message = getMessage(err);
+    const status =
+        typeof own === 'number' && own >= 400 && own < 600
+            ? own
+            : message.includes('reviewer') || message.includes('admin')
+              ? 403
+              : message.includes('not found') || message.includes('not pending')
+                ? 400
+                : 500;
+    if (status >= 500) return sendApiError(res, req, err);
+    res.status(status).json({ error: message, ...errorFields(err) });
+}
 
 const router: Router = Router({ mergeParams: true });
 
@@ -59,18 +81,7 @@ router.post(
             const review = await approveReview(projectId, req.user!, reviewId);
             return void res.json({ review });
         } catch (err: unknown) {
-            const status =
-                (err as { statusCode?: number }).statusCode === 403 ||
-                getMessage(err)?.includes('reviewer') ||
-                getMessage(err)?.includes('admin')
-                    ? 403
-                    : getMessage(err)?.includes('not found') ||
-                        getMessage(err)?.includes('not pending')
-                      ? 400
-                      : 500;
-            return void res
-                .status(status)
-                .json({ error: getMessage(err) ?? 'Failed to approve review' });
+            return void reviewError(res, req, err);
         }
     }
 );
@@ -90,18 +101,7 @@ router.post(
             );
             return void res.json({ review });
         } catch (err: unknown) {
-            const status =
-                (err as { statusCode?: number }).statusCode === 403 ||
-                getMessage(err)?.includes('reviewer') ||
-                getMessage(err)?.includes('admin')
-                    ? 403
-                    : getMessage(err)?.includes('not found') ||
-                        getMessage(err)?.includes('not pending')
-                      ? 400
-                      : 500;
-            return void res
-                .status(status)
-                .json({ error: getMessage(err) ?? 'Failed to reject review' });
+            return void reviewError(res, req, err);
         }
     }
 );

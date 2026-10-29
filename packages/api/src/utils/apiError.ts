@@ -89,6 +89,7 @@ export function sendApiError(
     };
     if (status >= 500) {
         console.error('[API]', logPayload, err);
+        res.locals.errorLogged = true;
     }
 
     const exposeDetails = process.env.NODE_ENV !== 'production';
