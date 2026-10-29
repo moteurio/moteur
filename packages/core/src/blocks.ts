@@ -3,7 +3,7 @@ import path from 'path';
 import { BlockSchema } from '@moteurio/types/Block.js';
 import { storageConfig } from './config/storageConfig.js';
 import { isValidId } from './utils/idUtils.js';
-import { isExistingProjectId, writeJson } from './utils/fileUtils.js';
+import { isExistingProjectId, writeJson, writeFileAtomicSync } from './utils/fileUtils.js';
 import { normalizeType } from './utils/normalizeType.js';
 import { builtinBlockSchemas } from './plugins/builtinContent.js';
 import { readTextCachedSync } from './utils/fileCache.js';
@@ -122,7 +122,7 @@ export function createBlock(schema: BlockSchema): BlockSchema {
         ...(schema.variantHints != null && { variantHints: schema.variantHints }),
         ...(schema.editorial != null && { editorial: schema.editorial })
     };
-    fs.writeFileSync(filePath, JSON.stringify(toWrite, null, 4), 'utf-8');
+    writeFileAtomicSync(filePath, JSON.stringify(toWrite, null, 4));
     return toWrite as BlockSchema;
 }
 

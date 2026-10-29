@@ -23,6 +23,7 @@ import { trashScheduleDir } from './utils/pathUtils.js';
 import { triggerEvent } from './utils/eventBus.js';
 import { dispatch as webhookDispatch } from './webhooks/webhookService.js';
 import { hasApprovedReview, hasApprovedReviewForPage } from './reviews.js';
+import { writeFileAtomicSync } from './utils/fileUtils.js';
 import * as schedulerEngine from './schedulerEngine.js';
 
 const RESOURCE_TYPES: ReadonlySet<string> = new Set(['entry', 'page']);
@@ -358,7 +359,7 @@ export async function deleteSchedule(
     const trashDir = trashScheduleDir(projectId, scheduleId);
     fs.mkdirSync(trashDir, { recursive: true });
     const dest = path.join(trashDir, `${scheduleId}-${Date.now()}.json`);
-    fs.writeFileSync(dest, JSON.stringify(schedule, null, 2), 'utf-8');
+    writeFileAtomicSync(dest, JSON.stringify(schedule, null, 2));
     await deleteProjectKey(projectId, scheduleKey(scheduleId));
 
     triggerEvent('content.deleted', {

@@ -35,12 +35,19 @@ async function handleContentChange(payload: ContentEventPayload): Promise<void> 
     await commitContentChange(payload);
 }
 
+/**
+ * Paths a commit failed for (a full disk, a lock), per project: saved on disk but not in history.
+ * The project's next commit takes them along, so a failure costs a delay, not a lost change.
+ */
+const uncommitted = new Map<string, Set<string>>();
+
 /** Commits (and pushes) a change now: what a content event does outside a batch. The commit, if any. */
 export async function commitContentChange(
     payload: ContentEventPayload
 ): Promise<string | undefined> {
     const { projectId, message, user } = payload;
-    const paths = trackedPaths(payload.paths);
+    const waiting = uncommitted.get(projectId);
+    const paths = [...new Set([...trackedPaths(payload.paths), ...(waiting ?? [])])];
     if (paths.length === 0) return;
 
     const project = await getProjectById(projectId);
@@ -53,7 +60,9 @@ export async function commitContentChange(
     let commitHash: string;
     try {
         commitHash = await addAndCommit(dir, paths, message, user);
+        uncommitted.delete(projectId);
     } catch (err) {
+        uncommitted.set(projectId, new Set(paths));
         console.warn(
             `[Moteur] Git commit error for project "${projectId}":`,
             err instanceof Error ? err.message : err

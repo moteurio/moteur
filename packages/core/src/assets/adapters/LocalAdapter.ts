@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { baseAssetsDir } from '../../utils/pathUtils.js';
+import { writeFileAtomicSync } from '../../utils/fileUtils.js';
 import type { StorageAdapter, UploadResult } from '../StorageAdapter.js';
 
 const DEFAULT_BASE_URL = process.env.STATIC_ASSETS_BASE_URL || 'http://localhost:3000';
@@ -109,7 +110,7 @@ export class LocalAdapter implements StorageAdapter {
         LocalAdapter.assertSafeSegment(variantKey, 'variantKey');
         const filePath = LocalAdapter.safeAssetFilePath(projectId, variantKey, safeFilename);
         fs.mkdirSync(path.dirname(filePath), { recursive: true });
-        fs.writeFileSync(filePath, buffer);
+        writeFileAtomicSync(filePath, buffer);
         const storedPath = `${projectId}/${variantKey}/${safeFilename}`;
         const url = this.assetUrl(projectId, variantKey, safeFilename, true);
         return { path: storedPath, url, size: buffer.length };
