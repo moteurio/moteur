@@ -17,6 +17,8 @@ export type ActivityAction =
     | 'created'
     | 'updated'
     | 'deleted'
+    /** Taken out of the bin (back as a draft). */
+    | 'restored'
     | 'published'
     | 'unpublished'
     | 'commented'

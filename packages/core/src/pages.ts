@@ -1,6 +1,5 @@
 import { randomUUID } from 'crypto';
 import fs from 'fs';
-import path from 'path';
 import type {
     PageNode,
     StaticPage,
@@ -44,7 +43,8 @@ import {
 } from './utils/projectStorage.js';
 import { pageKey, pageListPrefix } from './utils/storageKeys.js';
 import { assertCountRoom } from './planLimits.js';
-import { pageFilePath, trashPagesDir } from './utils/pathUtils.js';
+import { pageFilePath } from './utils/pathUtils.js';
+import { binPage, getBinItem, removeFromBin } from './contentBin.js';
 import { validatePage as validatePageAgainstTemplate } from './validators/validatePage.js';
 import type { ProjectSchema } from '@moteurio/types/Project.js';
 
@@ -744,13 +744,10 @@ export async function deletePage(projectId: string, user: User, id: string): Pro
 
     await triggerEvent('page.beforeDelete', { page: current, user, projectId });
 
-    const source = pageFilePath(projectId, id);
-    const destDir = trashPagesDir(projectId);
-    const dest = path.join(destDir, `${id}.json`);
-
+    // Kept in the bin first: what can't be kept there isn't deleted.
+    binPage(projectId, (await getProjectJson<PageNode>(projectId, pageKey(id))) ?? current, user);
     try {
-        fs.mkdirSync(destDir, { recursive: true });
-        fs.renameSync(source, dest);
+        fs.unlinkSync(pageFilePath(projectId, id));
     } catch (err) {
         if ((err as { code?: string }).code !== 'ENOENT') throw err;
     }
@@ -778,6 +775,59 @@ export async function deletePage(projectId: string, user: User, id: string): Pro
     } catch {
         // never fail the operation
     }
+}
+
+/**
+ * Takes a page out of the bin as a draft: putting it on the site again goes through publishing
+ * and its review. Its parent gone, it comes back at the top level. Refused while another page
+ * has its id, or its address under the same parent.
+ */
+export async function restorePageFromBin(
+    projectId: string,
+    user: User,
+    binId: string
+): Promise<PageNode> {
+    const project = await getProject(user, projectId);
+    assertUserCanAccessProject(user, project);
+    assertCanWrite(user);
+    assertNotReviewOnly(user, 'take content out of the bin');
+    const item = getBinItem(projectId, binId);
+    if (item.kind !== 'page') throw binConflict('This is an entry: restore it from its model.');
+    const binned = item.page;
+    if (await hasProjectKey(projectId, pageKey(binned.id)))
+        throw binConflict(`Another page has the id "${binned.id}" now.`);
+    const allPages = await loadAllPages(projectId);
+    assertCountRoom(projectId, 'pages', allPages.length);
+    const parentId =
+        binned.parentId && allPages.some(p => p.id === binned.parentId) ? binned.parentId : null;
+    try {
+        await assertSlugUniqueAmongSiblings(projectId, { ...binned, parentId });
+    } catch (err) {
+        throw binConflict((err as Error).message);
+    }
+
+    const page = {
+        ...binned,
+        projectId,
+        parentId,
+        order: parentId === binned.parentId ? binned.order : getNextOrder(allPages, parentId),
+        ...(binned.type !== 'folder' && { status: 'draft' }),
+        updatedAt: new Date().toISOString()
+    } as PageNode;
+    await putProjectJson(projectId, pageKey(page.id), page);
+    removeFromBin(projectId, binId);
+    void triggerEvent('content.saved', {
+        projectId,
+        paths: [pageKey(page.id)],
+        message: `Restore page ${page.id} from the bin — ${user.name ?? user.id}`,
+        user
+    });
+    triggerEvent('page.afterRestore', { page, user, projectId });
+    return page;
+}
+
+function binConflict(message: string): Error {
+    return Object.assign(new Error(message), { statusCode: 409 });
 }
 
 export async function reorderPages(

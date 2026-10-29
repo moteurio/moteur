@@ -10,6 +10,7 @@ import remove, { openapi as deleteSpec } from './delete.js';
 import users, { openapi as usersSpec } from './users.js';
 import invites, { openapi as invitesSpec, schemas as invitesSchemas } from './invites.js';
 import usage, { openapi as usageSpec, schemas as usageSchemas } from './usage.js';
+import bin, { openapi as binSpec, schemas as binSchemas } from './bin.js';
 
 import activityRouter, {
     openapi as activitySpec,
@@ -60,6 +61,7 @@ router.use(remove);
 router.use(users);
 router.use(invites);
 router.use(usage);
+router.use(bin);
 router.use('/:projectId/templates', templatesRouter);
 router.use('/:projectId/pages', pagesStudioRouter);
 router.use('/:projectId', pageOutputsRouter);
@@ -104,6 +106,7 @@ export const projectsSpecs = {
         usersSpec,
         invitesSpec,
         usageSpec,
+        binSpec,
         activitySpec,
         commentsSpec,
         reviewsSpec,
@@ -138,7 +141,8 @@ export const projectsSpecs = {
         ...activitySchemas,
         ...commentsSchemas,
         ...invitesSchemas,
-        ...usageSchemas
+        ...usageSchemas,
+        ...binSchemas
     }
 };
 

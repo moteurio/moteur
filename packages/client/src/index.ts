@@ -33,6 +33,7 @@ export type { MoteurPublicClient } from './public/createPublicClient.js';
 export type { EntryListParams, EntryListResult, FieldLocales } from './project/entries.js';
 export { entryListQuery } from './project/entries.js';
 export type { AssetPage, AssetUsage } from './project/assets.js';
+export type { BinItem, BinRestored } from './project/bin.js';
 export type {
     MediaSettings,
     MediaSettingsUpdate,

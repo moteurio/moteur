@@ -16,6 +16,7 @@ import { projectRedirectsApi, type RedirectInput } from '../project/redirects.js
 import { projectWebhooksApi } from '../project/webhooks.js';
 import { projectSchedulesApi } from '../project/schedules.js';
 import { projectAssetsApi } from '../project/assets.js';
+import { projectBinApi } from '../project/bin.js';
 import { projectAssetConfigApi } from '../project/assetConfig.js';
 import {
     projectMediaSettingsApi,
@@ -49,6 +50,7 @@ export function createProjectClient(client: MoteurClient, projectId: string) {
     const webhooks = projectWebhooksApi(client);
     const schedules = projectSchedulesApi(client);
     const assets = projectAssetsApi(client);
+    const bin = projectBinApi(client);
     const assetConfig = projectAssetConfigApi(client);
     const mediaSettings = projectMediaSettingsApi(client);
     const blocks = projectBlocksApi(client);
@@ -264,6 +266,13 @@ export function createProjectClient(client: MoteurClient, projectId: string) {
             regenerate: (assetIds?: string[], options?: { background?: boolean }) =>
                 assets.regenerate(pid, assetIds, options),
             move: (id: string, folder: string) => assets.move(pid, id, folder)
+        },
+
+        bin: {
+            list: () => bin.list(pid),
+            restore: (binId: string) => bin.restore(pid, binId),
+            deleteForever: (binId: string) => bin.deleteForever(pid, binId),
+            empty: () => bin.empty(pid)
         },
 
         assetConfig: {

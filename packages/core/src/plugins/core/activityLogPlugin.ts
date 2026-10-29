@@ -27,12 +27,14 @@ export const manifest: PluginManifest = {
                 'entry.afterCreate',
                 'entry.afterUpdate',
                 'entry.afterDelete',
+                'entry.afterRestore',
                 'template.afterCreate',
                 'template.afterUpdate',
                 'template.afterDelete',
                 'page.afterCreate',
                 'page.afterUpdate',
                 'page.afterDelete',
+                'page.afterRestore',
                 'layout.afterCreate',
                 'layout.afterUpdate',
                 'layout.afterDelete',
@@ -82,6 +84,9 @@ export function init(ctx: PluginContext): void {
     ctx.onEvent('entry.afterDelete', async ({ entry, user, modelId, projectId }) => {
         log(toActivityEvent(projectId, 'entry', `${modelId}__${entry.id}`, deleted, user));
     });
+    ctx.onEvent('entry.afterRestore', async ({ entry, user, modelId, projectId }) => {
+        log(toActivityEvent(projectId, 'entry', `${modelId}__${entry.id}`, 'restored', user));
+    });
 
     ctx.onEvent('template.afterCreate', async ({ template, user, projectId }) => {
         log(toActivityEvent(projectId, 'template', template.id, created, user));
@@ -101,6 +106,9 @@ export function init(ctx: PluginContext): void {
     });
     ctx.onEvent('page.afterDelete', async ({ page, user, projectId }) => {
         log(toActivityEvent(projectId, 'page', page.id, deleted, user));
+    });
+    ctx.onEvent('page.afterRestore', async ({ page, user, projectId }) => {
+        log(toActivityEvent(projectId, 'page', page.id, 'restored', user));
     });
 
     ctx.onEvent('layout.afterCreate', async ({ layout, user, projectId }) => {

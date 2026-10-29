@@ -16,6 +16,7 @@ import { projectRedirectsApi } from '../project/redirects.js';
 import { projectWebhooksApi } from '../project/webhooks.js';
 import { projectSchedulesApi } from '../project/schedules.js';
 import { projectAssetsApi } from '../project/assets.js';
+import { projectBinApi } from '../project/bin.js';
 import { projectAssetConfigApi } from '../project/assetConfig.js';
 import { projectMediaSettingsApi } from '../project/mediaSettings.js';
 import { projectBlocksApi } from '../project/blocks.js';
@@ -50,6 +51,7 @@ export function createMoteurAdminClient(config: MoteurClientConfig) {
         webhooks: projectWebhooksApi(client),
         schedules: projectSchedulesApi(client),
         assets: projectAssetsApi(client),
+        bin: projectBinApi(client),
         assetConfig: projectAssetConfigApi(client),
         mediaSettings: projectMediaSettingsApi(client),
         blocks: projectBlocksApi(client),
