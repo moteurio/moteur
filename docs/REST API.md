@@ -483,14 +483,16 @@ Set **`MOTEUR_FAIL_ON_OPENAPI_COLLISION=1`** to fail bootstrap when merged plugi
 
 **Audit log:** If `API_REQUEST_LOG_FILE` (absolute path) or `API_REQUEST_LOG_DIR` is set, each classified request is appended as a JSON line (timestamp, type, projectId, method, path, statusCode, durationMs). **API key and Authorization header are never logged.** Use log rotation (e.g. logrotate) and retain logs as needed for audit or billing disputes.
 
-**Rate limiting:**
+**What sites ask for: a fair share, not a rate.** Each project's site requests (channel reads, pages, sitemap, navigation, redirects, form posts, and apart from them its images) are answered so many at once (`MOTEUR_PUBLIC_CONCURRENCY`, 10). The next ones wait their turn rather than being refused, so a static site's build, which asks for everything in a burst, goes through at the server's pace, and one project's flood can't take the server from the others. Only what the queue can't hold (`MOTEUR_PUBLIC_QUEUE`, 200), or what waited longer than `MOTEUR_PUBLIC_QUEUE_SECONDS` (10), answers **429** with `{ code: "rate_limited" }` and `Retry-After: 1`. How much a project may ask for in a month is its plan's quota (402 `plan_limit`, see Usage).
 
-| Scope  | Key       | Default                          | Env                         |
-| ------ | --------- | -------------------------------- | --------------------------- |
-| Studio | IP        | 10000 / 15 min (effectively off) | `API_RATE_LIMIT_STUDIO_MAX` |
-| Public | projectId | 1000 / 15 min per project        | `API_RATE_LIMIT_PUBLIC_MAX` |
+**Rate limiting** applies to the Studio's own requests and to signing in:
 
-When exceeded, response is **429** with `{ error: "Too many requests...", code: "rate_limited" }` and a `Retry-After` header in seconds (exposed to browsers through CORS). Set env to `0` to keep default (studio: high, public: 1000). For multiple API instances, use a shared store (e.g. Redis) with express-rate-limit; see the package docs.
+| Scope  | Key | Default                          | Env                         |
+| ------ | --- | -------------------------------- | --------------------------- |
+| Studio | IP  | 10000 / 15 min (effectively off) | `API_RATE_LIMIT_STUDIO_MAX` |
+| Login  | IP  | 10 / 15 min                      | `API_RATE_LIMIT_LOGIN_MAX`  |
+
+When exceeded, response is **429** with `{ error: "Too many requests...", code: "rate_limited" }` and a `Retry-After` header in seconds (exposed to browsers through CORS). Limits and the fair share are kept in the API process: with several API instances, each keeps its own.
 
 **Security:** [Helmet](https://helmetjs.github.io/) is enabled by default (security headers). Set `HELMET_DISABLED=1` to disable when not in production (e.g. local Swagger); in production this variable is ignored. Set `HELMET_CSP_DISABLED=1` to disable Content-Security-Policy only. Request body size is limited by `API_BODY_LIMIT` (default `1mb`).
 

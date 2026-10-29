@@ -38,13 +38,15 @@ This page lists environment variables used by the Moteur API. Details (rate limi
 
 ## Rate limiting
 
-| Variable                    | Description                                                                                                                                                                                                                    |
-| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `API_RATE_LIMIT_STUDIO_MAX` | Max **studio**-classified requests per 15 min (per IP). Default: 10000 (effectively off).                                                                                                                                      |
-| `API_RATE_LIMIT_PUBLIC_MAX` | Max public requests per 15 min per project. Default: 1000.                                                                                                                                                                     |
-| `API_RATE_LIMIT_FORMS_MAX`  | Max form submissions per 15 min per form (keyed by projectId+formId). Default: 60.                                                                                                                                             |
-| `API_RATE_LIMIT_LOGIN_MAX`  | Max login attempts per 15 min per IP. Default: 10.                                                                                                                                                                             |
-| `TRUST_PROXY`               | Proxies in front of the API, so per-IP limits see each visitor: a count (`1` on Fly or behind one load balancer) or their addresses, comma-separated. Default: none. `true` is refused: any client could name its own address. |
+| Variable                      | Description                                                                                                                                                                                                                    |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `API_RATE_LIMIT_STUDIO_MAX`   | Max Studio requests per 15 min (per IP). What sites ask for (reads, images) isn't counted. Default: 10000 (effectively off).                                                                                                   |
+| `MOTEUR_PUBLIC_CONCURRENCY`   | A project's fair share of the server: how many of what its sites ask for (reads, then images apart) are answered at once. The next ones wait their turn. Default: 10.                                                          |
+| `MOTEUR_PUBLIC_QUEUE`         | How many of a project's site requests may wait their turn before more are told to retry (429, `Retry-After: 1`). Default: 200.                                                                                                 |
+| `MOTEUR_PUBLIC_QUEUE_SECONDS` | How long one may wait for its turn before being told to retry. Default: 10.                                                                                                                                                    |
+| `API_RATE_LIMIT_FORMS_MAX`    | Max form submissions per 15 min per form (keyed by projectId+formId). Default: 60.                                                                                                                                             |
+| `API_RATE_LIMIT_LOGIN_MAX`    | Max login attempts per 15 min per IP. Default: 10.                                                                                                                                                                             |
+| `TRUST_PROXY`                 | Proxies in front of the API, so per-IP limits see each visitor: a count (`1` on Fly or behind one load balancer) or their addresses, comma-separated. Default: none. `true` is refused: any client could name its own address. |
 
 ---
 
