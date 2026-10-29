@@ -399,6 +399,8 @@ async function gracefulShutdown(signal: string): Promise<void> {
         globalThis.setTimeout(() => httpServer.closeAllConnections(), 10_000).unref();
     });
     try {
+        // A scheduled publish under way finishes, then its commit and push go.
+        await schedulerEngine.executionsIdle();
         await gitIdle();
         await flushPushes();
         await gitIdle();
