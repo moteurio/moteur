@@ -99,7 +99,7 @@ export function validateStructureField(
         if (subValue === undefined || subValue === null || subValue === '') {
             if (subField.required === true || subField.options?.required === true) {
                 issues.push({
-                    type: 'error',
+                    type: context?.requiredAsWarning ? 'warning' : 'error',
                     code: 'STRUCTURE_REQUIRED_FIELD',
                     message: `Required field "${subKey}" is missing.`,
                     path: subPath

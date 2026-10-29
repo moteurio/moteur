@@ -9,7 +9,7 @@ import { modelKey } from '../../src/utils/storageKeys.js';
 import { createEntry, publishEntry, updateEntry } from '../../src/entries.js';
 import { submitForReview } from '../../src/reviews.js';
 import { validateEntry } from '../../src/validators/validateEntry.js';
-import { missingRequiredFields } from '../../src/validators/entryComplete.js';
+import { missingRequired, missingRequiredFields } from '../../src/validators/entryComplete.js';
 
 const projectId = 'incomplete-drafts';
 const user = { id: 'u1', name: 'Ada', isActive: true, roles: ['admin'], projects: [projectId] };
@@ -51,6 +51,60 @@ describe('incomplete drafts', () => {
     });
 
     const draft = { id: 'new-one', type: 'article', data: { title: 'Un essai' } } as Entry;
+
+    it('lets a draft hold unfinished blocks and groups too, not a live entry', async () => {
+        // A block whose picture is required, and a group (object) whose label is.
+        const blocks = path.join(tempDir, 'data', 'projects', projectId, 'blocks');
+        await fs.mkdir(blocks, { recursive: true });
+        await fs.writeFile(
+            path.join(blocks, 'figure.json'),
+            JSON.stringify({
+                type: 'site/figure',
+                label: 'Figure',
+                fields: {
+                    image: { type: 'core/text', label: 'Image', required: true },
+                    caption: { type: 'core/text', label: 'Caption' }
+                }
+            })
+        );
+        const long: ModelSchema = {
+            ...model,
+            fields: {
+                ...model.fields,
+                body: { type: 'core/block-list', label: 'Body' },
+                cta: {
+                    type: 'core/object',
+                    label: 'Call to action',
+                    fields: { label: { type: 'core/text', label: 'Label', required: true } }
+                }
+            }
+        } as ModelSchema;
+        const unfinished = {
+            ...draft,
+            data: {
+                title: 'Un essai',
+                body: [{ type: 'site/figure', data: { caption: 'Soon' } }],
+                cta: { url: '/' }
+            }
+        } as Entry;
+
+        const asDraft = await validateEntry(projectId, unfinished, long, { draft: true });
+        expect(asDraft.valid).toBe(true);
+        expect(asDraft.issues.map(i => [i.type, i.path.split('.').slice(-1)[0]])).toEqual(
+            expect.arrayContaining([
+                ['warning', 'image'],
+                ['warning', 'label']
+            ])
+        );
+        // Going live: the unfinished block and group are named, by where they are.
+        expect(missingRequired(unfinished, long, projectId)).toEqual({
+            fields: ['slug', 'body', 'cta'],
+            where: ['slug', 'body[0].image', 'cta.label']
+        });
+        const live = await validateEntry(projectId, unfinished, long, { draft: false });
+        expect(live.valid).toBe(false);
+        expect(live.issues.filter(i => i.type === 'error').length).toBeGreaterThanOrEqual(3);
+    });
 
     it('validates a draft with empty required fields as warnings, a live entry as errors', async () => {
         const asDraft = await validateEntry(projectId, draft, model, { draft: true });

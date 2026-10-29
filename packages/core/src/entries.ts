@@ -242,7 +242,7 @@ async function createEntryUnlocked(
             const approved = await hasApprovedReview(projectId, modelId, entry.id);
             if (!approved) throw contentForbidden(approvalMessage(user, project));
         }
-        assertEntryComplete(entry, schema, 'publish');
+        assertEntryComplete(entry, schema, 'publish', projectId);
         entry = { ...entry, status: 'draft' };
     }
 
@@ -439,7 +439,7 @@ async function updateEntryUnlocked(
         else delete updated.meta.assisted;
     }
     if (patch.status === 'in_review' && prevStatus !== 'in_review') {
-        assertEntryComplete(updated, schema, 'review');
+        assertEntryComplete(updated, schema, 'review', projectId);
     }
     // Nothing to save: no commit, no hooks, no webhooks.
     if (sameContent(current, updated)) return current;
@@ -647,7 +647,12 @@ async function publishEntryUnlocked(
     }
 
     const entry = await getEntry(user, projectId, modelId, entryId);
-    assertEntryComplete(entry, await getModelSchema(user, projectId, modelId), 'publish');
+    assertEntryComplete(
+        entry,
+        await getModelSchema(user, projectId, modelId),
+        'publish',
+        projectId
+    );
     const now = new Date().toISOString();
 
     entry.status = 'published';

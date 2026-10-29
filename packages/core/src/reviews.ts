@@ -130,7 +130,7 @@ export async function submitForReview(
             `Entry "${entryId}" not found in model "${modelId}" of project "${projectId}".`
         );
     }
-    assertEntryComplete(entry, schema, 'review');
+    assertEntryComplete(entry, schema, 'review', projectId);
     const now = new Date().toISOString();
 
     try {

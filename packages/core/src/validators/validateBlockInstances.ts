@@ -13,6 +13,8 @@ export interface ValidateBlockInstancesOptions {
     allowHtmlEmbed?: boolean;
     /** The project's structures, passed on to the blocks' fields. */
     structures?: Record<string, StructureSchema>;
+    /** A draft's blocks: a required value left empty is a warning (see FieldValidationContext). */
+    requiredAsWarning?: boolean;
     /** Project locales for block.locales validation */
     projectLocales?: string[];
     /** If set, each block `type` must be in this list */
@@ -121,7 +123,7 @@ export function validateBlockInstances(
             if (fieldValue === undefined || fieldValue === null) {
                 const isRequired = fieldDef.required === true;
                 issues.push({
-                    type: isRequired ? 'error' : 'warning',
+                    type: isRequired && !options?.requiredAsWarning ? 'error' : 'warning',
                     code:
                         p === 'layout'
                             ? isRequired
@@ -153,7 +155,8 @@ export function validateBlockInstances(
                     projectId: options?.projectId,
                     allowHtmlIframe: options?.allowHtmlIframe === true,
                     allowHtmlEmbed: options?.allowHtmlEmbed === true,
-                    structures: options?.structures
+                    structures: options?.structures,
+                    requiredAsWarning: options?.requiredAsWarning === true
                 })
             );
         }

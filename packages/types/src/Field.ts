@@ -13,6 +13,11 @@ export interface FieldValidationContext {
      * core/structure fields only find the engine's own structures.
      */
     structures?: Record<string, StructureSchema>;
+    /**
+     * A draft: a required value left empty, at any depth (blocks, structures, objects, variants),
+     * is a warning, not an error. Review and publishing check them (assertEntryComplete).
+     */
+    requiredAsWarning?: boolean;
 }
 
 export interface Field {

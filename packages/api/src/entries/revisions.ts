@@ -98,10 +98,12 @@ router.post(
             if (!validation.valid) {
                 return void res.status(400).json({
                     valid: false,
-                    errors: validation.issues.map(issue => ({
-                        field: issue.path,
-                        message: issue.message
-                    }))
+                    errors: validation.issues
+                        .filter(issue => issue.type === 'error')
+                        .map(issue => ({
+                            field: issue.path,
+                            message: issue.message
+                        }))
                 });
             }
             const { restored, changed } = await restoreEntryAtRevision(

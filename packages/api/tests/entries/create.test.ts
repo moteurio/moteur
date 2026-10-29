@@ -93,7 +93,7 @@ describe('POST /projects/:projectId/models/:modelId/entries', () => {
         (getModelSchema as any).mockReturnValue(mockSchema);
         (validateEntry as any).mockResolvedValue({
             valid: false,
-            issues: [{ path: 'title', message: 'Required' }]
+            issues: [{ type: 'error', path: 'title', message: 'Required' }]
         });
 
         const res = await request(app).post(basePath).send({});

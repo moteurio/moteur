@@ -232,7 +232,8 @@ function assertPageComplete(page: StaticPage | CollectionPage, template: Templat
     assertEntryComplete(
         { id: page.label || page.id, data: page.fields ?? {} } as Entry,
         { id: template.id, label: template.label, fields: template.fields } as ModelSchema,
-        'publish'
+        'publish',
+        page.projectId
     );
 }
 
