@@ -65,6 +65,8 @@ import { registerSocketEventBridge } from './bootstrap/socketEventBridge.js';
 import { mountResizedImages, mountStaticAssets } from './bootstrap/staticAssetsRoute.js';
 import { resumeImageCopies, resumeVideoUploads } from '@moteurio/core/assets/assetService.js';
 import { loadProjects } from '@moteurio/core/projects.js';
+import { flushPushes, gitIdle, removeStaleLocks } from '@moteurio/core/git/index.js';
+import { projectDir } from '@moteurio/core/utils/pathUtils.js';
 import {
     createFileMeteringStore,
     getMeteringStore,
@@ -333,6 +335,14 @@ validateStorageConfig();
 const PORT = process.env.PORT || 3000;
 httpServer.requestTimeout = 120_000;
 httpServer.headersTimeout = 30_000;
+// A crash or a killed machine can leave Git's lock files behind, and one would stop every later
+// commit in its project: before any Git work of this process, they go.
+for (const project of loadProjects()) {
+    const removed = removeStaleLocks(projectDir(project.id));
+    if (removed.length)
+        console.warn(`[Moteur] Removed Git lock(s) left in "${project.id}": ${removed.join(', ')}`);
+}
+
 httpServer.listen(PORT, async () => {
     console.log(`Moteur API running at http://localhost:${PORT}`);
     try {
@@ -358,12 +368,46 @@ httpServer.listen(PORT, async () => {
     }
 });
 
-function gracefulShutdown(): void {
+/** How long a stop may take (`MOTEUR_SHUTDOWN_SECONDS`, 25): keep it under the host's kill timeout. */
+function shutdownMs(): number {
+    const n = Number(process.env.MOTEUR_SHUTDOWN_SECONDS);
+    return (Number.isFinite(n) && n > 0 ? n : 25) * 1000;
+}
+
+let stopping = false;
+
+/**
+ * Stopping (a deploy, a restart): no new requests, those in progress finish, then the commits
+ * queued and the pushes waiting go out, so nothing saved is left uncommitted or unpushed and Git
+ * isn't cut off mid-commit. Past the time allowed, it stops anyway.
+ */
+async function gracefulShutdown(signal: string): Promise<void> {
+    if (stopping) return;
+    stopping = true;
+    console.log(`[Moteur] ${signal}: finishing what's in progress, then stopping`);
+    globalThis.setTimeout(() => {
+        console.error('[Moteur] Stopping took too long: stopping now');
+        process.exit(1);
+    }, shutdownMs());
     schedulerEngine.stopSweep();
     stopWebhookWorker();
     stopSnapshotScheduler();
+    await new Promise<void>(resolve => {
+        httpServer.close(() => resolve());
+        httpServer.closeIdleConnections();
+        // Long-lived connections (live presence) don't end by themselves.
+        globalThis.setTimeout(() => httpServer.closeAllConnections(), 10_000).unref();
+    });
+    try {
+        await gitIdle();
+        await flushPushes();
+        await gitIdle();
+    } catch (err) {
+        console.error('[Moteur] Finishing Git work on the way out failed:', err);
+    }
     getMeteringStore().flush();
+    console.log('[Moteur] Stopped');
     process.exit(0);
 }
-process.on('SIGTERM', gracefulShutdown);
-process.on('SIGINT', gracefulShutdown);
+process.on('SIGTERM', () => void gracefulShutdown('SIGTERM'));
+process.on('SIGINT', () => void gracefulShutdown('SIGINT'));

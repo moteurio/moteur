@@ -13,6 +13,7 @@ export {
     schedulePush,
     flushPushes,
     gitIdle,
+    removeStaleLocks,
     pushBranch,
     isGitRepo,
     GITIGNORE_LINES,
