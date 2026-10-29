@@ -39,6 +39,8 @@ export interface EventMap {
     // Entries (projectId and modelId for activity log)
     'entry.beforeCreate': { entry: Entry; user: User; modelId: string; projectId: string };
     'entry.afterCreate': { entry: Entry; user: User; modelId: string; projectId: string };
+    /** Taken out of the bin, back as a draft. */
+    'entry.afterRestore': { entry: Entry; user: User; modelId: string; projectId: string };
     'entry.beforeUpdate': { entry: Entry; user: User; modelId: string; projectId: string };
     'entry.afterUpdate': { entry: Entry; user: User; modelId: string; projectId: string };
     'entry.beforeDelete': { entry: Entry; user: User; modelId: string; projectId: string };
@@ -63,6 +65,8 @@ export interface EventMap {
     // Pages (projectId for activity log)
     'page.beforeCreate': { page: PageNode; user: User; projectId: string };
     'page.afterCreate': { page: PageNode; user: User; projectId: string };
+    /** Taken out of the bin, back as a draft. */
+    'page.afterRestore': { page: PageNode; user: User; projectId: string };
     'page.beforeUpdate': { page: PageNode; user: User; projectId: string };
     'page.afterUpdate': { page: PageNode; user: User; projectId: string };
     'page.beforeDelete': { page: PageNode; user: User; projectId: string };

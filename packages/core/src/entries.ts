@@ -1,6 +1,5 @@
 import { sameContent, type Restored } from './utils/sameContent.js';
 import fs from 'fs';
-import path from 'path';
 import { approvalMessage, needsApproval } from '@moteurio/types';
 import { Entry, type EntryStatus } from '@moteurio/types/Model.js';
 import {
@@ -12,9 +11,10 @@ import {
     translatorOnly
 } from './contentAccess.js';
 import { isValidId } from './utils/idUtils.js';
-import { entryFilePath, trashEntryDir, projectDir } from './utils/pathUtils.js';
+import { entryFilePath, projectDir } from './utils/pathUtils.js';
+import { binEntry, getBinItem, removeFromBin } from './contentBin.js';
 import { User } from '@moteurio/types/User.js';
-import { getModelSchema } from './models.js';
+import { getModelSchema, getModelSchemaForProject } from './models.js';
 import { getProject } from './projects.js';
 import { hasApprovedReview, useApprovals } from './reviews.js';
 import { triggerEvent } from './utils/eventBus.js';
@@ -507,11 +507,10 @@ async function deleteEntryUnlocked(
 
     await triggerEvent('entry.beforeDelete', { entry, user, modelId, projectId });
 
-    const trashDir = trashEntryDir(projectId, modelId, entryId);
-    fs.mkdirSync(trashDir, { recursive: true });
-
-    const dest = path.join(trashDir, `${entryId}-${Date.now()}.json`);
-    fs.renameSync(entryFilePath(projectId, modelId, entryId), dest);
+    // Kept in the bin first: what can't be kept there isn't deleted.
+    const stored = await getProjectJson<Entry>(projectId, entryKey(modelId, entryId));
+    binEntry(projectId, modelId, entryId, stored ?? entry, user);
+    fs.unlinkSync(entryFilePath(projectId, modelId, entryId));
     await (await getContentIndex()).entryRemoved(projectId, modelId, entryId);
 
     await triggerEvent('content.deleted', {
@@ -538,6 +537,71 @@ async function deleteEntryUnlocked(
     } catch {
         // never fail the operation
     }
+}
+
+/** A refusal the API turns into HTTP 409: the project changed since it went in the bin. */
+function binConflict(message: string): Error {
+    return Object.assign(new Error(message), { statusCode: 409 });
+}
+
+/**
+ * Takes an entry out of the bin, back in its model as a draft (unpublished, if it had been
+ * live): putting it on the site again goes through publishing and its review, like any change.
+ * Refused while its model is gone or another entry has its id.
+ */
+export async function restoreEntryFromBin(
+    user: User,
+    projectId: string,
+    binId: string,
+    options?: EntryServiceOptions
+): Promise<Entry> {
+    assertCanWrite(user);
+    assertNotReviewOnly(user, 'take content out of the bin');
+    return withProjectWriteLock(projectId, async () => {
+        const item = getBinItem(projectId, binId);
+        if (item.kind !== 'entry') throw binConflict('This is a page: restore it from the pages.');
+        const { modelId } = item;
+        if (!(await getModelSchemaForProject(projectId, modelId)))
+            throw binConflict(
+                `Its model "${modelId}" no longer exists. Make the model again first.`
+            );
+        const binned = item.entry;
+        const key = entryKey(modelId, binned.id);
+        if (await hasProjectKey(projectId, key))
+            throw binConflict(`Another entry in "${modelId}" has the id "${binned.id}" now.`);
+        await checkCountRoom(projectId, 'entries', () => countOf(projectId, 'entries'));
+
+        const entry: Entry = {
+            ...binned,
+            status: binned.meta?.audit?.publishedCommit ? 'unpublished' : 'draft'
+        };
+        await putProjectJson(projectId, key, entry);
+        removeFromBin(projectId, binId);
+        await triggerEvent('content.saved', {
+            projectId,
+            paths: [key],
+            message: `Restore ${modelId}/${commitRef(entry, entry.id)} from the bin — ${user.name ?? user.id}`,
+            user
+        });
+        triggerEvent('entry.afterRestore', { entry, user, modelId, projectId });
+        try {
+            await webhookDispatch(
+                'entry.created',
+                {
+                    entryId: entry.id,
+                    modelId,
+                    status: entry.status as string,
+                    locale: entry.data?.locale,
+                    slug: entry.data?.slug,
+                    updatedBy: user.id
+                },
+                { projectId, source: options?.source ?? 'api' }
+            );
+        } catch {
+            // never fail the operation
+        }
+        return entry;
+    });
 }
 
 // ---------------------------------------------------------------------------
