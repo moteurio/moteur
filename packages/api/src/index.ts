@@ -74,6 +74,7 @@ import {
 // Load core runtime. External plugins are discovered by host config (MOTEUR_HOST_PLUGINS / MOTEUR_ENABLED_PLUGINS).
 import '@moteurio/core';
 import { securityHeaders } from './middlewares/security.js';
+import { logUnloggedErrors, requestIdMiddleware } from './middlewares/requestId.js';
 import { requestClassifier } from './middlewares/requestClassifier.js';
 import { usageLogging } from './middlewares/usageLogging.js';
 import { requestQuota } from './middlewares/requestQuota.js';
@@ -125,6 +126,9 @@ app.set('trust proxy', trustProxySetting(process.env.TRUST_PROXY));
 
 const basePath = process.env.API_BASE_PATH || '';
 
+// Every request gets an id (in its answer and in the log), and no server error goes unlogged.
+app.use(requestIdMiddleware);
+app.use(logUnloggedErrors);
 app.use(securityHeaders);
 app.use(
     cors<express.Request>((req, callback) => {

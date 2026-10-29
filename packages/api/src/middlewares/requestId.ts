@@ -15,3 +15,20 @@ export function requestIdMiddleware(req: Request, res: Response, next: NextFunct
     res.setHeader('x-request-id', id);
     next();
 }
+
+/**
+ * A server error no route logged (some answer 500 by hand): logged here, with the request, so no
+ * failure goes unseen in the server's log.
+ */
+export function logUnloggedErrors(req: Request, res: Response, next: NextFunction): void {
+    res.on('finish', () => {
+        if (res.statusCode >= 500 && !res.locals.errorLogged)
+            console.error('[API] server error', {
+                requestId: req.requestId,
+                method: req.method,
+                path: req.originalUrl ?? req.url,
+                status: res.statusCode
+            });
+    });
+    next();
+}
