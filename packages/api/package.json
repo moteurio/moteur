@@ -57,7 +57,7 @@
         "@moteurio/mcp": "workspace:*",
         "@moteurio/plugin-sdk": "workspace:*",
         "@moteurio/types": "workspace:*",
-        "@scalar/express-api-reference": "^0.10.29",
+        "@scalar/express-api-reference": "^0.10.31",
         "axios": "^1.20.0",
         "cors": "^2.8.6",
         "dotenv": "^18.0.8",
