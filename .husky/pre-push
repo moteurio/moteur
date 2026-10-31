@@ -1,1 +1,5 @@
+# Git runs its hooks with GIT_DIR and friends pointing at this repository. The tests run git in
+# folders of their own, and would act on this repository instead: commits on the branch being
+# pushed, core.bare set. Clear them first.
+unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR GIT_OBJECT_DIRECTORY GIT_ALTERNATE_OBJECT_DIRECTORIES GIT_PREFIX
 pnpm check:all
