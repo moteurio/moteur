@@ -24,6 +24,10 @@ export interface EventMap {
     'auth.email.changed': { userId: string };
     /** Someone deleted their own account: a billing plugin can cancel what it charged for. */
     'auth.account.deleted': { userId: string; email: string };
+    /** A passkey was added to the account, removed from it, or signed it in. */
+    'auth.passkey.added': { userId: string; passkeyId: string };
+    'auth.passkey.removed': { userId: string; passkeyId: string };
+    'auth.passkey.used': { userId: string; passkeyId: string };
     // Projects
     'project.beforeCreate': { project: ProjectSchema; user: User };
     'project.afterCreate': { project: ProjectSchema; user: User };

@@ -81,11 +81,20 @@ export async function loginUser(
     return finishSignIn(user);
 }
 
-/** Once someone has proved who they are: a ticket for their two-step code if they use one, else a session. */
+/**
+ * Once someone has proved who they are: a ticket for their two-step code if they use one, else a
+ * session. A passkey skips this and goes to `startSession`: it is two steps in one (the device,
+ * and the face, finger or PIN that unlocks it).
+ */
 export async function finishSignIn(
     user: User
 ): Promise<{ token: string; user: SignedInUser } | TwoFactorStep> {
     if (hasTwoFactor(user)) return { twoFactor: { ticket: twoFactorTicket(user) } };
+    return startSession(user);
+}
+
+/** A session for someone who has proved everything their sign-in asks for. */
+export async function startSession(user: User): Promise<{ token: string; user: SignedInUser }> {
     const loginAt = await recordUserLogin(user.id);
     const displayUser: User = {
         ...user,

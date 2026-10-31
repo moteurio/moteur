@@ -30,6 +30,8 @@ This document describes the **HTTP API** for integrating with Moteur: authentica
 | GET    | `/auth/me/export`       | Download what the server keeps about you (`moteur-account-<date>.json`). Personal session.                                                                      |
 | GET    | `/auth/me/deletion`     | What deleting your account would do: `{ deletes, leaves, blocked }` (projects).                                                                                 |
 | DELETE | `/auth/me`              | Delete your account. Body `{ email }` typed back. Recent personal sign-in. **204**; `CONFIRM_MISMATCH`, `SOLE_ADMIN` (with `projects`).                         |
+| POST   | `/auth/passkeys/sign-in/options` | Start signing in with a passkey. Returns `{ options }` for the browser.                                                               |
+| POST   | `/auth/passkeys/sign-in/verify`  | The browser's answer. Returns `{ token, user }`. Adding, listing and removing passkeys: [Authentication](Authentication.md#passkeys). |
 
 Refusals carry a machine `code`, and `retryAfter` (seconds, also the `Retry-After` header) when waiting helps: `POST /auth/login` answers **401** `LOGIN_FAILED`, then `LOGIN_SLOWED` with `retryAfter`. Every limit is listed in [Authentication › Limits](Authentication.md#limits-and-when-to-try-again); the account routes in [Authentication › Your account](Authentication.md#your-account-email-export-deletion).
 
