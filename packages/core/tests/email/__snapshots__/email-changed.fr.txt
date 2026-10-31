@@ -1,0 +1,9 @@
+Subject: Le courriel de connexion de votre compte Moteur a changé
+
+Votre courriel de connexion a changé
+
+Votre compte Moteur se connecte maintenant avec louise@nouvelle-agence.example. Les codes et les liens y seront envoyés.
+
+Si ce n’est pas vous, prévenez sans attendre les personnes qui gèrent votre serveur Moteur : quelqu’un d’autre a peut-être votre compte.
+
+Ce courriel va à louise@agence.example, l’ancienne adresse de connexion du compte, pour que vous sachiez qu’elle a changé.
