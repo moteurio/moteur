@@ -4,7 +4,7 @@ import os from 'node:os';
 import path from 'node:path';
 
 const mail = vi.hoisted(() => ({
-    sent: [] as { to: string[]; subject: string; text: string }[],
+    sent: [] as { to: string[]; subject?: string; text?: string; kind?: string; data?: unknown }[],
     off: false
 }));
 vi.mock('../../src/emailNotifier.js', () => ({
@@ -14,6 +14,9 @@ vi.mock('../../src/emailNotifier.js', () => ({
     },
     sendEmail: async (m: { to: string[]; subject: string; text: string }) => {
         mail.sent.push(m);
+    },
+    sendTemplateEmail: async (kind: string, to: string[], data: unknown) => {
+        mail.sent.push({ kind, to, data });
     }
 }));
 const invites = vi.hoisted(() => ({ emails: [] as string[] }));
@@ -345,7 +348,7 @@ describe('signing in and up with an email code', () => {
             await requestEmailChange('u1', ' Louise@New.test ');
             await sent();
             expect(mail.sent.at(-1)!.to).toEqual(['louise@new.test']);
-            expect(mail.sent.at(-1)!.text).toContain('sign-in email of your Moteur account');
+            expect(mail.sent.at(-1)!.text).toContain('sign in to Moteur with this address');
             const before = getUserById('u1')!.authVersion ?? 0;
             const { user, previousEmail } = await confirmEmailChange(
                 'u1',
@@ -363,10 +366,10 @@ describe('signing in and up with an email code', () => {
             // The old address hears of it.
             await sent();
             expect(mail.sent.at(-1)).toMatchObject({
+                kind: 'email-changed',
                 to: ['louise@agency.test'],
-                subject: 'Your Moteur sign-in email changed'
+                data: { email: 'louise@agency.test', to: 'louise@new.test' }
             });
-            expect(mail.sent.at(-1)!.text).toContain('changed to louise@new.test');
             // Used once.
             await expect(
                 confirmEmailChange('u1', 'louise@new.test', lastCode('louise@new.test'))
