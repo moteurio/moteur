@@ -5,7 +5,7 @@ import path from 'path';
 import { spawnSync } from 'child_process';
 import { gitIdle, initRepo } from '../src/git/index.js';
 import { registerContentCommitHook } from '../src/git/contentCommitHook.js';
-import { createModelSchema } from '../src/models.js';
+import { createModelSchema, deleteModelSchema, getModelSchemaForProject } from '../src/models.js';
 import { createTemplate } from '../src/templates.js';
 import {
     createEntry,
@@ -27,6 +27,8 @@ const admin = { id: 'a1', name: 'Ada', email: 'a@x.dev', isActive: true, roles: 
 const writer = { ...admin, id: 'w1', name: 'Will', roles: ['writer'] } as User;
 const agent = { ...writer, id: 'bot', agent: { name: 'Helper', reviewOnly: true } } as User;
 const lead = { ...writer, id: 'l1', name: 'Lea', roles: ['lead'] } as User;
+const builder = { ...writer, id: 'b1', name: 'Bo', roles: ['builder'] } as User;
+const owner = { ...writer, id: 'o1', name: 'Olu', roles: ['admin', 'developer'] } as User;
 const projectId = 'site';
 
 registerContentCommitHook();
@@ -45,7 +47,7 @@ describe('the bin for entries and pages', () => {
                 id: projectId,
                 label: 'Site',
                 defaultLocale: 'en',
-                users: ['a1', 'w1', 'bot', 'l1']
+                users: ['a1', 'w1', 'bot', 'l1', 'b1', 'o1']
             })
         );
         await initRepo(dir);
@@ -183,6 +185,88 @@ describe('the bin for entries and pages', () => {
             statusCode: 404
         });
         await expect(restoreFromContentBin(projectId, admin, '../../etc')).rejects.toMatchObject({
+            statusCode: 404
+        });
+    });
+
+    it('keeps a deleted model with its entries, and gives both back, entries as drafts', async () => {
+        await createEntry(admin, projectId, 'post', { id: 'one', data: { title: 'One' } } as never);
+        await createEntry(admin, projectId, 'post', { id: 'two', data: { title: 'Two' } } as never);
+        await publishEntry(admin, projectId, 'post', 'two');
+        await deleteModelSchema(builder, projectId, 'post');
+        expect(await getModelSchemaForProject(projectId, 'post')).toBeNull();
+        expect(await getEntryForProject(projectId, 'post', 'one')).toBeNull();
+
+        const [item] = await listContentBin(projectId, writer);
+        expect(item).toMatchObject({
+            id: expect.stringMatching(/^model\.post\.\d+$/),
+            kind: 'model',
+            modelId: 'post',
+            entryCount: 2,
+            binned: { by: 'b1', byName: 'Bo' },
+            model: { id: 'post', label: 'Post' }
+        });
+
+        // Making and deleting models is a builder's; so is taking one out.
+        await expect(restoreFromContentBin(projectId, writer, item.id)).rejects.toMatchObject({
+            statusCode: 403
+        });
+        const back = await restoreFromContentBin(projectId, builder, item.id);
+        expect(back).toMatchObject({ kind: 'model', model: { id: 'post' }, entryCount: 2 });
+        expect(await getModelSchemaForProject(projectId, 'post')).toMatchObject({ label: 'Post' });
+        expect((await getEntryForProject(projectId, 'post', 'one'))?.status).toBe('draft');
+        expect((await getEntryForProject(projectId, 'post', 'two'))?.status).toBe('unpublished');
+        expect(await listContentBin(projectId, writer)).toEqual([]);
+
+        await gitIdle();
+        const log = spawnSync('git', ['log', '--format=%s'], { cwd: dir, encoding: 'utf8' }).stdout;
+        expect(log).toMatch(/^Restore model post from the bin — Bo/m);
+        const tracked = spawnSync('git', ['ls-files', 'models/post'], {
+            cwd: dir,
+            encoding: 'utf8'
+        }).stdout;
+        expect(tracked).toContain('models/post/entries/one/entry.json');
+    });
+
+    it('refuses a model whose id was taken again, and leaves both as they are', async () => {
+        await createEntry(admin, projectId, 'post', { id: 'old', data: { title: 'Old' } } as never);
+        await deleteModelSchema(builder, projectId, 'post');
+        await createModelSchema(builder, projectId, {
+            id: 'post',
+            label: 'New post',
+            fields: {}
+        } as never);
+        const [item] = await listContentBin(projectId, builder);
+
+        await expect(restoreFromContentBin(projectId, builder, item.id)).rejects.toMatchObject({
+            statusCode: 409,
+            message: expect.stringContaining('Another model has the id "post"')
+        });
+        expect(await getModelSchemaForProject(projectId, 'post')).toMatchObject({
+            label: 'New post'
+        });
+        expect(await getEntryForProject(projectId, 'post', 'old')).toBeNull();
+        expect((await listContentBin(projectId, builder)).map(i => i.id)).toEqual([item.id]);
+    });
+
+    it('deletes a model for good only for a content lead who is also a builder', async () => {
+        await createEntry(admin, projectId, 'post', { id: 'gone', data: { title: 'G' } } as never);
+        await deleteModelSchema(builder, projectId, 'post');
+        const [item] = await listContentBin(projectId, admin);
+
+        await expect(deleteFromContentBin(projectId, builder, item.id)).rejects.toMatchObject({
+            statusCode: 403
+        });
+        await expect(deleteFromContentBin(projectId, lead, item.id)).rejects.toMatchObject({
+            statusCode: 403
+        });
+        // Emptying doesn't leave a model behind half-way: nothing goes.
+        await expect(emptyContentBin(projectId, admin)).rejects.toMatchObject({ statusCode: 403 });
+        expect(await listContentBin(projectId, admin)).toHaveLength(1);
+
+        expect(await emptyContentBin(projectId, owner)).toBe(1);
+        expect(await listContentBin(projectId, admin)).toEqual([]);
+        await expect(restoreFromContentBin(projectId, owner, item.id)).rejects.toMatchObject({
             statusCode: 404
         });
     });
