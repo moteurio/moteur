@@ -7,6 +7,7 @@ import {
     createInvite,
     findInviteByToken,
     listInvites,
+    liveInviteFor,
     renewInvite,
     revokeInvite
 } from '../src/invites';
@@ -66,6 +67,20 @@ describe('project invites', () => {
         vi.advanceTimersByTime(7 * 24 * 60 * 60 * 1000 + 1);
         expect(findInviteByToken(token)).toBeNull();
         expect(listInvites('p1')).toEqual([]);
+    });
+
+    it('keeps the inviter’s note through a resend, and finds the newest invite for an address', () => {
+        const { invite: made } = createInvite({
+            projectId: 'p1',
+            email: 'marc@x.io',
+            roles: [],
+            invitedBy: 'u-admin',
+            note: 'Hi Marc'
+        });
+        expect(renewInvite('p1', made.id)!.invite.note).toBe('Hi Marc');
+        expect(invite('a@x.io').invite.note).toBeUndefined();
+        expect(liveInviteFor('Marc@X.io')?.id).toBe(made.id);
+        expect(liveInviteFor('nobody@x.io')).toBeUndefined();
     });
 
     it('revokes and consumes', () => {

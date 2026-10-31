@@ -7,7 +7,14 @@ import {
     type EmailLook,
     type ResolvedEmailSettings
 } from './settings.js';
-import { TEMPLATES, type EmailData, type EmailKind } from './templates.js';
+import {
+    defaultTagline,
+    TEMPLATES,
+    VARIANT_KINDS,
+    type EmailData,
+    type EmailKind,
+    type EmailVariant
+} from './templates.js';
 import type { User } from '@moteurio/types/User.js';
 
 export interface RenderOptions {
@@ -17,8 +24,8 @@ export interface RenderOptions {
     look?: EmailLook;
     /** Force a look (previews). */
     forceLook?: EmailLook;
-    /** A design direction id (previews and the lab); else the look's default. */
-    design?: string;
+    /** For the first-contact emails (invitation, welcome, form confirmation): which of two ways. */
+    variant?: EmailVariant;
     settings?: ResolvedEmailSettings;
     /** How a logo file goes in: as an attachment (`cid`, for sending) or inline data (previews). */
     images?: 'cid' | 'data';
@@ -32,6 +39,8 @@ export interface RenderedEmail {
     text: string;
     look: EmailLook;
     design: string;
+    /** First-contact emails only. */
+    variant?: EmailVariant;
     locale: EmailLocale;
     /** Notifications only. */
     unsubscribe?: string;
@@ -48,6 +57,9 @@ export function readerOf(user: Pick<User, 'preferences' | 'signup'> | undefined)
         look: user?.preferences?.look
     };
 }
+
+/** The way first-contact emails are set until the owner picks one (see the email lab). */
+export const DEFAULT_VARIANT: EmailVariant = 'a';
 
 export const LOGO_CID = 'logo@moteur';
 
@@ -94,8 +106,15 @@ export function renderEmail<K extends EmailKind>(
     const settings = options.settings ?? resolveEmailSettings();
     const locale = emailLocale(options.locale, settings.locale);
     const look = options.forceLook ?? emailLook(settings, options.look);
-    const design = designFor(look, options.design);
-    const content = TEMPLATES[kind](data, { locale, product: settings.productName });
+    const design = designFor(look);
+    const variant = VARIANT_KINDS.includes(kind) ? (options.variant ?? DEFAULT_VARIANT) : undefined;
+    const content = TEMPLATES[kind](data, {
+        locale,
+        product: settings.productName,
+        tagline: settings.productTagline?.[locale] ?? defaultTagline(locale, settings.productName),
+        supportUrl: settings.supportUrl,
+        variant: variant ?? DEFAULT_VARIANT
+    });
     const image = logo(settings, options.images ?? 'cid');
     const brand: Brand = {
         productName: settings.productName,
@@ -114,6 +133,7 @@ export function renderEmail<K extends EmailKind>(
         text: renderText(content, brand, locale),
         look,
         design: design.id,
+        ...(variant && { variant }),
         locale,
         ...(content.unsubscribe && { unsubscribe: content.unsubscribe.href }),
         attachments: usesLogo ? [image.attachment!] : []

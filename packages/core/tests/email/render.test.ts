@@ -3,8 +3,18 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { renderEmail } from '../../src/email/render.js';
-import { EMAIL_KINDS, samples } from '../../src/email/templates.js';
-import { DESIGNS, esc } from '../../src/email/layout.js';
+import {
+    EMAIL_KINDS,
+    EMAIL_VARIANTS,
+    VARIANT_KINDS,
+    CONFIRM_ROWS,
+    samples,
+    type EmailData,
+    type EmailKind,
+    type EmailVariant
+} from '../../src/email/templates.js';
+import { DESIGNS, esc, initials } from '../../src/email/layout.js';
+import { cleanInviteNote } from '../../src/invites.js';
 import {
     accentProblem,
     resolveEmailSettings,
@@ -16,28 +26,67 @@ import { contrast } from '../../src/email/colour.js';
 const settings = resolveEmailSettings({});
 const snap = (name: string) => path.join(import.meta.dirname, '__snapshots__', name);
 
+/** Every email to look at: each kind, each way of setting the first-contact ones, and a welcome after an invitation. */
+type Case = {
+    name: string;
+    kind: EmailKind;
+    variant?: EmailVariant;
+    data: (l: 'en' | 'fr') => unknown;
+};
+const joined = (l: 'en' | 'fr'): EmailData['welcome'] => ({
+    ...samples(l).welcome,
+    name: 'Marc',
+    email: 'marc@client.example',
+    joined: {
+        project: 'Journal de Montréal',
+        projectId: 'journal',
+        description: samples(l).invite.projectDescription,
+        inviter: 'Louise Tremblay',
+        roles: ['writer']
+    }
+});
+const CASES: Case[] = [
+    ...EMAIL_KINDS.flatMap(kind =>
+        (VARIANT_KINDS.includes(kind) ? EMAIL_VARIANTS : [undefined]).map(variant => ({
+            name: variant && variant !== 'a' ? `${kind}.${variant}` : kind,
+            kind,
+            variant,
+            data: (l: 'en' | 'fr') => samples(l)[kind]
+        }))
+    ),
+    ...EMAIL_VARIANTS.map(variant => ({
+        name: variant === 'a' ? 'welcome-joined' : `welcome-joined.${variant}`,
+        kind: 'welcome' as const,
+        variant,
+        data: joined
+    }))
+];
+const render = (c: Case, locale: 'en' | 'fr', options: Parameters<typeof renderEmail>[2] = {}) =>
+    renderEmail(c.kind, c.data(locale) as never, {
+        locale,
+        settings,
+        variant: c.variant,
+        ...options
+    });
+
 describe('every email, rendered', () => {
     // What a person reads: the plain text of every email in both languages, and the HTML of every
     // email in both looks. Open the .html files in a browser to see them.
-    for (const kind of EMAIL_KINDS) {
+    for (const c of CASES) {
         for (const locale of ['en', 'fr'] as const) {
-            it(`${kind} · ${locale} · text`, async () => {
-                const email = renderEmail(kind, samples(locale)[kind], { locale, settings });
+            it(`${c.name} · ${locale} · text`, async () => {
+                const email = render(c, locale);
                 await expect(`Subject: ${email.subject}\n\n${email.text}`).toMatchFileSnapshot(
-                    snap(`${kind}.${locale}.txt`)
+                    snap(`${c.name}.${locale}.txt`)
                 );
             });
         }
         for (const look of EMAIL_LOOKS) {
             const locale = look === 'folio' ? 'en' : 'fr';
-            it(`${kind} · ${look} · ${locale} · html`, async () => {
-                const email = renderEmail(kind, samples(locale)[kind], {
-                    locale,
-                    forceLook: look,
-                    settings
-                });
+            it(`${c.name} · ${look} · ${locale} · html`, async () => {
+                const email = render(c, locale, { forceLook: look });
                 await expect(email.html).toMatchFileSnapshot(
-                    snap(`${kind}.${look}.${locale}.html`)
+                    snap(`${c.name}.${look}.${locale}.html`)
                 );
             });
         }
@@ -45,16 +94,11 @@ describe('every email, rendered', () => {
 });
 
 describe('what every email holds to', () => {
-    const all = EMAIL_KINDS.flatMap(kind =>
+    const all = CASES.flatMap(c =>
         DESIGNS.flatMap(design =>
             (['en', 'fr'] as const).map(locale => ({
-                name: `${kind} · ${design.id} · ${locale}`,
-                email: renderEmail(kind, samples(locale)[kind], {
-                    locale,
-                    forceLook: design.look,
-                    design: design.id,
-                    settings
-                })
+                name: `${c.name} · ${design.id} · ${locale}`,
+                email: render(c, locale, { forceLook: design.look })
             }))
         )
     );
@@ -120,6 +164,19 @@ describe('what every email holds to', () => {
         expect(email.html).not.toContain('<b>Mallory');
         expect(email.html).toContain('&lt;b&gt;Mallory&lt;/b&gt;');
         expect(email.html).toContain('A &amp; &quot;B&quot;');
+    });
+
+    it('ships one design per look: Marquee and Tab', () => {
+        expect(DESIGNS.map(d => d.id)).toEqual(['disco-marquee', 'folio-tab']);
+        const disco = renderEmail('signin', samples('en').signin, {
+            settings,
+            forceLook: 'discotheque'
+        });
+        expect(disco.design).toBe('disco-marquee');
+        expect(disco.html).toContain('class="m-band"');
+        const folio = renderEmail('signin', samples('en').signin, { settings, forceLook: 'folio' });
+        expect(folio.design).toBe('folio-tab');
+        expect(folio.html).toContain('class="m-top"');
     });
 
     it('a project’s own mail is headed by the project, without the operator’s footer', () => {
@@ -245,4 +302,180 @@ describe('email settings', () => {
         // A project's own mail never carries the operator's logo.
         expect(renderEmail('form-message', samples('en')['form-message']).attachments).toEqual([]);
     });
+});
+
+describe('first contact', () => {
+    it('an invitation says who asked, to what, as what, and until when', () => {
+        for (const variant of EMAIL_VARIANTS) {
+            const email = renderEmail('invite', samples('en').invite, { settings, variant });
+            expect(email.variant).toBe(variant);
+            for (const words of [
+                'Louise Tremblay',
+                'louise@agence.example',
+                'Journal de Montréal',
+                'The neighbourhood paper’s website',
+                'https://journal.example.com',
+                'Writer',
+                'write and edit entries and pages',
+                'The Festival section is yours.',
+                'What is Moteur?',
+                'Moteur is where teams write'
+            ])
+                expect(email.text).toContain(words);
+            expect(email.text).toMatch(/Sat, Nov\.? 7/);
+            // The initials, never a picture.
+            expect(email.html).toContain('>LT</td>');
+            expect(email.html).not.toMatch(/<img/);
+        }
+        const fr = renderEmail('invite', samples('fr').invite, { settings, locale: 'fr' });
+        expect(fr.text).toContain('Auteur·e');
+        expect(fr.text).toContain('Un mot de Louise');
+    });
+
+    it('an invitation without a note, description or site still reads whole', () => {
+        const { note: _n, projectDescription: _d, projectSite: _s, ...bare } = samples('en').invite;
+        for (const variant of EMAIL_VARIANTS) {
+            const email = renderEmail('invite', { ...bare, roles: [] }, { settings, variant });
+            expect(email.text).not.toContain('A note from');
+            expect(email.text).toContain('Writer');
+            expect(email.text).toContain('Join Journal de Montréal');
+        }
+    });
+
+    it('says what the widest role lets them do', () => {
+        const email = renderEmail(
+            'invite',
+            { ...samples('en').invite, roles: ['writer', 'admin'] },
+            { settings }
+        );
+        expect(email.text).toContain('Writer · Admin');
+        expect(email.text).toContain('run the project');
+    });
+
+    it('keeps the inviter’s note as plain text', () => {
+        const email = renderEmail(
+            'invite',
+            {
+                ...samples('en').invite,
+                note: '<a href="https://evil.example">Click</a>\nSecond line'
+            },
+            { settings, variant: 'b' }
+        );
+        expect(email.html).not.toContain('<a href="https://evil.example"');
+        expect(email.html).toContain(
+            '&lt;a href=&quot;https://evil.example&quot;&gt;Click&lt;/a&gt;<br>Second line'
+        );
+        expect(email.text).toContain('> Second line');
+    });
+
+    it('cleans an inviter’s note, and refuses one too long', () => {
+        expect(cleanInviteNote('  Hi\r\n\r\n\r\n\r\nthere\u0007 ‮ ')).toBe('Hi\n\nthere');
+        expect(cleanInviteNote('   ')).toBeUndefined();
+        expect(cleanInviteNote(undefined)).toBeUndefined();
+        expect(() => cleanInviteNote('x'.repeat(501))).toThrow(/longer than 500/);
+        expect(() => cleanInviteNote(42)).toThrow(/text/);
+    });
+
+    it('a welcome after an invitation leads with the project', () => {
+        for (const variant of EMAIL_VARIANTS) {
+            const email = render(
+                CASES.find(c => c.name === 'welcome-joined')!,
+                'en',
+                { variant }
+            );
+            expect(email.subject).toBe('Welcome to Journal de Montréal');
+            expect(email.text).toContain('https://studio.example.com/projects/journal');
+            expect(email.text).toContain('Louise Tremblay');
+            expect(email.text).not.toContain('/projects/new');
+        }
+        const alone = renderEmail('welcome', samples('en').welcome, { settings });
+        expect(alone.subject).toBe('Welcome to Moteur');
+        expect(alone.text).toContain('/projects/new');
+        expect(alone.text).toContain('no password to remember');
+    });
+
+    it('a welcome says how to sign in, and where help is', () => {
+        const withPassword = renderEmail(
+            'welcome',
+            { ...samples('en').welcome, password: true },
+            { settings: { ...settings, supportUrl: 'https://help.example.com/' } }
+        );
+        expect(withPassword.text).toContain('with your password, or ask for a code');
+        expect(withPassword.text).toContain('Questions? Start here: https://help.example.com/');
+        const nameless = renderEmail('welcome', { email: 'x@y.example' }, { settings });
+        expect(nameless.text.split('\n')[0]).toBe('Welcome to Moteur');
+    });
+
+    it('the sign-up code says what the product is', () => {
+        const email = renderEmail('signup', samples('fr').signup, { settings, locale: 'fr' });
+        expect(email.text).toContain('Qu’est-ce que Moteur ?');
+    });
+
+    it('uses the operator’s tagline, per language', () => {
+        const s = {
+            ...settings,
+            productName: 'Atelier',
+            productTagline: { en: 'Atelier hosts our sites.' }
+        };
+        expect(renderEmail('signup', samples('en').signup, { settings: s }).text).toContain(
+            'Atelier hosts our sites.'
+        );
+        // No French line: the default one, with the operator's name.
+        expect(
+            renderEmail('signup', samples('fr').signup, { settings: s, locale: 'fr' }).text
+        ).toContain('Atelier est l’endroit');
+    });
+
+    it('a form’s confirmation shows the visitor what they sent, short, under the project only', () => {
+        const long = 'word '.repeat(200);
+        const rows = [
+            ...samples('en')['form-confirm'].rows,
+            { label: 'Note', value: `<img src=x onerror=alert(1)> ${long}` },
+            ...Array.from({ length: 5 }, (_, i) => ({ label: `Extra ${i}`, value: 'x' }))
+        ];
+        const s = {
+            ...settings,
+            footer: 'Moteur Inc. · 1 rue Ste-Catherine',
+            supportUrl: 'https://help.moteur.example',
+            logoUrl: 'https://cdn.example.com/logo.png'
+        };
+        for (const variant of EMAIL_VARIANTS) {
+            const email = renderEmail(
+                'form-confirm',
+                { ...samples('en')['form-confirm'], rows },
+                { settings: s, variant }
+            );
+            // The project's words first.
+            expect(
+                email.text.startsWith('Got it, Marc.') || email.text.startsWith('Message received')
+            ).toBe(true);
+            expect(email.text.indexOf('Got it, Marc.')).toBeLessThan(
+                email.text.indexOf('What you sent')
+            );
+            expect(email.html).not.toContain('<img');
+            expect(email.html).toContain('&lt;img src=x onerror=alert(1)&gt;');
+            expect(email.text).not.toContain('word '.repeat(70));
+            expect(email.text).toContain(`And ${rows.length - CONFIRM_ROWS} more answers.`);
+            expect(email.text).toContain('the Contact form at https://journal.example.com');
+            for (const operator of [
+                'Ste-Catherine',
+                'help.moteur.example',
+                'cdn.example.com',
+                'Moteur'
+            ])
+                expect(email.html).not.toContain(operator);
+            expect(email.attachments).toEqual([]);
+        }
+    });
+});
+
+describe('initials', () => {
+    it.each([
+        ['Louise Tremblay', 'LT'],
+        ['Élodie de la Fontaine', 'ÉF'],
+        ['marc', 'M'],
+        ['marc.gagnon@client.example', 'MG'],
+        ['  ', '?'],
+        ['(Louise)', 'L']
+    ])('%s → %s', (name, out) => expect(initials(name)).toBe(out));
 });

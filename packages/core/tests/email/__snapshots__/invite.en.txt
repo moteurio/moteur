@@ -1,12 +1,32 @@
 Subject: Louise Tremblay invited you to Journal de Montréal on Moteur
 
+Louise Tremblay · louise@agence.example
+
 Join Journal de Montréal
 
 Louise Tremblay invited you to work on Journal de Montréal in Moteur.
 
+A note from Louise
+> Hi Marc, here’s the project I mentioned. The Festival section is yours.
+
+Journal de Montréal
+
+The neighbourhood paper’s website, in French and English.
+
+https://journal.example.com
+
+Your role: Writer. You’ll be able to write and edit entries and pages, and send them for review.
+
 Join Journal de Montréal:
 https://studio.example.com/invite/8f2c1e9a7b4d6f3a0c5e
 
-The link works for 7 days, once. If you don’t have a Moteur account yet, you can make one from the link.
+When you open the link
 
-Sent to marc@client.example because Louise Tremblay invited this address. If you weren’t expecting it, ignore this email. Replies go to Louise Tremblay.
+• You make your Moteur account with marc@client.example. No password needed: we send a code to this address.
+• Already have an account with this address? Sign in, and Journal de Montréal is added to it.
+• The link works once, for 7 days (until Sat, Nov 7).
+
+What is Moteur?
+Moteur is where teams write, translate and publish their websites’ content. Every change is kept, and the content stays theirs.
+
+Sent to marc@client.example because Louise Tremblay (louise@agence.example) invited this address. If you weren’t expecting it, ignore this email: nothing happens unless you open the link. Replies go to Louise Tremblay.

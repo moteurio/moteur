@@ -10,6 +10,8 @@ import {
     renewInvite,
     revokeInvite,
     INVITE_TTL_DAYS,
+    INVITE_NOTE_MAX,
+    cleanInviteNote,
     type ProjectInvite
 } from '@moteurio/core/invites.js';
 import { getProjectUsers, getUserByEmail, getUserById } from '@moteurio/core/users.js';
@@ -52,6 +54,7 @@ function toDto(invite: ProjectInvite) {
         email: invite.email,
         roles: invite.roles,
         invitedBy: { id: invite.invitedBy, name: by?.name ?? by?.email },
+        ...(invite.note && { note: invite.note }),
         createdAt: invite.createdAt,
         expiresAt: invite.expiresAt
     };
@@ -79,6 +82,7 @@ async function deliver(
 
     const inviter = req.account?.name || req.account?.email || 'Someone';
     const project = req.project?.label || invite.projectId;
+    const site = req.project?.siteUrl?.trim();
     // Their language if they have an account, else the one the inviter asks for, else theirs.
     const known = getUserByEmail(invite.email);
     const locale =
@@ -91,9 +95,15 @@ async function deliver(
             {
                 email: invite.email,
                 inviter,
+                inviterEmail: req.account?.email || undefined,
                 project,
+                projectDescription: req.project?.description?.trim().slice(0, 300) || undefined,
+                projectSite: site && /^https?:\/\//.test(site) ? site : undefined,
+                roles: invite.roles,
+                note: invite.note,
                 url,
                 days: INVITE_TTL_DAYS,
+                expiresAt: invite.expiresAt,
                 replyToInviter: Boolean(req.account?.email)
             },
             { locale, look: readerOf(known).look }
@@ -145,6 +155,12 @@ router.post('/:projectId/invites', requireProjectAdmin, async (req: Request, res
             .status(403)
             .json({ error: `Only someone with the ${withheld} role can give it.` });
     }
+    let note: string | undefined;
+    try {
+        note = cleanInviteNote(body.note);
+    } catch (err) {
+        return void res.status(400).json({ error: (err as Error).message });
+    }
     const email = normalizeInviteEmail(body.email);
     const members = getProjectUsers(projectId);
     if (members.some(u => u.email.toLowerCase() === email)) {
@@ -157,7 +173,8 @@ router.post('/:projectId/invites', requireProjectAdmin, async (req: Request, res
             projectId,
             email,
             roles,
-            invitedBy: req.account!.id
+            invitedBy: req.account!.id,
+            note
         });
         const sent = await deliver(req, invite, token);
         return void res.status(201).json({ invite: toDto(invite), ...sent });
@@ -295,6 +312,11 @@ export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
                                 email: { type: 'string', format: 'email' },
                                 roles: { type: 'array', items: { type: 'string' } },
                                 appUrl: { type: 'string' },
+                                note: {
+                                    type: 'string',
+                                    maxLength: INVITE_NOTE_MAX,
+                                    description: `A few words from you, shown in the email as you wrote them (plain text, ${INVITE_NOTE_MAX} characters at most; line breaks kept). Kept with the invite and sent again on resend.`
+                                },
                                 locale: {
                                     type: 'string',
                                     description:
@@ -310,7 +332,7 @@ export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
                     description: 'Invited',
                     content: { 'application/json': { schema: sentSchema } }
                 },
-                '400': { description: 'Missing or invalid email' },
+                '400': { description: 'Missing or invalid email, or a note that is too long' },
                 '402': {
                     description:
                         'Members plus pending invites would go over the plan (`code: plan_limit`, `limit: people`, `max`)'
@@ -363,6 +385,7 @@ export const schemas: OpenAPIV3.ComponentsObject['schemas'] = {
                 type: 'object',
                 properties: { id: { type: 'string' }, name: { type: 'string' } }
             },
+            note: { type: 'string', description: 'The inviter’s note, as sent in the email.' },
             createdAt: { type: 'string', format: 'date-time' },
             expiresAt: { type: 'string', format: 'date-time' }
         }

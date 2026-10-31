@@ -8,22 +8,47 @@ in DNS so receivers trust the mail.
 
 ## What the engine sends
 
-| Email                                | When                                                                          | To                                  | Can be turned off                                           |
-| ------------------------------------ | ----------------------------------------------------------------------------- | ----------------------------------- | ----------------------------------------------------------- |
-| Sign-in code                         | Someone asks for a code to sign in (`POST /auth/email/code`)                  | That address                        | No (`MOTEUR_EMAIL_SIGNIN=off` turns email sign-in off)      |
-| Sign-up code                         | The same, for an address with no account where sign-up is open, or invited    | That address                        | No                                                          |
-| Sign-in link only                    | Too many wrong codes today: codes are off, the link still works               | That address                        | No                                                          |
-| Address check                        | Someone signing in with a provider gives an address to confirm                | That address                        | No                                                          |
-| Welcome                              | A new account is made                                                         | The new person                      | No                                                          |
-| Invitation                           | A project admin invites someone (`POST /projects/:id/invites`), or resends it | The invited address                 | No (an admin can copy the link instead)                     |
-| Review asked, approved, sent back    | An entry or page goes to review, or a reviewer decides                        | Reviewers, or who asked             | Yes: per person, from the email's link or their preferences |
-| Form notice                          | A form is filled in and the form notifies the team                            | The form's addresses                | By the form's settings                                      |
-| Form confirmation, form email action | As the form says                                                              | The sender, or the form's addresses | By the form's settings                                      |
-| Test                                 | An operator runs the check with an address                                    | That address                        | n/a                                                         |
+| Email                             | When                                                                          | To                      | Can be turned off                                           |
+| --------------------------------- | ----------------------------------------------------------------------------- | ----------------------- | ----------------------------------------------------------- |
+| Sign-in code                      | Someone asks for a code to sign in (`POST /auth/email/code`)                  | That address            | No (`MOTEUR_EMAIL_SIGNIN=off` turns email sign-in off)      |
+| Sign-up code                      | The same, for an address with no account where sign-up is open, or invited    | That address            | No                                                          |
+| Sign-in link only                 | Too many wrong codes today: codes are off, the link still works               | That address            | No                                                          |
+| Address check                     | Someone signing in with a provider gives an address to confirm                | That address            | No                                                          |
+| Welcome                           | A new account is made                                                         | The new person          | No                                                          |
+| Invitation                        | A project admin invites someone (`POST /projects/:id/invites`), or resends it | The invited address     | No (an admin can copy the link instead)                     |
+| Review asked, approved, sent back | An entry or page goes to review, or a reviewer decides                        | Reviewers, or who asked | Yes: per person, from the email's link or their preferences |
+| Form notice                       | A form is filled in and the form notifies the team                            | The form's addresses    | By the form's settings                                      |
+| Form confirmation                 | A form confirms to whoever filled it in (`confirmationEmail`)                 | The address they gave   | By the form's settings                                      |
+| Form email action                 | A form's `email` action                                                       | The action's addresses  | By the form's settings                                      |
+| Test                              | An operator runs the check with an address                                    | That address            | n/a                                                         |
 
 A sign-in code or link that has been used, or has expired, is not resent on its own: the person
 asks again and gets a new sign-in email. Sign-in emails go after the API has answered, so how
 long the answer takes never tells whether an address has an account.
+
+### First contact
+
+Some emails are the first a person gets from the server, or from a project. They introduce
+before they ask:
+
+- **Invitation.** Who invited (their name and address, with their initials; never a picture),
+  the project (its description and site address when it has them), the role and what it lets
+  the person do, what the product is (`productTagline`), what happens on the link (they make an
+  account with the invited address, or sign in if they have one), when the link stops working,
+  and that nothing happens if they ignore it. The inviter can add a note (`note`, below).
+- **Welcome.** What the product is, how to sign in next time and where help is (`supportUrl`).
+  Someone who joined by invitation (with the invitation's link, or with a code while an
+  invitation waits for their address) reads about the project they joined, who invited them and
+  their role, with a link to the project. Someone who signed up alone reads what to do first.
+- **Sign-up code.** The code, and a line on what the product is.
+- **Form confirmation.** The project's own words first, then what the person sent (at most 6
+  answers, each cut at 280 characters), the project's site, and why they got it. Sent under the
+  project's name only: nothing of the server's operator.
+
+An invitation's note is a few words from the person inviting (`note` in
+`POST /projects/:id/invites`): plain text, 500 characters at most, line breaks kept, shown as
+written and sent again when the invitation is resent. The invitation's page reads it from
+`GET /invites/:token`.
 
 Every email has a plain-text part with the same words and every address written out, and an HTML
 part. A project's own mail (forms) is headed by the project's name and sent under it, from the
@@ -31,7 +56,8 @@ server's address; its words go out as the project wrote them, without the operat
 
 `moteur-email preview all --out ./emails` writes every email, in both looks and both languages,
 with sample data, to look at in a browser. `GET /operator/email/preview/:kind` does the same over
-the API.
+the API. The first-contact emails (`invite`, `welcome`, `form-confirm`) can be set two ways while
+one is chosen: `--variant b`, or `?variant=b`, shows the second.
 
 ## Setting up sending
 
@@ -80,20 +106,21 @@ The operator sets these with `moteur-email set <key> <value>` on the server, or
 `DATA_ROOT`. `moteur-email settings` (or `GET /operator/email`) shows what is set and what the
 emails use. `moteur-email unset <key>`, or `null` over the API, puts a setting back to its default.
 
-| Setting       | Default                                   | Means                                                                                                                                     |
-| ------------- | ----------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
-| `fromName`    | The name in `SMTP_FROM`, else productName | The name inboxes show. Keep it the same over time.                                                                                        |
-| `fromAddress` | The address in `SMTP_FROM`                | The From address, on a domain you own and have set up (below).                                                                            |
-| `replyTo`     | None                                      | Where replies go. Invitations reply to the person who invited; form notices to the person who wrote.                                      |
-| `productName` | `Moteur`                                  | The name the emails say: "482913 is your Moteur code".                                                                                    |
-| `look`        | `discotheque`                             | `discotheque`, `folio`, or `recipient`: the look the person chose (Discothèque when it isn't known).                                      |
-| `accent`      | The look's                                | `#RRGGBB` for buttons and links. White text on it must read at 4.5:1, so a light colour is refused; in dark mode it is lightened to read. |
-| `logoUrl`     | None                                      | An `https` image shown in place of the product's name. Mail apps often hide remote images until the reader allows them: keep it optional. |
-| `logoFile`    | None                                      | A PNG, JPEG or GIF on the server (100 KB at most, relative to `DATA_ROOT`), sent inside each email: it shows without loading anything.    |
-| `logoWidth`   | `120`                                     | The logo's width in pixels, 24 to 300.                                                                                                    |
-| `footer`      | None                                      | A line at the foot of every email: your postal address or legal line. `\n` starts a new line.                                             |
-| `supportUrl`  | None                                      | An `https` page where people get help, linked at the foot.                                                                                |
-| `locale`      | `en`                                      | `en` or `fr`: the language when the reader's isn't known.                                                                                 |
+| Setting          | Default                                   | Means                                                                                                                                                                                |
+| ---------------- | ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `fromName`       | The name in `SMTP_FROM`, else productName | The name inboxes show. Keep it the same over time.                                                                                                                                   |
+| `fromAddress`    | The address in `SMTP_FROM`                | The From address, on a domain you own and have set up (below).                                                                                                                       |
+| `replyTo`        | None                                      | Where replies go. Invitations reply to the person who invited; form notices to the person who wrote.                                                                                 |
+| `productName`    | `Moteur`                                  | The name the emails say: "482913 is your Moteur code".                                                                                                                               |
+| `productTagline` | A line about the product, with its name   | What the product is, in a sentence or two (300 characters at most), in the first-contact emails. One text, or `{ "en": "…", "fr": "…" }`; a language left out uses the default line. |
+| `look`           | `discotheque`                             | `discotheque`, `folio`, or `recipient`: the look the person chose (Discothèque when it isn't known).                                                                                 |
+| `accent`         | The look's                                | `#RRGGBB` for buttons and links. White text on it must read at 4.5:1, so a light colour is refused; in dark mode it is lightened to read.                                            |
+| `logoUrl`        | None                                      | An `https` image shown in place of the product's name. Mail apps often hide remote images until the reader allows them: keep it optional.                                            |
+| `logoFile`       | None                                      | A PNG, JPEG or GIF on the server (100 KB at most, relative to `DATA_ROOT`), sent inside each email: it shows without loading anything.                                               |
+| `logoWidth`      | `120`                                     | The logo's width in pixels, 24 to 300.                                                                                                                                               |
+| `footer`         | None                                      | A line at the foot of every email: your postal address or legal line. `\n` starts a new line.                                                                                        |
+| `supportUrl`     | None                                      | An `https` page where people get help, linked at the foot.                                                                                                                           |
+| `locale`         | `en`                                      | `en` or `fr`: the language when the reader's isn't known.                                                                                                                            |
 
 Each email's language is the reader's: the language the page asking for a code was in, then the
 one in their preferences, then the one their account was made in, then `locale`. A person sets

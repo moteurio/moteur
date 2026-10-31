@@ -2,16 +2,19 @@ Subject: Bienvenue dans Moteur
 
 Bienvenue, Louise
 
-Votre compte Moteur est prêt. Trois choses à faire cette semaine :
+Votre compte Moteur est prêt. Moteur est l’endroit où les équipes rédigent, traduisent et publient le contenu de leurs sites. Chaque changement est conservé, et le contenu leur appartient.
 
-1. Créez le projet de votre premier client, et ses langues.
-2. Invitez l’équipe du client : chacun son rôle, et rien qu’il puisse briser.
-3. Branchez le site : un canal, une clé qui ne fait que lire, et c’est parti.
+Trois choses pour commencer :
+
+1. Créez le projet de votre premier site, dans ses langues.
+2. Invitez votre équipe : chacun son rôle, et rien qu’il puisse briser.
+3. Branchez le site : un canal, une clé qui ne fait que lire, et le contenu arrive.
 
 Créer un premier projet :
 https://studio.example.com/projects/new
 
-Chaque enregistrement devient un commit. Rien n’est perdu, et tout vous appartient.
+La prochaine fois
+Allez sur https://studio.example.com et saisissez louise@agence.example. Nous envoyons un code à cette adresse : aucun mot de passe à retenir.
 
 L’équipe Moteur
 

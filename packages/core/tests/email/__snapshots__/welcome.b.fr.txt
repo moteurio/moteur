@@ -1,0 +1,24 @@
+Subject: Bienvenue dans Moteur
+
+Bienvenue dans Moteur
+
+Votre compte est prêt, Louise
+
+Qu’est-ce que Moteur ?
+
+Moteur est l’endroit où les équipes rédigent, traduisent et publient le contenu de leurs sites. Chaque changement est conservé, et le contenu leur appartient.
+
+Pour commencer
+
+1. Créez le projet de votre premier site, dans ses langues.
+2. Invitez votre équipe : chacun son rôle, et rien qu’il puisse briser.
+3. Branchez le site : un canal, une clé qui ne fait que lire, et le contenu arrive.
+
+Créer un premier projet :
+https://studio.example.com/projects/new
+
+Se connecter : Allez sur https://studio.example.com et saisissez louise@agence.example. Nous envoyons un code à cette adresse : aucun mot de passe à retenir.
+
+L’équipe Moteur
+
+Vous recevez ce courriel parce que vous avez créé un compte avec l’adresse louise@agence.example.

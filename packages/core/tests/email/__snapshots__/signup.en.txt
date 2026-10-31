@@ -12,4 +12,7 @@ https://studio.example.com/auth/email#email=louise%40agence.example&token=Xq3v9T
 
 The code and the link work once, for 15 minutes.
 
+What is Moteur?
+Moteur is where teams write, translate and publish their websites’ content. Every change is kept, and the content stays theirs.
+
 Someone asked to make a Moteur account for louise@agence.example. If it wasn’t you, ignore this email: no account is made without the code.

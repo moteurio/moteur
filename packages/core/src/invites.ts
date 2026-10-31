@@ -16,12 +16,37 @@ export type ProjectInvite = {
     email: string;
     roles: string[];
     invitedBy: string;
+    /** A few words from the person who invited, shown in the email. Plain text. */
+    note?: string;
     createdAt: string;
     expiresAt: string;
     tokenHash: string;
 };
 
 export const INVITE_TTL_DAYS = 7;
+export const INVITE_NOTE_MAX = 500;
+
+/**
+ * An inviter's note as it is kept: plain text, line breaks kept (at most one blank line in a
+ * row), other control characters dropped. Empty means none. Throws a 400 when it can't be used.
+ */
+export function cleanInviteNote(raw: unknown): string | undefined {
+    if (raw === undefined || raw === null) return undefined;
+    if (typeof raw !== 'string')
+        throw Object.assign(new Error('note must be text'), { status: 400 });
+    const note = raw
+        .replace(/\r\n?/g, '\n')
+        // eslint-disable-next-line no-control-regex
+        .replace(/[\u0000-\u0009\u000B-\u001F\u007F\u200B-\u200F\u202A-\u202E\u2066-\u2069]/g, '')
+        .replace(/[ \t]+\n/g, '\n')
+        .replace(/\n{3,}/g, '\n\n')
+        .trim();
+    if ([...note].length > INVITE_NOTE_MAX)
+        throw Object.assign(new Error(`note is longer than ${INVITE_NOTE_MAX} characters`), {
+            status: 400
+        });
+    return note || undefined;
+}
 
 function invitesFile(): string {
     return path.join(path.dirname(storageConfig.usersFile), 'invites.json');
@@ -73,6 +98,14 @@ export function normalizeInviteEmail(email: string): string {
     return email.trim().toLowerCase();
 }
 
+/** The newest live invite for an address, from any project. */
+export function liveInviteFor(email: string): ProjectInvite | undefined {
+    const wanted = normalizeInviteEmail(email);
+    return readAll()
+        .filter(i => isLive(i) && i.email === wanted)
+        .sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0];
+}
+
 /** Pending invites to a project, oldest first. */
 export function listInvites(projectId: string): ProjectInvite[] {
     return readAll().filter(i => i.projectId === projectId && isLive(i));
@@ -84,6 +117,7 @@ export function createInvite(input: {
     email: string;
     roles: string[];
     invitedBy: string;
+    note?: string;
 }): { invite: ProjectInvite; token: string } {
     const email = normalizeInviteEmail(input.email);
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new Error('A valid email is required');
@@ -96,6 +130,7 @@ export function createInvite(input: {
             input.roles.filter(r => (ROLE_SLUGS as readonly string[]).includes(r))
         ),
         invitedBy: input.invitedBy,
+        ...(input.note && { note: input.note }),
         ...times
     };
     writeAll([

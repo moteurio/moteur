@@ -23,6 +23,12 @@ export interface EmailSettings {
     replyTo?: string;
     /** The name the emails say: "Moteur" unless the operator renames it. */
     productName?: string;
+    /**
+     * What the product is, in a sentence or two, for the emails that are someone's first contact
+     * (invitation, welcome, sign-up). One text for every language, or `{ en, fr }`. Default: a
+     * line about the product, with its name.
+     */
+    productTagline?: string | ProductTagline;
     /** Discothèque, Folio, or `recipient`: the look the person chose, Discothèque when unknown. */
     look?: EmailLook | 'recipient';
     /** Buttons and links, as `#RRGGBB`: white text on it must read at 4.5:1. Default: the look's. */
@@ -41,6 +47,9 @@ export interface EmailSettings {
     locale?: EmailLocale;
 }
 
+/** A tagline per language; a missing language uses the default line. */
+export type ProductTagline = Partial<Record<EmailLocale, string>>;
+
 export type StoredEmailSettings = EmailSettings & { updatedAt?: string; updatedBy?: string };
 
 /** Settings as every email uses them: the file, then SMTP_FROM, then defaults. */
@@ -49,6 +58,7 @@ export interface ResolvedEmailSettings {
     fromAddress: string;
     replyTo?: string;
     productName: string;
+    productTagline?: ProductTagline;
     look: EmailLook | 'recipient';
     accent?: string;
     logoUrl?: string;
@@ -64,6 +74,7 @@ const KEYS: (keyof EmailSettings)[] = [
     'fromAddress',
     'replyTo',
     'productName',
+    'productTagline',
     'look',
     'accent',
     'logoUrl',
@@ -111,6 +122,7 @@ export function resolveEmailSettings(
         fromAddress: stored.fromAddress?.trim() || env.address || '',
         replyTo: stored.replyTo?.trim() || undefined,
         productName,
+        productTagline: taglineOf(stored.productTagline),
         look: stored.look ?? 'discotheque',
         accent: stored.accent && accentProblem(stored.accent) === null ? stored.accent : undefined,
         logoUrl: stored.logoUrl || undefined,
@@ -120,6 +132,21 @@ export function resolveEmailSettings(
         supportUrl: stored.supportUrl || undefined,
         locale: stored.locale ?? 'en'
     };
+}
+
+export const TAGLINE_MAX = 300;
+
+/** A stored tagline as one per language: a plain string stands for every language. */
+function taglineOf(value: unknown): ProductTagline | undefined {
+    if (typeof value === 'string')
+        return value.trim() ? { en: value.trim(), fr: value.trim() } : undefined;
+    if (!value || typeof value !== 'object') return undefined;
+    const out: ProductTagline = {};
+    for (const l of EMAIL_LOCALES) {
+        const v = (value as Record<string, unknown>)[l];
+        if (typeof v === 'string' && v.trim()) out[l] = v.trim();
+    }
+    return Object.keys(out).length ? out : undefined;
 }
 
 /** Why an accent can't be used, or null: white text on it, and it as a link on white, at 4.5:1. */
@@ -216,6 +243,31 @@ export function validateEmailSettings(patch: Record<string, unknown>): Partial<E
             case 'footer':
                 out[key] = text(400);
                 break;
+            case 'productTagline': {
+                const line = (v: unknown) => {
+                    if (typeof v !== 'string') throw problem(`${key} must be text`);
+                    const t = v.trim();
+                    if (t.length > TAGLINE_MAX)
+                        throw problem(`${key} is longer than ${TAGLINE_MAX} characters`);
+                    if (/[\r\n]/.test(t)) throw problem(`${key} must be on one line`);
+                    return t;
+                };
+                if (typeof raw === 'string') {
+                    out[key] = line(raw);
+                    break;
+                }
+                if (typeof raw !== 'object' || Array.isArray(raw))
+                    throw problem(`${key} must be text, or { "en": "…", "fr": "…" }`);
+                const per: ProductTagline = {};
+                for (const [l, v] of Object.entries(raw as Record<string, unknown>)) {
+                    if (!EMAIL_LOCALES.includes(l as EmailLocale))
+                        throw problem(`${key} has languages en and fr only`);
+                    if (v === null || v === '') continue;
+                    per[l as EmailLocale] = line(v);
+                }
+                out[key] = Object.keys(per).length ? per : null;
+                break;
+            }
             case 'locale':
                 if (!EMAIL_LOCALES.includes(raw as EmailLocale))
                     throw problem('locale must be en or fr');

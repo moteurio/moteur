@@ -2,16 +2,19 @@ Subject: Welcome to Moteur
 
 Welcome, Louise
 
-Your Moteur account is ready. Three things worth doing this week:
+Your Moteur account is ready. Moteur is where teams write, translate and publish their websites’ content. Every change is kept, and the content stays theirs.
 
-1. Start your first client’s project, in their languages.
-2. Invite the client’s team: each with their role, and nothing they can break.
-3. Connect the site: a channel, a key that only reads, and you’re reading content.
+Three things to start with:
+
+1. Start your first site’s project, in its languages.
+2. Invite your team: each with their role, and nothing they can break.
+3. Connect the site: a channel, a key that only reads, and the content flows.
 
 Start your first project:
 https://studio.example.com/projects/new
 
-Every save becomes a commit. Nothing is lost, and all of it is yours.
+Next time
+Go to https://studio.example.com and type louise@agence.example. We send a code to this address, so there’s no password to remember.
 
 The Moteur team
 
