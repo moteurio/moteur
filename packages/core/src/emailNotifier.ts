@@ -1,13 +1,84 @@
 import { WorkBudget } from './utils/workBudget.js';
-const verificationMailBudget = new WorkBudget(2, 8);
 import type { Review } from '@moteurio/types/Review.js';
 import type { ProjectSchema } from '@moteurio/types/Project.js';
 import type { User } from '@moteurio/types/User.js';
+import { readerOf, renderEmail, type RenderedEmail } from './email/render.js';
+import { NOTIFICATION_KINDS, type EmailData, type EmailKind } from './email/templates.js';
+import { deliver, mailUnavailable, type MailCategory } from './email/transport.js';
+import { unsubscribeUrl, wantsEmail } from './email/unsubscribe.js';
+import { studioUrl } from './utils/studioUrl.js';
+import type { EmailLook } from './email/settings.js';
+
+export { readerOf };
+
+/**
+ * Every email the engine sends goes through here: rendered from one template system
+ * (./email), sent with the server's SMTP settings and the operator's From, with the headers
+ * automated mail should carry. Configure SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, SMTP_FROM;
+ * the operator sets the rest (docs/Email.md).
+ */
+
+const verificationMailBudget = new WorkBudget(2, 8);
 
 export type ReviewEmailType = 'review_requested' | 'approved' | 'rejected';
 
-function isEmailConfigured(): boolean {
-    return !!(process.env.SMTP_HOST && process.env.SMTP_FROM);
+/** Why an email can't go out, or null when the server can send mail. */
+export function emailUnavailable(): string | null {
+    return mailUnavailable();
+}
+
+const categoryOf = (kind: EmailKind): MailCategory =>
+    NOTIFICATION_KINDS.includes(kind)
+        ? 'notification'
+        : kind.startsWith('form-')
+          ? 'project'
+          : kind === 'test'
+            ? 'test'
+            : 'auth';
+
+function asMail(email: RenderedEmail, to: string[]) {
+    return {
+        to,
+        subject: email.subject,
+        text: email.text,
+        html: email.html,
+        attachments: email.attachments,
+        category: categoryOf(email.kind),
+        ...(email.unsubscribe && { unsubscribe: email.unsubscribe })
+    };
+}
+
+/**
+ * Sends a ready email (subject, text and HTML parts). Throws with a readable reason (not set up,
+ * refused by the server), so callers can record why it didn't go.
+ */
+export async function sendEmail(message: {
+    to: string[];
+    subject: string;
+    text: string;
+    html?: string;
+    replyTo?: string;
+    fromName?: string;
+    category?: MailCategory;
+    unsubscribe?: string;
+    attachments?: RenderedEmail['attachments'];
+}): Promise<void> {
+    await deliver({ category: 'project', ...message });
+}
+
+/** Renders one of the engine's emails for this reader and sends it. */
+export async function sendTemplateEmail<K extends EmailKind>(
+    kind: K,
+    to: string[],
+    data: EmailData[K],
+    options: { locale?: string; look?: EmailLook; replyTo?: string; fromName?: string } = {}
+): Promise<void> {
+    const email = renderEmail(kind, data, { locale: options.locale, look: options.look });
+    await deliver({
+        ...asMail(email, to),
+        ...(options.replyTo && { replyTo: options.replyTo }),
+        ...(options.fromName && { fromName: options.fromName })
+    });
 }
 
 /** A code by email, within the same small budget as verification mail: never a mail cannon. */
@@ -15,75 +86,33 @@ export function sendCodeEmail(message: {
     to: string[];
     subject: string;
     text: string;
+    html?: string;
+    attachments?: RenderedEmail['attachments'];
 }): Promise<void> {
-    return verificationMailBudget.run(() => sendEmail(message));
+    return verificationMailBudget.run(async () => {
+        await deliver({ ...message, category: 'auth' });
+    });
 }
 
 /** Verification must fail visibly if delivery is unavailable; never silently mark mail verified. */
-export async function sendVerificationEmail(email: string, code: string): Promise<void> {
-    return verificationMailBudget.run(() => deliverVerificationEmail(email, code));
-}
-
-async function deliverVerificationEmail(email: string, code: string): Promise<void> {
-    if (!isEmailConfigured())
+export async function sendVerificationEmail(
+    email: string,
+    code: string,
+    locale?: string
+): Promise<void> {
+    if (mailUnavailable())
         throw Object.assign(new Error('Email verification is not configured on this server.'), {
             status: 503
         });
-    const nodemailer = await import('nodemailer');
-    const port = Number(process.env.SMTP_PORT || 587);
-    const transporter = nodemailer.default.createTransport({
-        host: process.env.SMTP_HOST,
-        port,
-        secure: port === 465,
-        connectionTimeout: 10_000,
-        greetingTimeout: 10_000,
-        socketTimeout: 10_000,
-        ...(process.env.SMTP_USER && process.env.SMTP_PASS
-            ? {
-                  auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS }
-              }
-            : {})
+    const rendered = renderEmail('verify', { email, code }, { locale });
+    return verificationMailBudget.run(async () => {
+        await deliver(asMail(rendered, [email]));
     });
-    await transporter.sendMail({
-        from: process.env.SMTP_FROM!,
-        to: email,
-        subject: 'Verify your Moteur email',
-        text: `Your Moteur verification code is ${code}. It expires with your sign-in in 10 minutes. If you did not request this, ignore this email.`
-    });
-}
-
-function getSubject(type: ReviewEmailType, projectLabel: string): string {
-    const project = projectLabel || 'the project';
-    switch (type) {
-        case 'review_requested':
-            return `Review requested in ${project}`;
-        case 'approved':
-            return `Entry approved and published in ${project}`;
-        case 'rejected':
-            return `Entry returned for revisions in ${project}`;
-        default:
-            return `Review update in ${project}`;
-    }
-}
-
-function getBody(type: ReviewEmailType, projectLabel: string): string {
-    const project = projectLabel || 'the project';
-    switch (type) {
-        case 'review_requested':
-            return `An entry has been submitted for your review in ${project}.`;
-        case 'approved':
-            return `Your entry has been approved and published in ${project}.`;
-        case 'rejected':
-            return `Your entry was returned for revisions in ${project}.`;
-        default:
-            return `There was a review update in ${project}.`;
-    }
 }
 
 /**
- * Sends a review-related email. Non-blocking and fail-safe.
- * Configure via SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, SMTP_FROM.
- * If not configured or nodemailer is not available, skips sending without throwing.
+ * Sends a review-related email. Non-blocking and fail-safe: skipped when mail isn't set up or
+ * the person turned review emails off; a failure is logged on the entry, never thrown.
  */
 export async function sendReviewEmail(
     type: ReviewEmailType,
@@ -92,37 +121,30 @@ export async function sendReviewEmail(
     project: ProjectSchema
 ): Promise<void> {
     if (!toUser?.email) return;
-    if (!isEmailConfigured()) return;
+    if (mailUnavailable()) return;
+    if (!wantsEmail(toUser, 'reviews')) return;
 
-    const projectLabel = project?.label ?? project?.id ?? 'project';
-    const subject = getSubject(type, projectLabel);
-    const body = getBody(type, projectLabel);
-
+    const studio = studioUrl();
+    const person = type === 'review_requested' ? review.requestedByName : review.reviewedByName;
     try {
-        const nodemailer = await import('nodemailer').catch(() => null);
-        if (!nodemailer?.default) return;
-
-        const port = parseInt(process.env.SMTP_PORT || '587', 10);
-        const transporter = nodemailer.default.createTransport({
-            host: process.env.SMTP_HOST,
-            port: isNaN(port) ? 587 : port,
-            secure: port === 465,
-            ...(process.env.SMTP_USER && process.env.SMTP_PASS
-                ? { auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS } }
-                : {})
-        });
-
-        const from = process.env.SMTP_FROM ?? '';
-        await transporter.sendMail({
-            from,
-            to: toUser.email,
-            subject,
-            text: body
-        });
+        await sendTemplateEmail(
+            'review',
+            [toUser.email],
+            {
+                type,
+                person: person || undefined,
+                project: project?.label || project?.id || review.projectId,
+                resource: review.resourceType === 'page' || review.pageId ? 'page' : 'entry',
+                ...(studio && {
+                    url: `${studio}/projects/${encodeURIComponent(review.projectId)}/reviews/${encodeURIComponent(review.id)}`
+                }),
+                unsubscribeUrl: unsubscribeUrl(toUser.id, 'reviews')
+            },
+            readerOf(toUser)
+        );
     } catch (err) {
         try {
-            const { log } = await import('./activityLogger.js');
-            const { toActivityEvent } = await import('./activityLogger.js');
+            const { log, toActivityEvent } = await import('./activityLogger.js');
             log(
                 toActivityEvent(
                     review.projectId,
@@ -138,47 +160,4 @@ export async function sendReviewEmail(
             // ignore logging failure
         }
     }
-}
-
-/** Why an email can't go out, or null when the server can send mail. */
-export function emailUnavailable(): string | null {
-    return isEmailConfigured()
-        ? null
-        : 'Email is not set up on this server (SMTP_HOST and SMTP_FROM).';
-}
-
-/**
- * Sends a plain-text email with the server's SMTP settings. Throws with a readable reason
- * (not set up, refused by the server), so callers can record why it didn't go.
- */
-export async function sendEmail(message: {
-    to: string[];
-    subject: string;
-    text: string;
-    replyTo?: string;
-}): Promise<void> {
-    const unavailable = emailUnavailable();
-    if (unavailable) throw new Error(unavailable);
-    const nodemailer = await import('nodemailer').catch(() => null);
-    if (!nodemailer?.default) throw new Error('Email is not available (nodemailer is missing).');
-    const port = parseInt(process.env.SMTP_PORT || '587', 10);
-    const transporter = nodemailer.default.createTransport({
-        host: process.env.SMTP_HOST,
-        port: isNaN(port) ? 587 : port,
-        secure: port === 465,
-        // A slow mail server must not hold requests open.
-        connectionTimeout: 10_000,
-        greetingTimeout: 10_000,
-        socketTimeout: 20_000,
-        ...(process.env.SMTP_USER && process.env.SMTP_PASS
-            ? { auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS } }
-            : {})
-    });
-    await transporter.sendMail({
-        from: process.env.SMTP_FROM ?? '',
-        to: message.to.join(', '),
-        subject: message.subject,
-        text: message.text,
-        ...(message.replyTo ? { replyTo: message.replyTo } : {})
-    });
 }

@@ -37,6 +37,7 @@ import {
     updateServerSettings,
     type ServerSettingsPatch
 } from '@moteurio/core/serverSettings.js';
+import emailRouter, { emailPaths } from './email.js';
 
 /**
  * The operator's view of the whole server: every project, every account, every plugin, and the
@@ -391,6 +392,8 @@ router.patch('/settings', (req: Request, res: Response) => {
         sendApiError(res, req, err);
     }
 });
+
+router.use('/email', emailRouter);
 
 const SCHEMA_KINDS: ServerSchemaKind[] = ['blocks', 'structures'];
 const schemaKind = (req: Request) => {
@@ -783,6 +786,8 @@ paths['/operator/operators/{id}'] = {
         responses: { '204': { description: 'Removed' } }
     }
 };
+
+Object.assign(paths, emailPaths);
 
 /** Every operator route takes an operator token (operatorAuth), never a user's. */
 export const openapi: Record<string, OpenAPIV3.PathItemObject> = Object.fromEntries(

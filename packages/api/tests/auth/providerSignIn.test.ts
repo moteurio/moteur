@@ -93,9 +93,20 @@ describe('provider proof API', () => {
     it('passes the browser binding to code delivery and verification', async () => {
         mocks.email.mockResolvedValue(undefined);
         expect(
-            (await call('/provider/email', { ticket: 'ticket', email: 'new@example.test' })).status
+            (
+                await call('/provider/email', {
+                    ticket: 'ticket',
+                    email: 'new@example.test',
+                    locale: 'fr-CA'
+                })
+            ).status
         ).toBe(200);
-        expect(mocks.email).toHaveBeenCalledWith('ticket', 'browser-proof', 'new@example.test');
+        expect(mocks.email).toHaveBeenCalledWith(
+            'ticket',
+            'browser-proof',
+            'new@example.test',
+            'fr-CA'
+        );
         mocks.complete.mockResolvedValue({ token: 'verified-token' });
         expect(
             (await call('/provider/verify', { ticket: 'ticket', code: '123456' })).body.token

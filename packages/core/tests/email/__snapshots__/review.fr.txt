@@ -1,0 +1,13 @@
+Subject: Louise Tremblay vous demande une révision dans Journal de Montréal
+
+Une entrée attend votre révision
+
+Louise Tremblay a envoyé une entrée de Journal de Montréal en révision.
+
+Ouvrir la révision :
+https://studio.example.com/projects/journal/reviews/r-1042
+
+Vous recevez ces courriels parce que vous participez aux révisions dans Journal de Montréal.
+
+Ne plus recevoir les courriels de révision :
+https://api.example.com/auth/email/unsubscribe?u=user%3A42&t=reviews&s=Hq2k7Vb0x9LmT4cR

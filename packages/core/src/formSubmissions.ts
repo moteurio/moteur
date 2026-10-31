@@ -19,6 +19,8 @@ import { UserDataStore } from './utils/userDataStore.js';
 import { triggerEvent } from './utils/eventBus.js';
 import { dispatch as webhookDispatch } from './webhooks/webhookService.js';
 import { sendEmail } from './emailNotifier.js';
+import { renderEmail } from './email/render.js';
+import { getProjectById } from './projects.js';
 import { recordRequest, submissionCount } from './metering.js';
 import { assertSubmissionRoom } from './planLimits.js';
 import { answersMessage, checkAnswers } from './formAnswers.js';
@@ -54,8 +56,11 @@ function senderEmail(form: FormSchema, data: Record<string, unknown>): string | 
     return typeof v === 'string' && EMAIL.test(v.trim()) ? v.trim() : undefined;
 }
 
-/** Every answer, one per line, labelled: the team's notice. */
-function answersText(form: FormSchema, data: Record<string, unknown>): string {
+/** Every answer, labelled: the team's notice. */
+function answerRows(
+    form: FormSchema,
+    data: Record<string, unknown>
+): { label: string; value: string }[] {
     const label = (key: string) => {
         const l = form.fields?.[key]?.label as unknown;
         if (typeof l === 'string') return l;
@@ -65,8 +70,13 @@ function answersText(form: FormSchema, data: Record<string, unknown>): string {
     const keys = [...new Set([...Object.keys(form.fields ?? {}), ...Object.keys(data)])];
     return keys
         .filter(k => data[k] !== undefined && data[k] !== '')
-        .map(k => `${label(k)}:\n${asText(data[k])}`)
-        .join('\n\n');
+        .map(k => ({ label: label(k), value: asText(data[k]) }));
+}
+
+/** A project's own mail: its words as they were written, its name at the top. */
+function projectMail(project: string, subject: string, body: string, locale?: string) {
+    const email = renderEmail('form-message', { project, subject, body }, { locale });
+    return { subject, text: body, html: email.html, fromName: project };
 }
 
 function generateSubmissionId(): string {
@@ -365,6 +375,8 @@ async function processSubmission(
 
     const actions: FormAction[] = form.actions ?? [];
     const actionResults: FormActionResult[] = [];
+    const project = (await getProjectById(projectId).catch(() => null))?.label || projectId;
+    const formLabel = typeof form.label === 'string' ? form.label : form.id;
 
     for (const action of actions) {
         if (action.type === 'createEntry') {
@@ -403,8 +415,11 @@ async function processSubmission(
             try {
                 await sendEmail({
                     to: action.to,
-                    subject: fillIn(action.subject, submission.data),
-                    text: fillIn(action.body, submission.data),
+                    ...projectMail(
+                        project,
+                        fillIn(action.subject, submission.data),
+                        fillIn(action.body, submission.data)
+                    ),
                     replyTo: senderEmail(form, submission.data)
                 });
                 actionResults.push({ type: 'email', status: 'success' });
@@ -447,11 +462,24 @@ async function processSubmission(
     const notify = form.notifications?.onSubmit;
     if (notify?.to?.length) {
         try {
+            const rows = answerRows(form, submission.data);
+            const replyTo = senderEmail(form, submission.data);
+            const subject = fillIn(notify.subject || `New message: ${formLabel}`, submission.data);
+            const email = renderEmail('form-notice', {
+                project,
+                form: formLabel,
+                subject,
+                rows,
+                text: rows.map(r => `${r.label}:\n${r.value}`).join('\n\n'),
+                canReply: Boolean(replyTo)
+            });
             await sendEmail({
                 to: notify.to,
-                subject: fillIn(notify.subject || `New message: ${form.label}`, submission.data),
-                text: answersText(form, submission.data),
-                replyTo: senderEmail(form, submission.data)
+                subject,
+                text: email.text,
+                html: email.html,
+                fromName: project,
+                replyTo
             });
             actionResults.push({ type: 'notify', status: 'success' });
         } catch (err) {
@@ -471,8 +499,12 @@ async function processSubmission(
         try {
             await sendEmail({
                 to: [confirmTo.trim()],
-                subject: fillIn(confirm.subject || form.label, submission.data),
-                text: fillIn(body, submission.data)
+                ...projectMail(
+                    project,
+                    fillIn(confirm.subject || formLabel, submission.data),
+                    fillIn(body, submission.data),
+                    locale
+                )
             });
             actionResults.push({ type: 'confirm', status: 'success' });
         } catch (err) {

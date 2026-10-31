@@ -39,6 +39,18 @@ export interface User {
     signup?: SignupRecord;
     /** What they said they came for, and how far they are in getting started. */
     onboarding?: OnboardingState;
+    /** Their look, language and which emails they want, for what the server sends them. */
+    preferences?: UserPreferences;
+}
+
+/** What a person chose, kept on the server so its emails can follow it. */
+export interface UserPreferences {
+    /** `discotheque` or `folio`. */
+    look?: 'discotheque' | 'folio';
+    /** Interface language (`en`, `fr`…): their emails use it when the server has it. */
+    locale?: string;
+    /** Notification emails they turned off (`false`). Sign-in mail can't be turned off. */
+    emails?: { reviews?: boolean };
 }
 
 /** Why someone came, as they said on their first screen. */

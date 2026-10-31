@@ -1,0 +1,15 @@
+Subject: 482913 est votre code Moteur
+
+Votre code de connexion
+
+Saisissez ce code là où vous l’avez demandé pour vous connecter à Moteur.
+
+    482 913
+
+Ou connectez-vous en un clic :
+
+https://studio.example.com/auth/email#email=louise%40agence.example&token=Xq3v9TzL0b2nC7aR1mK8pW4sYdE6hJ5uFgNi
+
+Le code et le lien ne servent qu’une fois, pendant 15 minutes.
+
+Quelqu’un a demandé à se connecter à Moteur avec l’adresse louise@agence.example. Si ce n’était pas vous, ignorez ce courriel : rien ne se passe sans le code.

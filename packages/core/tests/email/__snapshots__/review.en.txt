@@ -1,0 +1,13 @@
+Subject: Louise Tremblay asked for your review in Journal de Montréal
+
+An entry is waiting for your review
+
+Louise Tremblay sent an entry in Journal de Montréal for review.
+
+Open the review:
+https://studio.example.com/projects/journal/reviews/r-1042
+
+You get these emails because you take part in reviews in Journal de Montréal.
+
+Stop review emails:
+https://api.example.com/auth/email/unsubscribe?u=user%3A42&t=reviews&s=Hq2k7Vb0x9LmT4cR

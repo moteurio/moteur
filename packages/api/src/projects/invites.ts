@@ -12,7 +12,8 @@ import {
     INVITE_TTL_DAYS,
     type ProjectInvite
 } from '@moteurio/core/invites.js';
-import { getProjectUsers, getUserById } from '@moteurio/core/users.js';
+import { getProjectUsers, getUserByEmail, getUserById } from '@moteurio/core/users.js';
+import { readerOf, renderEmail } from '@moteurio/core/email/render.js';
 import { emailUnavailable, sendEmail } from '@moteurio/core/emailNotifier.js';
 import { assertPeopleRoom } from '@moteurio/core/planLimits.js';
 import { requireProjectAdmin } from '../middlewares/auth.js';
@@ -78,17 +79,32 @@ async function deliver(
 
     const inviter = req.account?.name || req.account?.email || 'Someone';
     const project = req.project?.label || invite.projectId;
+    // Their language if they have an account, else the one the inviter asks for, else theirs.
+    const known = getUserByEmail(invite.email);
+    const locale =
+        readerOf(known).locale ??
+        (typeof req.body?.locale === 'string' ? req.body.locale.slice(0, 20) : undefined) ??
+        readerOf(req.account).locale;
     try {
+        const email = renderEmail(
+            'invite',
+            {
+                email: invite.email,
+                inviter,
+                project,
+                url,
+                days: INVITE_TTL_DAYS,
+                replyToInviter: Boolean(req.account?.email)
+            },
+            { locale, look: readerOf(known).look }
+        );
         await sendEmail({
             to: [invite.email],
-            subject: `${inviter} invited you to ${project} on Moteur`,
-            text: [
-                `${inviter} invited you to work on ${project} in Moteur.`,
-                '',
-                `Join here: ${url}`,
-                '',
-                `The link works for ${INVITE_TTL_DAYS} days. If you weren't expecting this, you can ignore it.`
-            ].join('\n'),
+            subject: email.subject,
+            text: email.text,
+            html: email.html,
+            attachments: email.attachments,
+            category: 'auth',
             ...(req.account?.email ? { replyTo: req.account.email } : {})
         });
         return { path, url, emailed: true };
@@ -222,6 +238,11 @@ const sendBody: OpenAPIV3.RequestBodyObject = {
                     appUrl: {
                         type: 'string',
                         description: 'The Studio address to put in the link.'
+                    },
+                    locale: {
+                        type: 'string',
+                        description:
+                            'The language of the email (`fr`, `en`…), when the invited person has no account yet.'
                     }
                 }
             }
@@ -273,7 +294,12 @@ export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
                             properties: {
                                 email: { type: 'string', format: 'email' },
                                 roles: { type: 'array', items: { type: 'string' } },
-                                appUrl: { type: 'string' }
+                                appUrl: { type: 'string' },
+                                locale: {
+                                    type: 'string',
+                                    description:
+                                        'The language of the email (`fr`, `en`…), when the invited person has no account yet.'
+                                }
                             }
                         }
                     }

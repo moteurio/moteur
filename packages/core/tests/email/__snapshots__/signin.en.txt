@@ -1,0 +1,15 @@
+Subject: 482913 is your Moteur code
+
+Your sign-in code
+
+Type this code where you asked for it to sign in to Moteur.
+
+    482 913
+
+Or sign in with one click:
+
+https://studio.example.com/auth/email#email=louise%40agence.example&token=Xq3v9TzL0b2nC7aR1mK8pW4sYdE6hJ5uFgNi
+
+The code and the link work once, for 15 minutes.
+
+Someone asked to sign in to Moteur as louise@agence.example. If it wasn’t you, ignore this email: nothing happens without the code.

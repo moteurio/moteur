@@ -103,7 +103,8 @@ export function describeProviderSignIn(ticket: string, browserToken: string) {
 export async function requestProviderEmail(
     ticket: string,
     browserToken: string,
-    rawEmail: string
+    rawEmail: string,
+    locale?: string
 ): Promise<void> {
     const { all, item } = pending(ticket, browserToken);
     if (item.link) throw problem('Sign in to your existing account to connect this provider.');
@@ -137,7 +138,7 @@ export async function requestProviderEmail(
     item.sends++;
     // Persist the budget before SMTP; failures must not permit an unlimited mail flood.
     writePrivateState(file(), all);
-    await sendVerificationEmail(email, code);
+    await sendVerificationEmail(email, code, locale);
 }
 
 export async function completeProviderEmail(

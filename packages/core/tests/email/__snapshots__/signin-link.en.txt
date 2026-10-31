@@ -1,0 +1,12 @@
+Subject: Your Moteur sign-in link
+
+Your sign-in link
+
+Too many wrong codes were typed for this address today, so codes are off until tomorrow. This link still works.
+
+Sign in to Moteur:
+https://studio.example.com/auth/email#email=louise%40agence.example&token=Xq3v9TzL0b2nC7aR1mK8pW4sYdE6hJ5uFgNi
+
+It works once, for 15 minutes.
+
+Sent to louise@agence.example. If you didn’t ask for it, ignore this email: without this link, nobody gets in.
