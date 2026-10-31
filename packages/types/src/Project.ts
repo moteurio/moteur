@@ -43,6 +43,13 @@ export interface ProjectSchema {
     siteUrl?: string;
 
     /**
+     * How the project's own mail to its site's visitors reads: form confirmations and form
+     * emails go out under the project's name, logo and colour, not the server's. Written through
+     * `PATCH /projects/:projectId/email`, not through a project update.
+     */
+    email?: ProjectEmailSettings;
+
+    /**
      * Where Studio's Preview opens a draft: the address of the site's preview route, which renders
      * pages as they are now (e.g. https://example.com/preview). The page's path and a short-lived
      * `?preview=` token are added. Default: `siteUrl`, for a site that renders on request.
@@ -156,6 +163,28 @@ export interface ProjectSchema {
         blocks?: boolean;
         forms?: boolean;
     };
+}
+
+/** A project's own mail: who it comes from, and how it looks. Every key is optional. */
+export interface ProjectEmailSettings {
+    /** The name inboxes show. Default: the project's name. */
+    senderName?: string;
+    /** Where replies go: the project's contact address. Default: none (the From address). */
+    replyTo?: string;
+    /** A From address on a domain the server's operator allows; else the server's address. */
+    fromAddress?: string;
+    /** An image from the project's media (PNG, JPEG or GIF, 100 KB at most), sent inside each email. */
+    logoAssetId?: string;
+    /** An https image, when the logo is not in the project's media. */
+    logoUrl?: string;
+    /** The logo's width in pixels, 24 to 300. Default 120. */
+    logoWidth?: number;
+    /** `#RRGGBB` for buttons and links; white text on it must read at 4.5:1. */
+    accent?: string;
+    /** The business's postal address or legal line, at the foot of every email. */
+    footer?: string;
+    /** The site to link to at the foot. Default: the project's `siteUrl`. */
+    siteUrl?: string;
 }
 
 /** Stored metadata for one project API key (secret is hash-only). */

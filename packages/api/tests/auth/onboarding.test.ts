@@ -25,7 +25,7 @@ describe('runOnboardingForNewUser', () => {
 
     it('sends the welcome email, and makes nothing unasked', async () => {
         await runOnboardingForNewUser(mockUser as any);
-        expect(sendWelcome).toHaveBeenCalledWith(mockUser, undefined);
+        expect(sendWelcome).toHaveBeenCalledWith(mockUser, undefined, {});
         // The demo is copied only when they ask to be shown around.
         expect(copyProjectForNewUser).not.toHaveBeenCalled();
     });

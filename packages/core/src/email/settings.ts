@@ -14,6 +14,14 @@ export type EmailLook = (typeof EMAIL_LOOKS)[number];
 export const EMAIL_LOCALES = ['en', 'fr'] as const;
 export type EmailLocale = (typeof EMAIL_LOCALES)[number];
 
+/**
+ * The look a page says it shows (a request's `look`): Discothèque or Folio, anything else ignored.
+ * For the one email that answers the request; never stored from it.
+ */
+export function pageLook(value: unknown): EmailLook | undefined {
+    return EMAIL_LOOKS.includes(value as EmailLook) ? (value as EmailLook) : undefined;
+}
+
 export interface EmailSettings {
     /** The name people see the mail come from. Default: the name in SMTP_FROM, else the product name. */
     fromName?: string;
@@ -29,8 +37,13 @@ export interface EmailSettings {
      * line about the product, with its name.
      */
     productTagline?: string | ProductTagline;
-    /** Discothèque, Folio, or `recipient`: the look the person chose, Discothèque when unknown. */
+    /**
+     * `recipient` (the default): each email in the look its reader chose (see docs/Email.md for
+     * which look each email takes). `discotheque` or `folio`: every email in that look.
+     */
     look?: EmailLook | 'recipient';
+    /** The look when the reader's isn't known (an invitation to a new address). Default Discothèque. */
+    defaultLook?: EmailLook;
     /** Buttons and links, as `#RRGGBB`: white text on it must read at 4.5:1. Default: the look's. */
     accent?: string;
     /** An HTTPS image shown at the top in place of the product name (not loaded until the reader allows). */
@@ -45,6 +58,16 @@ export interface EmailSettings {
     supportUrl?: string;
     /** The language of an email when the reader's isn't known. */
     locale?: EmailLocale;
+    /**
+     * Domains a project may send its own mail From (form confirmations), besides the server's
+     * address. Each is added only when its DNS passes the check (SPF, DMARC, a DKIM key).
+     */
+    sendingDomains?: string[];
+    /**
+     * A small "Sent with {productName}" line at the foot of projects' own mail. Default: off, or
+     * `MOTEUR_EMAIL_PROJECT_CREDIT` when the host sets it.
+     */
+    projectCredit?: boolean;
 }
 
 /** A tagline per language; a missing language uses the default line. */
@@ -60,6 +83,7 @@ export interface ResolvedEmailSettings {
     productName: string;
     productTagline?: ProductTagline;
     look: EmailLook | 'recipient';
+    defaultLook: EmailLook;
     accent?: string;
     logoUrl?: string;
     logoFile?: string;
@@ -67,6 +91,8 @@ export interface ResolvedEmailSettings {
     footer?: string;
     supportUrl?: string;
     locale: EmailLocale;
+    sendingDomains: string[];
+    projectCredit: boolean;
 }
 
 const KEYS: (keyof EmailSettings)[] = [
@@ -76,17 +102,29 @@ const KEYS: (keyof EmailSettings)[] = [
     'productName',
     'productTagline',
     'look',
+    'defaultLook',
     'accent',
     'logoUrl',
     'logoFile',
     'logoWidth',
     'footer',
     'supportUrl',
-    'locale'
+    'locale',
+    'sendingDomains',
+    'projectCredit'
 ];
 
 export const LOGO_MAX_BYTES = 100 * 1024;
-const EMAIL = /^[^\s@<>()",;]+@[^\s@<>()",;]+\.[^\s@<>()",;]+$/;
+export const EMAIL = /^[^\s@<>()",;]+@[^\s@<>()",;]+\.[^\s@<>()",;]+$/;
+const DOMAIN = /^(?=.{4,253}$)([a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/;
+export const SENDING_DOMAINS_MAX = 20;
+
+/** A domain as the allow-list keeps it: lower case, no trailing dot; null when it isn't one. */
+export function cleanDomain(value: unknown): string | null {
+    if (typeof value !== 'string') return null;
+    const d = value.trim().toLowerCase().replace(/\.$/, '');
+    return DOMAIN.test(d) ? d : null;
+}
 
 export function settingsFile(): string {
     return path.join(storageConfig.dataRoot, 'data', 'operator', 'email.json');
@@ -123,14 +161,24 @@ export function resolveEmailSettings(
         replyTo: stored.replyTo?.trim() || undefined,
         productName,
         productTagline: taglineOf(stored.productTagline),
-        look: stored.look ?? 'discotheque',
+        look: stored.look ?? 'recipient',
+        defaultLook: stored.defaultLook ?? 'discotheque',
         accent: stored.accent && accentProblem(stored.accent) === null ? stored.accent : undefined,
         logoUrl: stored.logoUrl || undefined,
         logoFile: stored.logoFile || undefined,
         logoWidth: Math.min(300, Math.max(24, Math.round(stored.logoWidth ?? 120))),
         footer: stored.footer?.trim() || undefined,
         supportUrl: stored.supportUrl || undefined,
-        locale: stored.locale ?? 'en'
+        locale: stored.locale ?? 'en',
+        sendingDomains: (stored.sendingDomains ?? [])
+            .map(cleanDomain)
+            .filter((d): d is string => Boolean(d)),
+        // The file's choice, else the host's default (`MOTEUR_EMAIL_PROJECT_CREDIT`, as a hosted
+        // service sets it in its deployment); off otherwise.
+        projectCredit:
+            typeof stored.projectCredit === 'boolean'
+                ? stored.projectCredit
+                : /^(1|true|on)$/i.test(process.env.MOTEUR_EMAIL_PROJECT_CREDIT?.trim() ?? '')
     };
 }
 
@@ -272,6 +320,37 @@ export function validateEmailSettings(patch: Record<string, unknown>): Partial<E
                 if (!EMAIL_LOCALES.includes(raw as EmailLocale))
                     throw problem('locale must be en or fr');
                 out[key] = raw;
+                break;
+            case 'defaultLook':
+                if (!EMAIL_LOOKS.includes(raw as EmailLook))
+                    throw problem('defaultLook must be discotheque or folio');
+                out[key] = raw;
+                break;
+            case 'sendingDomains': {
+                // A list, or the CLI's "a.example, b.example".
+                const items = typeof raw === 'string' ? raw.split(/[\s,]+/) : raw;
+                if (!Array.isArray(items)) throw problem(`${key} must be a list of domains`);
+                const domains = [
+                    ...new Set(
+                        items
+                            .filter(d => d !== '')
+                            .map(d => {
+                                const clean = cleanDomain(d);
+                                if (!clean) throw problem(`${key}: ${String(d)} is not a domain`);
+                                return clean;
+                            })
+                    )
+                ];
+                if (domains.length > SENDING_DOMAINS_MAX)
+                    throw problem(`${key} holds ${SENDING_DOMAINS_MAX} domains at most`);
+                out[key] = domains.length ? domains : null;
+                break;
+            }
+            case 'projectCredit':
+                if (typeof raw === 'boolean') out[key] = raw;
+                else if (raw === 'true' || raw === 'on') out[key] = true;
+                else if (raw === 'false' || raw === 'off') out[key] = false;
+                else throw problem('projectCredit must be true or false');
                 break;
         }
     }

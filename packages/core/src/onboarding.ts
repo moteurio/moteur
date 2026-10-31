@@ -5,6 +5,7 @@ import { getUserById, updateStoredUser } from './users.js';
 import { isExistingProjectId } from './utils/fileUtils.js';
 import { emailUnavailable, sendEmail } from './emailNotifier.js';
 import { readerOf, renderEmail } from './email/render.js';
+import type { EmailLook } from './email/settings.js';
 import { studioUrl } from './utils/studioUrl.js';
 
 /**
@@ -108,7 +109,12 @@ async function joinedProject(user: User, joined?: JoinedBy) {
  * A first email: what the product is, what to do first, how to sign in next time. Someone who
  * joined by invitation reads about their project first. Never fails the sign-up.
  */
-export async function sendWelcome(user: User, joined?: JoinedBy): Promise<void> {
+export async function sendWelcome(
+    user: User,
+    joined?: JoinedBy,
+    /** The look of the page they signed up on: used when the account has none saved yet. */
+    page: { look?: EmailLook } = {}
+): Promise<void> {
     if (!user.email || emailUnavailable()) return;
     // A name they gave; an account made by code is named after its address, which isn't one.
     const given = user.name?.trim();
@@ -122,7 +128,7 @@ export async function sendWelcome(user: User, joined?: JoinedBy): Promise<void> 
             password: Boolean(user.passwordHash),
             joined: await joinedProject(user, joined)
         },
-        readerOf(user)
+        { ...readerOf(user), look: readerOf(user).look ?? page.look }
     );
     await sendEmail({
         to: [user.email],

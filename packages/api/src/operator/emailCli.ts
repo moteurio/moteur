@@ -7,7 +7,9 @@
  *   moteur-email unset <key>                 back to its default
  *   moteur-email check [--to you@example.com] [--selector s1]
  *                                            SMTP, SPF, DMARC, DKIM, MX, links; --to sends a test
- *   moteur-email preview <kind|all> [--locale fr] [--look folio] [--variant b] [--text] [--out path]
+ *   moteur-email check --domain example.com | --project <id>
+ *                                            whether projects can send their mail from a domain
+ *   moteur-email preview <kind|all> [--locale fr] [--look folio] [--text] [--out path]
  *
  * Reads the same settings as the API (DATA_ROOT, SMTP_*, MOTEUR_DKIM_*, STUDIO_URL). Run it
  * where the API's data is.
@@ -19,20 +21,21 @@ import {
     resolveEmailSettings,
     saveEmailSettings,
     settingsFile,
+    validateEmailSettings,
     EMAIL_LOCALES,
     EMAIL_LOOKS,
     type EmailLook
 } from '@moteurio/core/email/settings.js';
 import { renderEmail } from '@moteurio/core/email/render.js';
+import { EMAIL_KINDS, samples, type EmailKind } from '@moteurio/core/email/templates.js';
+import { dkimConfig, domainOf, mailUnavailable, smtpPort } from '@moteurio/core/email/transport.js';
 import {
-    EMAIL_KINDS,
-    EMAIL_VARIANTS,
-    samples,
-    type EmailKind,
-    type EmailVariant
-} from '@moteurio/core/email/templates.js';
-import { dkimConfig, mailUnavailable, smtpPort } from '@moteurio/core/email/transport.js';
-import { runEmailCheck } from '@moteurio/core/email/check.js';
+    checkSendingDomain,
+    runDomainCheck,
+    runEmailCheck,
+    type EmailCheck
+} from '@moteurio/core/email/check.js';
+import { getProjectById } from '@moteurio/core/projects.js';
 
 try {
     process.loadEnvFile();
@@ -57,19 +60,29 @@ const HELP = `moteur-email: the email this server sends.
   settings                         what is set, and what emails use
   set <key> <value>                change one: fromName, fromAddress, replyTo, productName,
                                    productTagline,
-                                   look (discotheque, folio, recipient), accent (#RRGGBB),
-                                   logoUrl, logoFile, logoWidth, footer, supportUrl, locale (en, fr)
+                                   look (recipient, discotheque, folio), defaultLook,
+                                   accent (#RRGGBB), logoUrl, logoFile, logoWidth, footer,
+                                   supportUrl, locale (en, fr), projectCredit (true, false),
+                                   sendingDomains (a.example,b.example: each must pass the check)
   unset <key>                      put one back to its default
   check [--to <email>] [--selector <s>]
                                    SMTP, SPF, DMARC, DKIM and MX; --to also sends a test email
-  preview <kind|all> [--locale en|fr] [--look discotheque|folio] [--variant a|b] [--text] [--out <path>]
+  check --domain <domain> | --project <id>
+                                   whether projects can send their own mail from a domain
+  preview <kind|all> [--locale en|fr] [--look discotheque|folio] [--text] [--out <path>]
                                    an email with sample data; all writes every one into --out
 
 Kinds: ${EMAIL_KINDS.join(', ')}
-Variants (invite, welcome, form-confirm): ${EMAIL_VARIANTS.join(', ')}
 Settings file: ${settingsFile()}`;
 
 const MARK = { ok: 'ok  ', warn: 'warn', fail: 'FAIL', info: 'info' } as const;
+
+function printChecks(checks: EmailCheck[]) {
+    for (const c of checks) {
+        console.log(`${MARK[c.status]}  ${c.message}`);
+        if (c.found) console.log(`      ${c.found}`);
+    }
+}
 
 function printSettings() {
     const stored = readEmailSettings();
@@ -97,9 +110,6 @@ function preview(kind: EmailKind, look: EmailLook | undefined, locale: string | 
     return renderEmail(kind, samples(loc ?? resolveEmailSettings().locale)[kind], {
         locale: loc,
         forceLook: look,
-        variant: EMAIL_VARIANTS.includes(flag('variant') as EmailVariant)
-            ? (flag('variant') as EmailVariant)
-            : undefined,
         images: 'data'
     });
 }
@@ -119,22 +129,49 @@ async function main() {
                     ? null
                     : key === 'logoWidth'
                       ? Number(raw)
-                      : key === 'footer'
-                        ? raw.replace(/\\n/g, '\n')
-                        : key === 'productTagline' && raw.trim().startsWith('{')
-                          ? (JSON.parse(raw) as unknown)
-                          : raw;
+                      : key === 'sendingDomains' && raw.trim().startsWith('[')
+                        ? (JSON.parse(raw) as unknown)
+                        : key === 'footer'
+                          ? raw.replace(/\\n/g, '\n')
+                          : key === 'productTagline' && raw.trim().startsWith('{')
+                            ? (JSON.parse(raw) as unknown)
+                            : raw;
+            // A new sending domain must pass the check first: projects' mail has to arrive.
+            if (key === 'sendingDomains' && value !== null) {
+                const asked = (validateEmailSettings({ sendingDomains: value }).sendingDomains ??
+                    []) as string[];
+                const known = new Set(resolveEmailSettings().sendingDomains);
+                for (const domain of asked.filter(d => !known.has(d))) {
+                    const { passes, checks } = await checkSendingDomain(domain);
+                    if (!passes) {
+                        printChecks(checks);
+                        throw new Error(
+                            `\n${domain} can’t be a sending domain yet: fix what fails above, then try again.`
+                        );
+                    }
+                }
+            }
             saveEmailSettings({ [key]: value }, 'server');
             console.log(command === 'unset' ? `${key} is back to its default.` : `${key} saved.`);
             break;
         }
         case 'check': {
             const to = flag('to');
-            const { checks } = await runEmailCheck({ to, selectors: flags('selector') });
-            for (const c of checks) {
-                console.log(`${MARK[c.status]}  ${c.message}`);
-                if (c.found) console.log(`      ${c.found}`);
+            let domain = flag('domain');
+            const projectId = flag('project');
+            if (!domain && projectId) {
+                const project = await getProjectById(projectId);
+                if (!project) throw new Error(`No project ${projectId}`);
+                if (!project.email?.fromAddress)
+                    throw new Error(
+                        `${projectId} sends from the server’s address: nothing of its own to check.`
+                    );
+                domain = domainOf(project.email.fromAddress);
             }
+            const { checks } = domain
+                ? await runDomainCheck(domain, { selectors: flags('selector') })
+                : await runEmailCheck({ to, selectors: flags('selector') });
+            printChecks(checks);
             const failed = checks.filter(c => c.status === 'fail').length;
             console.log(
                 failed
@@ -153,20 +190,22 @@ async function main() {
             if (which === 'all') {
                 if (!out) throw new Error('preview all needs --out <folder>');
                 fs.mkdirSync(out, { recursive: true });
-                let n = 0;
+                // A project's own mail has one design whatever the look: written once.
+                const written = new Set<string>();
                 for (const kind of EMAIL_KINDS)
                     for (const l of look ? [look] : EMAIL_LOOKS)
                         for (const loc of EMAIL_LOCALES) {
                             const email = preview(kind, l, loc);
                             const base = path.join(out, `${kind}.${email.design}.${loc}`);
+                            if (written.has(base)) continue;
+                            written.add(base);
                             fs.writeFileSync(`${base}.html`, email.html);
                             fs.writeFileSync(
                                 `${base}.txt`,
                                 `Subject: ${email.subject}\n\n${email.text}`
                             );
-                            n++;
                         }
-                console.log(`${n} emails written to ${out}`);
+                console.log(`${written.size} emails written to ${out}`);
                 break;
             }
             if (!EMAIL_KINDS.includes(which as EmailKind))

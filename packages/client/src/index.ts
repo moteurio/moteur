@@ -39,6 +39,7 @@ export type {
     MediaSettingsUpdate,
     StorageSettings
 } from './project/mediaSettings.js';
+export type { ProjectEmail, ProjectEmailPreview, ProjectEmailUpdate } from './project/email.js';
 export type { PageMove, PageReferrer } from './project/pages.js';
 export type { RedirectInput } from './project/redirects.js';
 export type { GitStatus, GitTokenInfo } from './admin/projects.js';

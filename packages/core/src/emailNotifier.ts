@@ -59,6 +59,7 @@ export async function sendEmail(message: {
     html?: string;
     replyTo?: string;
     fromName?: string;
+    fromAddress?: string;
     category?: MailCategory;
     unsubscribe?: string;
     attachments?: RenderedEmail['attachments'];
@@ -98,13 +99,14 @@ export function sendCodeEmail(message: {
 export async function sendVerificationEmail(
     email: string,
     code: string,
-    locale?: string
+    locale?: string,
+    look?: EmailLook
 ): Promise<void> {
     if (mailUnavailable())
         throw Object.assign(new Error('Email verification is not configured on this server.'), {
             status: 503
         });
-    const rendered = renderEmail('verify', { email, code }, { locale });
+    const rendered = renderEmail('verify', { email, code }, { locale, look });
     return verificationMailBudget.run(async () => {
         await deliver(asMail(rendered, [email]));
     });

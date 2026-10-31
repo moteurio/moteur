@@ -278,7 +278,12 @@ const triesProblem = () =>
  */
 export async function requestEmailCode(
     rawEmail: string,
-    context: SignupContext = {}
+    context: SignupContext = {},
+    /**
+     * The look of the page that asked: the email matches the page they just left. Used for this
+     * email only, never kept (anyone can ask for a code for any address).
+     */
+    page: { look?: EmailLook } = {}
 ): Promise<void> {
     const email = validAddress(rawEmail);
     if (!emailCodesAvailable())
@@ -337,7 +342,10 @@ export async function requestEmailCode(
             email,
             codesOff ? null : code,
             purpose,
-            { locale: context.locale ?? readerOf(user).locale, look: readerOf(user).look },
+            {
+                locale: context.locale ?? readerOf(user).locale,
+                look: page.look ?? readerOf(user).look
+            },
             link
         );
 }

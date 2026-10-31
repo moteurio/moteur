@@ -17,10 +17,12 @@ vi.mock('../src/projects.js', () => ({
 vi.mock('../src/utils/fileUtils.js', () => ({
     isExistingProjectId: (id: string) => projects.existing.has(id)
 }));
-const mail = vi.hoisted(() => ({ sent: [] as { subject: string; text: string }[] }));
+const mail = vi.hoisted(() => ({
+    sent: [] as { subject: string; text: string; html: string }[]
+}));
 vi.mock('../src/emailNotifier.js', () => ({
     emailUnavailable: () => null,
-    sendEmail: async (m: { subject: string; text: string }) => void mail.sent.push(m)
+    sendEmail: async (m: { subject: string; text: string; html: string }) => void mail.sent.push(m)
 }));
 
 const { updateOnboarding, demoProjectFor, sendWelcome } = await import('../src/onboarding.js');
@@ -110,8 +112,20 @@ describe('a new person’s first minutes', () => {
         vi.stubEnv('STUDIO_URL', 'https://studio.moteur.io/');
         await sendWelcome(getUserById('user:abcd1234ef')!);
         expect(mail.sent[0].subject).toBe('Welcome to Moteur');
-        expect(mail.sent[0].text).toMatch(/^Welcome, Théo\n/);
+        expect(mail.sent[0].text).toMatch(/^Welcome to Moteur\n\nYour account is ready, Théo\n/);
         expect(mail.sent[0].text).toContain('https://studio.moteur.io/projects/new');
         expect(mail.sent[0].text).not.toContain('!');
+    });
+
+    it('sets the welcome in the sign-up page’s look, unless a look is saved', async () => {
+        const user = getUserById('user:abcd1234ef')!;
+        await sendWelcome(user, undefined, { look: 'folio' });
+        expect(mail.sent[0].html).toContain('class="m-top"');
+        await sendWelcome({ ...user, preferences: { look: 'discotheque' } }, undefined, {
+            look: 'folio'
+        });
+        expect(mail.sent[1].html).toContain('class="m-band"');
+        // Nothing is kept from the page.
+        expect(getUserById('user:abcd1234ef')!.preferences?.look).toBeUndefined();
     });
 });

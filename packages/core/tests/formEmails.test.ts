@@ -11,6 +11,7 @@ const sent: {
     text: string;
     html?: string;
     fromName?: string;
+    fromAddress?: string;
     replyTo?: string;
 }[] = [];
 let failWith: string | null = null;
@@ -27,6 +28,7 @@ import { initRepo } from '../src/git/index.js';
 import { putProjectJson } from '../src/utils/projectStorage.js';
 import { modelKey } from '../src/utils/storageKeys.js';
 import { createSubmission, fillIn, getSubmission } from '../src/formSubmissions.js';
+import { reloadUsers } from '../src/users.js';
 
 const projectId = 'form-emails';
 const user: User = {
@@ -79,6 +81,7 @@ describe('form emails', () => {
     afterEach(async () => {
         vi.unstubAllEnvs();
         await fs.rm(tempDir, { recursive: true, force: true });
+        reloadUsers();
     });
 
     const send = async () => {
@@ -140,6 +143,74 @@ describe('form emails', () => {
             'notify:success',
             'confirm:success'
         ]);
+    });
+
+    it('sends the visitor’s mail as the project’s, and the team’s notice in each one’s look', async () => {
+        const dir = path.join(tempDir, 'data', 'projects', projectId);
+        await fs.writeFile(
+            path.join(dir, 'project.json'),
+            JSON.stringify({
+                id: projectId,
+                label: 'P',
+                defaultLocale: 'fr',
+                users: ['u1'],
+                email: {
+                    senderName: 'Café Olimpico',
+                    replyTo: 'bonjour@olimpico.example',
+                    fromAddress: 'bonjour@olimpico.example',
+                    accent: '#8A3B12',
+                    footer: '124, rue Saint-Viateur O., Montréal',
+                    siteUrl: 'https://olimpico.example'
+                }
+            })
+        );
+        await updateForm(user, projectId, 'contact', {
+            notifications: {
+                onSubmit: { to: ['team@journal.test', 'ada@journal.test'] },
+                confirmationEmail: form.notifications!.confirmationEmail
+            }
+        });
+        await fs.writeFile(
+            path.join(tempDir, 'data', 'users.json'),
+            JSON.stringify([
+                {
+                    id: 'u2',
+                    email: 'ada@journal.test',
+                    name: 'Ada',
+                    isActive: true,
+                    roles: [],
+                    projects: [projectId],
+                    preferences: { look: 'folio', locale: 'fr' }
+                }
+            ])
+        );
+        reloadUsers();
+        // The operator allows the café's domain (its DNS passed the check).
+        await fs.mkdir(path.join(tempDir, 'data', 'operator'), { recursive: true });
+        await fs.writeFile(
+            path.join(tempDir, 'data', 'operator', 'email.json'),
+            JSON.stringify({ sendingDomains: ['olimpico.example'] })
+        );
+        await send();
+        const confirm = sent.find(m => m.to[0] === 'lise@courriel.test')!;
+        expect(confirm).toMatchObject({
+            fromName: 'Café Olimpico',
+            fromAddress: 'bonjour@olimpico.example',
+            replyTo: 'bonjour@olimpico.example'
+        });
+        expect(confirm.html).toContain('124, rue Saint-Viateur');
+        expect(confirm.html).toContain('class="m-link"');
+        expect(confirm.html).not.toContain('class="m-band"');
+        // The email action: the project's too; replies reach whoever wrote.
+        const action = sent.find(m => m.to[0] === 'desk@journal.test')!;
+        expect(action).toMatchObject({ fromName: 'Café Olimpico', replyTo: 'lise@courriel.test' });
+        expect(action.text).toContain('-- \n124, rue Saint-Viateur');
+        // The notice is the server's: one per look and language, Ada's in hers.
+        const notices = sent.filter(m => m.subject === 'New message: Contact');
+        expect(notices.map(m => m.to)).toEqual([['team@journal.test'], ['ada@journal.test']]);
+        expect(notices[0].html).toContain('class="m-band"');
+        expect(notices[1].html).toContain('class="m-top"');
+        expect(notices[1].html).toContain('lang="fr-CA"');
     });
 
     it('records why an email did not go', async () => {
