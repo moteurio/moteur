@@ -10,7 +10,13 @@ import {
 } from '@moteurio/core/email/settings.js';
 import { DESIGNS } from '@moteurio/core/email/layout.js';
 import { renderEmail } from '@moteurio/core/email/render.js';
-import { EMAIL_KINDS, samples, type EmailKind } from '@moteurio/core/email/templates.js';
+import {
+    EMAIL_KINDS,
+    EMAIL_VARIANTS,
+    samples,
+    type EmailKind,
+    type EmailVariant
+} from '@moteurio/core/email/templates.js';
 import { dkimConfig, mailUnavailable, smtpPort } from '@moteurio/core/email/transport.js';
 import { runEmailCheck } from '@moteurio/core/email/check.js';
 import { sendApiError } from '../utils/apiError.js';
@@ -82,7 +88,9 @@ router.get('/preview/:kind', (req: Request, res: Response) => {
     const email = renderEmail(kind, samples(locale ?? resolveEmailSettings().locale)[kind], {
         locale,
         forceLook: look,
-        design: q.design,
+        variant: EMAIL_VARIANTS.includes(q.variant as EmailVariant)
+            ? (q.variant as EmailVariant)
+            : undefined,
         images: 'data'
     });
     if (q.format === 'text') return void res.type('text/plain; charset=utf-8').send(email.text);
@@ -117,6 +125,14 @@ const settingsSchema: OpenAPIV3.SchemaObject = {
         logoWidth: { type: 'integer', minimum: 24, maximum: 300 },
         footer: { ...str, description: 'Postal address or legal line at the foot' },
         supportUrl: { ...str, description: 'An https page where people get help' },
+        productTagline: {
+            description:
+                'What the product is, in a sentence or two (300 characters at most), for the emails that are someone’s first contact. One text for every language, or one per language.',
+            oneOf: [
+                str,
+                { type: 'object', properties: { en: str, fr: str }, additionalProperties: false }
+            ]
+        },
         locale: { type: 'string', enum: ['en', 'fr'] }
     }
 };
@@ -247,9 +263,11 @@ export const emailPaths: Record<string, OpenAPIV3.PathItemObject> = {
                 { name: 'locale', in: 'query', schema: { type: 'string', enum: ['en', 'fr'] } },
                 { name: 'look', in: 'query', schema: { type: 'string', enum: [...EMAIL_LOOKS] } },
                 {
-                    name: 'design',
+                    name: 'variant',
                     in: 'query',
-                    schema: { type: 'string', enum: DESIGNS.map(d => d.id) }
+                    description:
+                        'For the first-contact emails (invite, welcome, form-confirm): which of the two ways to set them. Default `a`.',
+                    schema: { type: 'string', enum: [...EMAIL_VARIANTS] }
                 },
                 {
                     name: 'format',
@@ -274,6 +292,7 @@ export const emailPaths: Record<string, OpenAPIV3.PathItemObject> = {
                                     text: str,
                                     look: str,
                                     design: str,
+                                    variant: str,
                                     locale: str
                                 }
                             }

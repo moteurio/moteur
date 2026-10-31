@@ -1,12 +1,32 @@
 Subject: Louise Tremblay vous invite à Journal de Montréal sur Moteur
 
+Louise Tremblay · louise@agence.example
+
 Rejoignez Journal de Montréal
 
 Louise Tremblay vous invite à travailler sur Journal de Montréal dans Moteur.
 
+Un mot de Louise
+> Bonjour Marc, voici le projet dont je vous parlais. La rubrique Festival est à vous.
+
+Journal de Montréal
+
+Le site du journal de quartier, en français et en anglais.
+
+https://journal.example.com
+
+Votre rôle : Auteur·e. Vous pourrez écrire et modifier les entrées et les pages, et les envoyer en révision.
+
 Rejoindre Journal de Montréal :
 https://studio.example.com/invite/8f2c1e9a7b4d6f3a0c5e
 
-Le lien fonctionne pendant 7 jours, une seule fois. Si vous n’avez pas encore de compte Moteur, vous pourrez en créer un à partir du lien.
+Quand vous ouvrez le lien
 
-Envoyé à marc@client.example parce que Louise Tremblay a invité cette adresse. Si vous ne vous y attendiez pas, ignorez ce courriel. Les réponses vont à Louise Tremblay.
+• Vous créez votre compte Moteur avec l’adresse marc@client.example. Aucun mot de passe : nous envoyons un code à cette adresse.
+• Vous avez déjà un compte avec cette adresse ? Connectez-vous, et Journal de Montréal s’y ajoute.
+• Le lien ne sert qu’une fois, pendant 7 jours (jusqu’au sam. 7 nov.).
+
+Qu’est-ce que Moteur ?
+Moteur est l’endroit où les équipes rédigent, traduisent et publient le contenu de leurs sites. Chaque changement est conservé, et le contenu leur appartient.
+
+Envoyé à marc@client.example parce que Louise Tremblay (louise@agence.example) a invité cette adresse. Si vous ne vous y attendiez pas, ignorez ce courriel : rien ne se passe sans le lien. Les réponses vont à Louise Tremblay.

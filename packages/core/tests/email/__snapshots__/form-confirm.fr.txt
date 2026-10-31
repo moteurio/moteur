@@ -1,0 +1,21 @@
+Subject: Merci, Marc
+
+Bien reçu, Marc. Nous vous répondons d’ici deux jours ouvrables.
+
+L’équipe du Journal
+
+Ce que vous avez envoyé
+
+Nom :
+Marc Gagnon
+
+Courriel :
+marc@client.example
+
+Message :
+Bonjour, pouvez-vous corriger la date de l’article sur le festival ?
+Merci !
+
+Journal de Montréal · https://journal.example.com
+
+Journal de Montréal vous envoie ce courriel parce que quelqu’un a rempli le formulaire Contact sur https://journal.example.com avec cette adresse. Si ce n’était pas vous, vous pouvez l’ignorer.

@@ -375,7 +375,9 @@ async function processSubmission(
 
     const actions: FormAction[] = form.actions ?? [];
     const actionResults: FormActionResult[] = [];
-    const project = (await getProjectById(projectId).catch(() => null))?.label || projectId;
+    const projectSchema = await getProjectById(projectId).catch(() => null);
+    const project = projectSchema?.label || projectId;
+    const siteUrl = projectSchema?.siteUrl?.trim();
     const formLabel = typeof form.label === 'string' ? form.label : form.id;
 
     for (const action of actions) {
@@ -497,14 +499,26 @@ async function processSubmission(
         const body =
             (locale && confirm.body?.[locale]) ?? Object.values(confirm.body ?? {})[0] ?? '';
         try {
+            // Often the visitor's first email from this project: its words, then what they sent.
+            const subject = fillIn(confirm.subject || formLabel, submission.data);
+            const email = renderEmail(
+                'form-confirm',
+                {
+                    project,
+                    site: siteUrl && /^https?:\/\//.test(siteUrl) ? siteUrl : undefined,
+                    form: formLabel,
+                    subject,
+                    body: fillIn(body, submission.data),
+                    rows: answerRows(form, submission.data)
+                },
+                { locale }
+            );
             await sendEmail({
                 to: [confirmTo.trim()],
-                ...projectMail(
-                    project,
-                    fillIn(confirm.subject || formLabel, submission.data),
-                    fillIn(body, submission.data),
-                    locale
-                )
+                subject,
+                text: email.text,
+                html: email.html,
+                fromName: project
             });
             actionResults.push({ type: 'confirm', status: 'success' });
         } catch (err) {

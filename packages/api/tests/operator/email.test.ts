@@ -77,9 +77,13 @@ describe('the server’s email, for its operator', () => {
         expect(text.headers['content-type']).toMatch(/text\/plain/);
         expect(text.text).toContain('Rejoindre');
         const both = await request(app()).get(
-            '/operator/email/preview/review?format=json&design=disco-letter&look=discotheque'
+            '/operator/email/preview/review?format=json&look=discotheque'
         );
-        expect(both.body).toMatchObject({ kind: 'review', design: 'disco-letter', locale: 'en' });
+        expect(both.body).toMatchObject({ kind: 'review', design: 'disco-marquee', locale: 'en' });
+        const second = await request(app()).get(
+            '/operator/email/preview/invite?format=json&variant=b&look=folio'
+        );
+        expect(second.body).toMatchObject({ kind: 'invite', design: 'folio-tab', variant: 'b' });
         expect((await request(app()).get('/operator/email/preview/nope')).status).toBe(404);
     });
 

@@ -1,5 +1,6 @@
 import type { OnboardingIntent, OnboardingState, User } from '@moteurio/types/User.js';
-import { copyProjectForNewUser, getDemoProjectId } from './projects.js';
+import { copyProjectForNewUser, getDemoProjectId, getProjectById } from './projects.js';
+import { liveInviteFor } from './invites.js';
 import { getUserById, updateStoredUser } from './users.js';
 import { isExistingProjectId } from './utils/fileUtils.js';
 import { emailUnavailable, sendEmail } from './emailNotifier.js';
@@ -80,13 +81,47 @@ async function copyDemo(userId: string): Promise<string> {
     return id;
 }
 
-/** A first email that says what to do this week. Never fails the sign-up. */
-export async function sendWelcome(user: User): Promise<void> {
+/** The project someone joined by invitation: who asked them, with which roles. */
+export interface JoinedBy {
+    projectId: string;
+    invitedBy?: string;
+    roles?: string[];
+}
+
+async function joinedProject(user: User, joined?: JoinedBy) {
+    // Made from an invitation's link, or by a code while an invitation waits for this address.
+    const by = joined ?? liveInviteFor(user.email);
+    if (!by) return undefined;
+    const project = await getProjectById(by.projectId).catch(() => null);
+    if (!project) return undefined;
+    const inviter = by.invitedBy ? getUserById(by.invitedBy) : undefined;
+    return {
+        project: project.label || project.id,
+        projectId: project.id,
+        description: project.description?.trim().slice(0, 300) || undefined,
+        inviter: inviter?.name || inviter?.email || undefined,
+        roles: by.roles
+    };
+}
+
+/**
+ * A first email: what the product is, what to do first, how to sign in next time. Someone who
+ * joined by invitation reads about their project first. Never fails the sign-up.
+ */
+export async function sendWelcome(user: User, joined?: JoinedBy): Promise<void> {
     if (!user.email || emailUnavailable()) return;
-    const name = user.name?.split(' ')[0] || user.email.split('@')[0];
+    // A name they gave; an account made by code is named after its address, which isn't one.
+    const given = user.name?.trim();
+    const name = given && given !== user.email.split('@')[0] ? given.split(/\s+/)[0] : undefined;
     const email = renderEmail(
         'welcome',
-        { email: user.email, name, studioUrl: studioUrl() },
+        {
+            email: user.email,
+            name,
+            studioUrl: studioUrl(),
+            password: Boolean(user.passwordHash),
+            joined: await joinedProject(user, joined)
+        },
         readerOf(user)
     );
     await sendEmail({

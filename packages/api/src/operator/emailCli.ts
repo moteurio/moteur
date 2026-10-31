@@ -7,7 +7,7 @@
  *   moteur-email unset <key>                 back to its default
  *   moteur-email check [--to you@example.com] [--selector s1]
  *                                            SMTP, SPF, DMARC, DKIM, MX, links; --to sends a test
- *   moteur-email preview <kind|all> [--locale fr] [--look folio] [--design id] [--text] [--out path]
+ *   moteur-email preview <kind|all> [--locale fr] [--look folio] [--variant b] [--text] [--out path]
  *
  * Reads the same settings as the API (DATA_ROOT, SMTP_*, MOTEUR_DKIM_*, STUDIO_URL). Run it
  * where the API's data is.
@@ -23,9 +23,14 @@ import {
     EMAIL_LOOKS,
     type EmailLook
 } from '@moteurio/core/email/settings.js';
-import { DESIGNS } from '@moteurio/core/email/layout.js';
 import { renderEmail } from '@moteurio/core/email/render.js';
-import { EMAIL_KINDS, samples, type EmailKind } from '@moteurio/core/email/templates.js';
+import {
+    EMAIL_KINDS,
+    EMAIL_VARIANTS,
+    samples,
+    type EmailKind,
+    type EmailVariant
+} from '@moteurio/core/email/templates.js';
 import { dkimConfig, mailUnavailable, smtpPort } from '@moteurio/core/email/transport.js';
 import { runEmailCheck } from '@moteurio/core/email/check.js';
 
@@ -51,16 +56,17 @@ const HELP = `moteur-email: the email this server sends.
 
   settings                         what is set, and what emails use
   set <key> <value>                change one: fromName, fromAddress, replyTo, productName,
+                                   productTagline,
                                    look (discotheque, folio, recipient), accent (#RRGGBB),
                                    logoUrl, logoFile, logoWidth, footer, supportUrl, locale (en, fr)
   unset <key>                      put one back to its default
   check [--to <email>] [--selector <s>]
                                    SMTP, SPF, DMARC, DKIM and MX; --to also sends a test email
-  preview <kind|all> [--locale en|fr] [--look discotheque|folio] [--design <id>] [--text] [--out <path>]
+  preview <kind|all> [--locale en|fr] [--look discotheque|folio] [--variant a|b] [--text] [--out <path>]
                                    an email with sample data; all writes every one into --out
 
 Kinds: ${EMAIL_KINDS.join(', ')}
-Designs: ${DESIGNS.map(d => d.id).join(', ')}
+Variants (invite, welcome, form-confirm): ${EMAIL_VARIANTS.join(', ')}
 Settings file: ${settingsFile()}`;
 
 const MARK = { ok: 'ok  ', warn: 'warn', fail: 'FAIL', info: 'info' } as const;
@@ -73,7 +79,8 @@ function printSettings() {
     for (const [k, v] of Object.entries(effective)) {
         if (v === undefined) continue;
         const own = k in stored ? '' : '  (default)';
-        console.log(`  ${k.padEnd(12)} ${String(v).replace(/\n/g, ' / ')}${own}`);
+        const shown = typeof v === 'object' ? JSON.stringify(v) : String(v);
+        console.log(`  ${k.padEnd(12)} ${shown.replace(/\n/g, ' / ')}${own}`);
     }
     console.log('\nSent through:');
     console.log(
@@ -90,7 +97,9 @@ function preview(kind: EmailKind, look: EmailLook | undefined, locale: string | 
     return renderEmail(kind, samples(loc ?? resolveEmailSettings().locale)[kind], {
         locale: loc,
         forceLook: look,
-        design: flag('design'),
+        variant: EMAIL_VARIANTS.includes(flag('variant') as EmailVariant)
+            ? (flag('variant') as EmailVariant)
+            : undefined,
         images: 'data'
     });
 }
@@ -112,7 +121,9 @@ async function main() {
                       ? Number(raw)
                       : key === 'footer'
                         ? raw.replace(/\\n/g, '\n')
-                        : raw;
+                        : key === 'productTagline' && raw.trim().startsWith('{')
+                          ? (JSON.parse(raw) as unknown)
+                          : raw;
             saveEmailSettings({ [key]: value }, 'server');
             console.log(command === 'unset' ? `${key} is back to its default.` : `${key} saved.`);
             break;

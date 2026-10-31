@@ -12,4 +12,7 @@ https://studio.example.com/auth/email#email=louise%40agence.example&token=Xq3v9T
 
 Le code et le lien ne servent qu’une fois, pendant 15 minutes.
 
+Qu’est-ce que Moteur ?
+Moteur est l’endroit où les équipes rédigent, traduisent et publient le contenu de leurs sites. Chaque changement est conservé, et le contenu leur appartient.
+
 Quelqu’un a demandé à créer un compte Moteur pour l’adresse louise@agence.example. Si ce n’était pas vous, ignorez ce courriel : aucun compte n’est créé sans le code.

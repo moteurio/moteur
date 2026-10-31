@@ -1,0 +1,25 @@
+Subject: Bienvenue dans Journal de Montréal
+
+Bienvenue dans Moteur
+
+Vous y êtes, Marc
+
+Journal de Montréal
+
+Le site du journal de quartier, en français et en anglais.
+
+Invitation de
+Louise Tremblay
+
+Votre rôle : Auteur·e. Vous pouvez écrire et modifier les entrées et les pages, et les envoyer en révision.
+Se connecter : Allez sur https://studio.example.com et saisissez marc@client.example. Nous envoyons un code à cette adresse : aucun mot de passe à retenir.
+
+Ouvrir Journal de Montréal :
+https://studio.example.com/projects/journal
+
+Qu’est-ce que Moteur ?
+Moteur est l’endroit où les équipes rédigent, traduisent et publient le contenu de leurs sites. Chaque changement est conservé, et le contenu leur appartient.
+
+L’équipe Moteur
+
+Vous recevez ce courriel parce que vous avez créé un compte avec l’adresse marc@client.example.

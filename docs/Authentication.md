@@ -149,7 +149,7 @@ Sign-in options and answers, and adding a passkey, share the per-address budget 
 
 ### Invites
 
-Project admins invite people by email: `POST {basePath}/projects/:projectId/invites` with `{ "email", "roles", "appUrl" }`. The link (`<studio>/invite/<token>`) is valid for 7 days, is emailed when SMTP is set up (`SMTP_HOST`, `SMTP_FROM`), and is returned once in the response so it can be shared by hand. Only a hash of the token is stored (`invites.json`, next to the users file). Inviting the same address again, or `POST …/invites/:inviteId/resend`, makes a new link and the old one stops working; `DELETE …/invites/:inviteId` withdraws it.
+Project admins invite people by email: `POST {basePath}/projects/:projectId/invites` with `{ "email", "roles", "appUrl", "note" }`; `note` is an optional few words from the inviter, plain text up to 500 characters, shown in the email and kept for a resend. The link (`<studio>/invite/<token>`) is valid for 7 days, is emailed when SMTP is set up (`SMTP_HOST`, `SMTP_FROM`), and is returned once in the response so it can be shared by hand. Only a hash of the token is stored (`invites.json`, next to the users file). Inviting the same address again, or `POST …/invites/:inviteId/resend`, makes a new link and the old one stops working; `DELETE …/invites/:inviteId` withdraws it.
 
 The link points at the Studio in `appUrl` when its origin is listed in `CORS_ORIGINS` or `STUDIO_URL`, otherwise at `STUDIO_URL`; with neither, nothing is emailed and the Studio shows the link to copy.
 

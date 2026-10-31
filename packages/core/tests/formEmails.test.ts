@@ -122,7 +122,12 @@ describe('form emails', () => {
                 replyTo: 'lise@courriel.test'
             },
             // In the language the sender wrote in.
-            { to: ['lise@courriel.test'], subject: 'Merci Lise', text: 'Got it, Lise.' }
+            {
+                to: ['lise@courriel.test'],
+                subject: 'Merci Lise',
+                // The project's words first, then what they sent.
+                text: expect.stringMatching(/^Got it, Lise\.\n\nWhat you sent\n\nNom:\nLise\n/)
+            }
         ]);
         for (const m of sent) {
             expect(m.fromName).toBe('P');

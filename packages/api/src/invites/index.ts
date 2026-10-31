@@ -15,6 +15,7 @@ import { addProjectMember, getProjectById, getProjectIdsForUser } from '@moteuri
 import { generateJWT, hashPassword, passwordProblem } from '@moteurio/core/auth.js';
 import { assertPeopleRoom } from '@moteurio/core/planLimits.js';
 import { requireAuth } from '../middlewares/auth.js';
+import { runOnboardingForNewUser } from '../auth/onboarding.js';
 import { sendApiError } from '../utils/apiError.js';
 
 const router: Router = Router();
@@ -42,6 +43,7 @@ router.get('/:token', async (req: Request, res: Response) => {
             expiresAt: invite.expiresAt,
             project: { id: project.id, label: project.label || project.id },
             invitedBy: { name: by?.name ?? by?.email },
+            ...(invite.note && { note: invite.note }),
             hasAccount: !!account,
             // An account made with an email code has none: that person signs in by email.
             hasPassword: !!account?.passwordHash
@@ -115,6 +117,12 @@ router.post('/:token/register', async (req: Request, res: Response) => {
         });
         await addProjectMember(invite.projectId, user, invite.roles);
         consumeInvite(invite.id);
+        // The welcome email, about the project they joined; never holds up the answer.
+        void runOnboardingForNewUser(user, {
+            projectId: invite.projectId,
+            invitedBy: invite.invitedBy,
+            roles: invite.roles
+        });
         const loginAt = await recordUserLogin(user.id);
         const signedIn = {
             ...user,
@@ -175,6 +183,10 @@ export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
                                     invitedBy: {
                                         type: 'object',
                                         properties: { name: { type: 'string' } }
+                                    },
+                                    note: {
+                                        type: 'string',
+                                        description: 'A few words from the person who invited.'
                                     },
                                     hasAccount: { type: 'boolean' },
                                     hasPassword: {
