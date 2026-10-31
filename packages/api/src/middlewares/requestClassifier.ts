@@ -36,15 +36,16 @@ export function requestClassifier(req: Request, res: Response, next: NextFunctio
         return;
     }
 
-    // Public API: what sites call. Channel reads and page outputs (API key or JWT), plus form
-    // submissions, the one key-less endpoint.
+    // Public API: what sites call. Channel reads and page outputs (API key or JWT), form
+    // submissions, and what plugins give sites under /play/ (a poll's votes).
     const projectsMatch =
         path.match(
             /\/projects\/([^/]+)\/(?:channels|sitemap\.xml|sitemap\.json|navigation|urls|breadcrumb|resolve)(?:\/|$)/
         ) ??
         // Reading the redirects is what a site does; changing them is the Studio's work.
         (req.method === 'GET' ? path.match(/\/projects\/([^/]+)\/redirects\/?$/) : null) ??
-        path.match(/\/projects\/([^/]+)\/forms\/[^/]+\/submit\/?$/);
+        path.match(/\/projects\/([^/]+)\/forms\/[^/]+\/submit\/?$/) ??
+        path.match(/\/projects\/([^/]+)\/play\//);
     if (projectsMatch) {
         const projectId = projectsMatch[1];
         req.apiRequestType = 'public';

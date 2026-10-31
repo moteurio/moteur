@@ -56,6 +56,7 @@ import {
 import { getProjectById } from '@moteurio/core/projects.js';
 import { clearDeliveryCache, touchProject } from '@moteurio/core/deliveryCache.js';
 import { channelSchema } from '@moteurio/core/publicSchema.js';
+import { clearBlockDeliveries, registerBlockDelivery } from '@moteurio/core/blockDelivery.js';
 import channelsPublicRouter from '../../../src/projects/channels/public.js';
 import {
     optionalAuth,
@@ -433,6 +434,28 @@ describe('GET /projects/:projectId/channels/:channelId/:resourceId/entries', () 
         expect(res.status).toBe(200);
         expect(JSON.stringify(res.body)).not.toContain('Ask legal first');
         expect(res.body.data.body).toEqual([{ type: 'core/text', data: { text: 'Hello' } }]);
+    });
+
+    it("sends a plugin's blocks as it resolves them (an embed's HTML)", async () => {
+        registerBlockDelivery('play/embed', async (data, context) => ({
+            ...data,
+            embed: { html: `<iframe title="${data.url}"></iframe>`, locale: context.locale }
+        }));
+        vi.mocked(getPublishedEntryForProject).mockResolvedValue({
+            id: 'a',
+            type: 'articles',
+            status: 'published',
+            data: { body: [{ type: 'play/embed', data: { url: 'https://youtu.be/x' } }] }
+        });
+        const res = await request(app)
+            .get('/projects/demo/channels/c1/articles/entries/a?locale=fr')
+            .set('x-api-key', 'key');
+        clearBlockDeliveries();
+        expect(res.status).toBe(200);
+        expect(res.body.data.body[0].data).toEqual({
+            url: 'https://youtu.be/x',
+            embed: { html: '<iframe title="https://youtu.be/x"></iframe>', locale: 'fr' }
+        });
     });
 
     it('inlines only entries of models the channel gives', async () => {

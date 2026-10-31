@@ -22,9 +22,7 @@ Never put member JWTs in browser bundles. See [Pages and navigation](Pages%20and
 | `@moteurio/vanilla` | moteur-frontend                                                | ESM helpers + block registry                                                                                                |
 | `moteurio/php`      | [moteur-starters](https://github.com/moteurio/moteur-starters) | Guzzle client, preview middleware (Composer)                                                                                |
 
-Framework adapters are **not** host plugins — they are npm packages for your site. Optional `@moteurio/frontend-plugin-*` companions ship with **moteur-plugins-extra** for specific block types.
-
-Plugin **frontend companions** (`@moteurio/frontend-plugin-*`) ship web components for optional block types (oEmbed, QR, poll). Install only the plugins your site uses.
+Framework adapters are **not** host plugins — they are npm packages for your site. The blocks plugins add (embeds, QR codes, polls, maps) have their own, `@moteurio/frontend-plugin-*`, in moteur-frontend too: see [Plugin blocks on the site](#plugin-blocks-on-the-site). Install only the ones your site uses.
 
 ## Types
 
@@ -125,13 +123,27 @@ Official stacks live in [moteur-starters](https://github.com/moteurio/moteur-sta
 
 ## Plugin blocks on the site
 
-Declare `contributes.frontend` on API plugins. Pair with `@moteurio/frontend-plugin-<id>` in your bundle:
+Each draws its block from the data your channel already sends: the page makes no call of its own, except a poll's vote and its counts. Each gives `render(block, locale)` for a block registry or server rendering, and a tag for the browser.
 
-```html
-<script type="module">
-    import '@moteurio/frontend-plugin-oembed';
-</script>
-<moteur-oembed url="https://…" api-base="https://api.example.com" project-id="demo"></moteur-oembed>
+| Package                            | Block         | What it draws                                                                                                      |
+| ---------------------------------- | ------------- | ------------------------------------------------------------------------------------------------------------------ |
+| `@moteurio/frontend-plugin-oembed` | `play/oembed` | The video or player as a frame, from the embed the engine resolved when the channel sent the block, or a link card |
+| `@moteurio/frontend-plugin-qr`     | `play/qr`     | The code as an inline SVG, drawn in the page                                                                       |
+| `@moteurio/frontend-plugin-poll`   | `play/poll`   | The question and its choices as a form, then the counts once voted                                                 |
+| `@moteurio/frontend-plugin-geo`    | `geo/map`     | GeoJSON for the map library you pick, and a list of the places without one                                         |
+
+```ts
+import { createBlockRegistry } from '@moteurio/client';
+
+const blocks = createBlockRegistry({
+    load: type =>
+        ({
+            'play/oembed': () => import('@moteurio/frontend-plugin-oembed'),
+            'play/qr': () => import('@moteurio/frontend-plugin-qr')
+        })[type]?.() ?? Promise.reject()
+});
 ```
+
+A plugin can add to its blocks as channels send them, as the embed does: see [What sites get for a plugin's blocks](Plugin%20architecture.md#what-sites-get-for-a-plugins-blocks). Declare `contributes.frontend` on the plugin to name its site package.
 
 Core blocks (`core/paragraph`, etc.) remain your own components.
