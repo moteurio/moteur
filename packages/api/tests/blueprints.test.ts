@@ -142,6 +142,58 @@ describe('POST /blueprints/projects', () => {
     });
 });
 
+describe('firstProject on project blueprints', () => {
+    beforeEach(() => {
+        vi.clearAllMocks();
+    });
+
+    it('is listed, and passed through on create and update', async () => {
+        mockListBlueprints.mockReturnValue([
+            { id: 'starter', name: 'Starter', kind: 'project', firstProject: true }
+        ]);
+        const list = await request(app).get('/blueprints/projects');
+        expect(list.body.blueprints[0].firstProject).toBe(true);
+
+        const body = { id: 'starter', name: 'Starter', firstProject: true };
+        mockCreateBlueprint.mockReturnValue({ ...body, kind: 'project' });
+        const created = await request(app).post('/blueprints/projects').send(body);
+        expect(created.status).toBe(201);
+        expect(created.body.firstProject).toBe(true);
+        expect(mockCreateBlueprint).toHaveBeenCalledWith(
+            expect.objectContaining({ firstProject: true, kind: 'project' }),
+            undefined
+        );
+
+        mockUpdateBlueprint.mockReturnValue({ ...body, firstProject: false });
+        const updated = await request(app)
+            .patch('/blueprints/projects/starter')
+            .send({ firstProject: false });
+        expect(updated.body.firstProject).toBe(false);
+        expect(mockUpdateBlueprint).toHaveBeenCalledWith(
+            'project',
+            'starter',
+            { firstProject: false },
+            undefined
+        );
+    });
+
+    it('answers 400 when it is not a boolean', async () => {
+        const refuse = () => {
+            throw new Error('Invalid blueprint: "firstProject" must be true or false');
+        };
+        mockCreateBlueprint.mockImplementation(refuse);
+        mockUpdateBlueprint.mockImplementation(refuse);
+        const created = await request(app)
+            .post('/blueprints/projects')
+            .send({ id: 'starter', name: 'Starter', firstProject: 'yes' });
+        expect(created.status).toBe(400);
+        const updated = await request(app)
+            .patch('/blueprints/projects/starter')
+            .send({ firstProject: 'yes' });
+        expect(updated.status).toBe(400);
+    });
+});
+
 describe('PATCH /blueprints/projects/:blueprintId', () => {
     beforeEach(() => {
         vi.clearAllMocks();

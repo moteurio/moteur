@@ -8,6 +8,7 @@ import {
     verifyEmailLink
 } from '@moteurio/core/emailSignIn.js';
 import { demoProjectFor, updateOnboarding } from '@moteurio/core/onboarding.js';
+import { legalLinks } from '@moteurio/core/serverSettings.js';
 import { requireAuth } from '../middlewares/auth.js';
 import { verificationRateLimiter } from '../middlewares/rateLimit.js';
 import { sendApiError } from '../utils/apiError.js';
@@ -23,7 +24,7 @@ const text = (v: unknown, max: number) =>
     typeof v === 'string' && v.length <= max ? v : undefined;
 
 router.get('/signup', (_req, res) => {
-    res.json({ open: signupOpen(), emailCodes: emailCodesAvailable() });
+    res.json({ open: signupOpen(), emailCodes: emailCodesAvailable(), legal: legalLinks() });
 });
 
 router.post('/email/code', verificationRateLimiter, async (req: Request, res: Response) => {
@@ -96,7 +97,7 @@ export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
         get: {
             summary: 'Whether this server takes new accounts',
             description:
-                '`open`: anyone may make an account (`MOTEUR_SIGNUP=open`); otherwise only invited people. `emailCodes`: whether codes can be sent by email.',
+                '`open`: anyone may make an account (`MOTEUR_SIGNUP=open`); otherwise only invited people. `emailCodes`: whether codes can be sent by email. `legal`: where the Terms (`terms`) and the Privacy policy (`privacy`) are, for the sign-up page to link to; a key is absent when the server has none (`PATCH /operator/settings`, else `MOTEUR_TERMS_URL`, `MOTEUR_PRIVACY_URL`).',
             tags: ['Auth'],
             security: [],
             responses: {
@@ -104,7 +105,18 @@ export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
                     description: 'Sign-up settings',
                     ...json({
                         type: 'object',
-                        properties: { open: { type: 'boolean' }, emailCodes: { type: 'boolean' } }
+                        required: ['open', 'emailCodes', 'legal'],
+                        properties: {
+                            open: { type: 'boolean' },
+                            emailCodes: { type: 'boolean' },
+                            legal: {
+                                type: 'object',
+                                properties: {
+                                    terms: { type: 'string', format: 'uri' },
+                                    privacy: { type: 'string', format: 'uri' }
+                                }
+                            }
+                        }
                     })
                 }
             }
@@ -114,7 +126,7 @@ export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
         post: {
             summary: 'Email a six-digit code to sign in, or to sign up',
             description:
-                'A known address gets a code to sign in. A new one gets a code to make an account when the server is open. The answer is the same either way. One code a minute, five an hour per address. `from`, `goal`, `campaign` and `locale` are kept on a new account.',
+                'A known address gets a code to sign in. A new one gets a code to make an account when the server is open. The answer is the same either way. One code a minute, ten an hour per address. `from`, `goal`, `campaign` and `locale` are kept on a new account.',
             tags: ['Auth'],
             security: [],
             requestBody: json({
@@ -139,7 +151,26 @@ export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
                 },
                 '400': { description: 'Not an email address (`EMAIL_INVALID`)' },
                 '429': {
-                    description: 'Too soon, or too many (`EMAIL_CODE_WAIT`, `EMAIL_CODE_LIMIT`)'
+                    description:
+                        'Too soon or too many (`EMAIL_CODE_WAIT`, `EMAIL_CODE_LIMIT`), too many wrong codes for this address today (`EMAIL_CODE_LOCKED`), too many codes leaving the server this hour (`EMAIL_CODE_BUSY`), or the per-IP limit (`rate_limited`). Each carries `retryAfter` and the `Retry-After` header: the seconds until asking again can work.',
+                    headers: {
+                        'Retry-After': {
+                            description: 'Seconds until another code can be asked for',
+                            schema: { type: 'integer' }
+                        }
+                    },
+                    ...json({
+                        type: 'object',
+                        properties: {
+                            error: { type: 'string' },
+                            code: { type: 'string' },
+                            retryAfter: {
+                                type: 'integer',
+                                description: 'Whole seconds until another code can be asked for'
+                            },
+                            requestId: { type: 'string' }
+                        }
+                    })
                 },
                 '503': { description: 'This server cannot send codes (`EMAIL_UNAVAILABLE`)' }
             }
@@ -180,9 +211,19 @@ export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
                 },
                 '400': {
                     description:
-                        'Wrong or expired code or link (`EMAIL_CODE_WRONG`, `EMAIL_CODE_EXPIRED`, `EMAIL_LINK_EXPIRED`)'
+                        'Wrong code (`EMAIL_CODE_WRONG`), its fifth and last try used (`EMAIL_CODE_TRIES`: ask for another), or an expired code or link (`EMAIL_CODE_EXPIRED`, `EMAIL_LINK_EXPIRED`)'
                 },
-                '403': { description: 'The server is not taking new accounts' }
+                '403': { description: 'The server is not taking new accounts (`SIGNUP_CLOSED`)' },
+                '429': {
+                    description:
+                        'Ten wrong codes for this address today (`EMAIL_CODE_LOCKED`): codes are off until the oldest is a day old. `retryAfter` and `Retry-After` say when; the email’s link still works. Or the per-IP limit (`rate_limited`, with `retryAfter`).',
+                    headers: {
+                        'Retry-After': {
+                            description: 'Seconds until codes work again',
+                            schema: { type: 'integer' }
+                        }
+                    }
+                }
             }
         }
     },

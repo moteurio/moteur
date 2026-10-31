@@ -2,6 +2,32 @@ import type { MoteurClient } from '../client.js';
 import type { LoginResult, SignedIn } from '../types.js';
 import type { OnboardingIntent, OnboardingState, User } from '@moteurio/types';
 
+type ProjectRef = { id: string; name: string };
+
+/** What deleting an account would do: projects deleted with it, left, or in the way. */
+export type AccountDeletion = {
+    deletes: ProjectRef[];
+    leaves: ProjectRef[];
+    blocked: ProjectRef[];
+};
+
+/** Everything the server keeps about the signed-in person (`GET /auth/me/export`). */
+export type AccountExport = {
+    exportedAt: string;
+    account: Record<string, unknown>;
+    signIn: { password: boolean; providers: string[]; twoFactor: boolean };
+    sessions: {
+        id: string;
+        label: string;
+        kind: string;
+        createdAt: string;
+        expiresAt: string;
+        current: boolean;
+    }[];
+    projects: (ProjectRef & { roles: string[] })[];
+    activity: Record<string, unknown>[];
+};
+
 export function authApi(client: MoteurClient) {
     return {
         login(username: string, password: string): Promise<LoginResult> {
@@ -39,8 +65,15 @@ export function authApi(client: MoteurClient) {
         refresh(): Promise<{ token: string }> {
             return client.post<{ token: string }>('/auth/refresh');
         },
-        /** Whether this server takes new accounts, and can send codes by email. */
-        signup(): Promise<{ open: boolean; emailCodes: boolean }> {
+        /**
+         * Whether this server takes new accounts, can send codes by email, and where its Terms and
+         * Privacy policy are (`legal`: a key is absent when the server has none).
+         */
+        signup(): Promise<{
+            open: boolean;
+            emailCodes: boolean;
+            legal: { terms?: string; privacy?: string };
+        }> {
             return client.get('/auth/signup');
         },
         /**
@@ -80,6 +113,36 @@ export function authApi(client: MoteurClient) {
         /** Your copy of the demo project, made the first time you ask. */
         demo(): Promise<{ projectId: string }> {
             return client.post('/auth/me/demo');
+        },
+        /**
+         * Email a code to a new sign-in address (a sign-in in the last 10 minutes, else 403
+         * `REAUTH_REQUIRED`). `confirmEmailChange` with that code makes the change.
+         */
+        changeEmail(email: string, locale?: string): Promise<{ sent: true }> {
+            return client.post('/auth/me/email', { email, ...(locale && { locale }) });
+        },
+        /**
+         * The new address and its code: it becomes the sign-in email. Other sessions end; use the
+         * answer's `token` from now on (call `setAuth` with it).
+         */
+        confirmEmailChange(email: string, code: string): Promise<{ token: string; user: User }> {
+            return client.post('/auth/me/email/verify', { email, code });
+        },
+        /** What the server keeps about you, as the file `GET /auth/me/export` downloads. */
+        exportAccount(): Promise<AccountExport> {
+            return client.get('/auth/me/export');
+        },
+        /** What deleting your account would do to each of your projects. */
+        accountDeletion(): Promise<AccountDeletion> {
+            return client.get('/auth/me/deletion');
+        },
+        /**
+         * Delete your account, your sign-in email typed back as `email` (a sign-in in the last 10
+         * minutes). Refused (409 `SOLE_ADMIN`, with `projects`) while `accountDeletion().blocked`
+         * isn't empty.
+         */
+        deleteAccount(email: string): Promise<void> {
+            return client.request({ method: 'DELETE', url: '/auth/me', data: { email } });
         },
         /** OAuth providers the server can sign in with; send people to `/auth/{id}?next=…`. */
         providers(): Promise<{ providers: { id: string; label: string }[] }> {

@@ -12,6 +12,8 @@ Install: `npm install -g @moteurio/cli`. Sign in: `moteur auth login`. The Studi
 
 Sign in to a Moteur API and remember it
 
+With the password left empty, a sign-in code comes by email. At the code prompt, paste the email’s link instead of the code, type r to send another, or press Enter for a hint. A wrong or expired code asks again; waits say how long (“We just sent one. Wait 42 s for the next.”).
+
 | Option                |                                                                         |
 | --------------------- | ----------------------------------------------------------------------- |
 | `--api-url <string>`  | The API (default: the last one, or http://localhost:3000)               |
@@ -2297,11 +2299,11 @@ Calls `POST /invites/{token}/accept`.
 
 Create your account from an invite
 
-| Option                |                                           |
-| --------------------- | ----------------------------------------- |
-| `--token <string>`    | The token from the invite link (required) |
-| `--name <string>`     | Your name (required)                      |
-| `--password <string>` | Your password (8+ characters) (required)  |
+| Option                |                                                                      |
+| --------------------- | -------------------------------------------------------------------- |
+| `--token <string>`    | The token from the invite link (required)                            |
+| `--name <string>`     | Your name (required)                                                 |
+| `--password <string>` | Your password (8+ characters); leave it out to sign in by email code |
 
 Calls `POST /invites/{token}/register`.
 

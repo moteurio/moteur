@@ -1,4 +1,5 @@
 import { triggerEvent } from './utils/eventBus.js';
+import fs from 'node:fs';
 import { createHash, randomUUID } from 'node:crypto';
 import type { User } from '@moteurio/types/User.js';
 import { privateStatePath, readPrivateState, writePrivateState } from './utils/privateStore.js';
@@ -109,4 +110,11 @@ export function revokeAuthSession(userId: string, id?: string): void {
         userId,
         sessionIds: id ? [...removed] : undefined
     });
+}
+
+/** An account is gone: its sessions end, and their file goes with it. */
+export function forgetAuthSessions(userId: string): void {
+    revokeAuthSession(userId);
+    // AUTH_SESSIONS_FILE keeps everyone's sessions in one file: only this account's leave it.
+    if (!process.env.AUTH_SESSIONS_FILE) fs.rmSync(file(userId), { force: true });
 }

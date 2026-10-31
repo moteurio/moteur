@@ -42,6 +42,8 @@ export type {
 export type { PageMove, PageReferrer } from './project/pages.js';
 export type { RedirectInput } from './project/redirects.js';
 export type { GitStatus, GitTokenInfo } from './admin/projects.js';
+export type { AccountDeletion, AccountExport } from './admin/auth.js';
+export type { ServerSettings } from './admin/operator.js';
 export type {
     ResolvedPath,
     SiteUrl,

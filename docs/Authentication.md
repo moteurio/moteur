@@ -112,7 +112,7 @@ Project admins invite people by email: `POST {basePath}/projects/:projectId/invi
 
 The link points at the Studio in `appUrl` when its origin is listed in `CORS_ORIGINS` or `STUDIO_URL`, otherwise at `STUDIO_URL`; with neither, nothing is emailed and the Studio shows the link to copy.
 
-On the link, `GET {basePath}/invites/:token` describes the invite. Someone signed in **with the invited address** joins with `POST /invites/:token/accept`; someone with no account creates one with `POST /invites/:token/register` (`{ "name", "password" }`), since the link proves the address. Signing in with GitHub or Google using that address works too. An invite can't be accepted from another address.
+On the link, `GET {basePath}/invites/:token` describes the invite: the project, who invited, the address, `hasAccount` (the address has an account) and `hasPassword` (that account has a password; one made with an email code has none, so its owner signs in by email). Someone signed in **with the invited address** joins with `POST /invites/:token/accept`; someone with no account creates one with `POST /invites/:token/register` (`{ "name", "password"? }`), since the link proves the address. The password is optional: left out (or empty), the account has none, like one made with an email code, and the person signs in with a code or link by email. A password that is given must still be long enough (**400** `code: password`). Signing in with GitHub or Google using that address works too. An invite can't be accepted from another address.
 
 **People per plan.** Moteur doesn't limit how many people a project has. A host plugin can, with `ctx.setPeopleLimit(projectId => max | null)` in its `init` (api.moteur.io's billing plugin does, by plan). Members and pending invites both take a seat. Inviting, accepting, registering from an invite, or adding users in a project update all answer **402** `{ code: "plan_limit", limit: "people", max }` when that would go over. A project already over its limit (after a downgrade) keeps its people; it just can't add more. `GET /projects/:projectId/usage` reports `people: { members, invited, max }`. The other plan limits (files, monthly API requests, projects per person) are in [REST API › Plan limits](REST%20API.md#plan-limits).
 
@@ -138,7 +138,7 @@ On the link, `GET {basePath}/invites/:token` describes the invite. Someone signe
 
 Anyone can sign in, or make an account, with an email and a six-digit code: no password to keep. `POST /auth/email/code` sends the code, `POST /auth/email/verify` trades it for a session. A known address gets a code to sign in. A new one gets a code to make an account when the server takes new accounts (`MOTEUR_SIGNUP=open`) or the address has a live invite. The answer is `{ sent: true }` either way, and the email goes out after it, so neither the answer nor its timing tells who has an account.
 
-- A code works once, for 15 minutes, five tries. One code a minute and ten an hour per address. After ten wrong codes in a day, codes for that address are off until the next day.
+- A code works once, for 15 minutes, five tries. One code a minute and ten an hour per address. After ten wrong codes in a day, codes for that address are off until the oldest of them is a day old. Every limit, with its code and how long to wait, is in [Limits, and when to try again](#limits-and-when-to-try-again).
 - With `STUDIO_URL` set, each email also carries a sign-in link to Studio's `/auth/email` page, with a long token after `#` (so it reaches no server log). Studio sends it as `token` in place of `code`. The link works once, for 15 minutes, and keeps working when wrong codes have turned codes off: someone typing wrong codes for another person's address can't keep them out. Asking again for the address doesn't void a link already sent. Without `STUDIO_URL`, an address with codes off gets nothing that day. The whole server sends at most `MOTEUR_EMAIL_CODES_PER_HOUR` (default 300).
 - Codes are stored as a keyed hash, never as they are.
 - Two-step sign-in still applies: a code gives a ticket for the app's code, like a password does.
@@ -148,7 +148,63 @@ Anyone can sign in, or make an account, with an email and a six-digit code: no p
 
 A server is closed by default: without `MOTEUR_SIGNUP=open`, only invited people can make an account, by code, invite link or provider. Moteur Cloud is open.
 
+**Terms and Privacy policy.** `GET /auth/signup` answers `{ open, emailCodes, legal }`. `legal` holds `terms` and `privacy`, the addresses of the server's Terms and Privacy policy, for the sign-up page to link to. A key is left out when the server has none, so `legal` may be `{}`. An operator sets them with `PATCH /operator/settings` (`{ termsUrl, privacyUrl }`; `null` clears one), else they come from `MOTEUR_TERMS_URL` and `MOTEUR_PRIVACY_URL`. Either way they must be absolute `https` addresses (plain `http` only to `localhost`): the setting is refused with **400** `URL_INVALID`, and an environment value that isn't one is ignored, with one line in the log. Moteur Cloud sets `https://www.moteur.io/terms` and `https://www.moteur.io/privacy`. Saved settings live in `server-settings.json`, beside the users file.
+
 A new account records how it was made and the site page that brought them (`signup`), and what they came for (`onboarding`: `PATCH /auth/me/onboarding`). The Studio's welcome screens ask once. `POST /auth/me/demo` copies the server's demo project (`DEMO_PROJECT_ID`) for them, at most three times: its content only, never its workspace (`.moteur/`), credentials, outbound webhooks, Git history or form submissions. Whoever creates a project is its admin, billing and developer.
+
+### Limits, and when to try again
+
+Every refusal has a machine `code`. When waiting helps, it also has `retryAfter`, the whole seconds to wait, in the body and as the `Retry-After` header (which browsers can read through CORS), so a page can count down instead of guessing.
+
+| What                                                     | Limit                                                   | Answer                                             | Wait (`retryAfter`)                           |
+| -------------------------------------------------------- | ------------------------------------------------------- | -------------------------------------------------- | --------------------------------------------- |
+| Asking for an email code again                           | One a minute per address                                | **429** `EMAIL_CODE_WAIT`                          | Until the minute is up                        |
+| Email codes for one address                              | Ten an hour                                             | **429** `EMAIL_CODE_LIMIT`                         | Until the oldest of the hour's is an hour old |
+| Wrong email codes for one address                        | Ten a day, across codes: then codes are off for the day | **429** `EMAIL_CODE_LOCKED` (asking, or typing)    | Until the oldest of the ten is a day old      |
+| Codes leaving the whole server                           | `MOTEUR_EMAIL_CODES_PER_HOUR` (300) an hour             | **429** `EMAIL_CODE_BUSY`                          | Until the oldest of the hour's is an hour old |
+| Tries on one email code                                  | Five                                                    | **400** `EMAIL_CODE_TRIES` (ask for another)       | None: a new code can be asked for at once     |
+| A wrong, or old, code                                    |                                                         | **400** `EMAIL_CODE_WRONG`, `EMAIL_CODE_EXPIRED`   | None                                          |
+| Wrong passwords for one address                          | From the second in a row, each try waits 1, 2, 4… 30 s  | **401** `LOGIN_SLOWED` (the first: `LOGIN_FAILED`) | What the next try will wait                   |
+| Sign-in attempts from one IP                             | `API_RATE_LIMIT_LOGIN_MAX` (10) per 15 minutes          | **429** `rate_limited`                             | Until the 15-minute window resets             |
+| Email codes, provider and email-change steps from one IP | `API_RATE_LIMIT_VERIFICATION_MAX` (60) per 15 minutes   | **429** `rate_limited`                             | Until the 15-minute window resets             |
+
+The email's sign-in link keeps working while `EMAIL_CODE_LOCKED` stops typed codes, so someone typing wrong codes for another person's address can't keep them out. Changing the sign-in email (below) uses the same email-code limits, counted apart from sign-in codes.
+
+## Your account: email, export, deletion
+
+What follows is for the person themselves, in their own session: never an agent's token, nor a token made from one (**403** `PERSONAL_SESSION_REQUIRED`). Changing the email and deleting the account also need a sign-in from the last 10 minutes (**403** `REAUTH_REQUIRED`: sign in again, then retry).
+
+### Changing the sign-in email
+
+`POST /auth/me/email` with `{ email }` sends a six-digit code to the new address; `POST /auth/me/email/verify` with `{ email, code }` makes the change. The code works once, for 15 minutes, five tries, with the limits above (`EMAIL_CODE_WAIT`, `EMAIL_CODE_LIMIT`, `EMAIL_CODE_LOCKED`, `EMAIL_CODE_BUSY`, `EMAIL_CODE_WRONG`, `EMAIL_CODE_TRIES`, `EMAIL_CODE_EXPIRED`). The server must be able to send email (**503** `EMAIL_UNAVAILABLE`); `MOTEUR_EMAIL_SIGNIN=off` doesn't stop it, since the code signs nobody in. The address already being the account's answers **400** `EMAIL_SAME`; one another account uses, **409** `EMAIL_TAKEN`. (The person is signed in, so saying an address is taken is no open door to who has an account.)
+
+Once the code is right, the account signs in with the new address. Its credentials' version moves on, so every other session ends; the answer is `{ token, user }`, a new token for this session with the same sign-in time and deadline. When the server sends email, the old address gets a short notice saying the sign-in email changed, and what to do if it wasn't them. Plugins hear `auth.email.changed` (`{ userId }`).
+
+Connected providers (GitHub, Google, Microsoft, OIDC) stay connected: they are linked by the provider's own id, not by email, even when the provider's verified address was the old one.
+
+### A copy of what the server keeps
+
+`GET /auth/me/export` downloads a JSON file, `moteur-account-<date>.json`:
+
+- `account`: the account without its secrets (no password hash, no two-step secret or recovery codes, no provider ids): id, email, name, avatar, account roles, whether it is active, last sign-in, how it was made (`signup`: when, how, the page and campaign that brought them) and `onboarding`.
+- `signIn`: whether it has a password, the connected providers, whether two-step sign-in is on.
+- `sessions`: as `GET /auth/sessions` lists them.
+- `projects`: each project they are in, with their roles there.
+- `activity`: what they did, from each of their projects' activity logs and the server's own (which also has what was done to their account), oldest first, as far back as each log goes (its last 10,000 events). Each event says what changed and when, without the content itself.
+
+What isn't in it: the content they wrote (entries, pages, files, notes and comments) belongs to its project. It stays there, and the project's admins export it with the project. Projects they have left aren't in it either.
+
+### Deleting the account
+
+`GET /auth/me/deletion` says first what deleting would do, project by project: `{ deletes, leaves, blocked }`, each a list of `{ id, name }`.
+
+- `deletes`: projects only they are in. They go to the server's project trash with the account.
+- `leaves`: projects with other people, and another admin. They are removed from it; what they wrote stays, credited by name.
+- `blocked`: projects with other people where they are the only admin. Deleting is refused (**409** `SOLE_ADMIN`, with `projects`) until someone else is made admin there, or the others are removed.
+
+`DELETE /auth/me` with `{ email }`, the account's own address typed back (else **400** `CONFIRM_MISMATCH`), deletes it: projects in `deletes` go to the trash, they leave the others, the invites they sent and that nobody has accepted are withdrawn, every session ends, and the account is removed from the users file. It answers **204**. Plugins hear `auth.account.deleted` (`{ userId, email }`): a billing plugin can cancel what it charged for.
+
+What stays: their name on what they did in projects they left (activity logs, Git history, the content's authors), since that is the project's record; server logs, for as long as the operator keeps them; and backups, until they roll over. Nothing else about them is kept. Operators are not accounts; this doesn't apply to them.
 
 ## Project API keys (read-only)
 
@@ -174,7 +230,7 @@ You can bind each key to one or more **hostname patterns** stored as `allowedHos
 
 Configure with JWT:
 
-- **List:** `GET {basePath}/projects/:projectId/api-keys` — array of metadata per key (never raw secrets).
+- **List:** `GET {basePath}/projects/:projectId/api-keys` — array of metadata per key (never raw secrets or hashes), with `lastUsedAt` once a request has authenticated with the key. Last use is kept with the server's private state, not in the project file (so reads make no commits), and written at most once a minute per key: it can be up to a minute behind. Rotating or revoking a key clears it.
 - **Update:** `PATCH {basePath}/projects/:projectId/api-keys/:keyId` — body may include `allowedHosts`, `label`, `allowedChannelIds` (`null` clears channel restriction), `allowSiteWideReads`.
 
 **Limitations:** `Origin`/`Referer` can be set by any HTTP client; this mitigates casual abuse and wrong-site embedding but does not replace keeping the key secret. For server-to-server reads with a restricted key, use **JWT** instead or leave `allowedHosts` empty.

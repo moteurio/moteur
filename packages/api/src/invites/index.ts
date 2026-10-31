@@ -35,13 +35,16 @@ router.get('/:token', async (req: Request, res: Response) => {
         const project = await getProjectById(invite.projectId);
         if (!project) return void res.status(404).json(GONE);
         const by = getUserById(invite.invitedBy);
+        const account = findAccount(invite.email);
         return void res.json({
             email: invite.email,
             roles: invite.roles,
             expiresAt: invite.expiresAt,
             project: { id: project.id, label: project.label || project.id },
             invitedBy: { name: by?.name ?? by?.email },
-            hasAccount: !!findAccount(invite.email)
+            hasAccount: !!account,
+            // An account made with an email code has none: that person signs in by email.
+            hasPassword: !!account?.passwordHash
         });
     } catch (err) {
         return void sendApiError(res, req, err);
@@ -85,7 +88,8 @@ router.post('/:token/register', async (req: Request, res: Response) => {
     if (!name || name.length > 120) {
         return void res.status(400).json({ error: 'A name is required', code: 'name' });
     }
-    const weak = passwordProblem(password);
+    // No password: the account is like one made with an email code (one can be added later).
+    const weak = password ? passwordProblem(password) : null;
     if (weak) return void res.status(400).json({ error: weak, code: 'password' });
     if (findAccount(invite.email)) {
         return void res.status(409).json({
@@ -102,7 +106,7 @@ router.post('/:token/register', async (req: Request, res: Response) => {
             isActive: true,
             email: invite.email,
             name,
-            passwordHash: await hashPassword(password),
+            ...(password && { passwordHash: await hashPassword(password) }),
             roles: [],
             projects: [],
             signup: { at: new Date().toISOString(), method: 'invite' },
@@ -147,7 +151,7 @@ export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
         get: {
             summary: 'Look up an invite',
             description:
-                'No auth: the link is the credential. Says which project, who invited, for which address, and whether that address has an account (to offer signing in or creating one).',
+                'No auth: the link is the credential. Says which project, who invited, for which address, whether that address has an account (to offer signing in or creating one), and whether that account has a password (an account made with an email code has none, so its owner signs in by email).',
             tags: ['Users'],
             parameters: [tokenParam],
             responses: {
@@ -172,7 +176,12 @@ export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
                                         type: 'object',
                                         properties: { name: { type: 'string' } }
                                     },
-                                    hasAccount: { type: 'boolean' }
+                                    hasAccount: { type: 'boolean' },
+                                    hasPassword: {
+                                        type: 'boolean',
+                                        description:
+                                            'True only when the address has an account and that account has a password'
+                                    }
                                 }
                             }
                         }
@@ -213,7 +222,7 @@ export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
         post: {
             summary: 'Create an account from an invite',
             description:
-                'For an address with no account yet: creates it (the link proves the address), joins the project, and signs in.',
+                'For an address with no account yet: creates it (the link proves the address), joins the project, and signs in. `password` is optional: without one, the account has no password, like one made with an email code. The person then signs in with a code or link by email (POST /auth/email/code).',
             tags: ['Users'],
             parameters: [tokenParam],
             requestBody: {
@@ -222,10 +231,15 @@ export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
                     'application/json': {
                         schema: {
                             type: 'object',
-                            required: ['name', 'password'],
+                            required: ['name'],
                             properties: {
                                 name: { type: 'string' },
-                                password: { type: 'string', minLength: 8 }
+                                password: {
+                                    type: 'string',
+                                    minLength: 8,
+                                    description:
+                                        'Optional. Left out (or empty), the account has no password and signs in by email.'
+                                }
                             }
                         }
                     }
@@ -247,7 +261,10 @@ export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
                         }
                     }
                 },
-                '400': { description: 'Missing name or short password (`code: name|password`)' },
+                '400': {
+                    description:
+                        'Missing name, or a password that is given is too weak (`code: name|password`)'
+                },
                 '402': {
                     description:
                         'The project is full for its plan (`code: plan_limit`); no account is created'

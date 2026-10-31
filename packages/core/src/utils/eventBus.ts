@@ -20,6 +20,10 @@ import type { Schedule } from '@moteurio/types/Schedule.js';
 // Event context uses explicit resource keys (like { project, user }) for clarity.
 export interface EventMap {
     'auth.sessions.revoked': { userId: string; sessionIds?: string[] };
+    /** Someone changed the email they sign in with (they proved the new one). */
+    'auth.email.changed': { userId: string };
+    /** Someone deleted their own account: a billing plugin can cancel what it charged for. */
+    'auth.account.deleted': { userId: string; email: string };
     // Projects
     'project.beforeCreate': { project: ProjectSchema; user: User };
     'project.afterCreate': { project: ProjectSchema; user: User };

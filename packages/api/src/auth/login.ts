@@ -55,15 +55,22 @@ router.post('/login', loginRateLimiter, async (req: Request, res: Response) => {
         const msg = getMessage(err).toLowerCase();
         if (msg.includes('invalid credentials') && normalizedUsername) {
             const failureCount = recordLoginFailure(normalizedUsername);
-            const retryAfterSeconds = nextRetryAfterSeconds(failureCount);
-            const body: Record<string, unknown> = { requestId: req.requestId };
+            // From the second wrong password on, the next try waits: say how long.
             if (failureCount >= 2) {
-                body.error = 'Too many failed attempts, please wait before trying again.';
-                body.retryAfterSeconds = retryAfterSeconds;
-            } else {
-                body.error = 'Invalid credentials';
+                const retryAfter = nextRetryAfterSeconds(failureCount);
+                res.setHeader('Retry-After', String(retryAfter));
+                return void res.status(401).json({
+                    error: 'Too many tries. Wait, then try again.',
+                    code: 'LOGIN_SLOWED',
+                    retryAfter,
+                    requestId: req.requestId
+                });
             }
-            return void res.status(401).json(body);
+            return void res.status(401).json({
+                error: 'Invalid credentials',
+                code: 'LOGIN_FAILED',
+                requestId: req.requestId
+            });
         }
         return void sendApiError(res, req, err);
     }
@@ -111,23 +118,38 @@ export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
                     }
                 },
                 '401': {
-                    description: 'Invalid credentials',
+                    description:
+                        'Wrong email or password (`LOGIN_FAILED`). From the second wrong password in a row, `LOGIN_SLOWED`: the next try waits `retryAfter` seconds (also the `Retry-After` header), doubling up to 30.',
+                    headers: {
+                        'Retry-After': {
+                            description: 'With `LOGIN_SLOWED`: seconds the next try will wait',
+                            schema: { type: 'integer' }
+                        }
+                    },
                     content: {
                         'application/json': {
                             schema: {
                                 type: 'object',
                                 properties: {
                                     error: { type: 'string' },
-                                    retryAfterSeconds: {
-                                        type: 'number',
+                                    code: {
+                                        type: 'string',
+                                        enum: ['LOGIN_FAILED', 'LOGIN_SLOWED']
+                                    },
+                                    retryAfter: {
+                                        type: 'integer',
                                         description:
-                                            'Seconds to wait before the next login attempt (after repeated failures).'
+                                            'With `LOGIN_SLOWED`: whole seconds the next try will wait'
                                     },
                                     requestId: { type: 'string' }
                                 }
                             }
                         }
                     }
+                },
+                '429': {
+                    description:
+                        'Too many sign-in attempts from this address (`rate_limited`): `retryAfter` and `Retry-After` say how many seconds until the window resets'
                 }
             }
         }

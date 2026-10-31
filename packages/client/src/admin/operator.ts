@@ -2,6 +2,9 @@ import type { MoteurClient } from '../client.js';
 
 type SchemaKind = 'blocks' | 'structures';
 
+/** Saved by an operator, or given by the environment (`MOTEUR_TERMS_URL`, `MOTEUR_PRIVACY_URL`). */
+export type ServerSettings = { termsUrl?: string; privacyUrl?: string };
+
 /**
  * The operator's view of the whole server: every project, every account, every plugin,
  * and the server-wide blocks and structures. Requires an account with the `admin` role.
@@ -44,6 +47,19 @@ export function operatorApi(client: MoteurClient) {
                 on: boolean | null
             ): Promise<{ plugin: Record<string, unknown> }> {
                 return client.patch(`/operator/plugins/${encodeURIComponent(pluginId)}`, { on });
+            }
+        },
+        /** Settings for the whole server: where the Terms and the Privacy policy are. */
+        settings: {
+            get(): Promise<{ settings: ServerSettings; env: ServerSettings }> {
+                return client.get('/operator/settings');
+            },
+            /** A string sets one (an https address); null clears it, so the environment's applies. */
+            update(patch: {
+                termsUrl?: string | null;
+                privacyUrl?: string | null;
+            }): Promise<{ settings: ServerSettings; env: ServerSettings }> {
+                return client.patch('/operator/settings', patch);
             }
         },
         schemas: {

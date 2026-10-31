@@ -17,7 +17,7 @@ const ctx = vi.hoisted(() => ({
         label: string;
         users: string[];
     },
-    accounts: [] as { id: string; email: string }[]
+    accounts: [] as { id: string; email: string; passwordHash?: string }[]
 }));
 
 vi.mock('../../src/middlewares/auth', () => ({
@@ -57,6 +57,7 @@ import invitesRouter from '../../src/invites/index.js';
 import { consumeInvite } from '@moteurio/core/invites.js';
 import { createUser } from '@moteurio/core/users.js';
 import { addProjectMember } from '@moteurio/core/projects.js';
+import { hashPassword } from '@moteurio/core/auth.js';
 import { setPeopleLimit } from '@moteurio/core/planLimits.js';
 
 const app = express();
@@ -93,7 +94,8 @@ describe('invites', () => {
             email: 'louise@atelier.example',
             project: { id: 'p1', label: 'Atelier' },
             invitedBy: { name: 'Ada' },
-            hasAccount: false
+            hasAccount: false,
+            hasPassword: false
         });
         ctx.invite = null;
         expect((await request(app).get(`/invites/${TOKEN}`)).status).toBe(404);
@@ -103,6 +105,16 @@ describe('invites', () => {
         ctx.accounts = [{ id: 'u-louise', email: 'Louise@Atelier.example' }];
         const res = await request(app).get(`/invites/${TOKEN}`);
         expect(res.body.hasAccount).toBe(true);
+    });
+
+    it('says whether the account has a password', async () => {
+        ctx.accounts = [{ id: 'u-louise', email: 'louise@atelier.example' }];
+        const byCode = await request(app).get(`/invites/${TOKEN}`);
+        expect(byCode.body).toMatchObject({ hasAccount: true, hasPassword: false });
+        ctx.accounts = [{ id: 'u-louise', email: 'louise@atelier.example', passwordHash: 'h' }];
+        const withPassword = await request(app).get(`/invites/${TOKEN}`);
+        expect(withPassword.body).toMatchObject({ hasAccount: true, hasPassword: true });
+        expect(withPassword.body).not.toHaveProperty('passwordHash');
     });
 
     it('lets the invited address join, once', async () => {
@@ -140,6 +152,20 @@ describe('invites', () => {
             expect.objectContaining({ email: 'louise@atelier.example', passwordHash: 'hash' })
         );
         expect(consumeInvite).toHaveBeenCalledWith('invite:1');
+    });
+
+    it('creates an account with no password, like one made by an email code', async () => {
+        for (const body of [{ name: 'Louise' }, { name: 'Louise', password: '' }]) {
+            vi.clearAllMocks();
+            const res = await request(app).post(`/invites/${TOKEN}/register`).send(body);
+            expect(res.status).toBe(201);
+            expect(res.body.token).toBe('jwt');
+            const made = vi.mocked(createUser).mock.calls[0][0];
+            expect(made.email).toBe('louise@atelier.example');
+            expect(made).not.toHaveProperty('passwordHash');
+            expect(hashPassword).not.toHaveBeenCalled();
+            expect(consumeInvite).toHaveBeenCalledWith('invite:1');
+        }
     });
 
     it('asks for a name and a real password', async () => {

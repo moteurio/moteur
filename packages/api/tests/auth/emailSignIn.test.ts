@@ -17,6 +17,9 @@ vi.mock('@moteurio/core/emailSignIn.js', () => ({
     requestEmailCode: vi.fn(async () => undefined),
     verifyEmailCode: vi.fn()
 }));
+vi.mock('@moteurio/core/serverSettings.js', () => ({
+    legalLinks: () => ({ terms: 'https://www.moteur.io/terms' })
+}));
 vi.mock('@moteurio/core/onboarding.js', () => ({
     updateOnboarding: vi.fn(async () => ({ intent: 'agency' })),
     demoProjectFor: vi.fn(async () => 'demo-1'),
@@ -33,9 +36,13 @@ app.use('/auth', router);
 describe('email sign-in routes', () => {
     beforeEach(() => vi.clearAllMocks());
 
-    it('says whether the server takes new accounts', async () => {
+    it('says whether the server takes new accounts, and where its legal pages are', async () => {
         const res = await request(app).get('/auth/signup');
-        expect(res.body).toEqual({ open: true, emailCodes: true });
+        expect(res.body).toEqual({
+            open: true,
+            emailCodes: true,
+            legal: { terms: 'https://www.moteur.io/terms' }
+        });
     });
 
     it('passes the page and campaign along, and answers the same for everyone', async () => {
@@ -84,6 +91,20 @@ describe('email sign-in routes', () => {
             .send({ email: 'a@b.co', code: '000000' });
         expect(res.status).toBe(400);
         expect(res.body).toMatchObject({ code: 'EMAIL_CODE_WRONG' });
+    });
+
+    it('says how many seconds to wait before another code', async () => {
+        (requestEmailCode as any).mockRejectedValueOnce(
+            Object.assign(new Error('Wait a minute before asking for another code.'), {
+                status: 429,
+                code: 'EMAIL_CODE_WAIT',
+                retryAfter: 42
+            })
+        );
+        const res = await request(app).post('/auth/email/code').send({ email: 'a@b.co' });
+        expect(res.status).toBe(429);
+        expect(res.body).toMatchObject({ code: 'EMAIL_CODE_WAIT', retryAfter: 42 });
+        expect(res.headers['retry-after']).toBe('42');
     });
 
     it('keeps what you came for, and copies the demo on request', async () => {
