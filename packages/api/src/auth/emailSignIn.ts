@@ -1,5 +1,6 @@
 import { Router, type Request, type Response } from 'express';
 import type { OpenAPIV3 } from 'openapi-types';
+import type { User } from '@moteurio/types/User.js';
 import {
     emailCodesAvailable,
     requestEmailCode,
@@ -10,6 +11,7 @@ import {
 import { demoProjectFor, updateOnboarding } from '@moteurio/core/onboarding.js';
 import { legalLinks } from '@moteurio/core/serverSettings.js';
 import { passkeysAvailable } from '@moteurio/core/passkeys.js';
+import { pageLook } from '@moteurio/core/email/settings.js';
 import { requireAuth } from '../middlewares/auth.js';
 import { verificationRateLimiter } from '../middlewares/rateLimit.js';
 import { sendApiError } from '../utils/apiError.js';
@@ -41,12 +43,19 @@ router.post('/email/code', verificationRateLimiter, async (req: Request, res: Re
             body.campaign && typeof body.campaign === 'object' && !Array.isArray(body.campaign)
                 ? (body.campaign as Record<string, string>)
                 : undefined;
-        await requestEmailCode(text(body.email, 300) ?? '', {
-            from: text(body.from, 300),
-            goal: text(body.goal, 60),
-            campaign,
-            locale: text(body.locale, 20)
-        });
+        await requestEmailCode(
+            text(body.email, 300) ?? '',
+            {
+                from: text(body.from, 300),
+                goal: text(body.goal, 60),
+                campaign,
+                locale: text(body.locale, 20)
+            },
+            {
+                // The look of the page that asked, for this email only; anything else is ignored.
+                look: pageLook(body.look)
+            }
+        );
         // The same answer whether the address has an account or not.
         res.json({ sent: true });
     } catch (err) {
@@ -59,7 +68,12 @@ router.post('/email/verify', verificationRateLimiter, async (req: Request, res: 
     const body = req.body ?? {};
     try {
         const email = text(body.email, 300) ?? '';
-        const options = { name: text(body.name, 200), onNewUser: runOnboardingForNewUser };
+        // The page's look goes to the welcome of an account made now (none is saved yet).
+        const look = pageLook(body.look);
+        const options = {
+            name: text(body.name, 200),
+            onNewUser: (user: User) => runOnboardingForNewUser(user, undefined, { look })
+        };
         // The email's link sends its token in place of the code.
         const token = text(body.token, 100);
         const result = token
@@ -133,7 +147,7 @@ export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
         post: {
             summary: 'Email a six-digit code to sign in, or to sign up',
             description:
-                'A known address gets a code to sign in. A new one gets a code to make an account when the server is open. The answer is the same either way. One code a minute, ten an hour per address. `from`, `goal`, `campaign` and `locale` are kept on a new account.',
+                'A known address gets a code to sign in. A new one gets a code to make an account when the server is open. The answer is the same either way. One code a minute, ten an hour per address. `from`, `goal`, `campaign` and `locale` are kept on a new account. `look` is the look of the page asking (`discotheque` or `folio`): the email is set in it, and it is not kept.',
             tags: ['Auth'],
             security: [],
             requestBody: json({
@@ -148,7 +162,13 @@ export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
                         description: 'utm_* values without the prefix',
                         additionalProperties: { type: 'string' }
                     },
-                    locale: { type: 'string' }
+                    locale: { type: 'string' },
+                    look: {
+                        type: 'string',
+                        enum: ['discotheque', 'folio'],
+                        description:
+                            'The look of the page asking: this email is set in it. Not kept; any other value is ignored.'
+                    }
                 }
             }),
             responses: {
@@ -187,7 +207,7 @@ export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
         post: {
             summary: "Trade an email code, or the email link's token, for a session",
             description:
-                "Signs in, or makes the account first. `name` names a new account. Send `token` (from the email's link, with `STUDIO_URL` set) in place of `code`: it works even when too many wrong codes have turned codes off for the day. With two-step sign-in on, answers a ticket for the app code instead (POST /auth/two-factor/verify).",
+                "Signs in, or makes the account first. `name` names a new account. Send `token` (from the email's link, with `STUDIO_URL` set) in place of `code`: it works even when too many wrong codes have turned codes off for the day. With two-step sign-in on, answers a ticket for the app code instead (POST /auth/two-factor/verify). `look`: the page's look, for a new account's welcome email only; never kept.",
             tags: ['Auth'],
             security: [],
             requestBody: json({
@@ -200,7 +220,13 @@ export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
                         type: 'string',
                         description: "From the email's link, in place of `code`"
                     },
-                    name: { type: 'string' }
+                    name: { type: 'string' },
+                    look: {
+                        type: 'string',
+                        enum: ['discotheque', 'folio'],
+                        description:
+                            'The look of the page: a new account’s welcome email is set in it. Not kept; any other value is ignored.'
+                    }
                 }
             }),
             responses: {

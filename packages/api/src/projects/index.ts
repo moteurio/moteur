@@ -11,6 +11,7 @@ import users, { openapi as usersSpec } from './users.js';
 import invites, { openapi as invitesSpec, schemas as invitesSchemas } from './invites.js';
 import usage, { openapi as usageSpec, schemas as usageSchemas } from './usage.js';
 import bin, { openapi as binSpec, schemas as binSchemas } from './bin.js';
+import projectEmail, { openapi as projectEmailSpec } from './email.js';
 
 import activityRouter, {
     openapi as activitySpec,
@@ -62,6 +63,7 @@ router.use(users);
 router.use(invites);
 router.use(usage);
 router.use(bin);
+router.use(projectEmail);
 router.use('/:projectId/templates', templatesRouter);
 router.use('/:projectId/pages', pagesStudioRouter);
 router.use('/:projectId', pageOutputsRouter);
@@ -107,6 +109,7 @@ export const projectsSpecs = {
         invitesSpec,
         usageSpec,
         binSpec,
+        projectEmailSpec,
         activitySpec,
         commentsSpec,
         reviewsSpec,

@@ -1,7 +1,8 @@
 import { createHash, randomBytes, randomInt } from 'node:crypto';
 import type { User } from '@moteurio/types/User.js';
 import { loginWithProvider, type ProviderIdentity } from './auth.js';
-import { getUserById, listUsers, reloadUsers, linkUserProvider } from './users.js';
+import { getUserByEmail, getUserById, listUsers, reloadUsers, linkUserProvider } from './users.js';
+import { readerOf } from './email/render.js';
 import { privateStatePath, readPrivateState, writePrivateState } from './utils/privateStore.js';
 import { sendVerificationEmail } from './emailNotifier.js';
 
@@ -138,7 +139,8 @@ export async function requestProviderEmail(
     item.sends++;
     // Persist the budget before SMTP; failures must not permit an unlimited mail flood.
     writePrivateState(file(), all);
-    await sendVerificationEmail(email, code, locale);
+    // An address that already has an account gets the check in its owner's look.
+    await sendVerificationEmail(email, code, locale, readerOf(getUserByEmail(email)).look);
 }
 
 export async function completeProviderEmail(

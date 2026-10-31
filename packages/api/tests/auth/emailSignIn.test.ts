@@ -29,6 +29,7 @@ vi.mock('@moteurio/core/onboarding.js', () => ({
 
 import router from '../../src/auth/emailSignIn.js';
 import { requestEmailCode, verifyEmailCode } from '@moteurio/core/emailSignIn.js';
+import { sendWelcome } from '@moteurio/core/onboarding.js';
 
 const app = express();
 app.use(express.json());
@@ -55,17 +56,30 @@ describe('email sign-in routes', () => {
                 from: '/for/agencies',
                 goal: 'start',
                 campaign: { source: 'x' },
-                locale: 'fr'
+                locale: 'fr',
+                look: 'folio'
             });
         expect(res.status).toBe(200);
         expect(res.body).toEqual({ sent: true });
         expect(res.headers['cache-control']).toBe('no-store');
-        expect(requestEmailCode).toHaveBeenCalledWith('theo@agency.test', {
-            from: '/for/agencies',
-            goal: 'start',
-            campaign: { source: 'x' },
-            locale: 'fr'
-        });
+        expect(requestEmailCode).toHaveBeenCalledWith(
+            'theo@agency.test',
+            {
+                from: '/for/agencies',
+                goal: 'start',
+                campaign: { source: 'x' },
+                locale: 'fr'
+            },
+            // The page's look, for this email only.
+            { look: 'folio' }
+        );
+    });
+
+    it('ignores a look that isn’t one', async () => {
+        await request(app)
+            .post('/auth/email/code')
+            .send({ email: 'theo@agency.test', look: 'ledger' });
+        expect(vi.mocked(requestEmailCode).mock.calls[0][2]).toEqual({ look: undefined });
     });
 
     it('answers a session, or a two-step ticket', async () => {
@@ -79,6 +93,25 @@ describe('email sign-in routes', () => {
             .post('/auth/email/verify')
             .send({ email: 'a@b.co', code: '123456' });
         expect(two.body).toEqual({ twoFactor: true, ticket: 'tk' });
+    });
+
+    it('sets a new account’s welcome in the page’s look, and only a real look', async () => {
+        const made = { id: 'user:2', email: 'a@b.co' };
+        (verifyEmailCode as any).mockImplementation(
+            async (_e: string, _c: string, o: { onNewUser: (u: unknown) => Promise<void> }) => {
+                await o.onNewUser(made);
+                return { token: 't', isNew: true };
+            }
+        );
+        await request(app)
+            .post('/auth/email/verify')
+            .send({ email: 'a@b.co', code: '123456', look: 'folio' });
+        expect(sendWelcome).toHaveBeenLastCalledWith(made, undefined, { look: 'folio' });
+        await request(app)
+            .post('/auth/email/verify')
+            .send({ email: 'a@b.co', code: '123456', look: 'ledger' });
+        expect(sendWelcome).toHaveBeenLastCalledWith(made, undefined, { look: undefined });
+        (verifyEmailCode as any).mockReset();
     });
 
     it('turns a wrong code into a 400 with its code', async () => {

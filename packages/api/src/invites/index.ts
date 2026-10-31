@@ -16,6 +16,7 @@ import { generateJWT, hashPassword, passwordProblem } from '@moteurio/core/auth.
 import { assertPeopleRoom } from '@moteurio/core/planLimits.js';
 import { requireAuth } from '../middlewares/auth.js';
 import { runOnboardingForNewUser } from '../auth/onboarding.js';
+import { pageLook } from '@moteurio/core/email/settings.js';
 import { sendApiError } from '../utils/apiError.js';
 
 const router: Router = Router();
@@ -118,11 +119,12 @@ router.post('/:token/register', async (req: Request, res: Response) => {
         await addProjectMember(invite.projectId, user, invite.roles);
         consumeInvite(invite.id);
         // The welcome email, about the project they joined; never holds up the answer.
-        void runOnboardingForNewUser(user, {
-            projectId: invite.projectId,
-            invitedBy: invite.invitedBy,
-            roles: invite.roles
-        });
+        void runOnboardingForNewUser(
+            user,
+            { projectId: invite.projectId, invitedBy: invite.invitedBy, roles: invite.roles },
+            // The invitation page's look, for the welcome only; never stored.
+            { look: pageLook(body.look) }
+        );
         const loginAt = await recordUserLogin(user.id);
         const signedIn = {
             ...user,
@@ -251,6 +253,12 @@ export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
                                     minLength: 8,
                                     description:
                                         'Optional. Left out (or empty), the account has no password and signs in by email.'
+                                },
+                                look: {
+                                    type: 'string',
+                                    enum: ['discotheque', 'folio'],
+                                    description:
+                                        'The look of the page: the welcome email is set in it. Not kept.'
                                 }
                             }
                         }

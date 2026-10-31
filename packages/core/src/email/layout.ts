@@ -58,6 +58,7 @@ export interface EmailContent {
     text?: string;
 }
 
+/** Whose name, logo, colour and foot an email carries: the operator's, or a project's. */
 export interface Brand {
     productName: string;
     accent?: string;
@@ -65,16 +66,24 @@ export interface Brand {
     logo?: { src: string; width: number };
     footer?: string;
     supportUrl?: string;
+    /** A project's mail: its site, linked at the foot. */
+    siteUrl?: string;
+    /** A project's mail: the operator's "Sent with …" line, when it asks for one. */
+    credit?: string;
 }
+
+/** A look of the Studio's, or a project's own: how an email is set. */
+export type EmailStyle = EmailLook | 'project';
 
 /**
  * How a look sets an email. Discothèque is Marquee: the Studio's chocolate band with the name and
  * the four stripes, the code on a mustard ticket, a pill button. Folio is Tab: a white card with a
- * line of accent along its top, the code in a grey well.
+ * line of accent along its top, the code in a grey well. A project's own mail is Plain: none of
+ * the Studio's, only the project's logo (or name), its colour and its foot, on a white card.
  */
 export interface Design {
     id: string;
-    look: EmailLook;
+    look: EmailStyle;
     name: string;
 }
 
@@ -83,8 +92,11 @@ export const DESIGNS: Design[] = [
     { id: 'folio-tab', look: 'folio', name: 'Tab' }
 ];
 
-export function designFor(look: EmailLook): Design {
-    return DESIGNS.find(d => d.look === look)!;
+/** The design of a project's own mail (form confirmations and form emails). */
+export const PROJECT_DESIGN: Design = { id: 'project-plain', look: 'project', name: 'Plain' };
+
+export function designFor(look: EmailStyle): Design {
+    return look === 'project' ? PROJECT_DESIGN : DESIGNS.find(d => d.look === look)!;
 }
 
 type Palette = {
@@ -115,7 +127,7 @@ type Palette = {
 };
 
 /** From @moteurio/design's tokens (foundations.md), light then dark. */
-const PALETTES: Record<EmailLook, { light: Palette; dark: Palette }> = {
+const PALETTES: Record<EmailStyle, { light: Palette; dark: Palette }> = {
     discotheque: {
         light: {
             ground: '#F7EBD0',
@@ -207,16 +219,65 @@ const PALETTES: Record<EmailLook, { light: Palette; dark: Palette }> = {
             quote: '#6EA0F2',
             stripes: []
         }
+    },
+    // Neutral greys, a little warm, so any project's logo and colour sit well on them.
+    project: {
+        light: {
+            ground: '#F3F3F1',
+            card: '#FFFFFF',
+            ink: '#1D1D1B',
+            muted: '#5C5C57',
+            rule: '#E4E4E0',
+            edge: '#E4E4E0',
+            action: '#1D1D1B',
+            onAction: '#FFFFFF',
+            link: '#1D1D1B',
+            codeFill: '#F3F3F1',
+            codeInk: '#1D1D1B',
+            codeEdge: '#E4E4E0',
+            band: '#FFFFFF',
+            onBand: '#1D1D1B',
+            panel: '#F7F7F5',
+            panelEdge: '#E4E4E0',
+            avatar: '#EDEDEA',
+            onAvatar: '#1D1D1B',
+            quote: '#1D1D1B',
+            stripes: []
+        },
+        dark: {
+            ground: '#141413',
+            card: '#1E1E1C',
+            ink: '#ECECE9',
+            muted: '#A9A9A3',
+            rule: '#34342F',
+            edge: '#34342F',
+            action: '#ECECE9',
+            onAction: '#141413',
+            link: '#ECECE9',
+            codeFill: '#141413',
+            codeInk: '#ECECE9',
+            codeEdge: '#34342F',
+            band: '#1E1E1C',
+            onBand: '#ECECE9',
+            panel: '#262624',
+            panelEdge: '#34342F',
+            avatar: '#2C2C29',
+            onAvatar: '#ECECE9',
+            quote: '#ECECE9',
+            stripes: []
+        }
     }
 };
 
 const SANS = "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
-const FONTS: Record<EmailLook, { display: string; body: string }> = {
+const FONTS: Record<EmailStyle, { display: string; body: string }> = {
     discotheque: {
         display: "Fraunces, Georgia, 'Times New Roman', Times, serif",
         body: `Karla, ${SANS}`
     },
-    folio: { display: `'IBM Plex Sans', ${SANS}`, body: `'IBM Plex Sans', ${SANS}` }
+    folio: { display: `'IBM Plex Sans', ${SANS}`, body: `'IBM Plex Sans', ${SANS}` },
+    // The reader's own system font: nothing of the Studio's.
+    project: { display: SANS, body: SANS }
 };
 const MONO =
     "'JetBrains Mono', 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', 'Courier New', monospace";
@@ -247,7 +308,7 @@ export function initials(name: string): string {
     return (two || '?').toLocaleUpperCase();
 }
 
-function palettes(brand: Brand, look: EmailLook): { light: Palette; dark: Palette } {
+function palettes(brand: Brand, look: EmailStyle): { light: Palette; dark: Palette } {
     const light = { ...PALETTES[look].light };
     const dark = { ...PALETTES[look].dark };
     if (brand.accent) {
@@ -323,13 +384,15 @@ export function renderHtml(
     const linkStyle = `color:${c.link};text-decoration:underline;`;
     const dotted = disco ? 'dotted' : 'solid';
 
+    // A line break someone wrote (a project's sign-off: "See you soon,\nThe team") stays one.
+    const text = (s: string) => esc(s).replace(/\r?\n/g, '<br>');
     const rich = (r: Rich) =>
         typeof r === 'string'
-            ? esc(r)
+            ? text(r)
             : r
                   .map(p =>
                       typeof p === 'string'
-                          ? esc(p)
+                          ? text(p)
                           : 'strong' in p
                             ? `<strong style="font-weight:700;">${esc(p.strong)}</strong>`
                             : `<a class="m-link" href="${esc(p.href)}" target="_blank" style="${linkStyle}">${esc(p.text)}</a>`
@@ -455,10 +518,13 @@ export function renderHtml(
             'width:100%;'
         );
 
-    const name = content.sender?.name ?? brand.productName;
-    const logo = !content.sender && brand.logo;
+    const plainStyle = design.look === 'project';
+    // The brand is the email's own: the operator's on the engine's mail, the project's on its own.
+    const own = plainStyle || !content.sender;
+    const name = plainStyle ? brand.productName : (content.sender?.name ?? brand.productName);
+    const logo = own && brand.logo;
     const logoImg = logo
-        ? `<img src="${esc(logo.src)}" width="${logo.width}" alt="${esc(brand.productName)}" style="display:block;width:${logo.width}px;max-width:100%;height:auto;border:0;outline:none;text-decoration:none;">`
+        ? `<img src="${esc(logo.src)}" width="${logo.width}" alt="${esc(brand.productName)}" style="display:block;${plainStyle ? 'margin:0 auto;' : ''}width:${logo.width}px;max-width:100%;height:auto;border:0;outline:none;text-decoration:none;">`
         : '';
 
     let header: string;
@@ -468,6 +534,12 @@ export function renderHtml(
             logoImg ||
             `<span class="m-band-ink" style="font-family:${f.display};font-size:26px;line-height:1.2;font-weight:800;color:${c.onBand};">${esc(name)}</span>`;
         header = `<tr><td class="m-band" bgcolor="${c.band}" style="background-color:${c.band};padding:20px 32px;border-radius:22px 22px 0 0;">${bandName}</td></tr>${content.sender ? '' : `<tr><td>${stripeRows(6)}</td></tr>`}`;
+    } else if (plainStyle) {
+        // Plain: the project's logo, or its name in its colour, centred over the card.
+        const mark =
+            logoImg ||
+            `<span class="m-link" style="font-family:${f.display};font-size:20px;line-height:1.25;font-weight:700;color:${c.link};">${esc(name)}</span>`;
+        header = `<tr><td align="center" style="padding:4px 4px 20px;text-align:center;">${mark}</td></tr>`;
     } else {
         const wordmark =
             logoImg ||
@@ -477,27 +549,32 @@ export function renderHtml(
 
     const body = content.blocks.map(block).join('');
     // Tab: a line of accent along the top of the card.
-    const topLine = disco
-        ? ''
-        : `<tr><td class="m-top" bgcolor="${c.action}" height="4" style="height:4px;line-height:4px;font-size:0;background-color:${c.action};border-radius:8px 8px 0 0;">&nbsp;</td></tr>`;
+    const topLine =
+        disco || plainStyle
+            ? ''
+            : `<tr><td class="m-top" bgcolor="${c.action}" height="4" style="height:4px;line-height:4px;font-size:0;background-color:${c.action};border-radius:8px 8px 0 0;">&nbsp;</td></tr>`;
     const cardStyle = disco
         ? `background-color:${c.card};border:2px solid ${c.edge};border-top:0;border-radius:0 0 22px 22px;`
-        : `background-color:${c.card};border:1px solid ${c.edge};border-top:0;border-radius:0 0 8px 8px;`;
+        : plainStyle
+          ? `background-color:${c.card};border:1px solid ${c.edge};border-radius:10px;`
+          : `background-color:${c.card};border:1px solid ${c.edge};border-top:0;border-radius:0 0 8px 8px;`;
     const main = `${topLine}<tr><td class="m-card m-pad" bgcolor="${c.card}" style="${cardStyle}padding:32px;">${body}</td></tr>`;
 
+    const quiet = (href: string, text: string) =>
+        `<a class="m-muted" href="${esc(href)}" target="_blank" style="color:${c.muted};text-decoration:underline;">${esc(text)}</a>`;
+    const host = (url: string) => url.replace(/^https?:\/\//, '').replace(/\/$/, '');
     const foot: string[] = [];
     if (content.why) foot.push(rich(content.why));
-    if (content.unsubscribe)
-        foot.push(
-            `<a class="m-muted" href="${esc(content.unsubscribe.href)}" target="_blank" style="color:${c.muted};text-decoration:underline;">${esc(content.unsubscribe.label)}</a>`
-        );
-    if (!content.sender && brand.supportUrl)
-        foot.push(
-            `<a class="m-muted" href="${esc(brand.supportUrl)}" target="_blank" style="color:${c.muted};text-decoration:underline;">${esc(brand.supportUrl.replace(/^https:\/\//, '').replace(/\/$/, ''))}</a>`
-        );
-    if (!content.sender && brand.footer) foot.push(lines(brand.footer));
+    if (content.unsubscribe) foot.push(quiet(content.unsubscribe.href, content.unsubscribe.label));
+    if (own && brand.supportUrl) foot.push(quiet(brand.supportUrl, host(brand.supportUrl)));
+    if (own && brand.footer) foot.push(lines(brand.footer));
+    // The project's site, unless the email already links it.
+    const site = plainStyle ? siteNotLinked(content, brand.siteUrl) : undefined;
+    if (site) foot.push(quiet(site, host(site)));
+    if (plainStyle && brand.credit) foot.push(esc(brand.credit));
+    const align = plainStyle ? 'text-align:center;' : '';
     const footer = foot.length
-        ? `<tr><td class="m-muted" style="padding:20px 4px 0;${font}font-size:13px;line-height:1.5;color:${c.muted};">${foot.map(p => `<p class="m-muted" style="margin:0 0 8px;color:${c.muted};">${p}</p>`).join('')}</td></tr>`
+        ? `<tr><td class="m-muted"${plainStyle ? ' align="center"' : ''} style="padding:20px 4px 0;${align}${font}font-size:13px;line-height:1.5;color:${c.muted};">${foot.map(p => `<p class="m-muted" style="margin:0 0 8px;${align}color:${c.muted};">${p}</p>`).join('')}</td></tr>`
         : '';
 
     const pre = `<div style="display:none;max-height:0;max-width:0;overflow:hidden;mso-hide:all;font-size:1px;line-height:1px;opacity:0;color:${c.ground};">${esc(content.preheader)}${'&#8199;&#65279;&#847; '.repeat(24)}</div>`;
@@ -536,10 +613,44 @@ ${footer}
 `;
 }
 
+/** A project's site, unless the email's words already link it. */
+function siteNotLinked(content: EmailContent, site: string | undefined): string | undefined {
+    if (!site) return undefined;
+    const linked = (r: Rich | undefined) =>
+        Array.isArray(r) && r.some(p => typeof p === 'object' && 'href' in p && p.href === site);
+    const walk = (blocks: Block[]): boolean =>
+        blocks.some(b =>
+            b.t === 'p' || b.t === 'note'
+                ? linked(b.text)
+                : b.t === 'panel'
+                  ? walk(b.blocks)
+                  : b.t === 'list'
+                    ? b.items.some(linked)
+                    : false
+        );
+    return walk(content.blocks) || linked(content.why) ? undefined : site;
+}
+
 /** The plain-text part: the same words, in reading order, every address written out. */
-export function renderText(content: EmailContent, brand: Brand, locale: EmailLocale): string {
-    const colon = locale === 'fr' ? ' :' : ':';
-    if (content.text !== undefined) return content.text;
+export function renderText(
+    content: EmailContent,
+    brand: Brand,
+    locale: EmailLocale,
+    style: EmailStyle = 'discotheque'
+): string {
+    const colon = locale === 'fr' ? '\u202f:' : ':';
+    const plainStyle = style === 'project';
+    const own = plainStyle || !content.sender;
+    // A project's foot: its address (CASL), its site, and the operator's line when asked for.
+    const projectFoot = plainStyle
+        ? [brand.footer, siteNotLinked(content, brand.siteUrl), brand.credit].filter(
+              (s): s is string => Boolean(s)
+          )
+        : [];
+    if (content.text !== undefined)
+        return projectFoot.length
+            ? `${content.text.replace(/\s+$/, '')}\n\n-- \n${projectFoot.join('\n')}\n`
+            : content.text;
     const out: string[] = [];
     const walk = (blocks: Block[]) => {
         for (const b of blocks) {
@@ -606,7 +717,8 @@ export function renderText(content: EmailContent, brand: Brand, locale: EmailLoc
     if (content.why) foot.push(plain(content.why));
     if (content.unsubscribe)
         foot.push(`${content.unsubscribe.label}${colon}\n${content.unsubscribe.href}`);
-    if (!content.sender && brand.supportUrl) foot.push(brand.supportUrl);
-    if (!content.sender && brand.footer) foot.push(brand.footer);
+    if (own && brand.supportUrl) foot.push(brand.supportUrl);
+    if (plainStyle) foot.push(...projectFoot);
+    else if (own && brand.footer) foot.push(brand.footer);
     return [...out, ...foot].join('\n\n') + '\n';
 }

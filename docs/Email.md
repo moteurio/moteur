@@ -18,8 +18,8 @@ in DNS so receivers trust the mail.
 | Invitation                        | A project admin invites someone (`POST /projects/:id/invites`), or resends it | The invited address     | No (an admin can copy the link instead)                     |
 | Review asked, approved, sent back | An entry or page goes to review, or a reviewer decides                        | Reviewers, or who asked | Yes: per person, from the email's link or their preferences |
 | Form notice                       | A form is filled in and the form notifies the team                            | The form's addresses    | By the form's settings                                      |
-| Form confirmation                 | A form confirms to whoever filled it in (`confirmationEmail`)                 | The address they gave   | By the form's settings                                      |
-| Form email action                 | A form's `email` action                                                       | The action's addresses  | By the form's settings                                      |
+| Form confirmation (the project's) | A form confirms to whoever filled it in (`confirmationEmail`)                 | The address they gave   | By the form's settings                                      |
+| Form email action (the project's) | A form's `email` action                                                       | The action's addresses  | By the form's settings                                      |
 | Test                              | An operator runs the check with an address                                    | That address            | n/a                                                         |
 
 A sign-in code or link that has been used, or has expired, is not resent on its own: the person
@@ -42,8 +42,8 @@ before they ask:
   their role, with a link to the project. Someone who signed up alone reads what to do first.
 - **Sign-up code.** The code, and a line on what the product is.
 - **Form confirmation.** The project's own words first, then what the person sent (at most 6
-  answers, each cut at 280 characters), the project's site, and why they got it. Sent under the
-  project's name only: nothing of the server's operator.
+  answers, each cut at 280 characters), the project's site, and why they got it. It is the
+  project's mail, not the server's: see [A project's own mail](#a-projects-own-mail).
 
 An invitation's note is a few words from the person inviting (`note` in
 `POST /projects/:id/invites`): plain text, 500 characters at most, line breaks kept, shown as
@@ -51,13 +51,93 @@ written and sent again when the invitation is resent. The invitation's page read
 `GET /invites/:token`.
 
 Every email has a plain-text part with the same words and every address written out, and an HTML
-part. A project's own mail (forms) is headed by the project's name and sent under it, from the
-server's address; its words go out as the project wrote them, without the operator's footer.
+part.
 
 `moteur-email preview all --out ./emails` writes every email, in both looks and both languages,
 with sample data, to look at in a browser. `GET /operator/email/preview/:kind` does the same over
-the API. The first-contact emails (`invite`, `welcome`, `form-confirm`) can be set two ways while
-one is chosen: `--variant b`, or `?variant=b`, shows the second.
+the API.
+
+### Which look each email takes
+
+The server's emails come in the two looks people choose between, Discothèque and Folio. With the
+operator's `look` left at `recipient` (the default), each email follows its reader, when that
+makes sense; an operator can set `look` to `discotheque` or `folio` to send every email in one.
+Dark mode is the mail app's business: each look has a dark palette, so a person's lights on or
+off is never sent.
+
+| Email                                         | Look                                                                                                                                                                                                                                                                                   |
+| --------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Sign-in code, sign-up code, sign-in link only | The look of the page that asked for it, when it says (`look` in `POST /auth/email/code`), so the email matches the page the person just left. Else the account's saved look. Else `defaultLook`. The page's look is used for that one email and never kept: anyone can ask for a code. |
+| Address check                                 | The saved look of the account that has this address, if one does. Else `defaultLook`.                                                                                                                                                                                                  |
+| Welcome, review emails                        | The person's saved look. A new account has none yet: its welcome takes the look of the page it was made on (`look` in `POST /auth/email/verify` or `POST /invites/:token/register`), for that email only. Else `defaultLook`.                                                          |
+| Invitation                                    | The invited person hasn't chosen yet: the saved look of the account with that address, if there is one. Else `defaultLook`. Never the inviter's look.                                                                                                                                  |
+| Form notice                                   | Each address in the look and language of its account, when it has one; else `defaultLook`. People sharing a look and language get one email together.                                                                                                                                  |
+| Form confirmation, form email action          | Neither: they are the project's mail, in its own plain design (below).                                                                                                                                                                                                                 |
+| Test                                          | `defaultLook`.                                                                                                                                                                                                                                                                         |
+
+A person's saved look and language are the ones in their preferences
+(`PATCH /auth/me/preferences`, `{ "look": "folio", "locale": "fr" }`).
+
+## A project's own mail
+
+A form's confirmation and its `email` action are not the server writing to its users: they are a
+site writing to its visitors. So they go out as the project's, under its name, logo and colour,
+with its address at the foot, and nothing of the product or the operator unless the operator
+asks for one line (`projectCredit`, below). The form notice to the project's own people stays the
+server's email, in each person's look.
+
+A project's admins, builders, developers and content leads set this with
+`PATCH /projects/:projectId/email`; any member reads it with
+`GET /projects/:projectId/email`, and sees a form email with sample answers, as the settings (or
+an unsaved draft of them, in `settings`) make it, with `POST /projects/:projectId/email/preview`.
+The settings are kept with the project (`email` in its `project.json`). null or an empty string
+clears one.
+
+| Setting       | Default                 | Means                                                                                                                                                       |
+| ------------- | ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `senderName`  | The project's name      | The name inboxes show, and the name at the top when there is no logo. 80 characters, without `< > " @`.                                                     |
+| `replyTo`     | None                    | The project's contact address: replies to a confirmation reach the project, never the server. The email action replies to whoever filled in the form first. |
+| `fromAddress` | The server's address    | An address on one of the operator's `sendingDomains` (below). Refused on any other domain.                                                                  |
+| `logoAssetId` | None                    | An image from the project's media: PNG, JPEG or GIF, 100 KB at most. It goes inside each email, so it shows without loading anything.                       |
+| `logoUrl`     | None                    | An `https` image, when the logo isn't in the media. Mail apps often hide remote images until the reader allows them. Setting one logo clears the other.     |
+| `logoWidth`   | `120`                   | The logo's width in pixels, 24 to 300.                                                                                                                      |
+| `accent`      | A neutral near-black    | `#RRGGBB` for the name, links and buttons. White text on it must read at 4.5:1, so a light colour is refused; in dark mode it is lightened to read.         |
+| `footer`      | None                    | The business's postal address or legal line, at the foot (400 characters, line breaks kept). Canada's CASL asks for it on mail like this.                   |
+| `siteUrl`     | The project's `siteUrl` | An `https` site linked at the foot.                                                                                                                         |
+
+The design is plain on purpose: a white card on a light grey, the logo (or the name, in the
+accent) centred above it, the system's own font, the address and site small at the foot. It has a
+dark palette, uses tables and inline styles, and reads the same in every mail app, like the
+server's own emails. The plain-text part carries the footer and the site too.
+
+### Who it comes from
+
+Mail always leaves through the server's SMTP account, and by default from the server's address
+(`fromAddress`), with the project's name as the display name and its `replyTo`:
+
+```
+From: "Café Olimpico" <mail@moteur.example>
+Reply-To: bonjour@olimpico.example
+```
+
+That keeps deliverability with whoever runs the server: SPF, DKIM and DMARC are set up for the
+server's domain, and receivers trust it. A project can send from its own address only on a domain
+the operator has added to `sendingDomains`. A domain is added only when its DNS passes the check
+(`moteur-email check --domain olimpico.example`): an SPF record, a DMARC record, and a DKIM key
+published there, with nothing failing. Before adding one, the domain's owner sets it up with the
+server's mail service (the service gives the SPF include and the DKIM records to publish, and
+signs as that domain). If the engine signs itself (`MOTEUR_DKIM_*`), it signs as its own domain
+only: mail from a project's domain then passes DMARC only with the mail service's signature.
+
+If the operator later removes a domain, the projects on it go back to the server's address
+without anything breaking; the transport checks the list again before every email.
+
+### The operator's line
+
+On hosted plans an operator may want a small "Sent with Moteur" (« Envoyé avec Moteur ») at the
+foot of projects' mail. `projectCredit: true` adds it, with the operator's `productName`. It is off
+by default. A hosted service can turn it on for its whole deployment with the environment variable
+`MOTEUR_EMAIL_PROJECT_CREDIT=1`; the operator's `projectCredit` setting, when set, wins over it.
 
 ## Setting up sending
 
@@ -106,21 +186,24 @@ The operator sets these with `moteur-email set <key> <value>` on the server, or
 `DATA_ROOT`. `moteur-email settings` (or `GET /operator/email`) shows what is set and what the
 emails use. `moteur-email unset <key>`, or `null` over the API, puts a setting back to its default.
 
-| Setting          | Default                                   | Means                                                                                                                                                                                |
-| ---------------- | ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `fromName`       | The name in `SMTP_FROM`, else productName | The name inboxes show. Keep it the same over time.                                                                                                                                   |
-| `fromAddress`    | The address in `SMTP_FROM`                | The From address, on a domain you own and have set up (below).                                                                                                                       |
-| `replyTo`        | None                                      | Where replies go. Invitations reply to the person who invited; form notices to the person who wrote.                                                                                 |
-| `productName`    | `Moteur`                                  | The name the emails say: "482913 is your Moteur code".                                                                                                                               |
-| `productTagline` | A line about the product, with its name   | What the product is, in a sentence or two (300 characters at most), in the first-contact emails. One text, or `{ "en": "…", "fr": "…" }`; a language left out uses the default line. |
-| `look`           | `discotheque`                             | `discotheque`, `folio`, or `recipient`: the look the person chose (Discothèque when it isn't known).                                                                                 |
-| `accent`         | The look's                                | `#RRGGBB` for buttons and links. White text on it must read at 4.5:1, so a light colour is refused; in dark mode it is lightened to read.                                            |
-| `logoUrl`        | None                                      | An `https` image shown in place of the product's name. Mail apps often hide remote images until the reader allows them: keep it optional.                                            |
-| `logoFile`       | None                                      | A PNG, JPEG or GIF on the server (100 KB at most, relative to `DATA_ROOT`), sent inside each email: it shows without loading anything.                                               |
-| `logoWidth`      | `120`                                     | The logo's width in pixels, 24 to 300.                                                                                                                                               |
-| `footer`         | None                                      | A line at the foot of every email: your postal address or legal line. `\n` starts a new line.                                                                                        |
-| `supportUrl`     | None                                      | An `https` page where people get help, linked at the foot.                                                                                                                           |
-| `locale`         | `en`                                      | `en` or `fr`: the language when the reader's isn't known.                                                                                                                            |
+| Setting          | Default                                     | Means                                                                                                                                                                                |
+| ---------------- | ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `fromName`       | The name in `SMTP_FROM`, else productName   | The name inboxes show. Keep it the same over time.                                                                                                                                   |
+| `fromAddress`    | The address in `SMTP_FROM`                  | The From address, on a domain you own and have set up (below).                                                                                                                       |
+| `replyTo`        | None                                        | Where replies go. Invitations reply to the person who invited; form notices to the person who wrote.                                                                                 |
+| `productName`    | `Moteur`                                    | The name the emails say: "482913 is your Moteur code".                                                                                                                               |
+| `productTagline` | A line about the product, with its name     | What the product is, in a sentence or two (300 characters at most), in the first-contact emails. One text, or `{ "en": "…", "fr": "…" }`; a language left out uses the default line. |
+| `look`           | `recipient`                                 | `recipient`: each email in its reader's look (see [Which look each email takes](#which-look-each-email-takes)). `discotheque` or `folio`: every email in that look.                  |
+| `defaultLook`    | `discotheque`                               | The look when the reader's isn't known, with `look` at `recipient`: an invitation to a new address, a code asked for without a look.                                                 |
+| `accent`         | The look's                                  | `#RRGGBB` for buttons and links. White text on it must read at 4.5:1, so a light colour is refused; in dark mode it is lightened to read.                                            |
+| `logoUrl`        | None                                        | An `https` image shown in place of the product's name. Mail apps often hide remote images until the reader allows them: keep it optional.                                            |
+| `logoFile`       | None                                        | A PNG, JPEG or GIF on the server (100 KB at most, relative to `DATA_ROOT`), sent inside each email: it shows without loading anything.                                               |
+| `logoWidth`      | `120`                                       | The logo's width in pixels, 24 to 300.                                                                                                                                               |
+| `footer`         | None                                        | A line at the foot of every email: your postal address or legal line. `\n` starts a new line.                                                                                        |
+| `supportUrl`     | None                                        | An `https` page where people get help, linked at the foot.                                                                                                                           |
+| `locale`         | `en`                                        | `en` or `fr`: the language when the reader's isn't known.                                                                                                                            |
+| `sendingDomains` | None                                        | Domains projects may send their own mail from (`["olimpico.example"]`, or `a.example,b.example` on the command line). Each is added only when its DNS passes the check.              |
+| `projectCredit`  | `MOTEUR_EMAIL_PROJECT_CREDIT`, else `false` | `true` adds "Sent with {productName}" at the foot of projects' own mail.                                                                                                             |
 
 Each email's language is the reader's: the language the page asking for a code was in, then the
 one in their preferences, then the one their account was made in, then `locale`. A person sets
@@ -129,7 +212,8 @@ their look, language and notification emails with `PATCH /auth/me/preferences`
 
 Some laws ask for the sender's postal address on mail that isn't a reply to the reader's own
 request (CASL in Canada, CAN-SPAM in the United States). Sign-in codes answer a request; review
-notices may not. A `footer` with your address covers both.
+notices may not. A `footer` with your address covers both. A project's own mail carries the
+project's `footer` instead, never the operator's.
 
 ## Being trusted by receivers
 
@@ -214,9 +298,12 @@ day.
 moteur-email check                          # SMTP, SPF, DMARC, DKIM, MX, links
 moteur-email check --to you@example.com     # and send a test email
 moteur-email check --selector s1            # look for your service's DKIM selector too
+moteur-email check --domain olimpico.example  # can projects send from this domain?
+moteur-email check --project olimpico         # the domain of a project's From address
 ```
 
-`POST /operator/email/check` does the same over the API (`{ "to", "selectors" }`). It reports
+`POST /operator/email/check` does the same over the API (`{ "to", "selectors" }`, or
+`{ "domain" }` or `{ "project" }`). It reports
 each item as `ok`, `warn`, `fail` or `info`, and exits with 1 when something fails. It connects to
 the SMTP server and signs in, reads the From domain's SPF, DMARC, DKIM (at your selector and the
 usual ones) and MX records, compares the engine's DKIM key with the published one, and checks that

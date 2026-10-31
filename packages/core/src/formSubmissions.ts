@@ -19,7 +19,10 @@ import { UserDataStore } from './utils/userDataStore.js';
 import { triggerEvent } from './utils/eventBus.js';
 import { dispatch as webhookDispatch } from './webhooks/webhookService.js';
 import { sendEmail } from './emailNotifier.js';
-import { renderEmail } from './email/render.js';
+import { readerOf, renderEmail } from './email/render.js';
+import { projectMailOf, type ProjectMail } from './projectEmail.js';
+import { getUserByEmail } from './users.js';
+import type { EmailLook } from './email/settings.js';
 import { getProjectById } from './projects.js';
 import { recordRequest, submissionCount } from './metering.js';
 import { assertSubmissionRoom } from './planLimits.js';
@@ -73,10 +76,37 @@ function answerRows(
         .map(k => ({ label: label(k), value: asText(data[k]) }));
 }
 
-/** A project's own mail: its words as they were written, its name at the top. */
-function projectMail(project: string, subject: string, body: string, locale?: string) {
-    const email = renderEmail('form-message', { project, subject, body }, { locale });
-    return { subject, text: body, html: email.html, fromName: project };
+/** A project's own mail: its words as they were written, under its name, logo and colour. */
+function projectMessage(mail: ProjectMail, subject: string, body: string, locale?: string) {
+    const email = renderEmail(
+        'form-message',
+        { project: mail.brand.name, subject, body },
+        { locale, project: mail.brand }
+    );
+    return {
+        subject,
+        text: email.text,
+        html: email.html,
+        attachments: email.attachments,
+        fromName: mail.fromName,
+        ...(mail.fromAddress && { fromAddress: mail.fromAddress })
+    };
+}
+
+/**
+ * The form's notice is the server's mail to the project's people: each in their own look and
+ * language when they have an account. One email per look and language, to everyone sharing it.
+ */
+function byReader(addresses: string[]): { to: string[]; locale?: string; look?: EmailLook }[] {
+    const groups = new Map<string, { to: string[]; locale?: string; look?: EmailLook }>();
+    for (const address of addresses) {
+        const reader = readerOf(getUserByEmail(address.trim().toLowerCase()));
+        const key = `${reader.look ?? ''}|${reader.locale ?? ''}`;
+        const group = groups.get(key) ?? { to: [], ...reader };
+        group.to.push(address);
+        groups.set(key, group);
+    }
+    return [...groups.values()];
 }
 
 function generateSubmissionId(): string {
@@ -377,8 +407,11 @@ async function processSubmission(
     const actionResults: FormActionResult[] = [];
     const projectSchema = await getProjectById(projectId).catch(() => null);
     const project = projectSchema?.label || projectId;
-    const siteUrl = projectSchema?.siteUrl?.trim();
     const formLabel = typeof form.label === 'string' ? form.label : form.id;
+    // The project's own mail to visitors: its name, logo, colour, foot and addresses.
+    const mail: ProjectMail = projectSchema
+        ? await projectMailOf(projectSchema)
+        : { brand: { name: project }, fromName: project };
 
     for (const action of actions) {
         if (action.type === 'createEntry') {
@@ -417,12 +450,14 @@ async function processSubmission(
             try {
                 await sendEmail({
                     to: action.to,
-                    ...projectMail(
-                        project,
+                    ...projectMessage(
+                        mail,
                         fillIn(action.subject, submission.data),
-                        fillIn(action.body, submission.data)
+                        fillIn(action.body, submission.data),
+                        submission.metadata.locale
                     ),
-                    replyTo: senderEmail(form, submission.data)
+                    // Replies reach whoever wrote, else the project's contact address.
+                    replyTo: senderEmail(form, submission.data) ?? mail.replyTo
                 });
                 actionResults.push({ type: 'email', status: 'success' });
             } catch (err) {
@@ -467,22 +502,28 @@ async function processSubmission(
             const rows = answerRows(form, submission.data);
             const replyTo = senderEmail(form, submission.data);
             const subject = fillIn(notify.subject || `New message: ${formLabel}`, submission.data);
-            const email = renderEmail('form-notice', {
+            const data = {
                 project,
                 form: formLabel,
                 subject,
                 rows,
                 text: rows.map(r => `${r.label}:\n${r.value}`).join('\n\n'),
                 canReply: Boolean(replyTo)
-            });
-            await sendEmail({
-                to: notify.to,
-                subject,
-                text: email.text,
-                html: email.html,
-                fromName: project,
-                replyTo
-            });
+            };
+            for (const group of byReader(notify.to)) {
+                const email = renderEmail('form-notice', data, {
+                    locale: group.locale,
+                    look: group.look
+                });
+                await sendEmail({
+                    to: group.to,
+                    subject,
+                    text: email.text,
+                    html: email.html,
+                    fromName: project,
+                    replyTo
+                });
+            }
             actionResults.push({ type: 'notify', status: 'success' });
         } catch (err) {
             actionResults.push({
@@ -504,21 +545,25 @@ async function processSubmission(
             const email = renderEmail(
                 'form-confirm',
                 {
-                    project,
-                    site: siteUrl && /^https?:\/\//.test(siteUrl) ? siteUrl : undefined,
+                    project: mail.brand.name,
+                    site: mail.brand.siteUrl,
                     form: formLabel,
                     subject,
                     body: fillIn(body, submission.data),
                     rows: answerRows(form, submission.data)
                 },
-                { locale }
+                { locale, project: mail.brand }
             );
+            // Replies to a confirmation reach the project, never the server.
             await sendEmail({
                 to: [confirmTo.trim()],
                 subject,
                 text: email.text,
                 html: email.html,
-                fromName: project
+                attachments: email.attachments,
+                fromName: mail.fromName,
+                ...(mail.fromAddress && { fromAddress: mail.fromAddress }),
+                ...(mail.replyTo && { replyTo: mail.replyTo })
             });
             actionResults.push({ type: 'confirm', status: 'success' });
         } catch (err) {

@@ -104,7 +104,12 @@ const tag = (record: string, name: string) =>
 
 export async function checkDns(
     fromDomain: string,
-    options: { selectors?: string[]; resolver?: Resolver } = {}
+    options: {
+        selectors?: string[];
+        resolver?: Resolver;
+        /** Compare with the engine's own DKIM key (the server's From domain). Default: yes. */
+        ownKey?: boolean;
+    } = {}
 ): Promise<EmailCheck[]> {
     const r = options.resolver ?? systemResolver;
     const out: EmailCheck[] = [];
@@ -177,7 +182,7 @@ export async function checkDns(
     }
 
     // DKIM: the engine's own key, compared with what DNS publishes; else selectors services use.
-    const own = dkimConfig();
+    const own = options.ownKey === false ? null : dkimConfig();
     if (own) {
         const name = `${own.keySelector}._domainkey.${own.domainName}`;
         const records = ((await lookup(() => r.txt(name))) ?? []).filter(t => /p=/.test(t));
@@ -249,6 +254,72 @@ export async function checkDns(
               }
     );
     return out;
+}
+
+/**
+ * Whether a domain can carry projects' own mail (the operator's `sendingDomains`): it passes when
+ * nothing fails and a DKIM key is published there, so receivers can tie the mail to the domain.
+ */
+export async function checkSendingDomain(
+    domain: string,
+    options: { selectors?: string[]; resolver?: Resolver } = {}
+): Promise<{ domain: string; passes: boolean; checks: EmailCheck[] }> {
+    const d = domain.trim().toLowerCase().replace(/\.$/, '');
+    if (FREE_MAIL.test(d))
+        return {
+            domain: d,
+            passes: false,
+            checks: [
+                {
+                    id: 'from-domain',
+                    status: 'fail',
+                    message: `${d} is a personal mailbox provider: its DMARC refuses mail it didn’t send.`
+                }
+            ]
+        };
+    const checks = await checkDns(d, { ...options, ownKey: false });
+    const own = dkimConfig();
+    if (own && baseDomain(own.domainName) !== baseDomain(d))
+        checks.push({
+            id: 'dkim-alignment',
+            status: 'warn',
+            message: `The engine also signs every email as ${own.domainName}. Mail from ${d} passes DMARC only with your mail service’s signature as ${d}.`
+        });
+    const passes =
+        !checks.some(c => c.status === 'fail') &&
+        checks.some(c => c.id === 'dkim' && c.status === 'ok');
+    return { domain: d, passes, checks };
+}
+
+/** The check for a domain projects send from: its DNS, and whether the server allows it. */
+export async function runDomainCheck(
+    domain: string,
+    options: { selectors?: string[]; resolver?: Resolver } = {}
+): Promise<{ checks: EmailCheck[]; passes: boolean }> {
+    const settings = resolveEmailSettings();
+    const { domain: d, passes, checks } = await checkSendingDomain(domain, options);
+    const listed = settings.sendingDomains.includes(d);
+    checks.unshift({
+        id: 'sending-domain',
+        status: 'info',
+        message: listed
+            ? `${d} is on this server’s sending domains: projects may send from it.`
+            : `${d} is not on this server’s sending domains: projects send from ${settings.fromAddress || 'the server’s address'}, with their name.`
+    });
+    checks.push(
+        passes
+            ? {
+                  id: 'sending-domain-dns',
+                  status: 'ok',
+                  message: `${d} publishes what receivers check: it can carry projects’ mail.`
+              }
+            : {
+                  id: 'sending-domain-dns',
+                  status: 'fail',
+                  message: `${d} can’t carry projects’ mail yet: publish SPF, DMARC and your mail service’s DKIM key for it.`
+              }
+    );
+    return { checks, passes };
 }
 
 /** The whole check: settings, SMTP, DNS, links. Sends a test email when `to` is given. */

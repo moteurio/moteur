@@ -1,19 +1,24 @@
 Subject: Welcome to Journal de Montréal
 
-Welcome, Marc
+Welcome to Moteur
 
-Your Moteur account is ready, and you’re on the Journal de Montréal team, with Louise Tremblay.
+You’re in, Marc
+
+Journal de Montréal
+
+The neighbourhood paper’s website, in French and English.
+
+Invited by
+Louise Tremblay
 
 Your role: Writer. You can write and edit entries and pages, and send them for review.
+Signing in: Go to https://studio.example.com and type marc@client.example. We send a code to this address, so there’s no password to remember.
 
 Open Journal de Montréal:
 https://studio.example.com/projects/journal
 
 What is Moteur?
 Moteur is where teams write, translate and publish their websites’ content. Every change is kept, and the content stays theirs.
-
-Next time
-Go to https://studio.example.com and type marc@client.example. We send a code to this address, so there’s no password to remember.
 
 The Moteur team
 

@@ -17,6 +17,11 @@ export interface OutgoingMail {
     replyTo?: string;
     /** A different display name on the operator's address (a project's own mail). */
     fromName?: string;
+    /**
+     * A project's own From address. Used only when its domain is on the operator's
+     * `sendingDomains`; else the server's address goes out, with the project's name.
+     */
+    fromAddress?: string;
     category: MailCategory;
     /** Notifications only: one-click unsubscribe (RFC 8058). */
     unsubscribe?: string;
@@ -69,7 +74,11 @@ const displayName = (name: string) => `"${name.replace(/["\\<>\r\n]/g, '').trim(
 
 /** The message as nodemailer takes it: headers for automated mail, the logo attached inline. */
 export function buildMessage(mail: OutgoingMail, settings: ResolvedEmailSettings) {
-    const domain = domainOf(settings.fromAddress);
+    const fromAddress =
+        mail.fromAddress && settings.sendingDomains.includes(domainOf(mail.fromAddress))
+            ? mail.fromAddress
+            : settings.fromAddress;
+    const domain = domainOf(fromAddress);
     const headers: Record<string, string> = {
         // Automated: out-of-office replies and auto-responders should not answer it (RFC 3834).
         'Auto-Submitted': 'auto-generated',
@@ -81,7 +90,7 @@ export function buildMessage(mail: OutgoingMail, settings: ResolvedEmailSettings
     }
     const returnPath = process.env.SMTP_RETURN_PATH?.trim();
     return {
-        from: `${displayName(mail.fromName || settings.fromName)} <${settings.fromAddress}>`,
+        from: `${displayName(mail.fromName || settings.fromName)} <${fromAddress}>`,
         to: mail.to.join(', '),
         subject: mail.subject,
         text: mail.text,

@@ -5,13 +5,11 @@ import path from 'node:path';
 import { renderEmail } from '../../src/email/render.js';
 import {
     EMAIL_KINDS,
-    EMAIL_VARIANTS,
-    VARIANT_KINDS,
+    PROJECT_KINDS,
     CONFIRM_ROWS,
     samples,
     type EmailData,
-    type EmailKind,
-    type EmailVariant
+    type EmailKind
 } from '../../src/email/templates.js';
 import { DESIGNS, esc, initials } from '../../src/email/layout.js';
 import { cleanInviteNote } from '../../src/invites.js';
@@ -26,11 +24,10 @@ import { contrast } from '../../src/email/colour.js';
 const settings = resolveEmailSettings({});
 const snap = (name: string) => path.join(import.meta.dirname, '__snapshots__', name);
 
-/** Every email to look at: each kind, each way of setting the first-contact ones, and a welcome after an invitation. */
+/** Every email to look at: each kind, and a welcome after an invitation. */
 type Case = {
     name: string;
     kind: EmailKind;
-    variant?: EmailVariant;
     data: (l: 'en' | 'fr') => unknown;
 };
 const joined = (l: 'en' | 'fr'): EmailData['welcome'] => ({
@@ -46,28 +43,22 @@ const joined = (l: 'en' | 'fr'): EmailData['welcome'] => ({
     }
 });
 const CASES: Case[] = [
-    ...EMAIL_KINDS.flatMap(kind =>
-        (VARIANT_KINDS.includes(kind) ? EMAIL_VARIANTS : [undefined]).map(variant => ({
-            name: variant && variant !== 'a' ? `${kind}.${variant}` : kind,
-            kind,
-            variant,
-            data: (l: 'en' | 'fr') => samples(l)[kind]
-        }))
-    ),
-    ...EMAIL_VARIANTS.map(variant => ({
-        name: variant === 'a' ? 'welcome-joined' : `welcome-joined.${variant}`,
-        kind: 'welcome' as const,
-        variant,
-        data: joined
-    }))
+    ...EMAIL_KINDS.map(kind => ({
+        name: kind,
+        kind,
+        data: (l: 'en' | 'fr') => samples(l)[kind]
+    })),
+    { name: 'welcome-joined', kind: 'welcome', data: joined }
 ];
+/** A project with its brand set: a footer with its address, its site, its colour. */
+const SAMPLE_BRAND = {
+    name: 'Journal de Montréal',
+    accent: '#0B6E85',
+    footer: 'Journal de Montréal · 4200, rue Saint-Denis, Montréal QC H2J 2K8',
+    siteUrl: 'https://journal.example.com'
+};
 const render = (c: Case, locale: 'en' | 'fr', options: Parameters<typeof renderEmail>[2] = {}) =>
-    renderEmail(c.kind, c.data(locale) as never, {
-        locale,
-        settings,
-        variant: c.variant,
-        ...options
-    });
+    renderEmail(c.kind, c.data(locale) as never, { locale, settings, ...options });
 
 describe('every email, rendered', () => {
     // What a person reads: the plain text of every email in both languages, and the HTML of every
@@ -80,6 +71,18 @@ describe('every email, rendered', () => {
                     snap(`${c.name}.${locale}.txt`)
                 );
             });
+        }
+        if (PROJECT_KINDS.includes(c.kind)) {
+            // A project's own mail has its own design, whatever the reader's look.
+            for (const locale of ['en', 'fr'] as const)
+                it(`${c.name} · project · ${locale} · html`, async () => {
+                    const email = render(c, locale, { forceLook: 'folio', project: SAMPLE_BRAND });
+                    expect(email.look).toBe('project');
+                    await expect(email.html).toMatchFileSnapshot(
+                        snap(`${c.name}.project.${locale}.html`)
+                    );
+                });
+            continue;
         }
         for (const look of EMAIL_LOOKS) {
             const locale = look === 'folio' ? 'en' : 'fr';
@@ -234,6 +237,123 @@ describe('the operator’s brand', () => {
             settings: { ...settings, look: 'recipient' }
         });
         expect(unknown.look).toBe('discotheque');
+        // Following the reader is the default; an unknown reader gets the operator's default look.
+        expect(settings.look).toBe('recipient');
+        const stranger = renderEmail('invite', samples('en').invite, {
+            settings: { ...settings, defaultLook: 'folio' }
+        });
+        expect(stranger.look).toBe('folio');
+    });
+
+    it('never puts its brand on a project’s own mail', () => {
+        const s = {
+            ...settings,
+            productName: 'Atelier',
+            accent: '#7A1FA0',
+            footer: 'Atelier Inc. · 1 rue Ste-Catherine',
+            supportUrl: 'https://help.atelier.example',
+            logoUrl: 'https://cdn.atelier.example/logo.png'
+        };
+        for (const kind of PROJECT_KINDS) {
+            const email = renderEmail(kind, samples('en')[kind] as never, {
+                settings: s,
+                forceLook: 'discotheque'
+            });
+            expect(email.look).toBe('project');
+            expect(email.design).toBe('project-plain');
+            for (const operator of [
+                'Atelier',
+                '#7A1FA0',
+                'help.atelier',
+                'cdn.atelier',
+                'class="m-band"'
+            ])
+                expect(email.html).not.toContain(operator);
+        }
+    });
+});
+
+describe('a project’s own mail', () => {
+    const png = Buffer.from('89504e470d0a1a0a0000000d49484452', 'hex');
+    const brand = {
+        name: 'Café Olimpico',
+        accent: '#8A3B12',
+        logo: { content: png, contentType: 'image/png', width: 96 },
+        footer: 'Café Olimpico · 124, rue Saint-Viateur O., Montréal QC H2T 2L1',
+        siteUrl: 'https://olimpico.example'
+    };
+    const data = {
+        ...samples('fr')['form-confirm'],
+        project: brand.name,
+        site: brand.siteUrl
+    };
+
+    it('carries the project’s logo inside, its colour, its address and its site', () => {
+        const email = renderEmail('form-confirm', data, {
+            settings,
+            locale: 'fr',
+            project: brand
+        });
+        expect(email.html).toContain('src="cid:logo@project"');
+        expect(email.attachments).toEqual([
+            expect.objectContaining({ cid: 'logo@project', contentType: 'image/png' })
+        ]);
+        expect(email.html).toContain('alt="Café Olimpico"');
+        expect(email.html).toContain('124, rue Saint-Viateur');
+        expect(email.html).toContain('href="https://olimpico.example"');
+        // Its colour on links; lightened to read in the dark.
+        expect(email.html).toContain('color:#8A3B12');
+        const dark = email.html.match(/\.m-link\{color:(#[0-9A-F]{6})/)?.[1];
+        expect(contrast(dark!, '#1E1E1C')).toBeGreaterThanOrEqual(4.5);
+        // The plain text says the same: the address the law asks for, and the site.
+        expect(email.text).toContain('124, rue Saint-Viateur');
+        expect(email.text).toContain('https://olimpico.example');
+        expect(email.html).not.toMatch(/Moteur|Envoyé avec/);
+        const preview = renderEmail('form-confirm', data, {
+            settings,
+            project: brand,
+            images: 'data'
+        });
+        expect(preview.html).toContain('src="data:image/png;base64,');
+        expect(preview.attachments).toEqual([]);
+    });
+
+    it('says “Sent with” only when the operator asks', () => {
+        const credited = { ...settings, projectCredit: true };
+        const fr = renderEmail('form-message', samples('fr')['form-message'], {
+            settings: credited,
+            locale: 'fr',
+            project: brand
+        });
+        expect(fr.html).toContain('Envoyé avec Moteur');
+        // The project's words as written, then its foot under a signature line.
+        expect(fr.text).toMatch(
+            /L’équipe du Journal\n\n-- \nCafé Olimpico · 124.*\nhttps:\/\/olimpico\.example\nEnvoyé avec Moteur\n$/s
+        );
+        const en = renderEmail('form-message', samples('en')['form-message'], {
+            settings: credited,
+            project: brand
+        });
+        expect(en.html).toContain('Sent with Moteur');
+    });
+
+    it('keeps the line breaks the project wrote', () => {
+        const email = renderEmail(
+            'form-message',
+            {
+                project: 'Café Olimpico',
+                subject: 'Merci',
+                body: 'Merci, Marc.\n\nÀ bientôt,\nL’équipe'
+            },
+            { settings, project: brand }
+        );
+        expect(email.html).toContain('À bientôt,<br>L’équipe');
+    });
+
+    it('a project without a brand is headed by its name, with nothing of the server', () => {
+        const email = renderEmail('form-message', samples('en')['form-message'], { settings });
+        expect(email.html).toContain('>Journal de Montréal</span>');
+        expect(email.text).toBe(samples('en')['form-message'].body);
     });
 });
 
@@ -254,8 +374,11 @@ describe('email settings', () => {
             fromName: 'Moteur Cloud',
             fromAddress: 'signin@moteur.io',
             productName: 'Moteur',
-            look: 'discotheque',
-            locale: 'en'
+            look: 'recipient',
+            defaultLook: 'discotheque',
+            locale: 'en',
+            sendingDomains: [],
+            projectCredit: false
         });
         vi.stubEnv('SMTP_FROM', 'signin@moteur.io');
         expect(resolveEmailSettings().fromName).toBe('Moteur');
@@ -306,9 +429,8 @@ describe('email settings', () => {
 
 describe('first contact', () => {
     it('an invitation says who asked, to what, as what, and until when', () => {
-        for (const variant of EMAIL_VARIANTS) {
-            const email = renderEmail('invite', samples('en').invite, { settings, variant });
-            expect(email.variant).toBe(variant);
+        {
+            const email = renderEmail('invite', samples('en').invite, { settings });
             for (const words of [
                 'Louise Tremblay',
                 'louise@agence.example',
@@ -334,8 +456,8 @@ describe('first contact', () => {
 
     it('an invitation without a note, description or site still reads whole', () => {
         const { note: _n, projectDescription: _d, projectSite: _s, ...bare } = samples('en').invite;
-        for (const variant of EMAIL_VARIANTS) {
-            const email = renderEmail('invite', { ...bare, roles: [] }, { settings, variant });
+        {
+            const email = renderEmail('invite', { ...bare, roles: [] }, { settings });
             expect(email.text).not.toContain('A note from');
             expect(email.text).toContain('Writer');
             expect(email.text).toContain('Join Journal de Montréal');
@@ -359,7 +481,7 @@ describe('first contact', () => {
                 ...samples('en').invite,
                 note: '<a href="https://evil.example">Click</a>\nSecond line'
             },
-            { settings, variant: 'b' }
+            { settings }
         );
         expect(email.html).not.toContain('<a href="https://evil.example"');
         expect(email.html).toContain(
@@ -377,11 +499,10 @@ describe('first contact', () => {
     });
 
     it('a welcome after an invitation leads with the project', () => {
-        for (const variant of EMAIL_VARIANTS) {
+        {
             const email = render(
                 CASES.find(c => c.name === 'welcome-joined')!,
-                'en',
-                { variant }
+                'en'
             );
             expect(email.subject).toBe('Welcome to Journal de Montréal');
             expect(email.text).toContain('https://studio.example.com/projects/journal');
@@ -439,16 +560,14 @@ describe('first contact', () => {
             supportUrl: 'https://help.moteur.example',
             logoUrl: 'https://cdn.example.com/logo.png'
         };
-        for (const variant of EMAIL_VARIANTS) {
+        {
             const email = renderEmail(
                 'form-confirm',
                 { ...samples('en')['form-confirm'], rows },
-                { settings: s, variant }
+                { settings: s }
             );
             // The project's words first.
-            expect(
-                email.text.startsWith('Got it, Marc.') || email.text.startsWith('Message received')
-            ).toBe(true);
+            expect(email.text.startsWith('Got it, Marc.')).toBe(true);
             expect(email.text.indexOf('Got it, Marc.')).toBeLessThan(
                 email.text.indexOf('What you sent')
             );

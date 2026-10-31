@@ -23,6 +23,7 @@ import {
     type MediaSettingsUpdate,
     type StorageSettings
 } from '../project/mediaSettings.js';
+import { projectEmailApi, type ProjectEmailUpdate } from '../project/email.js';
 import { projectBlocksApi } from '../project/blocks.js';
 import {
     projectApiKeysApi,
@@ -53,6 +54,7 @@ export function createProjectClient(client: MoteurClient, projectId: string) {
     const bin = projectBinApi(client);
     const assetConfig = projectAssetConfigApi(client);
     const mediaSettings = projectMediaSettingsApi(client);
+    const email = projectEmailApi(client);
     const blocks = projectBlocksApi(client);
     const apiKeys = projectApiKeysApi(client);
     const previewTokens = projectPreviewTokensApi(client);
@@ -285,6 +287,14 @@ export function createProjectClient(client: MoteurClient, projectId: string) {
             update: (body: MediaSettingsUpdate) => mediaSettings.update(pid, body),
             checkStorage: (body: StorageSettings) => mediaSettings.checkStorage(pid, body),
             moveStorage: (body: StorageSettings) => mediaSettings.moveStorage(pid, body)
+        },
+
+        /** The project's own mail to its site's visitors: who it comes from, how it looks. */
+        email: {
+            get: () => email.get(pid),
+            update: (body: ProjectEmailUpdate) => email.update(pid, body),
+            preview: (body?: Parameters<ReturnType<typeof projectEmailApi>['preview']>[1]) =>
+                email.preview(pid, body)
         },
 
         blocks: {

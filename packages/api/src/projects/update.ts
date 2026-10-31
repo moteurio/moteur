@@ -29,6 +29,8 @@ router.patch('/:projectId', requireProjectAdmin, async (req: Request, res: Respo
     delete patch.videoProviders;
     // Members come and go through invites and the members routes, never a project patch.
     delete patch.users;
+    // The project's own mail is checked on its own path (PATCH /projects/:projectId/email).
+    delete patch.email;
     const refusal = gitRemoteRefusal(patch.git);
     if (refusal) return void res.status(400).json({ error: refusal });
 

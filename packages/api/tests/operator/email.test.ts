@@ -7,6 +7,16 @@ import path from 'path';
 import { URL } from 'url';
 import { reloadUsers, getUserById } from '@moteurio/core/users.js';
 import { unsubscribeUrl } from '@moteurio/core/email/unsubscribe.js';
+// DNS is the world's: the domain checks are stood in for here (core tests them with a fake DNS).
+const { checkSendingDomain, runDomainCheck } = vi.hoisted(() => ({
+    checkSendingDomain: vi.fn(),
+    runDomainCheck: vi.fn()
+}));
+vi.mock('@moteurio/core/email/check.js', async importOriginal => ({
+    ...(await importOriginal<typeof import('@moteurio/core/email/check.js')>()),
+    checkSendingDomain,
+    runDomainCheck
+}));
 import emailRouter from '../../src/operator/email.js';
 import emailPreferences from '../../src/auth/emailPreferences.js';
 
@@ -48,7 +58,13 @@ describe('the server’s email, for its operator', () => {
     it('shows the settings and changes them, refusing what can’t be used', async () => {
         const first = await request(app()).get('/operator/email');
         expect(first.status).toBe(200);
-        expect(first.body.effective).toMatchObject({ productName: 'Moteur', look: 'discotheque' });
+        expect(first.body.effective).toMatchObject({
+            productName: 'Moteur',
+            look: 'recipient',
+            defaultLook: 'discotheque',
+            sendingDomains: [],
+            projectCredit: false
+        });
         expect(first.body.transport.configured).toBe(false);
         expect(first.body.kinds).toContain('signin');
 
@@ -66,6 +82,44 @@ describe('the server’s email, for its operator', () => {
         expect(bad.body.error).toMatch(/too light/);
     });
 
+    it('adds a sending domain only when its DNS passes the check', async () => {
+        checkSendingDomain.mockResolvedValueOnce({
+            domain: 'olimpico.example',
+            passes: false,
+            checks: [
+                { id: 'dkim', status: 'warn', message: 'No DKIM key found.' },
+                { id: 'dmarc', status: 'fail', message: 'No DMARC record.' }
+            ]
+        });
+        const refused = await request(app())
+            .patch('/operator/email')
+            .send({ sendingDomains: ['olimpico.example'], projectCredit: true });
+        expect(refused.status).toBe(400);
+        expect(refused.body.error).toMatch(/olimpico\.example can’t be a sending domain yet/);
+        expect(refused.body.error).toContain('No DMARC record.');
+        expect(refused.body.error).toContain('No DKIM key found.');
+
+        checkSendingDomain.mockResolvedValueOnce({
+            domain: 'olimpico.example',
+            passes: true,
+            checks: []
+        });
+        const added = await request(app())
+            .patch('/operator/email')
+            .send({ sendingDomains: 'olimpico.example', projectCredit: true });
+        expect(added.status).toBe(200);
+        expect(added.body.effective).toMatchObject({
+            sendingDomains: ['olimpico.example'],
+            projectCredit: true
+        });
+        // Domains already on the list aren't checked again.
+        checkSendingDomain.mockClear();
+        await request(app())
+            .patch('/operator/email')
+            .send({ sendingDomains: ['olimpico.example'] });
+        expect(checkSendingDomain).not.toHaveBeenCalled();
+    });
+
     it('previews every email with sample data, in HTML, text or both', async () => {
         const html = await request(app()).get('/operator/email/preview/signin?look=folio');
         expect(html.status).toBe(200);
@@ -80,10 +134,16 @@ describe('the server’s email, for its operator', () => {
             '/operator/email/preview/review?format=json&look=discotheque'
         );
         expect(both.body).toMatchObject({ kind: 'review', design: 'disco-marquee', locale: 'en' });
-        const second = await request(app()).get(
-            '/operator/email/preview/invite?format=json&variant=b&look=folio'
+        const invite = await request(app()).get(
+            '/operator/email/preview/invite?format=json&look=folio'
         );
-        expect(second.body).toMatchObject({ kind: 'invite', design: 'folio-tab', variant: 'b' });
+        expect(invite.body).toMatchObject({ kind: 'invite', design: 'folio-tab' });
+        expect(invite.body.variant).toBeUndefined();
+        // A project's own mail keeps its own design, whatever the look asked.
+        const confirm = await request(app()).get(
+            '/operator/email/preview/form-confirm?format=json&look=folio'
+        );
+        expect(confirm.body).toMatchObject({ design: 'project-plain', look: 'project' });
         expect((await request(app()).get('/operator/email/preview/nope')).status).toBe(404);
     });
 
@@ -94,6 +154,25 @@ describe('the server’s email, for its operator', () => {
         expect(
             (await request(app()).post('/operator/email/check').send({ to: 'nope' })).status
         ).toBe(400);
+    });
+
+    it('checks a domain projects would send from', async () => {
+        runDomainCheck.mockResolvedValueOnce({
+            passes: true,
+            checks: [{ id: 'sending-domain-dns', status: 'ok', message: 'ok' }]
+        });
+        const res = await request(app())
+            .post('/operator/email/check')
+            .send({ domain: 'olimpico.example' });
+        expect(res.status).toBe(200);
+        expect(runDomainCheck).toHaveBeenCalledWith('olimpico.example', { selectors: [] });
+        expect(
+            (await request(app()).post('/operator/email/check').send({ domain: 'not a domain' }))
+                .status
+        ).toBe(400);
+        expect(
+            (await request(app()).post('/operator/email/check').send({ project: 'nope' })).status
+        ).toBe(404);
     });
 
     it('lets a person stop review emails from the link, never on a bare visit', async () => {

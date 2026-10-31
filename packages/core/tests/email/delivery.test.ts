@@ -5,7 +5,7 @@ import path from 'node:path';
 import { generateKeyPairSync } from 'node:crypto';
 import { buildMessage, dkimConfig, mailUnavailable } from '../../src/email/transport.js';
 import { resolveEmailSettings } from '../../src/email/settings.js';
-import { baseDomain, checkDns, type Resolver } from '../../src/email/check.js';
+import { baseDomain, checkDns, checkSendingDomain, type Resolver } from '../../src/email/check.js';
 import {
     checkUnsubscribe,
     setEmailTopic,
@@ -82,6 +82,22 @@ describe('what goes out with every email', () => {
             { ...settings, replyTo: 'help@moteur.io' }
         );
         expect(operatorsReply.replyTo).toBe('help@moteur.io');
+    });
+
+    it('sends a project’s mail from its own address only on a domain the operator allows', () => {
+        const mail = {
+            to: ['a@b.test'],
+            subject: 'S',
+            text: 'T',
+            category: 'project' as const,
+            fromName: 'Café Olimpico',
+            fromAddress: 'bonjour@olimpico.example'
+        };
+        const refused = buildMessage(mail, settings);
+        expect(refused.from).toBe('"Café Olimpico" <signin@moteur.io>');
+        const allowed = buildMessage(mail, { ...settings, sendingDomains: ['olimpico.example'] });
+        expect(allowed.from).toBe('"Café Olimpico" <bonjour@olimpico.example>');
+        expect(allowed.messageId).toMatch(/@olimpico\.example>$/);
     });
 
     it('signs with DKIM when given a key, read from one line or a file', () => {
@@ -191,6 +207,43 @@ describe('the DNS check', () => {
         expect(missing.find(c => c.id === 'dkim')!.message).toContain(`p=${p}`);
         const elsewhere = await checkDns('agence.example', { resolver: fakeDns({}) });
         expect(statusOf(elsewhere, 'dkim-alignment')).toBe('warn');
+    });
+});
+
+describe('a domain projects send from', () => {
+    afterEach(() => vi.unstubAllEnvs());
+    const sound = {
+        'olimpico.example': ['v=spf1 include:spf.mtasv.net ~all'],
+        '_dmarc.olimpico.example': ['v=DMARC1; p=none; rua=mailto:d@olimpico.example'],
+        'pm._domainkey.olimpico.example': ['k=rsa; p=MIGf']
+    };
+
+    it('passes with SPF, DMARC and a DKIM key, even while the engine signs as its own domain', async () => {
+        vi.stubEnv('MOTEUR_DKIM_DOMAIN', 'moteur.io');
+        vi.stubEnv('MOTEUR_DKIM_SELECTOR', 'mail');
+        vi.stubEnv('MOTEUR_DKIM_PRIVATE_KEY', 'x');
+        const r = await checkSendingDomain('Olimpico.example.', {
+            resolver: fakeDns(sound, { 'olimpico.example': ['mx.olimpico.example'] })
+        });
+        expect(r.domain).toBe('olimpico.example');
+        expect(r.passes).toBe(true);
+        // Its own DKIM keys are looked for, not the engine's; and the engine's signature is said.
+        expect(statusOf(r.checks, 'dkim')).toBe('ok');
+        expect(statusOf(r.checks, 'dkim-alignment')).toBe('warn');
+    });
+
+    it('fails without a DKIM key, without DMARC, or on a personal mailbox provider', async () => {
+        const { 'pm._domainkey.olimpico.example': _k, ...noKey } = sound;
+        expect(
+            (await checkSendingDomain('olimpico.example', { resolver: fakeDns(noKey) })).passes
+        ).toBe(false);
+        const { '_dmarc.olimpico.example': _d, ...noDmarc } = sound;
+        expect(
+            (await checkSendingDomain('olimpico.example', { resolver: fakeDns(noDmarc) })).passes
+        ).toBe(false);
+        expect((await checkSendingDomain('gmail.com', { resolver: fakeDns({}) })).passes).toBe(
+            false
+        );
     });
 });
 

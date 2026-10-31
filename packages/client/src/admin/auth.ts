@@ -137,7 +137,8 @@ export function authApi(client: MoteurClient) {
         /**
          * Email a six-digit code: to sign in if the address has an account, to sign up if not (on
          * an open server). Answers the same either way. `from`, `goal` and `campaign` say what
-         * brought them, and stay on a new account.
+         * brought them, and stay on a new account. `look`: the look of the page asking; the
+         * email is set in it, and it isn't kept.
          */
         emailCode(input: {
             email: string;
@@ -145,6 +146,7 @@ export function authApi(client: MoteurClient) {
             goal?: string;
             campaign?: Record<string, string>;
             locale?: string;
+            look?: 'discotheque' | 'folio';
         }): Promise<{ sent: true }> {
             return client.post('/auth/email/code', input);
         },
@@ -157,6 +159,8 @@ export function authApi(client: MoteurClient) {
             code?: string;
             token?: string;
             name?: string;
+            /** The page's look: a new account's welcome email is set in it; not kept. */
+            look?: 'discotheque' | 'folio';
         }): Promise<{ token: string; isNew: boolean } | { twoFactor: true; ticket: string }> {
             return client.post('/auth/email/verify', input);
         },
@@ -167,6 +171,17 @@ export function authApi(client: MoteurClient) {
             finished?: boolean;
         }): Promise<{ onboarding: OnboardingState }> {
             return client.patch('/auth/me/onboarding', patch);
+        },
+        /**
+         * Your look, language and notification emails: the server's emails follow them. null
+         * clears `look` or `locale`.
+         */
+        preferences(patch: {
+            look?: 'discotheque' | 'folio' | null;
+            locale?: string | null;
+            emails?: { reviews?: boolean };
+        }): Promise<{ preferences: NonNullable<User['preferences']> }> {
+            return client.patch('/auth/me/preferences', patch);
         },
         /** Your copy of the demo project, made the first time you ask. */
         demo(): Promise<{ projectId: string }> {

@@ -115,18 +115,12 @@ export const EMAIL_KINDS = [
     'test'
 ] as const satisfies readonly EmailKind[];
 
-/** Two ways to set the emails that are someone's first contact, until one is picked (see the lab). */
-export const EMAIL_VARIANTS = ['a', 'b'] as const;
-export type EmailVariant = (typeof EMAIL_VARIANTS)[number];
-export const VARIANT_KINDS: EmailKind[] = ['invite', 'welcome', 'form-confirm'];
-
 type Ctx = {
     locale: EmailLocale;
     product: string;
     /** What the product is, in a sentence or two. */
     tagline: string;
     supportUrl?: string;
-    variant: EmailVariant;
 };
 type Template<K extends EmailKind> = (data: EmailData[K], ctx: Ctx) => EmailContent;
 
@@ -502,7 +496,7 @@ const verify: Template<'verify'> = ({ email, code }, { locale, product: P }) =>
 
 /** The first email of someone who joins a project: who invited them, to what, as what. */
 const invite: Template<'invite'> = (d, ctx) => {
-    const { locale, product: P, variant } = ctx;
+    const { locale, product: P } = ctx;
     const fr = locale === 'fr';
     const first = d.inviter.split(/\s+/)[0] || d.inviter;
     const role = roleOf(d.roles, locale);
@@ -524,12 +518,6 @@ const invite: Template<'invite'> = (d, ctx) => {
             ? `Si le bouton ne fonctionne pas, ouvrez cette adresse${N}:`
             : 'If the button doesn’t work, open this address:'
     };
-    const expiry = fr
-        ? `Le lien ne sert qu’une fois, pendant ${d.days}${S}jours${until ? ` (jusqu’au ${until})` : ''}.`
-        : `The link works once, for ${d.days}${S}days${until ? ` (until ${until})` : ''}.`;
-    const account = fr
-        ? `Vous créez votre compte ${P} avec l’adresse ${d.email}. Aucun mot de passe${N}: nous envoyons un code à cette adresse.`
-        : `You make your ${P} account with ${d.email}. No password needed: we send a code to this address.`;
     const already = fr
         ? `Vous avez déjà un compte avec cette adresse${N}? Connectez-vous, et ${d.project} s’y ajoute.`
         : `Already have an account with this address? Sign in, and ${d.project} is added to it.`;
@@ -549,91 +537,53 @@ const invite: Template<'invite'> = (d, ctx) => {
                 : ` because ${inviter} invited this address. If you weren’t expecting it, ignore this email: nothing happens unless you open the link.${d.replyToInviter ? ` Replies go to ${d.inviter}.` : ''}`
         ]
     } satisfies Partial<EmailContent>;
-    const about = aboutProduct(ctx);
-
-    if (variant === 'b')
-        return {
-            ...base,
-            blocks: [
-                { t: 'kicker', text: fr ? `Invitation · ${P}` : `Invitation · ${P}` },
-                {
-                    t: 'h',
-                    text: fr
-                        ? `Invitation à rejoindre ${d.project}`
-                        : `You’re invited to ${d.project}`
-                },
-                {
-                    t: 'panel',
-                    blocks: [
-                        ...project,
-                        {
-                            t: 'person',
-                            label: fr ? 'Invitation de' : 'Invited by',
-                            name: d.inviter,
-                            detail: d.inviterEmail
-                        }
-                    ]
-                },
-                ...note,
-                {
-                    t: 'pairs',
-                    rows: [
-                        {
-                            label: fr ? 'Votre rôle' : 'Your role',
-                            value: [strong(role.names), `. ${role.can}`]
-                        },
-                        {
-                            label: fr ? 'Votre compte' : 'Your account',
-                            value: fr
-                                ? `Créé avec ${d.email} quand vous ouvrez le lien. Sans mot de passe, un code arrive à cette adresse.`
-                                : `Made with ${d.email} when you open the link. No password: a code comes to this address.`
-                        },
-                        {
-                            label: fr ? 'Le lien' : 'The link',
-                            // A French date can end in an abbreviation's own full stop (« nov. »).
-                            value: (fr
-                                ? `Une seule fois, ${until ? `jusqu’au ${until}` : `pendant ${d.days}${S}jours`}.`
-                                : `Works once, ${until ? `until ${until}` : `for ${d.days}${S}days`}.`
-                            ).replace(/\.\.$/, '.')
-                        }
-                    ]
-                },
-                button,
-                { t: 'note', text: already },
-                about
-            ]
-        };
     return {
         ...base,
         blocks: [
-            { t: 'person', name: d.inviter, detail: d.inviterEmail },
-            { t: 'h', text: fr ? `Rejoignez ${d.project}` : `Join ${d.project}` },
+            { t: 'kicker', text: fr ? `Invitation · ${P}` : `Invitation · ${P}` },
             {
-                t: 'p',
-                text: fr
-                    ? [
-                          strong(d.inviter),
-                          ' vous invite à travailler sur ',
-                          strong(d.project),
-                          ` dans ${P}.`
-                      ]
-                    : [
-                          strong(d.inviter),
-                          ' invited you to work on ',
-                          strong(d.project),
-                          ` in ${P}.`
-                      ]
+                t: 'h',
+                text: fr ? `Invitation à rejoindre ${d.project}` : `You’re invited to ${d.project}`
+            },
+            {
+                t: 'panel',
+                blocks: [
+                    ...project,
+                    {
+                        t: 'person',
+                        label: fr ? 'Invitation de' : 'Invited by',
+                        name: d.inviter,
+                        detail: d.inviterEmail
+                    }
+                ]
             },
             ...note,
-            ...(project.length > 1 ? [{ t: 'panel' as const, blocks: project }] : []),
             {
-                t: 'p',
-                text: [fr ? `Votre rôle${N}: ` : 'Your role: ', strong(role.names), `. ${role.can}`]
+                t: 'pairs',
+                rows: [
+                    {
+                        label: fr ? 'Votre rôle' : 'Your role',
+                        value: [strong(role.names), `. ${role.can}`]
+                    },
+                    {
+                        label: fr ? 'Votre compte' : 'Your account',
+                        value: fr
+                            ? `Créé avec ${d.email} quand vous ouvrez le lien. Sans mot de passe, un code arrive à cette adresse.`
+                            : `Made with ${d.email} when you open the link. No password: a code comes to this address.`
+                    },
+                    {
+                        label: fr ? 'Le lien' : 'The link',
+                        // A French date can end in an abbreviation's own full stop (« nov. »).
+                        value: (fr
+                            ? `Une seule fois, ${until ? `jusqu’au ${until}` : `pendant ${d.days}${S}jours`}.`
+                            : `Works once, ${until ? `until ${until}` : `for ${d.days}${S}days`}.`
+                        ).replace(/\.\.$/, '.')
+                    }
+                ]
             },
             button,
-            { t: 'kicker', text: fr ? 'Quand vous ouvrez le lien' : 'When you open the link' },
-            { t: 'list', items: [account, already, expiry] },
-            about
+            { t: 'note', text: already },
+            aboutProduct(ctx)
         ]
     };
 };
@@ -643,7 +593,7 @@ const invite: Template<'invite'> = (d, ctx) => {
  * and team first; someone who signed up alone, about what to do first.
  */
 const welcome: Template<'welcome'> = (d, ctx) => {
-    const { locale, product: P, variant } = ctx;
+    const { locale, product: P } = ctx;
     const fr = locale === 'fr';
     const fallback = fr
         ? `Si le bouton ne fonctionne pas, ouvrez cette adresse${N}:`
@@ -690,13 +640,6 @@ const welcome: Template<'welcome'> = (d, ctx) => {
         strong(d.email),
         '.'
     ];
-    const hello = d.name
-        ? fr
-            ? `Bienvenue, ${d.name}`
-            : `Welcome, ${d.name}`
-        : fr
-          ? `Bienvenue dans ${P}`
-          : `Welcome to ${P}`;
 
     const j = d.joined;
     if (j) {
@@ -712,107 +655,63 @@ const welcome: Template<'welcome'> = (d, ctx) => {
                       }
                   ]
                 : [];
-        const team: Rich = fr
-            ? [
-                  `Votre compte ${P} est prêt, et vous faites partie de l’équipe de `,
-                  strong(j.project),
-                  j.inviter ? `, avec ${j.inviter}.` : '.'
-              ]
-            : [
-                  `Your ${P} account is ready, and you’re on the `,
-                  strong(j.project),
-                  j.inviter ? ` team, with ${j.inviter}.` : ' team.'
-              ];
         const subject = fr ? `Bienvenue dans ${j.project}` : `Welcome to ${j.project}`;
         const preheader = fr
             ? `Votre compte ${P} est prêt. Voici comment vous y retrouver.`
             : `Your ${P} account is ready. Here’s how to find your way.`;
-        if (variant === 'b')
-            return {
-                subject,
-                preheader,
-                why,
-                blocks: [
-                    { t: 'kicker', text: fr ? `Bienvenue dans ${P}` : `Welcome to ${P}` },
-                    {
-                        t: 'h',
-                        text: d.name
-                            ? fr
-                                ? `Vous y êtes, ${d.name}`
-                                : `You’re in, ${d.name}`
-                            : fr
-                              ? 'Vous y êtes'
-                              : 'You’re in'
-                    },
-                    {
-                        t: 'panel',
-                        blocks: [
-                            { t: 'h2', text: j.project },
-                            ...(j.description ? [{ t: 'p' as const, text: j.description }] : []),
-                            ...(j.inviter
-                                ? [
-                                      {
-                                          t: 'person' as const,
-                                          label: fr ? 'Invitation de' : 'Invited by',
-                                          name: j.inviter
-                                      }
-                                  ]
-                                : [])
-                        ]
-                    },
-                    {
-                        t: 'pairs',
-                        rows: [
-                            ...(role
-                                ? [
-                                      {
-                                          label: fr ? 'Votre rôle' : 'Your role',
-                                          value: [strong(role.names), `. ${role.can}`]
-                                      }
-                                  ]
-                                : []),
-                            { label: fr ? 'Se connecter' : 'Signing in', value: signIn },
-                            ...(help ? [{ label: fr ? 'De l’aide' : 'Help', value: help }] : [])
-                        ]
-                    },
-                    ...open,
-                    {
-                        t: 'about',
-                        title: fr ? `Qu’est-ce que ${P}${N}?` : `What is ${P}?`,
-                        text: tagline
-                    },
-                    sign
-                ]
-            };
         return {
             subject,
             preheader,
             why,
             blocks: [
-                { t: 'h', text: hello },
-                { t: 'p', text: team },
-                ...(role
-                    ? [
-                          {
-                              t: 'p' as const,
-                              text: [
-                                  fr ? `Votre rôle${N}: ` : 'Your role: ',
-                                  strong(role.names),
-                                  `. ${role.can}`
+                { t: 'kicker', text: fr ? `Bienvenue dans ${P}` : `Welcome to ${P}` },
+                {
+                    t: 'h',
+                    text: d.name
+                        ? fr
+                            ? `Vous y êtes, ${d.name}`
+                            : `You’re in, ${d.name}`
+                        : fr
+                          ? 'Vous y êtes'
+                          : 'You’re in'
+                },
+                {
+                    t: 'panel',
+                    blocks: [
+                        { t: 'h2', text: j.project },
+                        ...(j.description ? [{ t: 'p' as const, text: j.description }] : []),
+                        ...(j.inviter
+                            ? [
+                                  {
+                                      t: 'person' as const,
+                                      label: fr ? 'Invitation de' : 'Invited by',
+                                      name: j.inviter
+                                  }
                               ]
-                          }
-                      ]
-                    : []),
+                            : [])
+                    ]
+                },
+                {
+                    t: 'pairs',
+                    rows: [
+                        ...(role
+                            ? [
+                                  {
+                                      label: fr ? 'Votre rôle' : 'Your role',
+                                      value: [strong(role.names), `. ${role.can}`]
+                                  }
+                              ]
+                            : []),
+                        { label: fr ? 'Se connecter' : 'Signing in', value: signIn },
+                        ...(help ? [{ label: fr ? 'De l’aide' : 'Help', value: help }] : [])
+                    ]
+                },
                 ...open,
                 {
                     t: 'about',
                     title: fr ? `Qu’est-ce que ${P}${N}?` : `What is ${P}?`,
                     text: tagline
                 },
-                { t: 'about', title: fr ? 'La prochaine fois' : 'Next time', text: signIn },
-                ...(help
-                    ? [{ t: 'about' as const, title: fr ? 'De l’aide' : 'Help', text: help }]
-                    : []),
                 sign
             ]
         };
@@ -852,63 +751,39 @@ const welcome: Template<'welcome'> = (d, ctx) => {
     const preheader = fr
         ? 'Votre compte est prêt. Trois choses pour commencer.'
         : 'Your account is ready. Three things to start with.';
-    if (variant === 'b')
-        return {
-            subject,
-            preheader,
-            why,
-            blocks: [
-                { t: 'kicker', text: subject },
-                {
-                    t: 'h',
-                    text: d.name
-                        ? fr
-                            ? `Votre compte est prêt, ${d.name}`
-                            : `Your account is ready, ${d.name}`
-                        : fr
-                          ? 'Votre compte est prêt'
-                          : 'Your account is ready'
-                },
-                {
-                    t: 'panel',
-                    blocks: [
-                        { t: 'h2', text: fr ? `Qu’est-ce que ${P}${N}?` : `What is ${P}?` },
-                        { t: 'p', text: tagline }
-                    ]
-                },
-                { t: 'kicker', text: fr ? 'Pour commencer' : 'To start' },
-                steps,
-                ...start,
-                {
-                    t: 'pairs',
-                    rows: [
-                        { label: fr ? 'Se connecter' : 'Signing in', value: signIn },
-                        ...(help ? [{ label: fr ? 'De l’aide' : 'Help', value: help }] : [])
-                    ]
-                },
-                sign
-            ]
-        };
     return {
         subject,
         preheader,
         why,
         blocks: [
-            { t: 'h', text: hello },
+            { t: 'kicker', text: subject },
             {
-                t: 'p',
-                text: `${fr ? `Votre compte ${P} est prêt.` : `Your ${P} account is ready.`} ${tagline}`
+                t: 'h',
+                text: d.name
+                    ? fr
+                        ? `Votre compte est prêt, ${d.name}`
+                        : `Your account is ready, ${d.name}`
+                    : fr
+                      ? 'Votre compte est prêt'
+                      : 'Your account is ready'
             },
             {
-                t: 'p',
-                text: fr ? `Trois choses pour commencer${N}:` : 'Three things to start with:'
+                t: 'panel',
+                blocks: [
+                    { t: 'h2', text: fr ? `Qu’est-ce que ${P}${N}?` : `What is ${P}?` },
+                    { t: 'p', text: tagline }
+                ]
             },
+            { t: 'kicker', text: fr ? 'Pour commencer' : 'To start' },
             steps,
             ...start,
-            { t: 'about', title: fr ? 'La prochaine fois' : 'Next time', text: signIn },
-            ...(help
-                ? [{ t: 'about' as const, title: fr ? 'De l’aide' : 'Help', text: help }]
-                : []),
+            {
+                t: 'pairs',
+                rows: [
+                    { label: fr ? 'Se connecter' : 'Signing in', value: signIn },
+                    ...(help ? [{ label: fr ? 'De l’aide' : 'Help', value: help }] : [])
+                ]
+            },
             sign
         ]
     };
@@ -1130,7 +1005,7 @@ function summary(rows: { label: string; value: string }[]) {
  * A visitor's first contact with a project: the project's own words first, then what they sent,
  * under the project's name. Nothing of the server's operator.
  */
-const formConfirm: Template<'form-confirm'> = (d, { locale, variant }) => {
+const formConfirm: Template<'form-confirm'> = (d, { locale }) => {
     const fr = locale === 'fr';
     const { shown, more } = summary(d.rows);
     const site = d.site ? siteLink(d.site) : undefined;
@@ -1161,29 +1036,6 @@ const formConfirm: Template<'form-confirm'> = (d, { locale, variant }) => {
         sender: { name: d.project },
         why
     };
-    if (variant === 'b')
-        return {
-            ...base,
-            blocks: [
-                {
-                    t: 'kicker',
-                    text: fr ? `Message reçu · ${d.form}` : `Message received · ${d.form}`
-                },
-                ...words,
-                {
-                    t: 'panel',
-                    blocks: [{ t: 'kicker', text: sent }, { t: 'facts', rows: shown }, ...moreNote]
-                },
-                {
-                    t: 'person',
-                    label: fr ? 'De la part de' : 'From',
-                    name: d.project,
-                    detail: d.site
-                        ? d.site.replace(/^https?:\/\//, '').replace(/\/$/, '')
-                        : undefined
-                }
-            ]
-        };
     return {
         ...base,
         blocks: [
@@ -1356,6 +1208,12 @@ export const TEMPLATES: { [K in EmailKind]: Template<K> } = {
 
 /** Who a kind is for: sign-in mail is never something to unsubscribe from. */
 export const NOTIFICATION_KINDS: EmailKind[] = ['review'];
+
+/**
+ * A project's own mail, to its site's visitors: in the project's design, under its name, logo and
+ * colour. (The form notice goes to the project's people: it is the server's, in their look.)
+ */
+export const PROJECT_KINDS: EmailKind[] = ['form-confirm', 'form-message'];
 
 /** Made-up data for each email: previews, the lab and the render tests. */
 export function samples(locale: EmailLocale): { [K in EmailKind]: EmailData[K] } {

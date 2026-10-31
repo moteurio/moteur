@@ -19,6 +19,7 @@ import { projectAssetsApi } from '../project/assets.js';
 import { projectBinApi } from '../project/bin.js';
 import { projectAssetConfigApi } from '../project/assetConfig.js';
 import { projectMediaSettingsApi } from '../project/mediaSettings.js';
+import { projectEmailApi } from '../project/email.js';
 import { projectBlocksApi } from '../project/blocks.js';
 import { projectApiKeysApi } from '../project/apiKeys.js';
 import { instanceApi } from './instance.js';
@@ -54,6 +55,7 @@ export function createMoteurAdminClient(config: MoteurClientConfig) {
         bin: projectBinApi(client),
         assetConfig: projectAssetConfigApi(client),
         mediaSettings: projectMediaSettingsApi(client),
+        email: projectEmailApi(client),
         blocks: projectBlocksApi(client),
         apiKeys: projectApiKeysApi(client),
         instance: instanceApi(client),
