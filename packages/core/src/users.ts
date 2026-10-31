@@ -471,17 +471,29 @@ export async function updateStoredUser(
     });
 }
 
-/** A user as it may leave the server: no password hash, no two-step secrets. */
+/**
+ * A user as it may leave the server: no password hash, no two-step secrets, no passkeys (only how
+ * many there are).
+ */
 export function withoutSecrets<T extends Partial<User>>(
     user: T
-): Omit<T, 'passwordHash' | 'twoFactor' | 'twoFactorPending'> & { twoFactor?: boolean } {
+): Omit<T, 'passwordHash' | 'twoFactor' | 'twoFactorPending' | 'passkeys' | 'passkeyUserId'> & {
+    twoFactor?: boolean;
+    passkeys?: number;
+} {
     const {
         passwordHash: _passwordHash,
         twoFactor,
         twoFactorPending: _pending,
+        passkeys,
+        passkeyUserId: _handle,
         ...rest
     } = user as T & User;
-    return { ...rest, ...(twoFactor && { twoFactor: true }) } as never;
+    return {
+        ...rest,
+        ...(twoFactor && { twoFactor: true }),
+        ...(passkeys?.length && { passkeys: passkeys.length })
+    } as never;
 }
 
 /**

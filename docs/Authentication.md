@@ -58,7 +58,7 @@ Generic OIDC uses authenticated UserInfo with a stable subject and discovery met
 
 After OAuth, a browser-bound pending sign-in can return to Studio's `/auth/connect` page. To create an account when the provider omitted email verification, enter an address, request a six-digit code, then verify it. The pending sign-in expires after 10 minutes; wrong-code attempts are limited to five, and resends have a cooldown and persistent budgets. Restarting the API does not reset those budgets. Email proof alone never connects a provider to an existing account.
 
-To connect an existing account, sign in using its existing method and explicitly confirm the new connection. Studio's **Account security** screen starts this flow with `link=1`, preserved in signed OAuth state. Connecting or disconnecting requires a personal sign-in from the last 10 minutes; refresh and delegated tokens cannot manufacture fresh authentication. Removing the last sign-in method is refused. Credential changes revoke existing sessions and return a replacement token without resetting the original authentication time or session deadline.
+To connect an existing account, sign in using its existing method and explicitly confirm the new connection. Studio's **Account security** screen starts this flow with `link=1`, preserved in signed OAuth state. Connecting or disconnecting requires a personal sign-in from the last 10 minutes; refresh and delegated tokens cannot manufacture fresh authentication. Removing the last sign-in method is refused (a passkey counts as one). Credential changes revoke existing sessions and return a replacement token without resetting the original authentication time or session deadline.
 
 Verification uses `SMTP_HOST`, `SMTP_FROM` and optional `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, shared with the engine's other mail. Without SMTP, code delivery fails instead of treating an address as verified. Verification requests need both the opaque ticket from the callback and its HttpOnly browser cookie; requests from a separate Studio origin use credentials and the configured CORS allowlist. Prefer a same-site API/Studio deployment or the development proxy so browsers can send the binding cookie.
 
@@ -93,7 +93,7 @@ The session-aware release rejects old stateless JWTs: users and CLI clients must
 
 Anyone can turn on a second step after the password (or after GitHub, Google, Microsoft or OIDC): a code from an authenticator app. In the Studio, Account security › Two-step sign-in shows a QR code, turns on with a first code, and shows ten recovery codes once.
 
-Signing in then answers `{ twoFactor: true, ticket }` instead of a token (`POST /auth/login`, `POST /auth/provider/verify`; a provider's redirect brings `#two_factor=…`). `POST /auth/two-factor/verify` with `{ ticket, code }` gives the session: the ticket lasts five minutes and is no session itself; a code from the app works once; a recovery code works once and is then gone. Wrong codes slow the next attempts down like wrong passwords.
+Signing in then answers `{ twoFactor: true, ticket }` instead of a token (`POST /auth/login`, `POST /auth/provider/verify`; a provider's redirect brings `#two_factor=…`). `POST /auth/two-factor/verify` with `{ ticket, code }` gives the session: the ticket lasts five minutes and is no session itself; a code from the app works once; a recovery code works once and is then gone. Wrong codes slow the next attempts down like wrong passwords. A passkey can stand in for the code, and signing in with a passkey asks for none (see [Passkeys](#passkeys)).
 
 | Method | Route below `/auth`          | Purpose                                                    |
 | ------ | ---------------------------- | ---------------------------------------------------------- |
@@ -105,6 +105,47 @@ Signing in then answers `{ twoFactor: true, ticket }` instead of a token (`POST 
 | POST   | `/two-factor/recovery-codes` | New recovery codes, with a code                            |
 
 Only the person does this, in a personal session: never an agent. The secret is sealed with `MOTEUR_ENCRYPTION_KEY` (refused in production without it) and the recovery codes are kept as digests; neither ever leaves the server, and sign-in replies carry no password hash. Someone who lost both phone and codes asks an operator: `POST /operator/users/:userId/two-factor/reset` (CLI: `moteur operator reset-two-factor <id>`) turns it off and ends their sessions. The CLI's `moteur auth login` asks for the code.
+
+### Passkeys
+
+A passkey signs someone in with their device's lock (face, finger or PIN) instead of a password: a WebAuthn credential made for this server, kept in iCloud Keychain, Google Password Manager, Windows Hello, a password manager or a security key. The engine checks them with [`@simplewebauthn/server`](https://simplewebauthn.dev); it never sees the private key.
+
+**Signing in.** `POST /auth/passkeys/sign-in/options` answers `{ options }` for `navigator.credentials.get()` (pass them to `PublicKeyCredential.parseRequestOptionsFromJSON()` or `@simplewebauthn/browser`), and `POST /auth/passkeys/sign-in/verify` with `{ response }` (the browser's answer as JSON) gives `{ token, user }`, as `POST /auth/login` does.
+
+- **No address:** any passkey for this server answers. This is the one for the browser's autofill (`mediation: "conditional"`, with `autocomplete="username webauthn"` on the email field): ask for options when the sign-in page opens.
+- **With `email`:** only that account's passkey will do (another answers `401 PASSKEY_WRONG_ACCOUNT`). The options are the same whether the address has an account or not and never list its passkeys, so they tell nobody who has one.
+- A challenge works once, for five minutes (`400 PASSKEY_EXPIRED` after that: ask for new options). A passkey the server doesn't know (removed, or made for another server) answers `401 PASSKEY_UNKNOWN` with `credentialId` and `rpId`, so the page can tell the browser to forget it (`PublicKeyCredential.signalUnknownCredential()`).
+
+**Passkeys and two-step sign-in.** Every passkey here must verify the person (`userVerification: required`): it is the device and its lock, two steps in one. So a passkey signs in **without** the authenticator app's code, even with two-step sign-in on. It can also **stand in for that code**: after a password or an email code answers `{ twoFactor: true, ticket }`, send `{ ticket }` to `POST /auth/passkeys/sign-in/options` (its `allowCredentials` then lists that person's passkeys) and verify as above. Two-step sign-in itself still means the app's code; passkeys don't turn it on or off.
+
+**On the account page** (a personal session, never an agent's):
+
+| Method | Route below `/auth`          | Purpose                                                                    |
+| ------ | ---------------------------- | -------------------------------------------------------------------------- |
+| GET    | `/passkeys`                  | `{ available, passkeys }`: whether the server offers them, and the list    |
+| POST   | `/passkeys/register/options` | Options for `navigator.credentials.create()` (sign-in in the last 10 min.) |
+| POST   | `/passkeys/register/verify`  | `{ response, name? }`: the browser's answer; `201 { passkey }`             |
+| PATCH  | `/passkeys/:passkeyId`       | `{ name }`: rename (60 characters at most)                                 |
+| DELETE | `/passkeys/:passkeyId`       | Remove (sign-in in the last 10 min.): `{ token }`, a replacement session   |
+| POST   | `/passkeys/sign-in/options`  | No sign-in needed: options to sign in (`email` or `ticket` optional)       |
+| POST   | `/passkeys/sign-in/verify`   | No sign-in needed: `{ response }` becomes `{ token, user }`                |
+
+Each passkey is listed with its `name`, `createdAt`, `lastUsedAt`, whether it is `synced` across devices (`deviceType`: `multiDevice` or `singleDevice`), where it lives when the authenticator is a known one (`provider`: "iCloud Keychain", "1Password"…), the browser and system it was made on (`createdOn`: "Safari on macOS") and its `transports`. A new one is named after its `provider` or `createdOn` unless a `name` is given. Up to 20 per account; the browser won't make a second one on an authenticator that holds one already.
+
+Adding and removing a passkey need a personal sign-in from the last 10 minutes (else `403 REAUTH_REQUIRED`), as connecting a provider does; a passkey sign-in is one. Removing ends every session of the account and answers a replacement token for this one (same sign-in time and deadline), so whoever signed in with that passkey is out. Adding ends no session. Renaming needs no fresh sign-in.
+
+**Losing every passkey never locks anyone out.** The email code (and its link) still signs them in, then they add a new passkey. The last passkey can be removed when the email code works on the server; on a server with `MOTEUR_EMAIL_SIGNIN=off` it can't be removed while it is the account's only way in (no password, no provider). A passkey counts as a way in when disconnecting a provider, too.
+
+**Kept** on the account in `users.json`: per passkey the credential id, its public key, the signature counter, transports, device type and backup state, the authenticator model id (AAGUID), its name and dates. A random handle (not the account id) names the account to authenticators. None of it leaves the server as kept: sign-in replies and `GET /auth/me` say only how many (`passkeys: 2`). Waiting challenges are kept as digests in `passkey-challenges.json`, beside the users file (at most 2,000 at once, oldest dropped). Plugins hear `auth.passkey.added`, `auth.passkey.removed` and `auth.passkey.used` (`{ userId, passkeyId }`); a passkey sign-in sets `lastLoginAt` like the others.
+
+**Where passkeys work.** A passkey belongs to a relying party (RP): a host name, and the pages allowed to ask for it.
+
+- By default the RP is `STUDIO_URL`'s host and the pages are `STUDIO_URL`'s origins (comma-separated, all on that host or under it). `MOTEUR_PASSKEY_RP_ID` sets a parent domain instead (`example.com` for `studio.example.com`: passkeys then also work on other origins listed), `MOTEUR_PASSKEY_ORIGINS` lists the origins (comma-separated, overrides `STUDIO_URL` for this), and `MOTEUR_PASSKEY_RP_NAME` the name people see (default `Moteur`). Changing the RP ID later strands every passkey made before: choose it once.
+- Origins use `https`, except `http://localhost`. IP addresses can't hold passkeys.
+- On a developer's machine (`NODE_ENV` not `production`) without `STUDIO_URL`, the RP is `localhost` and any `localhost` port may ask.
+- In production without `STUDIO_URL` or `MOTEUR_PASSKEY_ORIGINS`, or when the settings don't fit together, passkeys are off: their routes answer `404 PASSKEYS_UNAVAILABLE`, `GET /auth/signup` says `passkeys: false`, and the server logs once why (`[auth] passkeys are off: …`). `MOTEUR_PASSKEYS=off` turns them off on purpose.
+
+Sign-in options and answers, and adding a passkey, share the per-address budget of other verification requests (`API_RATE_LIMIT_VERIFICATION_MAX`, default 60 per 15 minutes). The client has them all under `client.auth.passkeys` (`signInOptions`, `signIn`, `list`, `registrationOptions`, `register`, `rename`, `remove`).
 
 ### Invites
 
@@ -131,6 +172,10 @@ On the link, `GET {basePath}/invites/:token` describes the invite: the project, 
 | `AUTH_GOOGLE_CLIENT_ID`     | Google OAuth client ID.                                                                              |
 | `AUTH_GOOGLE_CLIENT_SECRET` | Google OAuth secret.                                                                                 |
 | `AUTH_GOOGLE_REDIRECT_URI`  | Google OAuth redirect URI.                                                                           |
+| `MOTEUR_PASSKEY_RP_ID`      | Passkeys' relying party (default: `STUDIO_URL`'s host). See [Passkeys](#passkeys).                   |
+| `MOTEUR_PASSKEY_ORIGINS`    | Pages that may ask for a passkey, comma-separated (default: `STUDIO_URL`).                           |
+| `MOTEUR_PASSKEY_RP_NAME`    | The name people see when making a passkey (default `Moteur`).                                        |
+| `MOTEUR_PASSKEYS`           | `off` turns passkeys off.                                                                            |
 
 ---
 
@@ -260,11 +305,11 @@ Details and examples: [packages/client/README.md](../packages/client/README.md).
 
 ## Auth model summary
 
-| Auth method             | Applies to                                                                                                                                                                      | Middleware                                                                      |
-| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
-| **JWT** (Bearer token)  | All routes by default (Studio, project CRUD, global studio routes)                                                                                                              | `requireAuth`, `requireProjectAccess`, `requireProjectAdmin`, `requireOperator` |
-| **API Key** (read-only) | Channels, page outputs                                                                                                                                                          | `optionalAuth` + `apiKeyAuth` + `requireChannelOrProjectAccess`                 |
-| **None** (intentional)  | `POST /auth/login`, `GET /auth/providers`, form submissions (`POST .../forms/:formId/submit`), inbound webhooks (`POST /webhooks/mux`, `/webhooks/vimeo`), static asset serving | Rate limiting or signature verification                                         |
+| Auth method             | Applies to                                                                                                                                                                                                       | Middleware                                                                      |
+| ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
+| **JWT** (Bearer token)  | All routes by default (Studio, project CRUD, global studio routes)                                                                                                                                               | `requireAuth`, `requireProjectAccess`, `requireProjectAdmin`, `requireOperator` |
+| **API Key** (read-only) | Channels, page outputs                                                                                                                                                                                           | `optionalAuth` + `apiKeyAuth` + `requireChannelOrProjectAccess`                 |
+| **None** (intentional)  | `POST /auth/login`, `POST /auth/passkeys/sign-in/*`, `GET /auth/providers`, form submissions (`POST .../forms/:formId/submit`), inbound webhooks (`POST /webhooks/mux`, `/webhooks/vimeo`), static asset serving | Rate limiting or signature verification                                         |
 
 ### Roles in a project
 
@@ -312,4 +357,4 @@ On the command line, `moteur operator login` asks for the email, password and co
 
 ### Sign-in timestamps
 
-On each successful **password** or **OAuth** sign-in, the server sets `lastLoginAt` on the user (ISO 8601) in `users.json`. Token **refresh** does not update `lastLoginAt`. The field is exposed on `GET /auth/me` and on `GET /projects/:projectId/users` for project members.
+On each successful **password**, **email code**, **passkey** or **OAuth** sign-in, the server sets `lastLoginAt` on the user (ISO 8601) in `users.json`. Token **refresh** does not update `lastLoginAt`. The field is exposed on `GET /auth/me` and on `GET /projects/:projectId/users` for project members.

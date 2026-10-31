@@ -23,6 +23,11 @@ const baseSchemas: OpenAPIV3.ComponentsObject['schemas'] = {
                 type: 'string',
                 format: 'date-time',
                 description: 'ISO 8601; set on successful password or OAuth sign-in'
+            },
+            twoFactor: { type: 'boolean', description: 'Two-step sign-in is on' },
+            passkeys: {
+                type: 'integer',
+                description: 'How many passkeys the account has (left out when none)'
             }
         }
     },

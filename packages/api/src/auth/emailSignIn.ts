@@ -9,6 +9,7 @@ import {
 } from '@moteurio/core/emailSignIn.js';
 import { demoProjectFor, updateOnboarding } from '@moteurio/core/onboarding.js';
 import { legalLinks } from '@moteurio/core/serverSettings.js';
+import { passkeysAvailable } from '@moteurio/core/passkeys.js';
 import { requireAuth } from '../middlewares/auth.js';
 import { verificationRateLimiter } from '../middlewares/rateLimit.js';
 import { sendApiError } from '../utils/apiError.js';
@@ -24,7 +25,12 @@ const text = (v: unknown, max: number) =>
     typeof v === 'string' && v.length <= max ? v : undefined;
 
 router.get('/signup', (_req, res) => {
-    res.json({ open: signupOpen(), emailCodes: emailCodesAvailable(), legal: legalLinks() });
+    res.json({
+        open: signupOpen(),
+        emailCodes: emailCodesAvailable(),
+        passkeys: passkeysAvailable(),
+        legal: legalLinks()
+    });
 });
 
 router.post('/email/code', verificationRateLimiter, async (req: Request, res: Response) => {
@@ -97,7 +103,7 @@ export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
         get: {
             summary: 'Whether this server takes new accounts',
             description:
-                '`open`: anyone may make an account (`MOTEUR_SIGNUP=open`); otherwise only invited people. `emailCodes`: whether codes can be sent by email. `legal`: where the Terms (`terms`) and the Privacy policy (`privacy`) are, for the sign-up page to link to; a key is absent when the server has none (`PATCH /operator/settings`, else `MOTEUR_TERMS_URL`, `MOTEUR_PRIVACY_URL`).',
+                '`open`: anyone may make an account (`MOTEUR_SIGNUP=open`); otherwise only invited people. `emailCodes`: whether codes can be sent by email. `passkeys`: whether people can sign in with a passkey here. `legal`: where the Terms (`terms`) and the Privacy policy (`privacy`) are, for the sign-up page to link to; a key is absent when the server has none (`PATCH /operator/settings`, else `MOTEUR_TERMS_URL`, `MOTEUR_PRIVACY_URL`).',
             tags: ['Auth'],
             security: [],
             responses: {
@@ -105,10 +111,11 @@ export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
                     description: 'Sign-up settings',
                     ...json({
                         type: 'object',
-                        required: ['open', 'emailCodes', 'legal'],
+                        required: ['open', 'emailCodes', 'passkeys', 'legal'],
                         properties: {
                             open: { type: 'boolean' },
                             emailCodes: { type: 'boolean' },
+                            passkeys: { type: 'boolean' },
                             legal: {
                                 type: 'object',
                                 properties: {

@@ -138,6 +138,42 @@ describe('createMoteurAdminClient', () => {
         expect(capturedRequests[0].data).toEqual({ username: 'user', password: 'pass' });
     });
 
+    it('auth.passkeys calls the passkey routes', async () => {
+        const client = createMoteurAdminClient({ baseURL: 'https://api.example.com' });
+        const answer = {
+            id: 'cred',
+            rawId: 'cred',
+            type: 'public-key' as const,
+            response: { clientDataJSON: 'a', authenticatorData: 'b', signature: 'c' },
+            clientExtensionResults: {}
+        };
+        await client.auth.passkeys.signInOptions();
+        await client.auth.passkeys.signInOptions({ email: 'louise@journal.test' });
+        await client.auth.passkeys.signIn(answer);
+        await client.auth.passkeys.list();
+        await client.auth.passkeys.registrationOptions();
+        await client.auth.passkeys.register(
+            { ...answer, response: { clientDataJSON: 'a', attestationObject: 'd' } },
+            'Phone'
+        );
+        await client.auth.passkeys.rename('a/b', 'Laptop');
+        await client.auth.passkeys.remove('cred');
+        expect(capturedRequests.map(r => `${r.method} ${r.url}`)).toEqual([
+            'post /auth/passkeys/sign-in/options',
+            'post /auth/passkeys/sign-in/options',
+            'post /auth/passkeys/sign-in/verify',
+            'get /auth/passkeys',
+            'post /auth/passkeys/register/options',
+            'post /auth/passkeys/register/verify',
+            'patch /auth/passkeys/a%2Fb',
+            'delete /auth/passkeys/cred'
+        ]);
+        expect(capturedRequests[1].data).toEqual({ email: 'louise@journal.test' });
+        expect(capturedRequests[2].data).toEqual({ response: answer });
+        expect(capturedRequests[5].data).toMatchObject({ name: 'Phone' });
+        expect(capturedRequests[6].data).toEqual({ name: 'Laptop' });
+    });
+
     it('adds Authorization Bearer header when auth type is bearer', async () => {
         const client = createMoteurAdminClient({
             baseURL: 'https://api.example.com',

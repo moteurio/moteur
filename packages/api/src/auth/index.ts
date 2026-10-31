@@ -15,6 +15,7 @@ import providerSignIn, { openapi as providerSignInSpec } from './providerSignIn.
 import twoFactor, { openapi as twoFactorSpec } from './twoFactor.js';
 import emailSignIn, { openapi as emailSignInSpec } from './emailSignIn.js';
 import account, { openapi as accountSpec } from './account.js';
+import passkeys, { openapi as passkeysSpec } from './passkeys.js';
 
 export function createAuthRouter(authProviders: AuthProviderContribution[] = []): Router {
     const router: Router = Router();
@@ -28,6 +29,7 @@ export function createAuthRouter(authProviders: AuthProviderContribution[] = [])
     router.use(twoFactor);
     router.use(emailSignIn);
     router.use(account);
+    router.use(passkeys);
     return router;
 }
 
@@ -43,6 +45,7 @@ export const authSpecs = {
         ...twoFactorSpec,
         ...emailSignInSpec,
         ...accountSpec,
+        ...passkeysSpec,
         // GET from me.ts, DELETE from account.ts.
         '/auth/me': { ...meSpec['/auth/me'], ...accountSpec['/auth/me'] }
     },

@@ -1,3 +1,5 @@
+import type { StoredPasskey } from './Passkey.js';
+
 export interface User {
     id: string;
     isActive: boolean;
@@ -21,6 +23,13 @@ export interface User {
     twoFactor?: { secret: string; lastStep?: number; enabledAt: string; recoveryCodes: string[] };
     /** A secret shown to set two-step sign-in up, until a first code confirms it. Never sent. */
     twoFactorPending?: { secret: string; createdAt: string };
+    /** Passkeys (WebAuthn credentials) that sign this person in. Never sent as they are. */
+    passkeys?: StoredPasskey[];
+    /**
+     * The random handle passkeys know this account by (base64url), made with the first one: not
+     * the account id, so an authenticator holds nothing that names the person. Never sent.
+     */
+    passkeyUserId?: string;
     /**
      * Set when an agent (an AI client such as Claude) makes the request on this person's behalf.
      * Comes from the token, never stored: `name` then reads "Louise via Claude".

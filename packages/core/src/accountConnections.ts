@@ -24,6 +24,7 @@ export async function disconnectProvider(userId: string, provider: string): Prom
         if (!user) throw Object.assign(new Error('Account unavailable'), { status: 401 });
         if (
             !user.passwordHash &&
+            !user.passkeys?.length &&
             connectedProviders(user).filter(id => id !== provider).length === 0
         ) {
             throw Object.assign(new Error('Keep at least one sign-in method connected.'), {

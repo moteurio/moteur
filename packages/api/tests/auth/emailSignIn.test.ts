@@ -20,6 +20,7 @@ vi.mock('@moteurio/core/emailSignIn.js', () => ({
 vi.mock('@moteurio/core/serverSettings.js', () => ({
     legalLinks: () => ({ terms: 'https://www.moteur.io/terms' })
 }));
+vi.mock('@moteurio/core/passkeys.js', () => ({ passkeysAvailable: vi.fn(() => false) }));
 vi.mock('@moteurio/core/onboarding.js', () => ({
     updateOnboarding: vi.fn(async () => ({ intent: 'agency' })),
     demoProjectFor: vi.fn(async () => 'demo-1'),
@@ -41,6 +42,7 @@ describe('email sign-in routes', () => {
         expect(res.body).toEqual({
             open: true,
             emailCodes: true,
+            passkeys: false,
             legal: { terms: 'https://www.moteur.io/terms' }
         });
     });

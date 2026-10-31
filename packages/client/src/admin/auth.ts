@@ -1,6 +1,15 @@
 import type { MoteurClient } from '../client.js';
 import type { LoginResult, SignedIn } from '../types.js';
-import type { OnboardingIntent, OnboardingState, User } from '@moteurio/types';
+import type {
+    OnboardingIntent,
+    OnboardingState,
+    PasskeyAuthenticationJSON,
+    PasskeyCreationOptionsJSON,
+    PasskeyRegistrationJSON,
+    PasskeyRequestOptionsJSON,
+    PasskeySummary,
+    User
+} from '@moteurio/types';
 
 type ProjectRef = { id: string; name: string };
 
@@ -59,6 +68,54 @@ export function authApi(client: MoteurClient) {
                 return client.post('/auth/two-factor/recovery-codes', { code });
             }
         },
+        /**
+         * Passkeys. Signing in: `options` for `navigator.credentials.get()`, then `verify` with the
+         * browser's answer (`PublicKeyCredential.toJSON()`, or `@simplewebauthn/browser`'s). No
+         * two-step code follows a passkey. The rest is the signed-in person's own: adding and
+         * removing need a sign-in from the last 10 minutes (else 403 `REAUTH_REQUIRED`).
+         */
+        passkeys: {
+            /**
+             * Start signing in. Nothing: any passkey for this server (and the browser's autofill,
+             * `mediation: 'conditional'`). `email`: only that account's. `ticket`: the two-step
+             * ticket after a password or an email code, a passkey standing in for the app code.
+             * A challenge lasts five minutes; ask again after that.
+             */
+            signInOptions(
+                input: { email?: string; ticket?: string } = {}
+            ): Promise<{ options: PasskeyRequestOptionsJSON }> {
+                return client.post('/auth/passkeys/sign-in/options', input);
+            },
+            /** The browser's signed answer: a session. */
+            signIn(response: PasskeyAuthenticationJSON): Promise<SignedIn> {
+                return client.post('/auth/passkeys/sign-in/verify', { response });
+            },
+            /** The person's passkeys, and whether this server offers them. */
+            list(): Promise<{ available: boolean; passkeys: PasskeySummary[] }> {
+                return client.get('/auth/passkeys');
+            },
+            /** Start adding one: `options` for `navigator.credentials.create()`. */
+            registrationOptions(): Promise<{ options: PasskeyCreationOptionsJSON }> {
+                return client.post('/auth/passkeys/register/options');
+            },
+            /** Finish adding it with the browser's answer; `name` defaults to where it lives. */
+            register(
+                response: PasskeyRegistrationJSON,
+                name?: string
+            ): Promise<{ passkey: PasskeySummary }> {
+                return client.post('/auth/passkeys/register/verify', {
+                    response,
+                    ...(name !== undefined && { name })
+                });
+            },
+            rename(passkeyId: string, name: string): Promise<{ passkey: PasskeySummary }> {
+                return client.patch(`/auth/passkeys/${encodeURIComponent(passkeyId)}`, { name });
+            },
+            /** Remove one. Other sessions end: keep the replacement `token` it answers. */
+            remove(passkeyId: string): Promise<{ token: string }> {
+                return client.delete(`/auth/passkeys/${encodeURIComponent(passkeyId)}`);
+            }
+        },
         me(): Promise<{ user: User }> {
             return client.get('/auth/me');
         },
@@ -66,12 +123,13 @@ export function authApi(client: MoteurClient) {
             return client.post<{ token: string }>('/auth/refresh');
         },
         /**
-         * Whether this server takes new accounts, can send codes by email, and where its Terms and
-         * Privacy policy are (`legal`: a key is absent when the server has none).
+         * Whether this server takes new accounts, can send codes by email, offers passkeys, and
+         * where its Terms and Privacy policy are (`legal`: a key is absent when the server has none).
          */
         signup(): Promise<{
             open: boolean;
             emailCodes: boolean;
+            passkeys: boolean;
             legal: { terms?: string; privacy?: string };
         }> {
             return client.get('/auth/signup');

@@ -84,6 +84,7 @@ function userRow(u: User, projectIds: Set<string>) {
         isActive: u.isActive,
         lastLoginAt: u.lastLoginAt,
         twoFactor: Boolean(u.twoFactor),
+        passkeys: u.passkeys?.length ?? 0,
         projects: (u.projects ?? []).filter(id => projectIds.has(id))
     };
 }
