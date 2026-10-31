@@ -1,6 +1,6 @@
 {
     "name": "@moteurio/client",
-    "version": "2026.10.28",
+    "version": "2026.10.31",
     "description": "JavaScript/TypeScript client for the Moteur REST API",
     "type": "module",
     "sideEffects": false,

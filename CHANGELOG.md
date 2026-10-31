@@ -2,6 +2,41 @@
 
 All notable changes to published `@moteurio/*` packages are documented here. Version lines are kept aligned across the monorepo for coordinated releases (see [RELEASING.md](RELEASING.md) and [VERSIONING.md](VERSIONING.md)).
 
+## 2026.10.31
+
+- fix(hooks): the pre-push tests never act on the repository being pushed (43e377c)
+- test(email): snapshots of the email-change emails (0513892)
+- fix(email): changing the sign-in email sends the designed emails too (3c475a8)
+- feat(email): each reader's look, and forms that are the project's mail (a25ad36)
+- feat(email): first contact, and the chosen designs (f3dd595)
+- feat(email): designed, bilingual emails that reach the inbox (a063ee9)
+- feat(auth): passkeys (5b6aca5)
+- feat(auth): the front door's engine side (79cd333)
+- feat(plugins): plugins add to their blocks as sites get them; their site routes share the fair share (c186) (1eb4c5d)
+- feat(content): deleted models go to the bin with their entries (35c6430)
+- feat(cli): sign in with a code by email, for accounts without a password (5d29045)
+- fix(entries): a draft saves with unfinished blocks; going live checks every depth (8304a5e)
+- feat(api): each project's sites get a fair share of the server, not a rate limit (76b5589)
+- docs: a guide to how the engine works inside, for contributors (38d1491)
+- docs(fields): no references to the Studio's source files (3ccdc27)
+- feat(roles): Content lead and Builder; Developer no longer implies Admin (a10c45c)
+- feat(content): a bin to take deleted entries and pages back from (b1e4d02)
+- feat(images): fast, cached image delivery, counted as image traffic (7818ac6)
+- fix(storage): a full disk leaves files whole and changes committed later (b91193e)
+- fix(api): stopping waits for a scheduled publish under way (e8e4ac3)
+- fix(api): stopping finishes what's in progress; crashed Git locks are cleared (f104874)
+- fix(delivery): a live entry stays live while its edits are in review (9970f99)
+- fix(api): every server error is logged, with its request (335c230)
+- perf: hold a busy day across thousands of projects on one machine (8e68a0c)
+- fix(auth): sign-in tokens carry no project list (18dfd14)
+- fix(projects): a copy starts as its source is published, in its own history (fd79bb4)
+- perf(delivery): keep sites' answers until the project changes (326eb4e)
+- perf(storage): read a project file from disk only when it changed (831c1b9)
+- perf(git): Git never stops the server; pushes go in the background (dbff813)
+- fix(pages): members see which live pages have changes waiting (c157) (8e5b00b)
+- fix(projects): a project that fails to be made leaves nothing behind (ee4a17b)
+- docs: www-moteur as the example project (moteur-* is reserved) (6adabae)
+
 ## 2026.10.28
 
 - docs(api): every success response says what its body holds (7db8197)

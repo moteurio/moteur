@@ -1,6 +1,6 @@
 {
     "name": "@moteurio/commands",
-    "version": "2026.10.28",
+    "version": "2026.10.31",
     "description": "Everything the Moteur API can do, as declared commands: shared by the moteur CLI and the MCP server",
     "type": "module",
     "main": "./dist/index.js",
