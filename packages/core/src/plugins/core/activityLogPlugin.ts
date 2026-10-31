@@ -24,6 +24,7 @@ export const manifest: PluginManifest = {
                 'model.afterCreate',
                 'model.afterUpdate',
                 'model.afterDelete',
+                'model.afterRestore',
                 'entry.afterCreate',
                 'entry.afterUpdate',
                 'entry.afterDelete',
@@ -73,6 +74,9 @@ export function init(ctx: PluginContext): void {
     });
     ctx.onEvent('model.afterDelete', async ({ model, user, projectId }) => {
         log(toActivityEvent(projectId, 'model', model.id, deleted, user));
+    });
+    ctx.onEvent('model.afterRestore', async ({ model, user, projectId }) => {
+        log(toActivityEvent(projectId, 'model', model.id, 'restored', user));
     });
 
     ctx.onEvent('entry.afterCreate', async ({ entry, user, modelId, projectId }) => {

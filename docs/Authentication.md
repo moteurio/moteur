@@ -216,8 +216,8 @@ Each user has **account roles** (`roles` in `users.json`). A project may set oth
 
 - Whoever creates a project (`POST /projects`, or the demo copy made at sign-up) becomes **Admin**, **Developer** and **Billing** on it, on top of their Studio roles.
 - Project admins (`requireProjectAdmin`) update or delete the project, invite people and set their roles, and import or export it.
-- Builders (`requireBuilder`, Developer implies it) change how the project is built: create, update or delete its models, block types, structures, page templates, layouts and forms, and restore their earlier versions. Writers fill these in. They can't change them.
-- Content leads (`requireContentLead`, Admin implies it) change media settings, move videos, delete files, entries and pages for good from the bins, delete others' notes, and publish without review.
+- Builders (`requireBuilder`, Developer implies it) change how the project is built: create, update or delete its models, block types, structures, page templates, layouts and forms, and restore their earlier versions. They take a deleted model out of the bin, its entries with it. Writers fill these in. They can't change them.
+- Content leads (`requireContentLead`, Admin implies it) change media settings, move videos, delete files, entries and pages for good from the bins (a model too, when they are also builders), delete others' notes, and publish without review.
 - Content leads and builders change menus. Writers can't, since a menu is live as saved.
 - Developers (`requireDeveloper`) manage channels, API keys, webhooks, branches and the project's Git remote (its token, and pushing now).
 - Writers (and the roles that imply Writer) read and handle form submissions and make preview links (translators make preview links too). Translators and Billing do neither: submissions hold what visitors wrote about themselves.

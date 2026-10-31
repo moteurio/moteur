@@ -1,8 +1,11 @@
 import fs from 'fs';
-import path from 'path';
-import { ModelSchema } from '@moteurio/types/Model.js';
+import { hasRole } from '@moteurio/types';
+import { Entry, ModelSchema } from '@moteurio/types/Model.js';
 import { isValidId } from './utils/idUtils.js';
-import { baseModelsDir } from './utils/pathUtils.js';
+import { modelDir } from './utils/pathUtils.js';
+import { binModel, getBinItem, unbinModel } from './contentBin.js';
+import { contentForbidden } from './contentAccess.js';
+import { withProjectWriteLock } from './utils/projectWriteLock.js';
 import { User } from '@moteurio/types/User.js';
 import { assertUserCanAccessProject } from './utils/access.js';
 import { getProject } from './projects.js';
@@ -150,13 +153,8 @@ export async function deleteModelSchema(
     const entryIds = await listProjectKeys(projectId, entryListPrefix(schemaId));
     const paths = [modelKey(schemaId), ...entryIds.map(eid => entryKey(schemaId, eid))];
 
-    const base = baseModelsDir(projectId);
-    const source = path.join(base, schemaId);
-    const destDir = path.join(base, '.trash', 'schemas');
-    const dest = path.join(destDir, schemaId);
-
-    fs.mkdirSync(destDir, { recursive: true });
-    fs.renameSync(source, dest);
+    // The model's folder goes to the bin whole, its entries with it, until taken out again.
+    binModel(projectId, current, modelDir(projectId, schemaId), entryIds.length, user);
     await (await getContentIndex()).modelRemoved(projectId, schemaId);
 
     triggerEvent('content.deleted', {
@@ -166,4 +164,70 @@ export async function deleteModelSchema(
         user
     });
     triggerEvent('model.afterDelete', { model: current, user, projectId });
+}
+
+/** A refusal the API turns into HTTP 409: the project changed since it went in the bin. */
+function binConflict(message: string): Error {
+    return Object.assign(new Error(message), { statusCode: 409 });
+}
+
+/**
+ * Takes a deleted model out of the bin with every entry that went with it. Entries come back as
+ * drafts (unpublished, if they had been live), as an entry taken out on its own does: putting
+ * them on the site again goes through publishing and its review. Refused while another model has
+ * its id. Builders, as for making or deleting a model.
+ */
+export async function restoreModelFromBin(
+    user: User,
+    projectId: string,
+    binId: string
+): Promise<{ model: ModelSchema; entryCount: number }> {
+    if (!hasRole(user, 'builder') || user?.agent?.reviewOnly)
+        throw contentForbidden('Only a builder can take a model out of the bin.');
+    await getProject(user, projectId);
+    return withProjectWriteLock(projectId, async () => {
+        const item = getBinItem(projectId, binId);
+        if (item.kind !== 'model') throw binConflict('This is not a model.');
+        const { modelId } = item;
+        const folder = modelDir(projectId, modelId);
+        if ((await hasProjectKey(projectId, modelKey(modelId))) || fs.existsSync(folder))
+            throw binConflict(
+                `Another model has the id "${modelId}" now. Rename or delete it first.`
+            );
+        await checkCountRoom(projectId, 'models', () => countOf(projectId, 'models'));
+        await checkCountRoom(
+            projectId,
+            'entries',
+            () => countOf(projectId, 'entries'),
+            item.entryCount
+        );
+
+        unbinModel(projectId, binId, folder);
+        const index = await getContentIndex();
+        const model =
+            (await getProjectJson<ModelSchema>(projectId, modelKey(modelId))) ?? item.model;
+        const entryIds = await listProjectKeys(projectId, entryListPrefix(modelId));
+        const paths = [modelKey(modelId)];
+        for (const entryId of entryIds) {
+            const key = entryKey(modelId, entryId);
+            const stored = await getProjectJson<Entry>(projectId, key);
+            if (!stored) continue;
+            const entry: Entry = {
+                ...stored,
+                status: stored.meta?.audit?.publishedCommit ? 'unpublished' : 'draft'
+            };
+            await putProjectJson(projectId, key, entry);
+            await index.entryWritten(projectId, modelId, entryId, entry);
+            paths.push(key);
+        }
+
+        await triggerEvent('content.saved', {
+            projectId,
+            paths,
+            message: `Restore model ${modelId} from the bin — ${user.name ?? user.id}`,
+            user
+        });
+        triggerEvent('model.afterRestore', { model, user, projectId });
+        return { model, entryCount: paths.length - 1 };
+    });
 }

@@ -35,6 +35,7 @@ export interface EventMap {
     'model.afterUpdate': { model: ModelSchema; user: User; projectId: string };
     'model.beforeDelete': { model: ModelSchema; user: User; projectId: string };
     'model.afterDelete': { model: ModelSchema; user: User; projectId: string };
+    'model.afterRestore': { model: ModelSchema; user: User; projectId: string };
 
     // Entries (projectId and modelId for activity log)
     'entry.beforeCreate': { entry: Entry; user: User; modelId: string; projectId: string };

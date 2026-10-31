@@ -168,6 +168,11 @@ export function trashTemplatesDir(projectId: string): string {
     return path.join(baseProjectsTrashDir(), safeId(projectId), 'templates');
 }
 
+/** Deleted models, each a folder holding the model and its entries as they were. */
+export function trashSchemasDir(projectId: string): string {
+    return path.join(baseProjectsTrashDir(), safeId(projectId), 'schemas');
+}
+
 export function trashPagesDir(projectId: string): string {
     return path.join(baseProjectsTrashDir(), safeId(projectId), 'pages');
 }

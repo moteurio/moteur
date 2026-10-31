@@ -14,7 +14,7 @@ export type EntryFileRef = { modelId: string; entryId: string; file: string };
 async function subdirectories(dir: string): Promise<string[]> {
     try {
         const items = await fsp.readdir(dir, { withFileTypes: true });
-        // Dot-directories are not content (models/.trash holds deleted models).
+        // Dot-directories are not content.
         return items.filter(d => d.isDirectory() && !d.name.startsWith('.')).map(d => d.name);
     } catch (err) {
         if ((err as NodeJS.ErrnoException).code === 'ENOENT') return [];

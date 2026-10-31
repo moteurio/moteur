@@ -25,6 +25,8 @@ export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
     '/projects/{projectId}/models/{modelId}': {
         delete: {
             summary: 'Delete a model from a project',
+            description:
+                'The model goes to the bin with its entries. `POST /projects/{projectId}/bin/{binId}/restore` brings both back. Builders.',
             tags: ['Models'],
             parameters: [
                 {
@@ -42,7 +44,7 @@ export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
             ],
             responses: {
                 '204': {
-                    description: 'Model deleted successfully'
+                    description: 'Model and its entries in the bin'
                 },
                 '404': {
                     description: 'Model not found',
