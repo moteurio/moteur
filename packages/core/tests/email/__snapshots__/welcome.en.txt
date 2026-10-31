@@ -1,0 +1,18 @@
+Subject: Welcome to Moteur
+
+Welcome, Louise
+
+Your Moteur account is ready. Three things worth doing this week:
+
+1. Start your first client’s project, in their languages.
+2. Invite the client’s team: each with their role, and nothing they can break.
+3. Connect the site: a channel, a key that only reads, and you’re reading content.
+
+Start your first project:
+https://studio.example.com/projects/new
+
+Every save becomes a commit. Nothing is lost, and all of it is yours.
+
+The Moteur team
+
+You get this email because you made an account with louise@agence.example.

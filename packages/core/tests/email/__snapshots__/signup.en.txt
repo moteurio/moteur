@@ -1,0 +1,15 @@
+Subject: 482913 is your Moteur code
+
+Finish making your account
+
+Type this code where you asked for it, and your Moteur account is ready.
+
+    482 913
+
+Or finish with one click:
+
+https://studio.example.com/auth/email#email=louise%40agence.example&token=Xq3v9TzL0b2nC7aR1mK8pW4sYdE6hJ5uFgNi
+
+The code and the link work once, for 15 minutes.
+
+Someone asked to make a Moteur account for louise@agence.example. If it wasn’t you, ignore this email: no account is made without the code.

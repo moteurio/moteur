@@ -14,24 +14,24 @@ This document describes the **HTTP API** for integrating with Moteur: authentica
 
 ## 🔐 Auth (no JWT required for login)
 
-| Method | Endpoint                | Description                                                                                                                                                     |
-| ------ | ----------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| POST   | `/auth/login`           | Log in. Body: `{ username, password }` (email is typical for `username`). Returns `{ token, user }`.                                                            |
-| GET    | `/auth/providers`       | List auth providers. Returns `{ providers }`.                                                                                                                   |
-| POST   | `/auth/refresh`         | Refresh JWT. Returns `{ token }`.                                                                                                                               |
-| GET    | `/auth/me`              | Current user (requires JWT). Returns `{ user }` with projects, `lastLoginAt?`, etc. (no `passwordHash`).                                                        |
-| GET    | `/auth/github`          | GitHub OAuth (if enabled).                                                                                                                                      |
-| GET    | `/auth/github/callback` | GitHub OAuth callback.                                                                                                                                          |
-| GET    | `/auth/google`          | Google OAuth (if enabled).                                                                                                                                      |
-| GET    | `/auth/google/callback` | Google OAuth callback.                                                                                                                                          |
-| GET    | `/auth/signup`          | Whether the server takes new accounts, sends email codes, and `legal: { terms?, privacy? }` (its Terms and Privacy policy).                                     |
-| POST   | `/auth/me/email`        | Email a code to a new sign-in address. Body `{ email }`. Recent personal sign-in. Returns `{ sent: true }`. `EMAIL_SAME`, `EMAIL_TAKEN`, the email-code limits. |
-| POST   | `/auth/me/email/verify` | Body `{ email, code }`: the new address becomes the sign-in email; other sessions end. Returns `{ token, user }`.                                               |
-| GET    | `/auth/me/export`       | Download what the server keeps about you (`moteur-account-<date>.json`). Personal session.                                                                      |
-| GET    | `/auth/me/deletion`     | What deleting your account would do: `{ deletes, leaves, blocked }` (projects).                                                                                 |
-| DELETE | `/auth/me`              | Delete your account. Body `{ email }` typed back. Recent personal sign-in. **204**; `CONFIRM_MISMATCH`, `SOLE_ADMIN` (with `projects`).                         |
-| POST   | `/auth/passkeys/sign-in/options` | Start signing in with a passkey. Returns `{ options }` for the browser.                                                               |
-| POST   | `/auth/passkeys/sign-in/verify`  | The browser's answer. Returns `{ token, user }`. Adding, listing and removing passkeys: [Authentication](Authentication.md#passkeys). |
+| Method | Endpoint                         | Description                                                                                                                                                     |
+| ------ | -------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| POST   | `/auth/login`                    | Log in. Body: `{ username, password }` (email is typical for `username`). Returns `{ token, user }`.                                                            |
+| GET    | `/auth/providers`                | List auth providers. Returns `{ providers }`.                                                                                                                   |
+| POST   | `/auth/refresh`                  | Refresh JWT. Returns `{ token }`.                                                                                                                               |
+| GET    | `/auth/me`                       | Current user (requires JWT). Returns `{ user }` with projects, `lastLoginAt?`, etc. (no `passwordHash`).                                                        |
+| GET    | `/auth/github`                   | GitHub OAuth (if enabled).                                                                                                                                      |
+| GET    | `/auth/github/callback`          | GitHub OAuth callback.                                                                                                                                          |
+| GET    | `/auth/google`                   | Google OAuth (if enabled).                                                                                                                                      |
+| GET    | `/auth/google/callback`          | Google OAuth callback.                                                                                                                                          |
+| GET    | `/auth/signup`                   | Whether the server takes new accounts, sends email codes, and `legal: { terms?, privacy? }` (its Terms and Privacy policy).                                     |
+| POST   | `/auth/me/email`                 | Email a code to a new sign-in address. Body `{ email }`. Recent personal sign-in. Returns `{ sent: true }`. `EMAIL_SAME`, `EMAIL_TAKEN`, the email-code limits. |
+| POST   | `/auth/me/email/verify`          | Body `{ email, code }`: the new address becomes the sign-in email; other sessions end. Returns `{ token, user }`.                                               |
+| GET    | `/auth/me/export`                | Download what the server keeps about you (`moteur-account-<date>.json`). Personal session.                                                                      |
+| GET    | `/auth/me/deletion`              | What deleting your account would do: `{ deletes, leaves, blocked }` (projects).                                                                                 |
+| DELETE | `/auth/me`                       | Delete your account. Body `{ email }` typed back. Recent personal sign-in. **204**; `CONFIRM_MISMATCH`, `SOLE_ADMIN` (with `projects`).                         |
+| POST   | `/auth/passkeys/sign-in/options` | Start signing in with a passkey. Returns `{ options }` for the browser.                                                                                         |
+| POST   | `/auth/passkeys/sign-in/verify`  | The browser's answer. Returns `{ token, user }`. Adding, listing and removing passkeys: [Authentication](Authentication.md#passkeys).                           |
 
 Refusals carry a machine `code`, and `retryAfter` (seconds, also the `Retry-After` header) when waiting helps: `POST /auth/login` answers **401** `LOGIN_FAILED`, then `LOGIN_SLOWED` with `retryAfter`. Every limit is listed in [Authentication › Limits](Authentication.md#limits-and-when-to-try-again); the account routes in [Authentication › Your account](Authentication.md#your-account-email-export-deletion).
 

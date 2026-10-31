@@ -1,0 +1,19 @@
+Subject: Test email from Moteur
+
+This is a test
+
+If you can read this, this server can send email. To see whether SPF, DKIM and DMARC passed, open the message’s source and look for Authentication-Results.
+
+Sent:
+Oct 31, 2026, 10:42 a.m.
+
+From:
+Moteur <signin@example.com>
+
+Mail server:
+smtp.example.com:587
+
+Signed (DKIM) by the engine:
+example.com (selector mail)
+
+An operator sent this from the server to check that its email works.

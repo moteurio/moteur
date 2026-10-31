@@ -135,18 +135,27 @@ See [Operations](Operations.md) for storage, backup/restore, the single-writer m
 
 `MOTEUR_ENCRYPTION_KEY` encrypts stored webhook secrets and projects' Git tokens with AES-256-GCM. In production, the engine refuses Git tokens while it is unset. Preserve the key when restoring a data backup. See [Webhooks](Webhooks.md) for delivery limits and signature verification.
 
+## Email
+
+SMTP credentials and DKIM keys are environment variables; who mail comes from and how it looks
+(product name, look, accent, logo, footer, language) are the operator's settings, kept in
+`data/operator/email.json`. `MOTEUR_API_URL` (the API's public address) puts a one-click
+unsubscribe link in review emails. See [Email](Email.md) for every setting, the DNS records
+receivers check, and `moteur-email check`.
+
 ## Verification and resource budgets
 
-| Variable                          | Default    | Purpose                                                                        |
-| --------------------------------- | ---------- | ------------------------------------------------------------------------------ |
-| `SMTP_HOST`, `SMTP_FROM`          | Unset      | Required to deliver signup verification codes; no silent verification fallback |
-| `SMTP_PORT`                       | `587`      | SMTP port; `465` uses TLS at connection                                        |
-| `SMTP_USER`, `SMTP_PASS`          | Unset      | Optional SMTP authentication                                                   |
-| `API_RATE_LIMIT_VERIFICATION_MAX` | `60`       | Email-code, provider and email-change steps per IP per 15 minutes; max 1,000   |
-| `API_UPLOAD_CONCURRENCY`          | `2`        | Concurrent buffered uploads; maximum 8; excess receives 429                    |
-| `MOTEUR_IMAGE_CONCURRENCY`        | `2`        | Image workers; maximum 8; eight additional jobs may wait                       |
-| `MOTEUR_IMAGE_MAX_PIXELS`         | `16000000` | Input pixel ceiling, including animation frames; maximum 100 million           |
-| `API_READ_MAX_REFERENCES`         | `200`      | Reference edges per delivery request; maximum 2,000                            |
-| `API_READ_MAX_BYTES`              | `8388608`  | Serialized entry-work budget per delivery request; maximum 64 MiB              |
+| Variable                            | Default    | Purpose                                                                        |
+| ----------------------------------- | ---------- | ------------------------------------------------------------------------------ |
+| `SMTP_HOST`, `SMTP_FROM`            | Unset      | Required to deliver signup verification codes; no silent verification fallback |
+| `SMTP_PORT`                         | `587`      | SMTP port; `465` uses TLS at connection                                        |
+| `SMTP_USER`, `SMTP_PASS`            | Unset      | Optional SMTP authentication                                                   |
+| `SMTP_RETURN_PATH`, `MOTEUR_DKIM_*` | Unset      | Bounce address, and DKIM signing by the engine: see [Email](Email.md)          |
+| `API_RATE_LIMIT_VERIFICATION_MAX`   | `60`       | Email-code, provider and email-change steps per IP per 15 minutes; max 1,000   |
+| `API_UPLOAD_CONCURRENCY`            | `2`        | Concurrent buffered uploads; maximum 8; excess receives 429                    |
+| `MOTEUR_IMAGE_CONCURRENCY`          | `2`        | Image workers; maximum 8; eight additional jobs may wait                       |
+| `MOTEUR_IMAGE_MAX_PIXELS`           | `16000000` | Input pixel ceiling, including animation frames; maximum 100 million           |
+| `API_READ_MAX_REFERENCES`           | `200`      | Reference edges per delivery request; maximum 2,000                            |
+| `API_READ_MAX_BYTES`                | `8388608`  | Serialized entry-work budget per delivery request; maximum 64 MiB              |
 
 Session and verification state follows `AUTH_USERS_FILE` into its parent directory. The session-aware release requires users to sign in again. Release the engine/API, auth providers, presence plugin and Studio together; provider callbacks use the updated SDK contract. See [Authentication](Authentication.md) and [Operations](Operations.md).

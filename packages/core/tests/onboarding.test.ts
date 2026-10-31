@@ -110,7 +110,7 @@ describe('a new person’s first minutes', () => {
         vi.stubEnv('STUDIO_URL', 'https://studio.moteur.io/');
         await sendWelcome(getUserById('user:abcd1234ef')!);
         expect(mail.sent[0].subject).toBe('Welcome to Moteur');
-        expect(mail.sent[0].text).toMatch(/^Hi Théo,/);
+        expect(mail.sent[0].text).toMatch(/^Welcome, Théo\n/);
         expect(mail.sent[0].text).toContain('https://studio.moteur.io/projects/new');
         expect(mail.sent[0].text).not.toContain('!');
     });

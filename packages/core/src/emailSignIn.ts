@@ -3,8 +3,11 @@ import type { SignupRecord, User } from '@moteurio/types/User.js';
 import { finishSignIn, type SignedInUser, type TwoFactorStep } from './auth.js';
 import { changeUserEmail, createUser, getUserByEmail, getUserById, reloadUsers } from './users.js';
 import { privateStatePath, readPrivateState, writePrivateState } from './utils/privateStore.js';
-import { emailUnavailable, sendCodeEmail, sendEmail } from './emailNotifier.js';
+import { emailUnavailable, sendCodeEmail, sendTemplateEmail } from './emailNotifier.js';
 import { triggerEvent } from './utils/eventBus.js';
+import { readerOf, renderEmail } from './email/render.js';
+import { CODE_MINUTES } from './email/templates.js';
+import type { EmailLook } from './email/settings.js';
 import { signupOpen } from './signupPolicy.js';
 import { hasLiveInvite } from './invites.js';
 import { studioUrl } from './utils/studioUrl.js';
@@ -22,7 +25,6 @@ export { signupOpen } from './signupPolicy.js';
  * someone typing wrong codes for another person's address can't keep them out.
  */
 
-const CODE_MINUTES = 15;
 const RESEND_SECONDS = 60;
 /** Codes asked for one address in an hour. */
 const SENDS_PER_HOUR = 10;
@@ -121,40 +123,6 @@ export function emailCodesAvailable(): boolean {
     return !emailUnavailable() || codesToLog();
 }
 
-const WORDS = {
-    en: {
-        subject: (code: string) => `${code} is your Moteur code`,
-        linkSubject: 'Your Moteur sign-in link',
-        signin: 'Here is your code to sign in to Moteur',
-        signup: 'Here is your code to finish making your Moteur account',
-        change: 'Here is your code to make this the sign-in email of your Moteur account',
-        orLink: 'Or open this link',
-        linkOnly:
-            'Too many wrong codes were typed for this address today, so codes are off until tomorrow. Open this link to go on',
-        after: `It works once, for ${CODE_MINUTES} minutes. If you didn't ask for it, ignore this email: nothing happens without it.`,
-        changedSubject: 'Your Moteur sign-in email changed',
-        changed: (to: string) =>
-            `The sign-in email for your Moteur account changed to ${to}. From now on, codes and links go there.\n\nIf this wasn't you, contact the people who run your Moteur server right away: someone else may have your account.`
-    },
-    fr: {
-        subject: (code: string) => `${code} est votre code Moteur`,
-        linkSubject: 'Votre lien de connexion Moteur',
-        signin: 'Voici votre code pour vous connecter à Moteur',
-        signup: 'Voici votre code pour terminer la création de votre compte Moteur',
-        change: 'Voici votre code pour faire de cette adresse le courriel de connexion de votre compte Moteur',
-        orLink: 'Ou ouvrez ce lien',
-        linkOnly:
-            'Trop de codes erronés ont été saisis pour cette adresse aujourd’hui, les codes sont donc désactivés jusqu’à demain. Ouvrez ce lien pour continuer',
-        after: `Il ne sert qu’une fois, pendant ${CODE_MINUTES} minutes. Si vous ne l’avez pas demandé, ignorez ce courriel\u202f: rien ne se passe sans lui.`,
-        changedSubject: 'Le courriel de connexion de votre compte Moteur a changé',
-        changed: (to: string) =>
-            `Le courriel de connexion de votre compte Moteur est maintenant ${to}. Les codes et les liens y seront envoyés.\n\nSi ce n’est pas vous, prévenez sans attendre les personnes qui gèrent votre serveur Moteur\u202f: quelqu’un d’autre a peut-être votre compte.`
-    }
-};
-
-const wordsFor = (locale?: string) =>
-    locale?.toLowerCase().startsWith('fr') ? WORDS.fr : WORDS.en;
-
 /** Where the link opens: the Studio's page, with what it needs after `#`, so it reaches no server log. */
 function signInLink(email: string, token: string): string | undefined {
     const studio = studioUrl();
@@ -167,13 +135,18 @@ function deliverLater(
     email: string,
     code: string | null,
     purpose: Purpose,
-    locale?: string,
+    reader: { locale?: string; look?: EmailLook },
     link?: string
 ) {
-    const w = wordsFor(locale);
-    const text = code
-        ? `${w[purpose]}:\n\n    ${code.slice(0, 3)} ${code.slice(3)}\n\n${link ? `${w.orLink}:\n\n${link}\n\n` : ''}${w.after}`
-        : `${w.linkOnly}:\n\n${link}\n\n${w.after}`;
+    const rendered = code
+        ? purpose === 'change'
+            ? renderEmail('email-change', { email, code }, reader)
+            : renderEmail(purpose, { email, code, link }, reader)
+        : renderEmail(
+              'signin-link',
+              { email, link: link!, purpose: purpose === 'signup' ? 'signup' : 'signin' },
+              reader
+          );
     setTimeout(() => {
         if (codesToLog()) {
             console.info(
@@ -183,8 +156,10 @@ function deliverLater(
         }
         sendCodeEmail({
             to: [email],
-            subject: code ? w.subject(code) : w.linkSubject,
-            text
+            subject: rendered.subject,
+            text: rendered.text,
+            html: rendered.html,
+            attachments: rendered.attachments
         }).catch(err => {
             console.error(
                 '[moteur] An email code could not be sent:',
@@ -357,7 +332,14 @@ export async function requestEmailCode(
         pending: [...store.pending.filter(p => p.id !== id), next],
         sent: purpose ? [...store.sent, now] : store.sent
     } satisfies Store);
-    if (purpose) deliverLater(email, codesOff ? null : code, purpose, context.locale, link);
+    if (purpose)
+        deliverLater(
+            email,
+            codesOff ? null : code,
+            purpose,
+            { locale: context.locale ?? readerOf(user).locale, look: readerOf(user).look },
+            link
+        );
 }
 
 function cleanContext(context: SignupContext): SignupContext {
@@ -506,7 +488,8 @@ export async function requestEmailChange(
         pending: [...store.pending.filter(p => p.id !== id), next],
         sent: [...store.sent, now]
     } satisfies Store);
-    deliverLater(email, code, 'change', locale ?? user.signup?.locale);
+    const reader = readerOf(user);
+    deliverLater(email, code, 'change', { locale: locale ?? reader.locale, look: reader.look });
 }
 
 /**
@@ -534,13 +517,16 @@ export async function confirmEmailChange(
     const { user, previousEmail } = await changeUserEmail(userId, email);
     void triggerEvent('auth.email.changed', { userId });
     if (!emailUnavailable()) {
-        const w = wordsFor(user.signup?.locale);
-        sendEmail({ to: [previousEmail], subject: w.changedSubject, text: w.changed(email) }).catch(
-            err =>
-                console.error(
-                    '[moteur] The email-change notice could not be sent:',
-                    err instanceof Error ? err.message : err
-                )
+        sendTemplateEmail(
+            'email-changed',
+            [previousEmail],
+            { email: previousEmail, to: email },
+            readerOf(user)
+        ).catch(err =>
+            console.error(
+                '[moteur] The email-change notice could not be sent:',
+                err instanceof Error ? err.message : err
+            )
         );
     }
     return { user, previousEmail };

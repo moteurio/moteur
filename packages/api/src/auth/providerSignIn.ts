@@ -83,7 +83,8 @@ router.post('/provider/email', async (req, res) => {
     try {
         await requestProviderEmail(
             ...inputs(req),
-            typeof req.body?.email === 'string' ? req.body.email : ''
+            typeof req.body?.email === 'string' ? req.body.email : '',
+            typeof req.body?.locale === 'string' ? req.body.locale.slice(0, 20) : undefined
         );
         res.json({ sent: true });
     } catch (error) {
@@ -197,7 +198,10 @@ export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
     ),
     '/auth/provider/email': proofPost(
         'Send an email verification code',
-        { email: { type: 'string', format: 'email' } },
+        {
+            email: { type: 'string', format: 'email' },
+            locale: { type: 'string', description: 'The language of the email (`fr`, `en`…)' }
+        },
         ['email'],
         { type: 'object', properties: { sent: { type: 'boolean' } } }
     ),

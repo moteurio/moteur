@@ -1,0 +1,19 @@
+Subject: Courriel d’essai de Moteur
+
+Ceci est un essai
+
+Si vous lisez ceci, ce serveur peut envoyer des courriels. Pour savoir si SPF, DKIM et DMARC ont réussi, ouvrez la source du message et cherchez Authentication-Results.
+
+Envoyé :
+31 octobre 2026, 10 h 42
+
+De :
+Moteur <signin@example.com>
+
+Serveur d’envoi :
+smtp.example.com:587
+
+Signé (DKIM) par le moteur :
+example.com (selector mail)
+
+Un opérateur a envoyé ce courriel depuis le serveur pour vérifier ses envois.

@@ -1,0 +1,11 @@
+Subject: Nouveau message : Contact
+
+Nom:
+Marc Gagnon
+
+Courriel:
+marc@client.example
+
+Message:
+Bonjour, pouvez-vous corriger la date de l’article sur le festival ?
+Merci !

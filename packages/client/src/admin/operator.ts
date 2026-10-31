@@ -76,6 +76,23 @@ export function operatorApi(client: MoteurClient) {
             delete(kind: SchemaKind, name: string): Promise<void> {
                 return client.delete(`/operator/schemas/${kind}/${encodeURIComponent(name)}`);
             }
+        },
+        /** Who the server's email comes from, how it looks, and whether receivers will trust it. */
+        email: {
+            get(): Promise<Record<string, unknown>> {
+                return client.get('/operator/email');
+            },
+            /** Any settings; null puts one back to its default. */
+            update(settings: Record<string, unknown>): Promise<Record<string, unknown>> {
+                return client.patch('/operator/email', settings);
+            },
+            /** SMTP, SPF, DMARC, DKIM and MX; with `to`, a test email too. */
+            check(body: { to?: string; selectors?: string[] } = {}): Promise<{
+                checks: { id: string; status: string; message: string; found?: string }[];
+                sent?: { to: string; messageId: string };
+            }> {
+                return client.post('/operator/email/check', body);
+            }
         }
     };
 }

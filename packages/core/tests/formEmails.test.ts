@@ -5,7 +5,14 @@ import os from 'os';
 import type { FormSchema } from '@moteurio/types/Form.js';
 import type { User } from '@moteurio/types/User.js';
 
-const sent: { to: string[]; subject: string; text: string; replyTo?: string }[] = [];
+const sent: {
+    to: string[];
+    subject: string;
+    text: string;
+    html?: string;
+    fromName?: string;
+    replyTo?: string;
+}[] = [];
 let failWith: string | null = null;
 vi.mock('../src/emailNotifier.js', () => ({
     sendEmail: vi.fn(async (m: (typeof sent)[number]) => {
@@ -94,7 +101,14 @@ describe('form emails', () => {
 
     it('fills in answers for the action, tells the team, confirms to the sender', async () => {
         const done = await send();
-        expect(sent).toEqual([
+        // The words as written; an HTML part headed by the project's name, sent under its name.
+        const plain = sent.map(({ to, subject, text, replyTo }) => ({
+            to,
+            subject,
+            text,
+            ...(replyTo && { replyTo })
+        }));
+        expect(plain).toEqual([
             {
                 to: ['desk@journal.test'],
                 subject: 'De Lise',
@@ -110,6 +124,12 @@ describe('form emails', () => {
             // In the language the sender wrote in.
             { to: ['lise@courriel.test'], subject: 'Merci Lise', text: 'Got it, Lise.' }
         ]);
+        for (const m of sent) {
+            expect(m.fromName).toBe('P');
+            expect(m.html).toContain('>P</span>');
+        }
+        expect(sent[1].html).toContain('lise@courriel.test');
+        expect(sent[2].html).toContain('Got it, Lise.');
         expect(done.actionResults.map(r => `${r.type}:${r.status}`)).toEqual([
             'email:success',
             'notify:success',

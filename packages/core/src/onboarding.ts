@@ -3,6 +3,7 @@ import { copyProjectForNewUser, getDemoProjectId } from './projects.js';
 import { getUserById, updateStoredUser } from './users.js';
 import { isExistingProjectId } from './utils/fileUtils.js';
 import { emailUnavailable, sendEmail } from './emailNotifier.js';
+import { readerOf, renderEmail } from './email/render.js';
 import { studioUrl } from './utils/studioUrl.js';
 
 /**
@@ -82,40 +83,18 @@ async function copyDemo(userId: string): Promise<string> {
 /** A first email that says what to do this week. Never fails the sign-up. */
 export async function sendWelcome(user: User): Promise<void> {
     if (!user.email || emailUnavailable()) return;
-    const fr = user.signup?.locale?.toLowerCase().startsWith('fr');
     const name = user.name?.split(' ')[0] || user.email.split('@')[0];
-    const studio = studioUrl();
-    const link = (path: string) => (studio ? `\n   ${studio}${path}` : '');
-    const text = fr
-        ? [
-              `Bonjour ${name},`,
-              '',
-              'Votre compte Moteur est prêt. Trois choses à faire cette semaine :',
-              '',
-              `1. Créez le projet de votre premier client, et ses langues.${link('/projects/new')}`,
-              '2. Invitez l’équipe du client : chacun son rôle, et rien qu’il puisse briser.',
-              '3. Branchez le site : un canal, une clé qui ne fait que lire, et c’est parti.',
-              '',
-              'Chaque enregistrement devient un commit. Rien n’est perdu, et tout vous appartient.',
-              '',
-              'L’équipe Moteur'
-          ]
-        : [
-              `Hi ${name},`,
-              '',
-              'Your Moteur account is ready. Three things worth doing this week:',
-              '',
-              `1. Start your first client's project, in their languages.${link('/projects/new')}`,
-              "2. Invite the client's team: each with their role, and nothing they can break.",
-              "3. Connect the site: a channel, a key that only reads, and you're reading content.",
-              '',
-              'Every save becomes a commit. Nothing is lost, and all of it is yours.',
-              '',
-              'The Moteur team'
-          ];
+    const email = renderEmail(
+        'welcome',
+        { email: user.email, name, studioUrl: studioUrl() },
+        readerOf(user)
+    );
     await sendEmail({
         to: [user.email],
-        subject: fr ? 'Bienvenue dans Moteur' : 'Welcome to Moteur',
-        text: text.join('\n')
+        subject: email.subject,
+        text: email.text,
+        html: email.html,
+        attachments: email.attachments,
+        category: 'auth'
     }).catch(() => undefined);
 }
