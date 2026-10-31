@@ -1,0 +1,9 @@
+Subject: Your Moteur sign-in email changed
+
+Your sign-in email changed
+
+Your Moteur account signs in with louise@nouvelle-agence.example now. Codes and links go there.
+
+If this wasn’t you, contact the people who run your Moteur server right away: someone else may have your account.
+
+This goes to louise@agence.example, the account’s previous sign-in email, so you know it changed.
