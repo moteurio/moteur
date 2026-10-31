@@ -179,6 +179,53 @@ describe('blueprints', () => {
         });
     });
 
+    describe('firstProject', () => {
+        it('keeps the mark through create, update and list', () => {
+            createBlueprint({
+                id: 'starter',
+                name: 'Starter',
+                kind: 'project',
+                firstProject: true
+            });
+            expect(listBlueprints('project')[0]).toMatchObject({ firstProject: true });
+            updateBlueprint('project', 'starter', { firstProject: false });
+            expect(getBlueprint('project', 'starter').firstProject).toBe(false);
+            updateBlueprint('project', 'starter', { name: 'Renamed' });
+            expect(getBlueprint('project', 'starter').firstProject).toBe(false);
+        });
+
+        it('refuses anything but true or false', () => {
+            for (const firstProject of ['yes', 1, null]) {
+                expect(() =>
+                    createBlueprint({
+                        id: 'odd',
+                        name: 'Odd',
+                        kind: 'project',
+                        firstProject: firstProject as unknown as boolean
+                    })
+                ).toThrow('Invalid blueprint');
+            }
+            createBlueprint({ id: 'plain', name: 'Plain', kind: 'project' });
+            expect(() =>
+                updateBlueprint('project', 'plain', {
+                    firstProject: 'true' as unknown as boolean
+                })
+            ).toThrow('"firstProject" must be true or false');
+        });
+
+        it('is for project blueprints only', () => {
+            expect(() =>
+                createBlueprint({
+                    id: 'post',
+                    name: 'Post',
+                    kind: 'model',
+                    firstProject: true,
+                    template: { model: { id: 'post', label: 'Post', fields: {} } as any }
+                })
+            ).toThrow('only project blueprints');
+        });
+    });
+
     describe('deleteBlueprint', () => {
         it('throws for invalid id', () => {
             expect(() => deleteBlueprint('project', 'invalid!')).toThrow('Invalid blueprint id');

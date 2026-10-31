@@ -8,6 +8,7 @@ import {
 } from '@moteurio/core/projectApiKey.js';
 import { requestHostMatchesAllowed } from '@moteurio/core/apiKeyAllowedHosts.js';
 import { listChannels } from '@moteurio/core/channels.js';
+import { noteApiKeyUse } from '@moteurio/core/apiKeyUsage.js';
 import { sendApiError } from '../utils/apiError.js';
 
 const router: Router = Router();
@@ -46,6 +47,7 @@ router.get('/me', async (req: Request, res: Response) => {
                 });
             }
         }
+        noteApiKeyUse(projectId, result.keyId);
         const all = (await listChannels(projectId)).map(c => c.id);
         const only = result.policy.channelAllowlist;
         const channels = only ? all.filter(id => only.includes(id)) : all;

@@ -120,6 +120,8 @@ export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
     '/projects/{projectId}/api-keys': {
         get: {
             summary: 'List project API keys (metadata only)',
+            description:
+                'Each key without its secret or hash, with `lastUsedAt` once a request has used it.',
             tags: ['Project API keys'],
             parameters: [
                 { name: 'projectId', in: 'path', required: true, schema: { type: 'string' } }

@@ -171,6 +171,7 @@ export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
                             properties: {
                                 name: { type: 'string' },
                                 description: { type: 'string' },
+                                firstProject: { type: 'boolean' },
                                 template: { $ref: '#/components/schemas/BlueprintTemplate' }
                             }
                         }
@@ -545,6 +546,11 @@ export const schemas: OpenAPIV3.ComponentsObject['schemas'] = {
                 type: 'string',
                 enum: ['project', 'model', 'structure', 'template'],
                 description: 'Blueprint kind; set by route for create.'
+            },
+            firstProject: {
+                type: 'boolean',
+                description:
+                    'Offer this starting point to a new person making their first project. Project blueprints only; set by an operator.'
             },
             template: { $ref: '#/components/schemas/BlueprintTemplate' }
         }

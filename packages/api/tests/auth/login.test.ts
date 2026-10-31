@@ -69,11 +69,12 @@ describe('POST /auth/login', () => {
             .send({ username: 'tester@example.com', password: 'wrongpass' });
 
         expect(res.status).toBe(401);
-        expect(res.body).toMatchObject({ error: 'Invalid credentials' });
+        expect(res.body).toMatchObject({ error: 'Invalid credentials', code: 'LOGIN_FAILED' });
+        expect(res.headers['retry-after']).toBeUndefined();
         expect(loginDelayStore.sleep).toHaveBeenCalledWith(0);
     });
 
-    it('should sleep progressively after repeated failures and hint retryAfterSeconds', async () => {
+    it('should sleep progressively after repeated failures and say how long (LOGIN_SLOWED)', async () => {
         (loginUser as any).mockRejectedValue(new Error('Invalid credentials'));
 
         await request(app)
@@ -85,8 +86,9 @@ describe('POST /auth/login', () => {
             .send({ username: 'slow@example.com', password: 'bad2' });
 
         expect(res2.status).toBe(401);
-        expect(res2.body.error).toBe('Too many failed attempts, please wait before trying again.');
-        expect(res2.body.retryAfterSeconds).toBe(2);
+        expect(res2.body).toMatchObject({ code: 'LOGIN_SLOWED', retryAfter: 2 });
+        expect(res2.body).not.toHaveProperty('retryAfterSeconds');
+        expect(res2.headers['retry-after']).toBe('2');
         expect(loginDelayStore.sleep).toHaveBeenLastCalledWith(1000);
     });
 

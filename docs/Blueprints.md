@@ -40,6 +40,7 @@ Blueprints are **server-wide templates** (project / model / structure / page tem
 - **name** (required): Display name (e.g. in the project creation wizard).
 - **description** (optional): Short explanation of the blueprint.
 - **kind** (optional): Omit or set to `"project"` for project blueprints.
+- **firstProject** (optional): `true` offers this starting point to a new person making their first project. Operators mark the project blueprints that suit a first project; it must be `true` or `false` (anything else is **400**), and only project blueprints take it. `GET /blueprints/projects` returns it with the rest.
 - **template** (optional): Object with:
     - **models**: Array of model schema objects to create in the new project.
     - **layouts**: Array of layout objects to create.

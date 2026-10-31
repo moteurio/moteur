@@ -14,16 +14,24 @@ This document describes the **HTTP API** for integrating with Moteur: authentica
 
 ## 🔐 Auth (no JWT required for login)
 
-| Method | Endpoint                | Description                                                                                              |
-| ------ | ----------------------- | -------------------------------------------------------------------------------------------------------- |
-| POST   | `/auth/login`           | Log in. Body: `{ username, password }` (email is typical for `username`). Returns `{ token, user }`.     |
-| GET    | `/auth/providers`       | List auth providers. Returns `{ providers }`.                                                            |
-| POST   | `/auth/refresh`         | Refresh JWT. Returns `{ token }`.                                                                        |
-| GET    | `/auth/me`              | Current user (requires JWT). Returns `{ user }` with projects, `lastLoginAt?`, etc. (no `passwordHash`). |
-| GET    | `/auth/github`          | GitHub OAuth (if enabled).                                                                               |
-| GET    | `/auth/github/callback` | GitHub OAuth callback.                                                                                   |
-| GET    | `/auth/google`          | Google OAuth (if enabled).                                                                               |
-| GET    | `/auth/google/callback` | Google OAuth callback.                                                                                   |
+| Method | Endpoint                | Description                                                                                                                                                     |
+| ------ | ----------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| POST   | `/auth/login`           | Log in. Body: `{ username, password }` (email is typical for `username`). Returns `{ token, user }`.                                                            |
+| GET    | `/auth/providers`       | List auth providers. Returns `{ providers }`.                                                                                                                   |
+| POST   | `/auth/refresh`         | Refresh JWT. Returns `{ token }`.                                                                                                                               |
+| GET    | `/auth/me`              | Current user (requires JWT). Returns `{ user }` with projects, `lastLoginAt?`, etc. (no `passwordHash`).                                                        |
+| GET    | `/auth/github`          | GitHub OAuth (if enabled).                                                                                                                                      |
+| GET    | `/auth/github/callback` | GitHub OAuth callback.                                                                                                                                          |
+| GET    | `/auth/google`          | Google OAuth (if enabled).                                                                                                                                      |
+| GET    | `/auth/google/callback` | Google OAuth callback.                                                                                                                                          |
+| GET    | `/auth/signup`          | Whether the server takes new accounts, sends email codes, and `legal: { terms?, privacy? }` (its Terms and Privacy policy).                                     |
+| POST   | `/auth/me/email`        | Email a code to a new sign-in address. Body `{ email }`. Recent personal sign-in. Returns `{ sent: true }`. `EMAIL_SAME`, `EMAIL_TAKEN`, the email-code limits. |
+| POST   | `/auth/me/email/verify` | Body `{ email, code }`: the new address becomes the sign-in email; other sessions end. Returns `{ token, user }`.                                               |
+| GET    | `/auth/me/export`       | Download what the server keeps about you (`moteur-account-<date>.json`). Personal session.                                                                      |
+| GET    | `/auth/me/deletion`     | What deleting your account would do: `{ deletes, leaves, blocked }` (projects).                                                                                 |
+| DELETE | `/auth/me`              | Delete your account. Body `{ email }` typed back. Recent personal sign-in. **204**; `CONFIRM_MISMATCH`, `SOLE_ADMIN` (with `projects`).                         |
+
+Refusals carry a machine `code`, and `retryAfter` (seconds, also the `Retry-After` header) when waiting helps: `POST /auth/login` answers **401** `LOGIN_FAILED`, then `LOGIN_SLOWED` with `retryAfter`. Every limit is listed in [Authentication › Limits](Authentication.md#limits-and-when-to-try-again); the account routes in [Authentication › Your account](Authentication.md#your-account-email-export-deletion).
 
 ---
 
@@ -228,6 +236,8 @@ Operators, who sign in apart from accounts (see [Authentication](Authentication.
 | GET    | `/operator/schemas/:kind`       | Server-wide `blocks` or `structures` (`origin`: `shipped`, `file`, `changed`).                                    |
 | PUT    | `/operator/schemas/:kind/:name` | Write `data/core/{kind}/{name}.json` as `core/{name}`.                                                            |
 | DELETE | `/operator/schemas/:kind/:name` | Remove the server file; a shipped one comes back as it ships.                                                     |
+| GET    | `/operator/settings`            | `{ settings, env }`: what operators saved, and what the environment gives (`termsUrl`, `privacyUrl`).             |
+| PATCH  | `/operator/settings`            | Body: any of `termsUrl`, `privacyUrl` (an https address, or `null` to clear). **400** `URL_INVALID`.              |
 
 On api.moteur.io, billing adds `/billing/operator/plans`, `PATCH /billing/operator/plans/:planId`, `/billing/operator/projects` and `/billing/operator/revenue` (MRR from active subscriptions, plus paid invoices by month).
 
@@ -352,13 +362,13 @@ JWT + **operator** role only. Returns current request counts in two buckets: **s
 
 JWT + project access. Multiple keys per project. Raw secret is returned only on create/rotate.
 
-| Method | Endpoint                                      | Description                                                                                                                                |
-| ------ | --------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
-| GET    | `/projects/:projectId/api-keys`               | List key metadata (id, prefix, createdAt, expiresAt, expired, allowedHosts, allowlist, allowSiteWideReads). Never hash or raw secret.      |
-| POST   | `/projects/:projectId/api-keys`               | Create key. Optional body: `label`, `expiresAt`, `allowedChannelIds`, `allowSiteWideReads`. Returns metadata + `rawKey` once.              |
-| POST   | `/projects/:projectId/api-keys/:keyId/rotate` | Rotate that key. New `rawKey` once; restrictions and lifetime preserved.                                                                   |
-| DELETE | `/projects/:projectId/api-keys/:keyId`        | Revoke. 204.                                                                                                                               |
-| PATCH  | `/projects/:projectId/api-keys/:keyId`        | Update `allowedHosts`, `label`, `expiresAt` (`null` = never expires), `allowedChannelIds` (`null` clears allowlist), `allowSiteWideReads`. |
+| Method | Endpoint                                      | Description                                                                                                                                                 |
+| ------ | --------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| GET    | `/projects/:projectId/api-keys`               | List key metadata (id, prefix, createdAt, expiresAt, expired, allowedHosts, allowlist, allowSiteWideReads, lastUsedAt once used). Never hash or raw secret. |
+| POST   | `/projects/:projectId/api-keys`               | Create key. Optional body: `label`, `expiresAt`, `allowedChannelIds`, `allowSiteWideReads`. Returns metadata + `rawKey` once.                               |
+| POST   | `/projects/:projectId/api-keys/:keyId/rotate` | Rotate that key. New `rawKey` once; restrictions and lifetime preserved.                                                                                    |
+| DELETE | `/projects/:projectId/api-keys/:keyId`        | Revoke. 204.                                                                                                                                                |
+| PATCH  | `/projects/:projectId/api-keys/:keyId`        | Update `allowedHosts`, `label`, `expiresAt` (`null` = never expires), `allowedChannelIds` (`null` clears allowlist), `allowSiteWideReads`.                  |
 
 Expired keys get **401** with `code: "API_KEY_EXPIRED"`.
 
@@ -492,7 +502,7 @@ Set **`MOTEUR_FAIL_ON_OPENAPI_COLLISION=1`** to fail bootstrap when merged plugi
 | Studio | IP  | 10000 / 15 min (effectively off) | `API_RATE_LIMIT_STUDIO_MAX` |
 | Login  | IP  | 10 / 15 min                      | `API_RATE_LIMIT_LOGIN_MAX`  |
 
-When exceeded, response is **429** with `{ error: "Too many requests...", code: "rate_limited" }` and a `Retry-After` header in seconds (exposed to browsers through CORS). Limits and the fair share are kept in the API process: with several API instances, each keeps its own.
+When exceeded, response is **429** with `{ error: "Too many requests...", code: "rate_limited", retryAfter }`: `retryAfter` is the whole seconds until the window resets, as the `Retry-After` header also says (exposed to browsers through CORS). Email-code, provider and email-change steps have their own per-IP limit (`API_RATE_LIMIT_VERIFICATION_MAX`, 60 per 15 min), and form submissions theirs (per form). Limits and the fair share are kept in the API process: with several API instances, each keeps its own.
 
 **Security:** [Helmet](https://helmetjs.github.io/) is enabled by default (security headers). Set `HELMET_DISABLED=1` to disable when not in production (e.g. local Swagger); in production this variable is ignored. Set `HELMET_CSP_DISABLED=1` to disable Content-Security-Policy only. Request body size is limited by `API_BODY_LIMIT` (default `1mb`).
 

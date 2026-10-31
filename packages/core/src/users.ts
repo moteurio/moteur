@@ -1,4 +1,4 @@
-import { revokeAuthSession } from './authSessions.js';
+import { forgetAuthSessions, revokeAuthSession } from './authSessions.js';
 import { withWriteLock } from './utils/projectWriteLock.js';
 import fs from 'fs';
 import { inProject, normalizeStoredRoles } from '@moteurio/types';
@@ -482,4 +482,58 @@ export function withoutSecrets<T extends Partial<User>>(
         ...rest
     } = user as T & User;
     return { ...rest, ...(twoFactor && { twoFactor: true }) } as never;
+}
+
+/**
+ * Make `email` the address someone signs in with (they proved it is theirs). The credentials'
+ * version moves on, so every session of theirs ends. Refused when another account has it.
+ */
+export async function changeUserEmail(
+    userId: string,
+    email: string
+): Promise<{ user: User; previousEmail: string }> {
+    return withWriteLock(getUsersFilePath(), async () => {
+        const filePath = getUsersFilePath();
+        const users = JSON.parse(fs.readFileSync(filePath, 'utf-8')) as User[];
+        const index = users.findIndex(u => u.id === userId && u.isActive);
+        if (index === -1) throw Object.assign(new Error('Account unavailable'), { status: 401 });
+        const wanted = email.trim().toLowerCase();
+        if (users.some((u, i) => i !== index && u.email?.toLowerCase() === wanted))
+            throw Object.assign(new Error('Another account uses this address.'), {
+                status: 409,
+                code: 'EMAIL_TAKEN'
+            });
+        const current = users[index];
+        const updated: User = {
+            ...current,
+            email: wanted,
+            authVersion: (current.authVersion ?? 0) + 1
+        };
+        await triggerEvent('user.beforeUpdate', { user: updated, performedBy: current });
+        users[index] = updated;
+        writePrivateState(filePath, users);
+        cachedUsers = null;
+        revokeAuthSession(userId);
+        await triggerEvent('user.afterUpdate', { user: updated, performedBy: current });
+        return { user: updated, previousEmail: current.email };
+    });
+}
+
+/** Remove an account from the users file, for good. Its sessions end. */
+export async function deleteUser(userId: string): Promise<User> {
+    return withWriteLock(getUsersFilePath(), async () => {
+        const filePath = getUsersFilePath();
+        const users = JSON.parse(fs.readFileSync(filePath, 'utf-8')) as User[];
+        const user = users.find(u => u.id === userId);
+        if (!user) throw Object.assign(new Error('Account unavailable'), { status: 401 });
+        await triggerEvent('user.beforeDelete', { user, performedBy: user });
+        writePrivateState(
+            filePath,
+            users.filter(u => u.id !== userId)
+        );
+        cachedUsers = null;
+        forgetAuthSessions(userId);
+        await triggerEvent('user.afterDelete', { user, performedBy: user });
+        return user;
+    });
 }

@@ -45,7 +45,7 @@ This page lists environment variables used by the Moteur API. Details (rate limi
 | `MOTEUR_PUBLIC_QUEUE`         | How many of a project's site requests may wait their turn before more are told to retry (429, `Retry-After: 1`). Default: 200.                                                                                                 |
 | `MOTEUR_PUBLIC_QUEUE_SECONDS` | How long one may wait for its turn before being told to retry. Default: 10.                                                                                                                                                    |
 | `API_RATE_LIMIT_FORMS_MAX`    | Max form submissions per 15 min per form (keyed by projectId+formId). Default: 60.                                                                                                                                             |
-| `API_RATE_LIMIT_LOGIN_MAX`    | Max login attempts per 15 min per IP. Default: 10.                                                                                                                                                                             |
+| `API_RATE_LIMIT_LOGIN_MAX`    | Max login attempts per 15 min per IP. Default: 10. Refusals say how long to wait (`retryAfter`, `Retry-After`).                                                                                                                |
 | `TRUST_PROXY`                 | Proxies in front of the API, so per-IP limits see each visitor: a count (`1` on Fly or behind one load balancer) or their addresses, comma-separated. Default: none. `true` is refused: any client could name its own address. |
 
 ---
@@ -66,6 +66,7 @@ This page lists environment variables used by the Moteur API. Details (rate limi
 - **Users file:** `AUTH_USERS_FILE` (default `data/users.json` relative to `DATA_ROOT`). See [REST API](REST%20API.md) for login and refresh.
 - **OAuth:** `AUTH_GITHUB_*`, `AUTH_GOOGLE_*`, `AUTH_REDIRECT_AFTER_LOGIN` when using auth plugins. See the [host plugin guide](https://github.com/moteurio/moteur-plugins/blob/main/docs/Plugins.md).
 - **New accounts and email codes** (see [Authentication](Authentication.md#new-accounts-and-email-codes)): `MOTEUR_SIGNUP=open` lets anyone make an account; otherwise only invited people can (also through a provider). `MOTEUR_EMAIL_SIGNIN=off` turns email codes off. `MOTEUR_EMAIL_CODES_PER_HOUR` caps code emails for the whole server (default `300`). `MOTEUR_EMAIL_CODES_TO_LOG=1` prints codes to the log instead of mailing them, for a developer's machine only. `DEMO_PROJECT_ID` names the project copied for people who ask to be shown around (none without it; that id is reserved). `STUDIO_URL` puts Studio links in the welcome email, and a sign-in link in every code email (it still works when wrong codes have turned codes off for an address).
+- **Terms and Privacy policy** (see [Authentication](Authentication.md#new-accounts-and-email-codes)): `MOTEUR_TERMS_URL` and `MOTEUR_PRIVACY_URL`, absolute `https` addresses the sign-up page links to (`GET /auth/signup` → `legal`). Anything else is ignored, said once in the log. An operator's setting (`PATCH /operator/settings`) wins over them. Moteur Cloud: `https://www.moteur.io/terms` and `https://www.moteur.io/privacy`.
 - **Operators** (they run the server and are not users; see [Authentication](Authentication.md#operators)): `OPERATORS_FILE` (default `data/operators.json` relative to `DATA_ROOT`); `OPERATOR_SECRET` (recommended: the key for operator tokens and authenticator secrets, so a leaked `JWT_SECRET` reaches no operator; derived from `JWT_SECRET` when unset; changing it ends every operator session, and they then sign in with a recovery code or are reset); `STUDIO_URL` (for the full one-time links `moteur-operators` prints).
 
 ---
@@ -140,7 +141,7 @@ See [Operations](Operations.md) for storage, backup/restore, the single-writer m
 | `SMTP_HOST`, `SMTP_FROM`          | Unset      | Required to deliver signup verification codes; no silent verification fallback |
 | `SMTP_PORT`                       | `587`      | SMTP port; `465` uses TLS at connection                                        |
 | `SMTP_USER`, `SMTP_PASS`          | Unset      | Optional SMTP authentication                                                   |
-| `API_RATE_LIMIT_VERIFICATION_MAX` | `60`       | Provider verification requests per IP per 15 minutes; maximum 1,000            |
+| `API_RATE_LIMIT_VERIFICATION_MAX` | `60`       | Email-code, provider and email-change steps per IP per 15 minutes; max 1,000   |
 | `API_UPLOAD_CONCURRENCY`          | `2`        | Concurrent buffered uploads; maximum 8; excess receives 429                    |
 | `MOTEUR_IMAGE_CONCURRENCY`        | `2`        | Image workers; maximum 8; eight additional jobs may wait                       |
 | `MOTEUR_IMAGE_MAX_PIXELS`         | `16000000` | Input pixel ceiling, including animation frames; maximum 100 million           |

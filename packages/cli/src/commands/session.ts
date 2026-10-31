@@ -3,7 +3,7 @@
  * straight in a local server's files, and checking the setup.
  */
 import { URL, URLSearchParams } from 'node:url';
-import { password as passwordPrompt, text, isCancel } from '@clack/prompts';
+import { password as passwordPrompt, text, isCancel, log } from '@clack/prompts';
 import { createMoteurAdminClient, type MoteurAdminClient } from '@moteurio/client';
 import {
     clearConfig,
@@ -45,6 +45,10 @@ type AuthApi = Pick<
     'login' | 'verifyTwoFactor' | 'signup' | 'emailCode' | 'verifyEmailCode'
 >;
 
+/** A line of progress while signing in ("Sending…"), apart from the questions. */
+type Say = (line: string) => void;
+const say: Say = line => log.message(line);
+
 export interface SignInGiven {
     email?: string;
     password?: string;
@@ -54,15 +58,140 @@ export interface SignInGiven {
     emailCode?: boolean;
 }
 
+/** A wait in seconds as whole minutes, at least one. */
+function minutes(seconds: number): number {
+    return Math.max(1, Math.ceil(seconds / 60));
+}
+
+/** The machine code and the wait (seconds) of a refusal from the API, when it has them. */
+function refusal(err: unknown): { code?: string; wait?: number } {
+    const e = err as { code?: unknown; data?: { retryAfter?: unknown }; retryAfter?: unknown };
+    const wait = Number(e?.data?.retryAfter ?? e?.retryAfter);
+    return {
+        code: typeof e?.code === 'string' ? e.code : undefined,
+        wait: Number.isFinite(wait) && wait > 0 ? Math.ceil(wait) : undefined
+    };
+}
+
+/**
+ * What to tell someone when the server refuses a step of signing in: the web sign-in page's
+ * words for the same refusal, with the wait the server gave. Undefined for anything else.
+ */
+export function signInWords(err: unknown): string | undefined {
+    const { code, wait } = refusal(err);
+    switch (code) {
+        case 'EMAIL_INVALID':
+            return 'That doesn’t look like an email address.';
+        case 'EMAIL_CODE_WAIT':
+            return wait
+                ? `We just sent one. Wait ${wait} s for the next.`
+                : 'We just sent one. Wait a minute for the next.';
+        case 'EMAIL_CODE_LIMIT':
+            return wait
+                ? `That’s a lot of codes for one address. Try again in ${minutes(wait)} min.`
+                : 'That’s a lot of codes for one address. Try again in an hour.';
+        case 'EMAIL_UNAVAILABLE':
+            return 'This server can’t send email. Sign in with your password instead.';
+        case 'EMAIL_CODE_WRONG':
+            return 'That code isn’t right. Check the email and try again.';
+        case 'EMAIL_CODE_EXPIRED':
+            return 'That code has expired. Send another.';
+        case 'EMAIL_LINK_EXPIRED':
+            return 'That link has expired. Send another code.';
+        case 'EMAIL_CODE_TRIES':
+            return 'That was the last try for this code. Send another.';
+        case 'EMAIL_CODE_LOCKED':
+            return wait
+                ? `Too many wrong codes for this address today. Try again in ${Math.max(1, Math.ceil(wait / 3600))} h, or use the link in the email.`
+                : 'Too many wrong codes for this address today. Try again tomorrow, or use the link in the email.';
+        case 'EMAIL_CODE_BUSY':
+            return 'Many codes are going out right now. Try again in a few minutes.';
+        case 'LOGIN_SLOWED':
+            return `Too many tries. Wait ${wait ?? 30} s, then try again.`;
+        case 'rate_limited':
+            return wait && wait > 90
+                ? `Too many tries. Try again in ${minutes(wait)} min.`
+                : `Too many tries. Wait ${wait ?? 60} s, then try again.`;
+        case 'TWO_FACTOR_INVALID':
+            return 'That code isn’t right. Try the one the app shows now.';
+        case 'TWO_FACTOR_EXPIRED':
+            return 'That took too long. Sign in again.';
+        default:
+            return undefined;
+    }
+}
+
+/** The refusal in the sign-in page's words, when it has some; else the error as it came. */
+function plainly(err: unknown): unknown {
+    const words = signInWords(err);
+    return words ? new UsageError(words) : err;
+}
+
+/** Refusals at the code prompt that leave the person there, to try again or send another. */
+const RETRY_CODE = [
+    'EMAIL_CODE_WRONG',
+    'EMAIL_CODE_EXPIRED',
+    'EMAIL_CODE_TRIES',
+    'EMAIL_LINK_EXPIRED'
+];
+/** Refusals of another code that leave the person at the prompt with the one they have. */
+const WAIT_FOR_CODE = ['EMAIL_CODE_WAIT', 'EMAIL_CODE_LIMIT', 'EMAIL_CODE_BUSY', 'rate_limited'];
+
+/**
+ * The email-code steps, as on the web sign-in page: send the code, then ask for it (or the
+ * email's link) until it is right. `r` sends another; an empty answer points at the spam folder.
+ */
+async function codeSignIn(
+    auth: AuthApi,
+    email: string,
+    prompt: Ask,
+    tell: Say
+): Promise<Awaited<ReturnType<AuthApi['verifyEmailCode']>>> {
+    const send = async () => {
+        tell('Sending…');
+        await auth.emailCode({ email });
+        tell(`Check your email. We sent a sign-in code to ${email}.`);
+    };
+    await send().catch(err => {
+        throw plainly(err);
+    });
+    for (;;) {
+        const answer = await prompt('Code (or paste the email’s link; r to send another):');
+        if (/^r$/i.test(answer)) {
+            try {
+                await send();
+            } catch (err) {
+                if (!WAIT_FOR_CODE.includes(refusal(err).code ?? '')) throw plainly(err);
+                tell(signInWords(err)!);
+            }
+            continue;
+        }
+        if (!answer) {
+            tell('Nothing yet? Look in your spam folder.');
+            continue;
+        }
+        const link = readSignInLink(answer);
+        tell('Signing in…');
+        try {
+            return await auth.verifyEmailCode(link ?? { email, code: answer.replace(/\s+/g, '') });
+        } catch (err) {
+            if (!RETRY_CODE.includes(refusal(err).code ?? '')) throw plainly(err);
+            tell(signInWords(err)!);
+        }
+    }
+}
+
 /**
  * Signs in with a password or, left empty, a code sent by email (or the email's link pasted in
  * its place): accounts made with a code have no password. Two-step sign-in follows either way.
- * On a server open to sign-ups, a code for a new address makes the account (`isNew`).
+ * On a server open to sign-ups, a code for a new address makes the account (`isNew`). The steps
+ * and refusals use the web sign-in page's words.
  */
 export async function signIn(
     auth: AuthApi,
     given: SignInGiven,
-    prompt: Ask = ask
+    prompt: Ask = ask,
+    tell: Say = say
 ): Promise<{ token: string; user?: Record<string, unknown>; isNew: boolean }> {
     const email = given.email ?? (await prompt('Email:'));
     let password = given.emailCode ? '' : given.password;
@@ -73,7 +202,7 @@ export async function signIn(
             () => false
         );
         password = await prompt(
-            codes ? 'Password (leave empty for a code by email):' : 'Password:',
+            codes ? 'Password (leave empty to email me a sign-in code):' : 'Password:',
             true
         );
         if (!password && !codes) throw new UsageError('Password is required');
@@ -82,21 +211,31 @@ export async function signIn(
     let result: Awaited<ReturnType<AuthApi['login']>> | { token: string; isNew: boolean };
     let isNew = false;
     if (password) {
-        result = await auth.login(email, password);
+        result = await auth.login(email, password).catch(err => {
+            throw plainly(err);
+        });
     } else {
-        await auth.emailCode({ email });
-        const answer = await prompt(`Code sent to ${email} (or paste the email's link):`);
-        const link = readSignInLink(answer);
-        const verified = await auth.verifyEmailCode(
-            link ?? { email, code: answer.replace(/\s+/g, '') }
-        );
+        const verified = await codeSignIn(auth, email, prompt, tell);
         if ('token' in verified) isNew = verified.isNew;
         result = verified;
     }
     if ('twoFactor' in result) {
-        const code =
-            given.code ?? (await prompt('Code from your authenticator app (or a recovery code):'));
-        result = await auth.verifyTwoFactor(result.ticket, code);
+        const ticket = result.ticket;
+        for (;;) {
+            const code =
+                given.code ??
+                (await prompt(
+                    'Enter the code your authenticator app shows for Moteur (or a recovery code):'
+                ));
+            try {
+                result = await auth.verifyTwoFactor(ticket, code);
+                break;
+            } catch (err) {
+                // A code given on the command line is not asked again.
+                if (given.code || refusal(err).code !== 'TWO_FACTOR_INVALID') throw plainly(err);
+                tell(signInWords(err)!);
+            }
+        }
     }
     return { token: result.token, user: 'user' in result ? result.user : undefined, isNew };
 }
@@ -186,6 +325,8 @@ export const session = group('auth', [
     {
         name: 'login',
         summary: 'Sign in to a Moteur API and remember it',
+        description:
+            'With the password left empty, a sign-in code comes by email. At the code prompt, paste the email’s link instead of the code, type r to send another, or press Enter for a hint. A wrong or expired code asks again; waits say how long (“We just sent one. Wait 42 s for the next.”).',
         args: [
             {
                 name: 'api-url',

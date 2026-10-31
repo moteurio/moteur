@@ -3,10 +3,16 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 
-const mail = vi.hoisted(() => ({ sent: [] as { to: string[]; subject: string; text: string }[] }));
+const mail = vi.hoisted(() => ({
+    sent: [] as { to: string[]; subject: string; text: string }[],
+    off: false
+}));
 vi.mock('../../src/emailNotifier.js', () => ({
-    emailUnavailable: () => null,
+    emailUnavailable: () => (mail.off ? 'No SMTP' : null),
     sendCodeEmail: async (m: { to: string[]; subject: string; text: string }) => {
+        mail.sent.push(m);
+    },
+    sendEmail: async (m: { to: string[]; subject: string; text: string }) => {
         mail.sent.push(m);
     }
 }));
@@ -18,9 +24,15 @@ vi.mock('../../src/invites.js', () => ({
 /** Codes go out after the answer: let them. */
 const sent = () => new Promise(resolve => setTimeout(resolve, 0));
 
-const { requestEmailCode, verifyEmailCode, verifyEmailLink } =
-    await import('../../src/emailSignIn.js');
-const { getUserByEmail, reloadUsers } = await import('../../src/users.js');
+const {
+    requestEmailCode,
+    verifyEmailCode,
+    verifyEmailLink,
+    requestEmailChange,
+    confirmEmailChange
+} = await import('../../src/emailSignIn.js');
+const { getUserByEmail, getUserById, reloadUsers } = await import('../../src/users.js');
+const { onEvent } = await import('../../src/utils/eventBus.js');
 
 /** The six digits of the last code sent to this address. */
 const lastCode = (email: string) => {
@@ -58,6 +70,7 @@ describe('signing in and up with an email code', () => {
         );
         reloadUsers();
         mail.sent.length = 0;
+        mail.off = false;
         invites.emails.length = 0;
     });
     afterEach(() => {
@@ -133,15 +146,23 @@ describe('signing in and up with an email code', () => {
             await requestEmailCode('louise@agency.test');
             await expect(requestEmailCode('louise@agency.test')).rejects.toMatchObject({
                 status: 429,
-                code: 'EMAIL_CODE_WAIT'
+                code: 'EMAIL_CODE_WAIT',
+                retryAfter: 60
             });
-            for (let i = 0; i < 9; i++) {
-                vi.advanceTimersByTime(61_000);
-                await requestEmailCode('louise@agency.test');
-            }
-            vi.advanceTimersByTime(61_000);
+            vi.advanceTimersByTime(20_500);
             await expect(requestEmailCode('louise@agency.test')).rejects.toMatchObject({
-                code: 'EMAIL_CODE_LIMIT'
+                code: 'EMAIL_CODE_WAIT',
+                retryAfter: 40
+            });
+            vi.advanceTimersByTime(40_500);
+            for (let i = 0; i < 9; i++) {
+                await requestEmailCode('louise@agency.test');
+                vi.advanceTimersByTime(61_000);
+            }
+            // Ten sent, the first 61 s + 9 × 61 s = 610 s ago: one more once it is an hour old.
+            await expect(requestEmailCode('louise@agency.test')).rejects.toMatchObject({
+                code: 'EMAIL_CODE_LIMIT',
+                retryAfter: 3600 - 610
             });
         } finally {
             vi.useRealTimers();
@@ -174,8 +195,42 @@ describe('signing in and up with an email code', () => {
                     await verifyEmailCode('louise@agency.test', '999999').catch(() => undefined);
                 vi.advanceTimersByTime(61_000);
             }
+            // Ten wrong, the first two minutes ago: codes are back once it is a day old.
             await expect(requestEmailCode('louise@agency.test')).rejects.toMatchObject({
-                code: 'EMAIL_CODE_LOCKED'
+                status: 429,
+                code: 'EMAIL_CODE_LOCKED',
+                retryAfter: 24 * 3600 - 122
+            });
+        } finally {
+            vi.useRealTimers();
+        }
+    });
+
+    it('says when a code is out of tries, and when the day’s wrong codes lock the address', async () => {
+        vi.useFakeTimers({ now: Date.parse('2026-10-27T10:00:00Z') });
+        try {
+            await requestEmailCode('louise@agency.test');
+            for (let i = 0; i < 4; i++)
+                await expect(verifyEmailCode('louise@agency.test', '999999')).rejects.toMatchObject(
+                    { code: 'EMAIL_CODE_WRONG' }
+                );
+            await expect(verifyEmailCode('louise@agency.test', '999999')).rejects.toMatchObject({
+                status: 400,
+                code: 'EMAIL_CODE_TRIES'
+            });
+            // Asked again, the used-up code still says so, not that it expired.
+            await expect(verifyEmailCode('louise@agency.test', '999999')).rejects.toMatchObject({
+                code: 'EMAIL_CODE_TRIES'
+            });
+            vi.advanceTimersByTime(61_000);
+            await requestEmailCode('louise@agency.test');
+            for (let i = 0; i < 4; i++)
+                await verifyEmailCode('louise@agency.test', '999999').catch(() => undefined);
+            vi.advanceTimersByTime(1000);
+            await expect(verifyEmailCode('louise@agency.test', '999999')).rejects.toMatchObject({
+                status: 429,
+                code: 'EMAIL_CODE_LOCKED',
+                retryAfter: 24 * 3600 - 62
             });
         } finally {
             vi.useRealTimers();
@@ -250,7 +305,8 @@ describe('signing in and up with an email code', () => {
         await requestEmailCode('a@agency.test');
         await requestEmailCode('b@agency.test');
         await expect(requestEmailCode('c@agency.test')).rejects.toMatchObject({
-            code: 'EMAIL_CODE_BUSY'
+            code: 'EMAIL_CODE_BUSY',
+            retryAfter: expect.any(Number)
         });
     });
 
@@ -267,6 +323,97 @@ describe('signing in and up with an email code', () => {
         vi.stubEnv('MOTEUR_EMAIL_SIGNIN', 'off');
         await expect(requestEmailCode('louise@agency.test')).rejects.toMatchObject({
             code: 'EMAIL_UNAVAILABLE'
+        });
+    });
+    describe('changing the sign-in email', () => {
+        beforeEach(() => {
+            const users = JSON.parse(fs.readFileSync(path.join(root, 'users.json'), 'utf8'));
+            users.push({
+                id: 'u2',
+                email: 'theo@agency.test',
+                isActive: true,
+                roles: [],
+                projects: []
+            });
+            fs.writeFileSync(path.join(root, 'users.json'), JSON.stringify(users));
+            reloadUsers();
+        });
+
+        it('sends a code to the new address, and makes it the sign-in email', async () => {
+            const heard: unknown[] = [];
+            onEvent('auth.email.changed', e => void heard.push(e));
+            await requestEmailChange('u1', ' Louise@New.test ');
+            await sent();
+            expect(mail.sent.at(-1)!.to).toEqual(['louise@new.test']);
+            expect(mail.sent.at(-1)!.text).toContain('sign-in email of your Moteur account');
+            const before = getUserById('u1')!.authVersion ?? 0;
+            const { user, previousEmail } = await confirmEmailChange(
+                'u1',
+                'louise@new.test',
+                lastCode('louise@new.test')
+            );
+            expect(previousEmail).toBe('louise@agency.test');
+            expect(user.email).toBe('louise@new.test');
+            reloadUsers();
+            expect(getUserById('u1')).toMatchObject({
+                email: 'louise@new.test',
+                authVersion: before + 1
+            });
+            expect(heard).toEqual([{ userId: 'u1' }]);
+            // The old address hears of it.
+            await sent();
+            expect(mail.sent.at(-1)).toMatchObject({
+                to: ['louise@agency.test'],
+                subject: 'Your Moteur sign-in email changed'
+            });
+            expect(mail.sent.at(-1)!.text).toContain('changed to louise@new.test');
+            // Used once.
+            await expect(
+                confirmEmailChange('u1', 'louise@new.test', lastCode('louise@new.test'))
+            ).rejects.toMatchObject({ code: 'EMAIL_CODE_EXPIRED' });
+        });
+
+        it('refuses the same address, one another account has, and a bad one', async () => {
+            await expect(requestEmailChange('u1', 'LOUISE@agency.test')).rejects.toMatchObject({
+                status: 400,
+                code: 'EMAIL_SAME'
+            });
+            await expect(requestEmailChange('u1', 'theo@agency.test')).rejects.toMatchObject({
+                status: 409,
+                code: 'EMAIL_TAKEN'
+            });
+            await expect(requestEmailChange('u1', 'nope')).rejects.toMatchObject({
+                code: 'EMAIL_INVALID'
+            });
+        });
+
+        it('keeps the sign-in code limits, and a code is for its own account only', async () => {
+            vi.useFakeTimers({ now: Date.parse('2026-10-27T10:00:00Z') });
+            try {
+                await requestEmailChange('u1', 'louise@new.test');
+                await expect(requestEmailChange('u1', 'louise@new.test')).rejects.toMatchObject({
+                    status: 429,
+                    code: 'EMAIL_CODE_WAIT',
+                    retryAfter: 60
+                });
+                vi.advanceTimersByTime(1);
+                await expect(
+                    confirmEmailChange('u2', 'louise@new.test', lastCode('louise@new.test'))
+                ).rejects.toMatchObject({ code: 'EMAIL_CODE_EXPIRED' });
+                await expect(
+                    confirmEmailChange('u1', 'louise@new.test', '000000')
+                ).rejects.toMatchObject({ code: expect.stringMatching(/EMAIL_CODE_WRONG/) });
+            } finally {
+                vi.useRealTimers();
+            }
+        });
+
+        it('needs a server that sends email', async () => {
+            mail.off = true;
+            await expect(requestEmailChange('u1', 'louise@new.test')).rejects.toMatchObject({
+                status: 503,
+                code: 'EMAIL_UNAVAILABLE'
+            });
         });
     });
 });

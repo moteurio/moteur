@@ -142,3 +142,11 @@ export function consumeInvite(inviteId: string): void {
     const next = all.filter(i => i.id !== inviteId);
     if (next.length !== all.length) writeAll(next);
 }
+
+/** Withdraw every pending invite someone sent (their account is going). How many went. */
+export function withdrawInvitesBy(userId: string): number {
+    const all = readAll();
+    const next = all.filter(i => i.invitedBy !== userId);
+    if (next.length !== all.length) writeAll(next);
+    return all.length - next.length;
+}

@@ -4,6 +4,7 @@ import { User } from '@moteurio/types/User.js';
 import { getProject, getProjectById, loadProjects, updateProject } from './projects.js';
 import { validateAllowedHostPatterns } from './apiKeyAllowedHosts.js';
 import { listChannels } from './channels.js';
+import { apiKeyLastUses, forgetApiKeyUse } from './apiKeyUsage.js';
 
 const KEY_PREFIX = 'mk_live_';
 const KEY_SECRET_LENGTH = 32;
@@ -155,9 +156,11 @@ export type ProjectApiKeyMeta = {
     allowedHosts: string[];
     allowedChannelIds?: string[];
     allowSiteWideReads?: boolean;
+    /** When a request last came with this key (at most a minute behind). Omitted = never used. */
+    lastUsedAt?: string;
 };
 
-function toMeta(e: ProjectApiKeyEntry): ProjectApiKeyMeta {
+function toMeta(e: ProjectApiKeyEntry, lastUsedAt?: string): ProjectApiKeyMeta {
     return {
         id: e.id,
         prefix: e.prefix,
@@ -168,7 +171,8 @@ function toMeta(e: ProjectApiKeyEntry): ProjectApiKeyMeta {
             : {}),
         allowedHosts: e.allowedHosts ?? [],
         ...(e.allowedChannelIds !== undefined ? { allowedChannelIds: e.allowedChannelIds } : {}),
-        ...(e.allowSiteWideReads !== undefined ? { allowSiteWideReads: e.allowSiteWideReads } : {})
+        ...(e.allowSiteWideReads !== undefined ? { allowSiteWideReads: e.allowSiteWideReads } : {}),
+        ...(lastUsedAt ? { lastUsedAt } : {})
     };
 }
 
@@ -177,7 +181,8 @@ export async function listProjectApiKeyMeta(
     user: User
 ): Promise<ProjectApiKeyMeta[]> {
     const project = await getProject(user, projectId);
-    return (project.apiKeys ?? []).map(toMeta);
+    const used = apiKeyLastUses(projectId);
+    return (project.apiKeys ?? []).map(e => toMeta(e, used[e.id]));
 }
 
 async function assertChannelIdsExist(projectId: string, ids: string[]): Promise<void> {
@@ -282,6 +287,7 @@ export async function rotateKey(
     copy[idx] = next;
     await updateProject(user, projectId, { apiKeys: copy });
     forgetKeyOwners();
+    forgetApiKeyUse(projectId, keyId);
     return { rawKey, prefix, meta: toMeta(next) };
 }
 
@@ -294,6 +300,7 @@ export async function revokeKey(projectId: string, user: User, keyId: string): P
         apiKeys: next.length > 0 ? next : null
     } as Parameters<typeof updateProject>[2]);
     forgetKeyOwners();
+    forgetApiKeyUse(projectId, keyId);
 }
 
 export type PatchProjectApiKeyInput = {
@@ -362,5 +369,5 @@ export async function patchKey(
 
     keys[idx] = next;
     await updateProject(user, projectId, { apiKeys: keys });
-    return toMeta(next);
+    return toMeta(next, apiKeyLastUses(projectId)[keyId]);
 }

@@ -63,6 +63,11 @@ export interface BlueprintSchema {
     name: string;
     description?: string;
     kind?: BlueprintKind;
+    /**
+     * Offer this starting point to a new person making their first project. For project
+     * blueprints; an operator marks them.
+     */
+    firstProject?: boolean;
     template?:
         | BlueprintTemplate
         | ModelBlueprintTemplate

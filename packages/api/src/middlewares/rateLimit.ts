@@ -1,8 +1,30 @@
-import rateLimit, { ipKeyGenerator } from 'express-rate-limit';
-import { Request } from 'express';
+import rateLimit, { ipKeyGenerator, type Options } from 'express-rate-limit';
+import { Request, Response } from 'express';
 
 function ipKey(req: Request): string {
     return ipKeyGenerator(req.ip || 'unknown');
+}
+
+/**
+ * The refusal when a limit is reached: `{ error, code: 'rate_limited', retryAfter }`, with
+ * `retryAfter` the whole seconds until the window resets, as the `Retry-After` header says.
+ */
+export function limitReached(error: string): Pick<Options, 'handler'> {
+    return {
+        handler: (req: Request, res: Response, _next, options) => {
+            const header = Number(res.getHeader('Retry-After'));
+            const reset = (req as Request & { rateLimit?: { resetTime?: Date } }).rateLimit
+                ?.resetTime;
+            const retryAfter =
+                Number.isFinite(header) && header > 0
+                    ? Math.ceil(header)
+                    : reset
+                      ? Math.max(1, Math.ceil((reset.getTime() - Date.now()) / 1000))
+                      : Math.ceil(options.windowMs / 1000);
+            if (!res.headersSent) res.setHeader('Retry-After', String(retryAfter));
+            res.status(options.statusCode).json({ error, code: 'rate_limited', retryAfter });
+        }
+    };
 }
 
 const STUDIO_WINDOW_MS = 15 * 60 * 1000; // 15 minutes
@@ -40,7 +62,7 @@ export const loginRateLimiter = rateLimit({
     standardHeaders: true,
     legacyHeaders: false,
     keyGenerator: (req: Request) => ipKey(req),
-    message: { error: 'Too many login attempts. Please try again later.', code: 'rate_limited' }
+    ...limitReached('Too many login attempts. Please try again later.')
 });
 
 /** Browser-bound provider proofs have their own budget, independent of password attempts. */
@@ -50,7 +72,7 @@ export const verificationRateLimiter = rateLimit({
     standardHeaders: true,
     legacyHeaders: false,
     keyGenerator: (req: Request) => ipKey(req),
-    message: { error: 'Too many verification requests. Try again later.', code: 'rate_limited' }
+    ...limitReached('Too many verification requests. Try again later.')
 });
 
 /**
@@ -66,7 +88,7 @@ export const studioRateLimiter = rateLimit({
     standardHeaders: true,
     legacyHeaders: false,
     keyGenerator: (req: Request) => ipKey(req),
-    message: { error: 'Too many requests; try again later.', code: 'rate_limited' }
+    ...limitReached('Too many requests; try again later.')
 });
 
 const FORMS_WINDOW_MS = 15 * 60 * 1000; // 15 minutes
@@ -87,7 +109,7 @@ export const formsSubmitRateLimiter = rateLimit({
         const formId = p?.formId ?? '';
         return `forms:${projectId}:${formId}`;
     },
-    message: { error: 'Too many submissions. Please try again later.', code: 'rate_limited' }
+    ...limitReached('Too many submissions. Please try again later.')
 });
 
 /**
@@ -103,5 +125,5 @@ export const formsTokenRateLimiter = rateLimit({
         const p = req.params as Record<string, string>;
         return `forms-token:${p?.projectId ?? ''}:${p?.formId ?? ''}`;
     },
-    message: { error: 'Too many requests. Please try again later.', code: 'rate_limited' }
+    ...limitReached('Too many requests. Please try again later.')
 });

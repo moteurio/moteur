@@ -32,15 +32,21 @@ function done(res: Response) {
     res.setHeader('Set-Cookie', 'moteur_provider=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax');
 }
 const router: Router = Router();
-function recentPerson(req: Request): AuthSession | null {
+function sessionOf(req: Request) {
     const payload = verifyJWT(req.headers.authorization!.replace(/^Bearer\s+/i, ''));
     const session = requireAuthSession(payload.sid, req.user!.id, req.user!.authVersion ?? 0);
-    const valid =
-        !req.user!.agent &&
-        session.kind === 'person' &&
-        typeof payload.auth_time === 'number' &&
-        Date.now() / 1000 - payload.auth_time <= 600;
-    return valid ? session : null;
+    return { payload, session: !req.user!.agent && session.kind === 'person' ? session : null };
+}
+/** The person's own session behind this request: never an agent's, nor a token made from it. */
+export function personalSession(req: Request): AuthSession | null {
+    return sessionOf(req).session;
+}
+/** A personal session signed in within the last 10 minutes: for changing how someone signs in. */
+export function recentPerson(req: Request): AuthSession | null {
+    const { payload, session } = sessionOf(req);
+    const recent =
+        typeof payload.auth_time === 'number' && Date.now() / 1000 - payload.auth_time <= 600;
+    return session && recent ? session : null;
 }
 router.get('/connections', requireAuth, (req, res) => {
     if (req.user!.agent)

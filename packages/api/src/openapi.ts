@@ -351,6 +351,12 @@ const baseSchemas: OpenAPIV3.ComponentsObject['schemas'] = {
                 type: 'boolean',
                 description:
                     'When the key is limited to some channels: allow sitemap, navigation, urls, breadcrumb, radar (default false)'
+            },
+            lastUsedAt: {
+                type: 'string',
+                format: 'date-time',
+                description:
+                    'When a request last authenticated with this key (recorded at most once a minute, so up to a minute behind). Omitted = never used. Rotating the key clears it.'
             }
         }
     },

@@ -8,8 +8,9 @@ export function getMessage(err: unknown): string {
 
 /**
  * Machine-readable parts of a client error, for the response body: a `code`, the `missing`
- * required fields (ENTRY_INCOMPLETE), the `issues` with form answers (ANSWERS_INVALID), and which
- * `limit` and its `max` (plan_limit).
+ * required fields (ENTRY_INCOMPLETE), the `issues` with form answers (ANSWERS_INVALID), which
+ * `limit` and its `max` (plan_limit), and `retryAfter`, the whole seconds to wait (also sent as
+ * the `Retry-After` header).
  */
 export function errorFields(err: unknown): {
     code?: string;
@@ -17,15 +18,19 @@ export function errorFields(err: unknown): {
     issues?: unknown[];
     limit?: string;
     max?: number;
+    retryAfter?: number;
 } {
     if (typeof err !== 'object' || err === null) return {};
-    const { code, missing, issues, limit, max } = err as Record<string, unknown>;
+    const { code, missing, issues, limit, max, retryAfter } = err as Record<string, unknown>;
     return {
         ...(typeof code === 'string' && { code }),
         ...(Array.isArray(missing) && { missing: missing.map(String) }),
         ...(Array.isArray(issues) && { issues }),
         ...(typeof limit === 'string' && { limit }),
-        ...(typeof max === 'number' && { max })
+        ...(typeof max === 'number' && { max }),
+        ...(typeof retryAfter === 'number' &&
+            Number.isInteger(retryAfter) &&
+            retryAfter > 0 && { retryAfter })
     };
 }
 
@@ -99,7 +104,11 @@ export function sendApiError(
         error: clientMessage,
         requestId
     };
-    if (status < 500) Object.assign(body, errorFields(err));
+    if (status < 500) {
+        const fields = errorFields(err);
+        Object.assign(body, fields);
+        if (fields.retryAfter) res.setHeader('Retry-After', String(fields.retryAfter));
+    }
     if (exposeDetails && err instanceof Error && err.stack) {
         body.details = err.stack;
     }

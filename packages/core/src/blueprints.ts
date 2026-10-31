@@ -103,6 +103,15 @@ export function getBlueprint(kind: BlueprintKind, id: string): BlueprintSchema {
 
 function validateBlueprintPayload(blueprint: BlueprintSchema): void {
     const k = effectiveKind(blueprint);
+    const firstProject: unknown = blueprint.firstProject;
+    if (firstProject !== undefined) {
+        if (typeof firstProject !== 'boolean') {
+            throw new Error('Invalid blueprint: "firstProject" must be true or false');
+        }
+        if (firstProject && k !== 'project') {
+            throw new Error('Invalid blueprint: only project blueprints can be "firstProject"');
+        }
+    }
     if (k === 'model') {
         const t = blueprint.template as { model?: unknown } | undefined;
         if (!t?.model) {

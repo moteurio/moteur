@@ -12,6 +12,8 @@ export type ProjectApiKeyMeta = {
     allowedHosts: string[];
     allowedChannelIds?: string[];
     allowSiteWideReads?: boolean;
+    /** When a request last came with this key (up to a minute behind). Omitted = never used. */
+    lastUsedAt?: string;
 };
 
 export type ProjectApiKeyCreateBody = {

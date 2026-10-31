@@ -31,6 +31,12 @@ import {
     type PluginEntry
 } from '../plugins/pluginCatalog.js';
 import { resetTwoFactor } from '@moteurio/core/twoFactor.js';
+import {
+    envServerSettings,
+    readServerSettings,
+    updateServerSettings,
+    type ServerSettingsPatch
+} from '@moteurio/core/serverSettings.js';
 
 /**
  * The operator's view of the whole server: every project, every account, every plugin, and the
@@ -347,6 +353,44 @@ router.patch('/plugins/:pluginId', (req: Request, res: Response) => {
     }
 });
 
+// ---- server settings -------------------------------------------------------------------------
+
+/** What the operator saved, and what the environment gives (a saved setting wins). */
+const settingsBody = () => ({ settings: readServerSettings(), env: envServerSettings() });
+
+router.get('/settings', (req: Request, res: Response) => {
+    try {
+        res.json(settingsBody());
+    } catch (err) {
+        sendApiError(res, req, err);
+    }
+});
+
+/** Body: any of `termsUrl`, `privacyUrl`: an https address, or null to clear it. */
+router.patch('/settings', (req: Request, res: Response) => {
+    const body = (req.body ?? {}) as Record<string, unknown>;
+    const patch: ServerSettingsPatch = {};
+    for (const key of ['termsUrl', 'privacyUrl'] as const) {
+        if (!(key in body)) continue;
+        const value = body[key];
+        if (value !== null && typeof value !== 'string')
+            return void res.status(400).json({
+                error: `${key} must be an https address, or null`,
+                code: 'URL_INVALID'
+            });
+        patch[key] = value;
+    }
+    if (!Object.keys(patch).length)
+        return void res.status(400).json({ error: 'Nothing to change' });
+    try {
+        updateServerSettings(patch);
+        console.log(`[operators] ${req.operator?.email ?? 'an operator'} changed server settings`);
+        res.json(settingsBody());
+    } catch (err) {
+        sendApiError(res, req, err);
+    }
+});
+
 const SCHEMA_KINDS: ServerSchemaKind[] = ['blocks', 'structures'];
 const schemaKind = (req: Request) => {
     const kind = params(req).kind as ServerSchemaKind;
@@ -646,6 +690,46 @@ const paths: Record<string, OpenAPIV3.PathItemObject> = {
                 '204': { description: 'Removed' },
                 '404': { description: 'No server file' }
             }
+        }
+    }
+};
+
+const settingsSchema: OpenAPIV3.SchemaObject = {
+    type: 'object',
+    properties: {
+        termsUrl: { type: 'string', format: 'uri' },
+        privacyUrl: { type: 'string', format: 'uri' }
+    }
+};
+paths['/operator/settings'] = {
+    get: {
+        summary: 'Server settings',
+        description:
+            '`settings`: what operators saved (`server-settings.json`, beside the users file). `env`: what the environment gives (`MOTEUR_TERMS_URL`, `MOTEUR_PRIVACY_URL`). A saved setting wins; `GET /auth/signup` shows the result as `legal`.',
+        tags,
+        responses: ok('`{ settings, env }`', { settings: settingsSchema, env: settingsSchema })
+    },
+    patch: {
+        summary: 'Change server settings',
+        description:
+            'Body: any of `termsUrl`, `privacyUrl`: an absolute https address (plain http only to localhost), or null to clear it (the environment’s applies again).',
+        tags,
+        requestBody: {
+            content: {
+                'application/json': {
+                    schema: {
+                        type: 'object',
+                        properties: {
+                            termsUrl: { type: 'string', nullable: true },
+                            privacyUrl: { type: 'string', nullable: true }
+                        }
+                    }
+                }
+            }
+        },
+        responses: {
+            ...ok('`{ settings, env }`', { settings: settingsSchema, env: settingsSchema }),
+            '400': { description: 'Not an https address (`URL_INVALID`), or nothing to change' }
         }
     }
 };

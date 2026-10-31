@@ -6,6 +6,7 @@ import { verifyOperatorToken } from '@moteurio/core/operators.js';
 import { systemActor } from '@moteurio/core/utils/systemActor.js';
 import { getProject } from '@moteurio/core/projects.js';
 import { verifyProjectApiKey } from '@moteurio/core/projectApiKey.js';
+import { noteApiKeyUse } from '@moteurio/core/apiKeyUsage.js';
 import { requestHostMatchesAllowed } from '@moteurio/core/apiKeyAllowedHosts.js';
 
 function readBearerToken(header: string | undefined): string | undefined {
@@ -229,6 +230,7 @@ export function apiKeyAuth(req: Request, res: Response, next: NextFunction): voi
             req.apiKeyAuth = true;
             req.apiKeyId = result.keyId;
             req.apiKeyPolicy = result.policy;
+            noteApiKeyUse(projectId, result.keyId);
             next();
         })
         .catch(() => {

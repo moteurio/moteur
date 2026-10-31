@@ -15,6 +15,7 @@ import {
     startEnrollment
 } from '@moteurio/core/operators.js';
 import { requireOperator } from '../middlewares/auth.js';
+import { limitReached } from '../middlewares/rateLimit.js';
 
 const router: Router = Router();
 
@@ -24,7 +25,7 @@ const strict = rateLimit({
     max: 10,
     standardHeaders: true,
     legacyHeaders: false,
-    message: { error: 'Too many tries. Try again in 15 minutes.' }
+    ...limitReached('Too many tries. Try again in 15 minutes.')
 });
 
 function refuse(res: Response, err: unknown) {

@@ -273,8 +273,7 @@ export const invites = group('invites', [
             { name: 'name', description: 'Your name', required: true, in: 'body' },
             {
                 name: 'password',
-                description: 'Your password (8+ characters)',
-                required: true,
+                description: 'Your password (8+ characters); leave it out to sign in by email code',
                 in: 'body'
             }
         ],
