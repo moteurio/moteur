@@ -42,6 +42,7 @@ Authors set `categories` and optional `contributes`. During `init()`, the engine
 | `auth.providers`                                          | `getAuthProviders()`                                                                                                                    |
 | `webhooks.inbound`                                        | Declare inbound paths (often `/webhooks/…`)                                                                                             |
 | `schemas.blocks` / `structures` / `blueprints` / `fields` | `ctx.register*Schema`                                                                                                                   |
+| `schemas.blocks` (what sites get)                         | `registerBlockDelivery(type, resolve)`: see below                                                                                       |
 | `adapters.storage` / `adapters.video`                     | `registerStorageAdapterFactory` / `registerVideoProviderFactory`                                                                        |
 | `video.activeProvider`                                    | `setVideoProvidersConfig`                                                                                                               |
 | `search.backend`                                          | Declarative (no core registry)                                                                                                          |
@@ -60,6 +61,12 @@ Authors set `categories` and optional `contributes`. During `init()`, the engine
 | `forms.actions` / `fields` / `screens` / `holds`          | `registerFormAction` / `registerFormField` / `registerSubmissionScreen` / `registerSubmissionHold` ([Forms](Forms.md#what-plugins-add)) |
 
 Enablement (`isPluginEnabledForProject`) is not a contribution.
+
+### What sites get for a plugin's blocks
+
+`ctx.registerBlockDelivery(type, resolve)` lets a plugin add to its blocks as channels send them: an embed's HTML from its provider, a poll's counts. `resolve(data, { projectId, locale })` is called for every block of that `type` in an answer, wherever it sits (a body, a page's fields, a block inside a block), with the block's data in the language asked for, and returns the data to send.
+
+It runs when a channel's answer is worked out, then the answer is kept with the rest (see [Public API and Channels](Public%20API%20and%20Channels.md)), so a provider is asked once per change of the project, not once per visitor. A `resolve` that throws, or takes longer than 3 seconds, sends the block as it was: a slow provider never breaks a page. Studio and the members' routes get blocks as stored.
 
 ## Layers
 

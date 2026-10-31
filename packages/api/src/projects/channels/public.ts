@@ -47,6 +47,7 @@ import {
     resolveNavigation
 } from '@moteurio/core/navigations.js';
 import { toPublicForm } from '../../utils/publicForm.js';
+import { deliverBlocks, type BlockDeliveryContext } from '@moteurio/core/blockDelivery.js';
 import { stripEditorialBlocksFromPayload } from '../../utils/stripBlockSchema.js';
 import { listBlocks } from '@moteurio/core/blocks.js';
 import {
@@ -281,9 +282,17 @@ async function deliveryFor(
     };
 }
 
-/** Content as sites get it: blocks for the editors only (notes) left out, wherever they sit. */
-function sendContent(res: Response, blocks: Record<string, BlockSchema>, payload: unknown): void {
-    res.json(stripEditorialBlocksFromPayload(payload, blocks));
+/**
+ * Content as sites get it: blocks for the editors only (notes) left out, wherever they sit, then
+ * what plugins add to their blocks (an embed's HTML…).
+ */
+async function sendContent(
+    res: Response,
+    blocks: Record<string, BlockSchema>,
+    payload: unknown,
+    context: BlockDeliveryContext
+): Promise<void> {
+    res.json(await deliverBlocks(stripEditorialBlocksFromPayload(payload, blocks), context));
 }
 
 /**
@@ -589,7 +598,10 @@ router.get('/:channelId/pages', async (req: Request, res: Response) => {
         pages = await withPreviewedPage(req, projectId, pageResource, pages);
         const delivery = await deliveryFor(projectId, channel, req);
         pages = await Promise.all(pages.map(p => deliverPage(p, delivery)));
-        return void sendContent(res, delivery.schemas.blocks, pages);
+        return void (await sendContent(res, delivery.schemas.blocks, pages, {
+            projectId: delivery.projectId,
+            locale: delivery.choice?.locale
+        }));
     } catch (err: unknown) {
         return void sendApiError(res, req, err);
     }
@@ -620,7 +632,12 @@ router.get('/:channelId/pages/by-slug/:slug', async (req: Request, res: Response
         if (!('status' in stored) || !statuses.includes((stored as any).status))
             return void res.status(404).json({ error: 'Page not found' });
         const delivery = await deliveryFor(projectId, channel, req);
-        return void sendContent(res, delivery.schemas.blocks, await deliverPage(stored, delivery));
+        return void (await sendContent(
+            res,
+            delivery.schemas.blocks,
+            await deliverPage(stored, delivery),
+            { projectId: delivery.projectId, locale: delivery.choice?.locale }
+        ));
     } catch (err: unknown) {
         return void sendApiError(res, req, err);
     }
@@ -649,7 +666,12 @@ router.get('/:channelId/pages/:id', async (req: Request, res: Response) => {
         if (!('status' in stored) || !statuses.includes((stored as any).status))
             return void res.status(404).json({ error: 'Page not found' });
         const delivery = await deliveryFor(projectId, channel, req);
-        return void sendContent(res, delivery.schemas.blocks, await deliverPage(stored, delivery));
+        return void (await sendContent(
+            res,
+            delivery.schemas.blocks,
+            await deliverPage(stored, delivery),
+            { projectId: delivery.projectId, locale: delivery.choice?.locale }
+        ));
     } catch (err: unknown) {
         return void sendApiError(res, req, err);
     }
@@ -730,7 +752,10 @@ router.get('/:channelId/:resourceId/entries', async (req: Request, res: Response
                 })
             );
         }
-        return void sendContent(res, delivery.schemas.blocks, projected);
+        return void (await sendContent(res, delivery.schemas.blocks, projected, {
+            projectId: delivery.projectId,
+            locale: delivery.choice?.locale
+        }));
     } catch (err: unknown) {
         return void sendApiError(res, req, err);
     }
@@ -790,7 +815,10 @@ router.get('/:channelId/:resourceId/entries/:id', async (req: Request, res: Resp
             const url = await resolveEntryUrl(projectId, id, resourceId, localeOne);
             projected = { ...projected, ...(url != null && { resolvedUrl: url }) };
         }
-        return void sendContent(res, delivery.schemas.blocks, projected);
+        return void (await sendContent(res, delivery.schemas.blocks, projected, {
+            projectId: delivery.projectId,
+            locale: delivery.choice?.locale
+        }));
     } catch (err: unknown) {
         return void sendApiError(res, req, err);
     }
@@ -821,7 +849,10 @@ router.get('/:channelId/layouts', async (req: Request, res: Response) => {
             );
             layouts = layout ? [layout] : [];
         }
-        return void sendContent(res, listBlocks(projectId), layouts);
+        return void (await sendContent(res, listBlocks(projectId), layouts, {
+            projectId,
+            locale: parseLocaleQuery(req)
+        }));
     } catch (err: unknown) {
         return void sendApiError(res, req, err);
     }
@@ -843,7 +874,10 @@ router.get('/:channelId/layouts/:id', async (req: Request, res: Response) => {
             return void res.status(404).json({ error: 'Layout not found in channel' });
         const layout = await getProjectJson<Layout>(projectId, layoutKey(id));
         if (!layout) return void res.status(404).json({ error: 'Layout not found' });
-        return void sendContent(res, listBlocks(projectId), layout);
+        return void (await sendContent(res, listBlocks(projectId), layout, {
+            projectId,
+            locale: parseLocaleQuery(req)
+        }));
     } catch (err: unknown) {
         return void sendApiError(res, req, err);
     }

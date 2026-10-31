@@ -50,6 +50,12 @@ describe('requestClassifier', () => {
         expect(res.body.projectId).toBe('site1');
     });
 
+    it("counts what plugins give sites (a poll's votes) as the project's public traffic", async () => {
+        const res = await request(app).post('/projects/site1/play/polls/lunch/vote');
+        expect(res.body.type).toBe('public');
+        expect(res.body.projectId).toBe('site1');
+    });
+
     it('sets public for page outputs', async () => {
         const res = await request(app).get('/projects/site1/sitemap.xml');
         expect(res.body.type).toBe('public');

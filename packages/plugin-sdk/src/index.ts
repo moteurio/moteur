@@ -37,6 +37,19 @@ export type PluginInitContext = {
     registerVideoProviderFactory: (id: string, factory: (config: unknown) => unknown) => void;
     setVideoProvidersConfig: (config: VideoProvidersConfig | null) => void;
     registerBlockSchema: (schema: BlockSchema) => void;
+    /**
+     * What sites get for a block `type` of this plugin: called with the block's data (in the
+     * language asked for) when a channel sends it, at any depth; returns the data to send. Kept
+     * with the channel's answer, so it runs once per change, not per request. Throwing, or taking
+     * over 3 seconds, sends the block as it is.
+     */
+    registerBlockDelivery: (
+        type: string,
+        resolve: (
+            data: Record<string, unknown>,
+            context: { projectId: string; locale?: string }
+        ) => Record<string, unknown> | undefined | Promise<Record<string, unknown> | undefined>
+    ) => void;
     registerStructureSchema: (schema: StructureSchema) => void;
     registerBlueprint: (blueprint: BlueprintSchema) => void;
     registerFieldSchema: (field: FieldSchema) => void;

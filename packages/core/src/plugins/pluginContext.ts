@@ -9,6 +9,7 @@ import { getProjectById } from '../projects.js';
 import { registerAdapterFactory } from '../assets/adapterRegistry.js';
 import { registerProviderFactory, setVideoProvidersConfig } from '../assets/providerRegistry.js';
 import { registerBlockSchema as registerBlockSchemaCore } from '../blocks.js';
+import { registerBlockDelivery } from '../blockDelivery.js';
 import { registerStructureSchema as registerStructureSchemaCore } from '../structures.js';
 import { registerBlueprint as registerBlueprintCore } from '../blueprints.js';
 import fieldRegistry from '../registry/FieldRegistry.js';
@@ -84,6 +85,7 @@ export function createPluginContext(): PluginContext {
             registerProviderFactory as PluginInitContext['registerVideoProviderFactory'],
         setVideoProvidersConfig,
         registerBlockSchema: registerBlockSchemaCore,
+        registerBlockDelivery,
         registerStructureSchema: registerStructureSchemaCore,
         registerBlueprint: registerBlueprintCore,
         registerFieldSchema: (field: FieldSchema) => {
