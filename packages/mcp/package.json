@@ -49,7 +49,7 @@
         "access": "public"
     },
     "dependencies": {
-        "@modelcontextprotocol/sdk": "^1.32.1",
+        "@modelcontextprotocol/sdk": "^1.32.2",
         "@moteurio/client": "workspace:*",
         "@moteurio/commands": "workspace:*"
     },
