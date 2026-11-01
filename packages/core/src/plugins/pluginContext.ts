@@ -20,6 +20,7 @@ import {
     setProjectsLimit,
     setImageTrafficQuota,
     setRequestFairUse,
+    setImageTrafficFairUse,
     setRequestQuota,
     setStorageLimit,
     setSubmissionQuota
@@ -97,6 +98,7 @@ export function createPluginContext(): PluginContext {
         setStorageLimit,
         setRequestQuota,
         setRequestFairUse,
+        setImageTrafficFairUse,
         setImageTrafficQuota,
         setProjectsLimit,
         setCountLimit,
@@ -178,6 +180,10 @@ export function wrapPluginContext(
         setRequestFairUse: fairUse => {
             collector.setPlanLimit('requestFairUse');
             ctx.setRequestFairUse(fairUse);
+        },
+        setImageTrafficFairUse: fairUse => {
+            collector.setPlanLimit('imageTrafficFairUse');
+            ctx.setImageTrafficFairUse(fairUse);
         },
         setImageTrafficQuota: quota => {
             collector.setPlanLimit('imageTraffic');

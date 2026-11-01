@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
     assertCountRoom,
+    assertImageTrafficRoom,
     assertPeopleRoom,
     assertProjectRoom,
     assertRequestRoom,
@@ -10,11 +11,14 @@ import {
     formatBytes,
     getCountLimits,
     getPeopleLimit,
+    getImageTrafficFairUse,
     getRequestFairUse,
     PlanLimitError,
     setCountLimit,
     setPeopleLimit,
     setProjectsLimit,
+    setImageTrafficFairUse,
+    setImageTrafficQuota,
     setRequestFairUse,
     setRequestQuota,
     setStorageLimit,
@@ -26,6 +30,8 @@ afterEach(() => {
     setStorageLimit(null);
     setRequestQuota(null);
     setRequestFairUse(null);
+    setImageTrafficQuota(null);
+    setImageTrafficFairUse(null);
     setProjectsLimit(null);
     setCountLimit(null);
     setSubmissionQuota(null);
@@ -186,5 +192,21 @@ describe('people limit', () => {
         setPeopleLimit(() => Number.NaN);
         expect(getPeopleLimit('p1')).toBeNull();
         warn.mockRestore();
+    });
+});
+
+describe('image traffic fair use', () => {
+    it('has no notice until a host sets one, then says where it starts, per project', () => {
+        expect(getImageTrafficFairUse('p1')).toBeNull();
+        setImageTrafficFairUse(id => (id === 'p1' ? 10 * 1024 ** 3 : null));
+        expect(getImageTrafficFairUse('p1')).toBe(10 * 1024 ** 3);
+        expect(getImageTrafficFairUse('p2')).toBeNull();
+    });
+
+    it('never holds a paid project’s images back, past its fair use level too; Free still pauses', () => {
+        setImageTrafficQuota(id => (id === 'free' ? 1024 ** 3 : null));
+        setImageTrafficFairUse(id => (id === 'paid' ? 10 * 1024 ** 3 : null));
+        expect(() => assertImageTrafficRoom('paid', 500 * 1024 ** 3)).not.toThrow();
+        expect(() => assertImageTrafficRoom('free', 2 * 1024 ** 3)).toThrow(PlanLimitError);
     });
 });

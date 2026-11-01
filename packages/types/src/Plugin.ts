@@ -82,6 +82,8 @@ export interface PluginContributions {
         /** Sets where the fair use notice on public requests starts (never a limit). */
         requestFairUse?: boolean;
         imageTraffic?: boolean;
+        /** Sets where the fair use notice on image traffic starts (never a limit). */
+        imageTrafficFairUse?: boolean;
         formSubmissions?: boolean;
         projectsPerUser?: boolean;
         counts?: PlanLimitKind[];
@@ -337,6 +339,9 @@ export function mergeContributions(
     if (orBool(a.planLimits?.apiRequests, b.planLimits?.apiRequests)) plan.apiRequests = true;
     if (orBool(a.planLimits?.requestFairUse, b.planLimits?.requestFairUse)) {
         plan.requestFairUse = true;
+    }
+    if (orBool(a.planLimits?.imageTrafficFairUse, b.planLimits?.imageTrafficFairUse)) {
+        plan.imageTrafficFairUse = true;
     }
     if (orBool(a.planLimits?.formSubmissions, b.planLimits?.formSubmissions)) {
         plan.formSubmissions = true;

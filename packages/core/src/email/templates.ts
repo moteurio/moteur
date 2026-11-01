@@ -63,6 +63,22 @@ export interface EmailData {
         /** Replies go to the person who invited. */
         replyToInviter?: boolean;
     };
+    /**
+     * A project used 80% or all of a monthly allowance: a limit (`fairUse` false), past which
+     * something stops until the month turns, or a fair use level, past which nothing stops.
+     */
+    'usage-alert': {
+        project: string;
+        kind: 'requests' | 'imageTraffic' | 'aiCredits' | 'submissions';
+        level: 80 | 100;
+        used: number;
+        limit: number;
+        fairUse: boolean;
+        /** The first day of next month (UTC), `2026-12-01`: when the count starts again. */
+        resets: string;
+        url?: string;
+        unsubscribeUrl?: string;
+    };
     review: {
         type: 'review_requested' | 'approved' | 'rejected';
         /** Who asked (requested) or who decided (approved, rejected). */
@@ -109,6 +125,7 @@ export const EMAIL_KINDS = [
     'welcome',
     'invite',
     'review',
+    'usage-alert',
     'form-notice',
     'form-message',
     'form-confirm',
@@ -1190,6 +1207,113 @@ const emailChanged: Template<'email-changed'> = ({ email, to }, { locale, produc
               ]
           };
 
+const USAGE_WHAT = {
+    requests: { en: 'API requests', fr: 'requêtes d’API' },
+    imageTraffic: { en: 'image traffic', fr: 'trafic d’images' },
+    aiCredits: { en: 'AI credits', fr: 'crédits d’IA' },
+    submissions: { en: 'form submissions', fr: 'envois de formulaires' }
+} as const;
+
+/** What stops when a limit is reached, until the month turns. */
+const USAGE_STOPS = {
+    requests: {
+        en: 'its sites get no answer from the API',
+        fr: 'ses sites n’obtiennent plus de réponse de l’API'
+    },
+    imageTraffic: {
+        en: 'images stop loading on its sites',
+        fr: 'les images ne s’affichent plus sur ses sites'
+    },
+    aiCredits: { en: 'writing help stops', fr: 'l’aide à l’écriture s’arrête' },
+    submissions: {
+        en: 'its forms stop taking answers',
+        fr: 'ses formulaires n’acceptent plus de réponses'
+    }
+} as const;
+
+const usageAlert: Template<'usage-alert'> = (d, { locale }) => {
+    const fr = locale === 'fr';
+    const lang = fr ? 'fr' : 'en';
+    const what = USAGE_WHAT[d.kind][lang];
+    const stops = USAGE_STOPS[d.kind][lang];
+    const numbers = new Intl.NumberFormat(fr ? 'fr-CA' : 'en-CA', { maximumFractionDigits: 1 });
+    const amount = (n: number) =>
+        d.kind === 'imageTraffic'
+            ? `${numbers.format(n / 1024 ** 3)}${S}${fr ? 'Go' : 'GB'}`
+            : numbers.format(n);
+    const used = amount(d.used);
+    const limit = amount(d.limit);
+    const resets = new Intl.DateTimeFormat(fr ? 'fr-CA' : 'en-CA', {
+        month: 'long',
+        day: 'numeric',
+        timeZone: 'UTC'
+    }).format(new Date(`${d.resets}T00:00:00Z`));
+    const pct = fr ? `80${N}%` : '80%';
+    const subject = d.fairUse
+        ? d.level === 100
+            ? fr
+                ? `${d.project} a dépassé le seuil d’usage raisonnable (${what})`
+                : `${d.project} is past the fair use level for ${what}`
+            : fr
+              ? `${d.project} approche du seuil d’usage raisonnable (${what})`
+              : `${d.project} is nearing the fair use level for ${what}`
+        : d.level === 100
+          ? fr
+              ? `${d.project} a atteint sa limite de ${what} du mois`
+              : `${d.project} has reached its ${what} limit for this month`
+          : fr
+            ? `${d.project} a utilisé ${pct} de sa limite de ${what} du mois`
+            : `${d.project} has used ${pct} of its ${what} limit for this month`;
+    const count = fr
+        ? `${used} sur ${limit} (${what}) depuis le début du mois.`
+        : `${used} of ${limit} ${what} so far this month.`;
+    const next = d.fairUse
+        ? fr
+            ? `Rien ne s’arrête${N}: vos sites continuent de fonctionner. Si ${d.project} reste au-delà, nous pourrions vous écrire au sujet d’un forfait mieux adapté.`
+            : `Nothing stops: your sites keep working. If ${d.project} stays past it, we may get in touch about a plan that fits.`
+        : d.level === 100
+          ? fr
+              ? `Depuis, ${stops} jusqu’au ${resets}. Un forfait plus grand relève la limite tout de suite.`
+              : `Since then, ${stops} until ${resets}. A bigger plan raises the limit right away.`
+          : fr
+            ? `À ${limit}, ${stops} jusqu’au ${resets}. Un forfait plus grand relève la limite tout de suite.`
+            : `At ${limit}, ${stops} until ${resets}. A bigger plan raises the limit right away.`;
+    return {
+        subject,
+        preheader: count,
+        blocks: [
+            { t: 'h', text: subject },
+            { t: 'p', text: count },
+            { t: 'p', text: next },
+            ...(d.url
+                ? [
+                      {
+                          t: 'button' as const,
+                          label: fr ? 'Voir la consommation' : 'See the usage',
+                          href: d.url,
+                          fallback: fr
+                              ? `Si le bouton ne fonctionne pas, ouvrez cette adresse${N}:`
+                              : 'If the button doesn’t work, open this address:'
+                      }
+                  ]
+                : [])
+        ],
+        why: fr
+            ? [
+                  'Vous recevez ces courriels parce que vous vous occupez du forfait de ',
+                  strong(d.project),
+                  '.'
+              ]
+            : ['You get these emails because you look after the plan of ', strong(d.project), '.'],
+        ...(d.unsubscribeUrl && {
+            unsubscribe: {
+                label: fr ? 'Ne plus recevoir les courriels de consommation' : 'Stop usage emails',
+                href: d.unsubscribeUrl
+            }
+        })
+    };
+};
+
 export const TEMPLATES: { [K in EmailKind]: Template<K> } = {
     signin,
     signup,
@@ -1200,6 +1324,7 @@ export const TEMPLATES: { [K in EmailKind]: Template<K> } = {
     welcome,
     invite,
     review,
+    'usage-alert': usageAlert,
     'form-notice': formNotice,
     'form-message': formMessage,
     'form-confirm': formConfirm,
@@ -1207,7 +1332,7 @@ export const TEMPLATES: { [K in EmailKind]: Template<K> } = {
 };
 
 /** Who a kind is for: sign-in mail is never something to unsubscribe from. */
-export const NOTIFICATION_KINDS: EmailKind[] = ['review'];
+export const NOTIFICATION_KINDS: EmailKind[] = ['review', 'usage-alert'];
 
 /**
  * A project's own mail, to its site's visitors: in the project's design, under its name, logo and
@@ -1264,6 +1389,18 @@ export function samples(locale: EmailLocale): { [K in EmailKind]: EmailData[K] }
             url: `${studio}/projects/journal/reviews/r-1042`,
             unsubscribeUrl:
                 'https://api.example.com/auth/email/unsubscribe?u=user%3A42&t=reviews&s=Hq2k7Vb0x9LmT4cR'
+        },
+        'usage-alert': {
+            project: 'Journal de Montréal',
+            kind: 'requests',
+            level: 80,
+            used: 16_240,
+            limit: 20_000,
+            fairUse: false,
+            resets: '2026-12-01',
+            url: `${studio}/projects/journal/setup/billing`,
+            unsubscribeUrl:
+                'https://api.example.com/auth/email/unsubscribe?u=user%3A42&t=usage&s=Kp3m8Wc1y0NnU5dS'
         },
         'form-notice': {
             project: 'Journal de Montréal',

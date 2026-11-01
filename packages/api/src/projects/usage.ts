@@ -16,6 +16,7 @@ import {
     COUNT_KINDS,
     getCountLimits,
     getImageTrafficQuota,
+    getImageTrafficFairUse,
     getPeopleLimit,
     getRequestFairUse,
     getRequestQuota,
@@ -59,7 +60,8 @@ export async function projectUsage(projectId: string) {
         },
         images: {
             ...imageTraffic(projectId, period),
-            max: getImageTrafficQuota(projectId)
+            max: getImageTrafficQuota(projectId),
+            fairUse: getImageTrafficFairUse(projectId)
         },
         submissions: {
             received: submissionCount(projectId, period),
@@ -153,7 +155,7 @@ export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
     '/projects/{projectId}/usage': {
         get: {
             summary: "A project's usage this month",
-            description: `Public API requests, image traffic and AI credits for this calendar month (UTC), what the credits went on (\`byReason\`), and the last ${HISTORY_MONTHS} months. \`requests.max\` is the plan's monthly quota (null: none); \`requests.fairUse\` is where the host's fair use notice starts, which never turns a request away (null: none). \`allowance\` and \`remaining\` are null when credits are unlimited. Admin or Billing role in the project.`,
+            description: `Public API requests, image traffic and AI credits for this calendar month (UTC), what the credits went on (\`byReason\`), and the last ${HISTORY_MONTHS} months. \`requests.max\` is the plan's monthly quota (null: none); \`requests.fairUse\` is where the host's fair use notice starts, which never turns a request away (null: none); \`images.max\` and \`images.fairUse\` are the same for bytes of images. \`allowance\` and \`remaining\` are null when credits are unlimited. Admin or Billing role in the project.`,
             tags: ['Usage'],
             security: [{ bearerAuth: [] }],
             parameters: [
@@ -274,6 +276,12 @@ export const schemas: OpenAPIV3.ComponentsObject['schemas'] = {
                         type: 'integer',
                         nullable: true,
                         description: 'Monthly quota of bytes. Null: no limit'
+                    },
+                    fairUse: {
+                        type: 'integer',
+                        nullable: true,
+                        description:
+                            'Bytes a month past which the fair use notice shows; images are never held back. Null: none'
                     }
                 }
             },

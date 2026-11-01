@@ -97,6 +97,11 @@ export type PluginInitContext = {
      */
     setImageTrafficQuota: (quota: ((projectId: string) => number | null) | null) => void;
     /**
+     * Bytes of images a calendar month (UTC) past which the host shows its fair use notice
+     * (null: none). Not a limit: images are never held back; for that, use setImageTrafficQuota.
+     */
+    setImageTrafficFairUse: (fairUse: ((projectId: string) => number | null) | null) => void;
+    /**
      * Form submissions a project may receive each calendar month (UTC; null: no limit). Past it,
      * submitting answers 402 `plan_limit`; submissions the honeypot catches don't count.
      */

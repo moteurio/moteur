@@ -50,7 +50,7 @@ export interface UserPreferences {
     /** Interface language (`en`, `fr`…): their emails use it when the server has it. */
     locale?: string;
     /** Notification emails they turned off (`false`). Sign-in mail can't be turned off. */
-    emails?: { reviews?: boolean };
+    emails?: { reviews?: boolean; usage?: boolean };
 }
 
 /** Why someone came, as they said on their first screen. */

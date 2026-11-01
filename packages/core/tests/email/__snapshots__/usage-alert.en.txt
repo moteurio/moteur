@@ -1,0 +1,15 @@
+Subject: Journal de Montréal has used 80% of its API requests limit for this month
+
+Journal de Montréal has used 80% of its API requests limit for this month
+
+16,240 of 20,000 API requests so far this month.
+
+At 20,000, its sites get no answer from the API until December 1. A bigger plan raises the limit right away.
+
+See the usage:
+https://studio.example.com/projects/journal/setup/billing
+
+You get these emails because you look after the plan of Journal de Montréal.
+
+Stop usage emails:
+https://api.example.com/auth/email/unsubscribe?u=user%3A42&t=usage&s=Kp3m8Wc1y0NnU5dS

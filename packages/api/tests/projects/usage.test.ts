@@ -14,7 +14,13 @@ import { requestClassifier } from '../../src/middlewares/requestClassifier.js';
 import { usageLogging } from '../../src/middlewares/usageLogging.js';
 import { requestQuota } from '../../src/middlewares/requestQuota.js';
 import { projectUsage } from '../../src/projects/usage.js';
-import { setRequestFairUse, setRequestQuota } from '@moteurio/core/planLimits.js';
+import {
+    setImageTrafficFairUse,
+    setImageTrafficQuota,
+    setRequestFairUse,
+    setRequestQuota
+} from '@moteurio/core/planLimits.js';
+import { recordImageTraffic } from '@moteurio/core/metering.js';
 
 const app = express();
 app.use(requestClassifier, usageLogging, requestQuota);
@@ -58,5 +64,24 @@ describe('public requests', () => {
             max: 2,
             fairUse: null
         });
+    });
+});
+
+describe('image traffic', () => {
+    afterEach(() => {
+        setImageTrafficFairUse(null);
+        setImageTrafficQuota(null);
+    });
+
+    it('reports the fair use level apart from the quota', async () => {
+        setImageTrafficFairUse(id => (id === 'img-paid' ? 1000 : null));
+        setImageTrafficQuota(id => (id === 'img-free' ? 500 : null));
+        recordImageTraffic('img-paid', 4000);
+        expect((await projectUsage('img-paid')).images).toMatchObject({
+            bytes: 4000,
+            max: null,
+            fairUse: 1000
+        });
+        expect((await projectUsage('img-free')).images).toMatchObject({ max: 500, fairUse: null });
     });
 });

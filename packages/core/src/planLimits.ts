@@ -38,6 +38,7 @@ let storageLimit: ProjectLimit | null = null;
 let requestQuota: ProjectLimit | null = null;
 let requestFairUse: ProjectLimit | null = null;
 let imageTrafficQuota: ProjectLimit | null = null;
+let imageTrafficFairUse: ProjectLimit | null = null;
 let submissionQuota: ProjectLimit | null = null;
 let projectsLimit: ProjectsLimit | null = null;
 let countLimit: CountLimit | null = null;
@@ -118,6 +119,19 @@ export function getRequestFairUse(projectId: string): number | null {
 
 export function getImageTrafficQuota(projectId: string): number | null {
     return ask(imageTrafficQuota, projectId, 'image traffic');
+}
+
+/**
+ * Set (or clear) the bytes of images a calendar month (UTC) past which the host shows its fair
+ * use notice. Not a limit: images are never held back, however much is sent.
+ */
+export function setImageTrafficFairUse(fn: ProjectLimit | null): void {
+    imageTrafficFairUse = fn;
+}
+
+/** Where the project's fair use notice on image traffic starts, in bytes a month; null for none. */
+export function getImageTrafficFairUse(projectId: string): number | null {
+    return ask(imageTrafficFairUse, projectId, 'image traffic fair use');
 }
 
 export function getSubmissionQuota(projectId: string): number | null {
