@@ -1,6 +1,8 @@
 /**
  * Limits a host puts on a project (api.moteur.io's plans). Moteur on its own has none: until a
- * plugin sets a resolver, every check passes.
+ * plugin sets a resolver, every check passes. Public API requests can have a monthly quota
+ * (setRequestQuota) and, apart from it, a fair use level where the host's notice starts
+ * (setRequestFairUse), which never turns a request away.
  */
 
 /** A limit for one project; null for no limit. */
@@ -34,6 +36,7 @@ export type PlanLimitKind =
 let peopleLimit: ProjectLimit | null = null;
 let storageLimit: ProjectLimit | null = null;
 let requestQuota: ProjectLimit | null = null;
+let requestFairUse: ProjectLimit | null = null;
 let imageTrafficQuota: ProjectLimit | null = null;
 let submissionQuota: ProjectLimit | null = null;
 let projectsLimit: ProjectsLimit | null = null;
@@ -52,6 +55,14 @@ export function setStorageLimit(fn: ProjectLimit | null): void {
 /** Set (or clear) the public API requests a project may answer each calendar month (UTC). */
 export function setRequestQuota(fn: ProjectLimit | null): void {
     requestQuota = fn;
+}
+
+/**
+ * Set (or clear) the public API requests a calendar month (UTC) past which the host shows its
+ * fair use notice. Not a limit: requests are never turned away, however many there are.
+ */
+export function setRequestFairUse(fn: ProjectLimit | null): void {
+    requestFairUse = fn;
 }
 
 /**
@@ -98,6 +109,11 @@ export function getStorageLimit(projectId: string): number | null {
 
 export function getRequestQuota(projectId: string): number | null {
     return ask(requestQuota, projectId, 'request');
+}
+
+/** Where the project's fair use notice starts, in public requests a month; null for none. */
+export function getRequestFairUse(projectId: string): number | null {
+    return ask(requestFairUse, projectId, 'request fair use');
 }
 
 export function getImageTrafficQuota(projectId: string): number | null {

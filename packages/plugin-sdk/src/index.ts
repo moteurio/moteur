@@ -86,6 +86,11 @@ export type PluginInitContext = {
      */
     setRequestQuota: (quota: ((projectId: string) => number | null) | null) => void;
     /**
+     * Public API requests a calendar month (UTC) past which the host shows its fair use notice
+     * (null: none). Not a limit: it never turns a request away; for that, use setRequestQuota.
+     */
+    setRequestFairUse: (fairUse: ((projectId: string) => number | null) | null) => void;
+    /**
      * Bytes of images a project may send each calendar month (UTC; null: no limit): originals
      * and sizes, to sites and browsers. A browser or CDN asking again for an image it has (304)
      * costs nothing. Once used up, images answer 402 `plan_limit` until the month ends.
