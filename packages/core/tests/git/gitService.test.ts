@@ -322,4 +322,54 @@ describe('gitService', () => {
             expect(gitVersion('git-that-is-not-installed')).toBeNull();
         });
     });
+
+    describe('commits made from the index', () => {
+        const git = (...args: string[]) =>
+            spawnSync('git', args, { cwd: tempDir, encoding: 'utf-8' }).stdout.trim();
+        const author = { name: 'Ada', email: 'ada@test.dev' };
+
+        it('makes the first commit, without a parent, on the branch HEAD names', async () => {
+            await initRepo(tempDir);
+            await fs.writeFile(path.join(tempDir, 'a.json'), '{"v":1}');
+            const first = await addAndCommit(tempDir, ['a.json'], 'First', author);
+            expect(first).toMatch(/^[0-9a-f]{40}$/);
+            expect(git('rev-parse', 'HEAD')).toBe(first);
+            expect(git('rev-list', '--parents', '-n', '1', 'HEAD')).toBe(first);
+            expect(getCurrentBranch(tempDir)).toBe(git('symbolic-ref', '--short', 'HEAD'));
+            expect(git('log', '-1', '--format=%an <%ae>|%s')).toBe('Ada <ada@test.dev>|First');
+        });
+
+        it('commits changes and deletions on top, and nothing when nothing changed', async () => {
+            await initRepo(tempDir);
+            await fs.writeFile(path.join(tempDir, 'a.json'), '1');
+            await fs.writeFile(path.join(tempDir, 'b.json'), '1');
+            const first = await addAndCommit(tempDir, ['a.json', 'b.json'], 'One', author);
+            await fs.writeFile(path.join(tempDir, 'a.json'), '2');
+            await fs.rm(path.join(tempDir, 'b.json'));
+            const second = await addAndCommit(
+                tempDir,
+                ['a.json', 'b.json'],
+                'Two\n\nWith a body',
+                author
+            );
+            expect(git('rev-parse', `${second}^`)).toBe(first);
+            expect(git('show', 'HEAD:a.json')).toBe('2');
+            expect(git('ls-tree', '--name-only', 'HEAD')).not.toContain('b.json');
+            expect(git('log', '-1', '--format=%B')).toBe('Two\n\nWith a body');
+            // The same content again: no commit.
+            expect(await addAndCommit(tempDir, ['a.json'], 'Three', author)).toBe('');
+            expect(git('rev-parse', 'HEAD')).toBe(second);
+            // The reflog says what moved the branch, and the repository is whole.
+            expect(git('reflog', '-1', '--format=%gs')).toBe('commit: Two');
+            expect(spawnSync('git', ['fsck', '--no-progress'], { cwd: tempDir }).status).toBe(0);
+        });
+
+        it('commits everything after a copy, or says where HEAD is when nothing changed', async () => {
+            await initRepo(tempDir);
+            await fs.writeFile(path.join(tempDir, 'a.json'), '1');
+            const head = await addAllAndCommit(tempDir, 'Copy', author);
+            expect(git('rev-parse', 'HEAD')).toBe(head);
+            expect(await addAllAndCommit(tempDir, 'Again', author)).toBe(head);
+        });
+    });
 });
