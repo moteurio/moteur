@@ -82,6 +82,7 @@ import { usageLogging } from './middlewares/usageLogging.js';
 import { requestQuota } from './middlewares/requestQuota.js';
 import { studioRateLimiter } from './middlewares/rateLimit.js';
 import { fairShare } from './middlewares/fairShare.js';
+import { gitVersion } from '@moteurio/core/git/gitService.js';
 import { bootstrapApi } from './openapi/bootstrapApi.js';
 import { trustProxySetting } from './utils/trustProxy.js';
 // Ensure asset storage adapters (e.g. local) are registered before any asset routes run
@@ -111,6 +112,14 @@ function registerProcessFatalHandlers(): void {
     });
 }
 registerProcessFatalHandlers();
+
+// Every project is a Git repository: without git, making a project fails, and so does every save.
+if (!gitVersion()) {
+    console.error(
+        '[API fatal] Git is not installed, or not on PATH. Every Moteur project is a Git repository: install git (apt-get install git, apk add git) and start the API again.'
+    );
+    process.exit(1);
+}
 
 // CORS: only origins in CORS_ORIGINS (comma-separated) are allowed. Unset = none — set explicitly for every environment.
 function getCorsOrigin(): string | string[] {

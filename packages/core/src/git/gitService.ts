@@ -19,6 +19,15 @@ function safeAuthor(user: { name?: string; email?: string; id?: string }): GitAu
 }
 
 /**
+ * Git's version (`git version 2.43.0`), or null when there is no git to run: every project is a
+ * Git repository, so the API checks this before it starts.
+ */
+export function gitVersion(command = 'git'): string | null {
+    const r = spawnSync(command, ['--version'], { encoding: 'utf-8' });
+    return !r.error && r.status === 0 ? r.stdout.trim() : null;
+}
+
+/**
  * Run a git command in the project directory. Uses spawnSync so arguments (e.g. commit message) are not parsed by a shell.
  */
 function git(
