@@ -4,7 +4,7 @@ import path from 'path';
 import os from 'os';
 import type { Entry } from '@moteurio/types/Model.js';
 import type { User } from '@moteurio/types/User.js';
-import { initRepo, addAndCommit, getRepoLog } from '../src/git/gitService.js';
+import { initRepo, addAndCommit, getRepoLog, gitIdle } from '../src/git/gitService.js';
 import { getProjectJson, putProjectJson } from '../src/utils/projectStorage.js';
 import { entryKey, modelKey } from '../src/utils/storageKeys.js';
 import {
@@ -74,6 +74,8 @@ describe('review workflow', () => {
 
     afterEach(async () => {
         vi.unstubAllEnvs();
+        // Saves commit in the background: let them land before the folder goes.
+        await gitIdle();
         await fs.rm(tempDir, { recursive: true, force: true });
     });
 
@@ -197,6 +199,7 @@ describe('review workflow', () => {
             keptBy: 'admin'
         });
         expect(saved?.meta?.assisted?.title?.readBy).toBeUndefined();
+        await gitIdle();
         expect(commitMessages()[0]).toMatch(/^Update article\/e1 \(with help\) — Ada via Claude/);
 
         // Admin as a person may publish; as a review-only agent, not without approval.

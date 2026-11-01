@@ -20,7 +20,7 @@ import type {
 import { needsApproval } from '@moteurio/types';
 import { runInBatch, type ContentBatch } from '../contentBatch.js';
 import { commitContentChange } from '../git/contentCommitHook.js';
-import { isGitRepo, show } from '../git/gitService.js';
+import { gitSettled, isGitRepo, show } from '../git/gitService.js';
 import { projectDir } from '../utils/pathUtils.js';
 import { withProjectWriteLock } from '../utils/projectWriteLock.js';
 import { hasProjectKey, restoreProjectFile } from '../utils/projectStorage.js';
@@ -581,6 +581,8 @@ export async function importBundle(
     const total = countItems(bundle);
     let done = 0;
     const outcome = await withProjectWriteLock<ImportOutcome>(projectId, async () => {
+        // Earlier saves' commits first, so the import's commit holds only the import.
+        await gitSettled(projectDir(projectId));
         const saved = await runInBatch(projectId, async batch => {
             const ctx: Context = {
                 user,

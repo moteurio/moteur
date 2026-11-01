@@ -6,7 +6,14 @@ import { onEvent } from '../utils/eventBus.js';
 import { getProjectById } from '../projects.js';
 import { projectDir } from '../utils/pathUtils.js';
 import { log, toActivityEvent } from '../activityLogger.js';
-import { addAndCommit, GITIGNORE_LINES, hasRemote, isGitRepo, schedulePush } from './gitService.js';
+import {
+    addAndCommit,
+    GITIGNORE_LINES,
+    hasRemote,
+    inBackground,
+    isGitRepo,
+    schedulePush
+} from './gitService.js';
 import type { User } from '@moteurio/types/User.js';
 import { runGitCommitHooks } from '../plugins/gitHooks.js';
 import { batchFor } from '../contentBatch.js';
@@ -32,7 +39,10 @@ async function handleContentChange(payload: ContentEventPayload): Promise<void> 
         for (const p of trackedPaths(payload.paths)) batch.paths.add(p.replace(/\\/g, '/'));
         return;
     }
-    await commitContentChange(payload);
+    // The save is on disk, which is its record: its commit follows in the background, so a save
+    // never waits for Git (a commit grows with the project: 0.4 s at 100,000 entries). What reads
+    // the latest history waits for it; a failed commit is taken along by the next one.
+    inBackground(projectDir(payload.projectId), commitContentChange(payload));
 }
 
 /**
