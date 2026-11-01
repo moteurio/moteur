@@ -198,6 +198,14 @@ A server is closed by default: without `MOTEUR_SIGNUP=open`, only invited people
 
 A new account records how it was made and the site page that brought them (`signup`), and what they came for (`onboarding`: `PATCH /auth/me/onboarding`). The Studio's welcome screens ask once. `POST /auth/me/demo` copies the server's demo project (`DEMO_PROJECT_ID`) for them, at most three times: its content only, never its workspace (`.moteur/`), credentials, outbound webhooks, Git history or form submissions. Whoever creates a project is its admin, billing and developer.
 
+The copy is marked (`demo` on the project) and is for trying things, not a site:
+
+- it can't have API keys, and its forms take no answers from a site;
+- it is never its person's free project: a host may give it a plan to try everything on (the `project.demoCopied` event);
+- it goes to the trash after 30 days without a change.
+
+`POST /projects/:projectId/keep` (its Admin) removes the mark: the copy becomes a project they made, counted like one (a host may refuse it like a new project, `plan_limit`), and a later `POST /auth/me/demo` makes them a new copy, within the three.
+
 ### Limits, and when to try again
 
 Every refusal has a machine `code`. When waiting helps, it also has `retryAfter`, the whole seconds to wait, in the body and as the `Retry-After` header (which browsers can read through CORS), so a page can count down instead of guessing.

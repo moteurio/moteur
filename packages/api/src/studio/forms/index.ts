@@ -11,6 +11,8 @@ import {
     deleteForm
 } from '@moteurio/core/forms.js';
 import { createSubmission } from '@moteurio/core/formSubmissions.js';
+import { isDemoCopy } from '@moteurio/core/demoCopies.js';
+import { getProjectById } from '@moteurio/core/projects.js';
 import { listFormActions } from '@moteurio/core/plugins/formExtensions.js';
 import { CAPTCHA_FIELDS, issueFormToken, sentCaptcha } from '@moteurio/core/formGuard.js';
 import { submissionSource } from '@moteurio/core/submissionSource.js';
@@ -107,6 +109,14 @@ router.post(
             const form = await getFormForProject(projectId, formId);
             if (!form) {
                 res.status(404).json({ error: 'Form not found' });
+                return;
+            }
+            // A demo copy serves no site: its forms take no answers from one.
+            if (isDemoCopy(await getProjectById(projectId))) {
+                res.status(403).json({
+                    error: 'This is a demo copy: its forms take no answers from a site.',
+                    code: 'DEMO_COPY'
+                });
                 return;
             }
             if (form.status !== 'active') {

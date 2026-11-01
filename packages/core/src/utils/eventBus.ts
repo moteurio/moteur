@@ -31,6 +31,8 @@ export interface EventMap {
     // Projects
     'project.beforeCreate': { project: ProjectSchema; user: User };
     'project.afterCreate': { project: ProjectSchema; user: User };
+    /** Someone's copy of the demo made (`demo` on it): a host may give it a plan to try. */
+    'project.demoCopied': { project: ProjectSchema; user: User };
     'project.beforeUpdate': { project: ProjectSchema; user: User };
     'project.afterUpdate': { project: ProjectSchema; user: User };
     'project.beforeDelete': { project: ProjectSchema; user: User };

@@ -60,6 +60,7 @@ import blocksRouter from './blocks/index.js';
 import webhooksAssetsRouter from './webhooks/assets.js';
 import { storageConfig, validateStorageConfig } from '@moteurio/core';
 import { schedulerEngine, startSnapshotScheduler, stopSnapshotScheduler } from '@moteurio/core';
+import { startDemoSweeper, stopDemoSweeper } from '@moteurio/core/demoCopies.js';
 import { globalErrorHandler } from './middlewares/errorHandler.js';
 import { registerSocketEventBridge } from './bootstrap/socketEventBridge.js';
 import { mountResizedImages, mountStaticAssets } from './bootstrap/staticAssetsRoute.js';
@@ -354,6 +355,8 @@ httpServer.listen(PORT, async () => {
     }
     await startWebhookWorker();
     startSnapshotScheduler(60_000);
+    // Demo copies left 30 days without a change go to the trash.
+    startDemoSweeper();
     // Images uploaded just before a restart still need their resized copies.
     try {
         const queued = await resumeImageCopies(loadProjects());
@@ -394,6 +397,7 @@ async function gracefulShutdown(signal: string): Promise<void> {
     schedulerEngine.stopSweep();
     stopWebhookWorker();
     stopSnapshotScheduler();
+    stopDemoSweeper();
     await new Promise<void>(resolve => {
         httpServer.close(() => resolve());
         httpServer.closeIdleConnections();

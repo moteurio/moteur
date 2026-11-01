@@ -362,7 +362,8 @@ export function getDemoProjectId(): string {
 export async function copyProjectForNewUser(
     sourceProjectId: string,
     newProjectId: string,
-    userId: string
+    userId: string,
+    extra: Partial<ProjectSchema> = {}
 ): Promise<ProjectSchema> {
     if (!isValidId(sourceProjectId) || !isValidId(newProjectId) || !userId) {
         throw new Error('copyProjectForNewUser: invalid sourceProjectId, newProjectId, or userId');
@@ -415,7 +416,8 @@ export async function copyProjectForNewUser(
         id: newProjectId,
         label: (project.label || 'Demo').replace(/^demo$/i, 'My Demo') || 'My Demo',
         users: [userId],
-        memberRoles: { [userId]: [...PROJECT_CREATOR_ROLES] }
+        memberRoles: { [userId]: [...PROJECT_CREATOR_ROLES] },
+        ...extra
     };
     await putProjectJson(newProjectId, PROJECT_KEY, updated);
     // The copy starts as its source is published, under its own name (see projectCopyVersions.ts).

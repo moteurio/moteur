@@ -45,6 +45,10 @@ export function projectsApi(client: MoteurClient) {
         delete(projectId: string): Promise<void> {
             return client.delete(`/projects/${encodeURIComponent(projectId)}`);
         },
+        /** A demo copy becomes the person's own project, counted on their plan (Admin only). */
+        keep(projectId: string): Promise<{ project: ProjectSchema }> {
+            return client.post(`/projects/${encodeURIComponent(projectId)}/keep`, {});
+        },
         users(projectId: string): Promise<{ users: ProjectMemberUser[] }> {
             return client.get(`/projects/${encodeURIComponent(projectId)}/users`);
         },
