@@ -7,7 +7,7 @@ import { getUserById, updateStoredUser } from '../users.js';
  * one-click header mail apps show as "Unsubscribe" (RFC 8058). Sign-in mail has none.
  */
 
-export const EMAIL_TOPICS = ['reviews'] as const;
+export const EMAIL_TOPICS = ['reviews', 'usage'] as const;
 export type EmailTopic = (typeof EMAIL_TOPICS)[number];
 
 function key(): Buffer | null {

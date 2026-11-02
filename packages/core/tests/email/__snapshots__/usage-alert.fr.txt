@@ -1,0 +1,15 @@
+Subject: Journal de Montréal a utilisé 80 % de sa limite de requêtes d’API du mois
+
+Journal de Montréal a utilisé 80 % de sa limite de requêtes d’API du mois
+
+16 240 sur 20 000 (requêtes d’API) depuis le début du mois.
+
+À 20 000, ses sites n’obtiennent plus de réponse de l’API jusqu’au 1 décembre. Un forfait plus grand relève la limite tout de suite.
+
+Voir la consommation :
+https://studio.example.com/projects/journal/setup/billing
+
+Vous recevez ces courriels parce que vous vous occupez du forfait de Journal de Montréal.
+
+Ne plus recevoir les courriels de consommation :
+https://api.example.com/auth/email/unsubscribe?u=user%3A42&t=usage&s=Kp3m8Wc1y0NnU5dS

@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
     assertCountRoom,
+    assertImageTrafficRoom,
     assertPeopleRoom,
     assertProjectRoom,
     assertRequestRoom,
@@ -10,10 +11,15 @@ import {
     formatBytes,
     getCountLimits,
     getPeopleLimit,
+    getImageTrafficFairUse,
+    getRequestFairUse,
     PlanLimitError,
     setCountLimit,
     setPeopleLimit,
     setProjectsLimit,
+    setImageTrafficFairUse,
+    setImageTrafficQuota,
+    setRequestFairUse,
     setRequestQuota,
     setStorageLimit,
     setSubmissionQuota
@@ -23,6 +29,9 @@ afterEach(() => {
     setPeopleLimit(null);
     setStorageLimit(null);
     setRequestQuota(null);
+    setRequestFairUse(null);
+    setImageTrafficQuota(null);
+    setImageTrafficFairUse(null);
     setProjectsLimit(null);
     setCountLimit(null);
     setSubmissionQuota(null);
@@ -55,12 +64,36 @@ describe('storage limit', () => {
 
 describe('request quota', () => {
     it('turns requests away once the month’s quota is answered', () => {
-        setRequestQuota(() => 2000);
-        expect(() => assertRequestRoom('p1', 1999)).not.toThrow();
-        expect(thrown(() => assertRequestRoom('p1', 2000))).toMatchObject({
+        setRequestQuota(() => 20_000);
+        expect(() => assertRequestRoom('p1', 19_999)).not.toThrow();
+        expect(thrown(() => assertRequestRoom('p1', 20_000))).toMatchObject({
             limit: 'requests',
-            max: 2000
+            max: 20_000
         });
+    });
+
+    it('has no quota for a project its plan gives none, whatever the fair use level', () => {
+        setRequestQuota(id => (id === 'free' ? 20_000 : null));
+        setRequestFairUse(id => (id === 'paid' ? 500_000 : null));
+        expect(() => assertRequestRoom('paid', 10_000_000)).not.toThrow();
+    });
+});
+
+describe('request fair use', () => {
+    it('has no notice until a host sets one, then says where it starts, per project', () => {
+        expect(getRequestFairUse('p1')).toBeNull();
+        setRequestFairUse(id => (id === 'p1' ? 500_000 : null));
+        expect(getRequestFairUse('p1')).toBe(500_000);
+        expect(getRequestFairUse('p2')).toBeNull();
+    });
+
+    it('has no notice when the lookup fails', () => {
+        const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+        setRequestFairUse(() => {
+            throw new Error('no billing record');
+        });
+        expect(getRequestFairUse('p1')).toBeNull();
+        warn.mockRestore();
     });
 });
 
@@ -159,5 +192,21 @@ describe('people limit', () => {
         setPeopleLimit(() => Number.NaN);
         expect(getPeopleLimit('p1')).toBeNull();
         warn.mockRestore();
+    });
+});
+
+describe('image traffic fair use', () => {
+    it('has no notice until a host sets one, then says where it starts, per project', () => {
+        expect(getImageTrafficFairUse('p1')).toBeNull();
+        setImageTrafficFairUse(id => (id === 'p1' ? 10 * 1024 ** 3 : null));
+        expect(getImageTrafficFairUse('p1')).toBe(10 * 1024 ** 3);
+        expect(getImageTrafficFairUse('p2')).toBeNull();
+    });
+
+    it('never holds a paid project’s images back, past its fair use level too; Free still pauses', () => {
+        setImageTrafficQuota(id => (id === 'free' ? 1024 ** 3 : null));
+        setImageTrafficFairUse(id => (id === 'paid' ? 10 * 1024 ** 3 : null));
+        expect(() => assertImageTrafficRoom('paid', 500 * 1024 ** 3)).not.toThrow();
+        expect(() => assertImageTrafficRoom('free', 2 * 1024 ** 3)).toThrow(PlanLimitError);
     });
 });
