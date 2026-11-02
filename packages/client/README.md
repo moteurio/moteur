@@ -168,7 +168,7 @@ Framework-agnostic utilities exported from the same package:
 
 Mint tokens with a **JWT** (`forProject(id).previewTokens.create({ entryId, channelId })`). See [Frontend.md](https://github.com/moteurio/moteur/blob/main/docs/Frontend.md).
 
-Framework adapters (`@moteurio/react`, `@moteurio/vue`, `@moteurio/astro`, `@moteurio/vanilla`) live in the **[moteur-frontend](https://github.com/moteurio/moteur-frontend)** repo — not in this monorepo and not in moteur-plugins.
+Framework adapters (`@moteurio/react`, `@moteurio/vue`, `@moteurio/astro`, `@moteurio/vanilla`) live in this repo too, beside it: [`packages/react`](../react), [`astro`](../astro), [`vue`](../vue), [`vanilla`](../vanilla), released with it.
 
 ---
 

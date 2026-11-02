@@ -138,6 +138,21 @@ jobs:
             - name: Stage @moteurio/client on npm
               run: node scripts/stage-publish.mjs @moteurio/client
 
+            - name: Stage @moteurio/astro on npm
+              run: node scripts/stage-publish.mjs @moteurio/astro
+
+            - name: Stage @moteurio/frontend-plugin-geo on npm
+              run: node scripts/stage-publish.mjs @moteurio/frontend-plugin-geo
+
+            - name: Stage @moteurio/frontend-plugin-oembed on npm
+              run: node scripts/stage-publish.mjs @moteurio/frontend-plugin-oembed
+
+            - name: Stage @moteurio/frontend-plugin-poll on npm
+              run: node scripts/stage-publish.mjs @moteurio/frontend-plugin-poll
+
+            - name: Stage @moteurio/frontend-plugin-qr on npm
+              run: node scripts/stage-publish.mjs @moteurio/frontend-plugin-qr
+
             - name: Stage @moteurio/commands on npm
               run: node scripts/stage-publish.mjs @moteurio/commands
 

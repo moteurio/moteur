@@ -73,7 +73,7 @@ It runs when a channel's answer is worked out, then the answer is kept with the 
 ```
 API host plugin     → routes, init registries, events, attachServer
 Studio companion    → field editors, block previews, project/operator nav
-Site frameworks     → moteur-frontend repo (@moteurio/react, astro, vue, vanilla); not host plugins
+Site frameworks     → packages/react, astro, vue, vanilla in this repo; not host plugins
 CLI / MCP           → builtins in @moteurio/commands; plugins add more with registerCommand
 Media / git         → adapters, variant presets, transforms, generators, git commit hooks
 ```

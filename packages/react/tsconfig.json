@@ -1,0 +1,18 @@
+{
+    "compilerOptions": {
+        "target": "ES2022",
+        "module": "NodeNext",
+        "moduleResolution": "NodeNext",
+        "lib": ["ES2022", "DOM"],
+        "jsx": "react-jsx",
+        "outDir": "dist",
+        "rootDir": "src",
+        "strict": true,
+        "declaration": true,
+        "declarationMap": true,
+        "skipLibCheck": true,
+        "composite": true
+    },
+    "include": ["src/**/*.ts", "src/**/*.tsx"],
+    "references": [{ "path": "../../../moteur/packages/client" }]
+}
