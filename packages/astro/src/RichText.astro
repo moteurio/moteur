@@ -1,0 +1,21 @@
+---
+/**
+ * A rich-text field as HTML:
+ *
+ *     import RichText from '@moteurio/astro/RichText.astro';
+ *     <RichText value={data.content} />
+ *
+ * Paragraphs, headings, lists, quotes, code and links, as Studio's editor writes them. Text is
+ * escaped; links that would run code are dropped. Wrap it to style it: `<div class="prose">`.
+ */
+import { richTextHtml } from '@moteurio/client';
+
+interface Props {
+  /** The field's value, read in one language: `{ dast }`. */
+  value: unknown;
+}
+
+const html = richTextHtml(Astro.props.value);
+---
+
+<Fragment set:html={html} />

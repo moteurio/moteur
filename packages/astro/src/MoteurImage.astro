@@ -1,0 +1,132 @@
+---
+/**
+ * A Moteur picture at every size the page may need, with nothing to compute:
+ *
+ *     import MoteurImage from '@moteurio/astro/MoteurImage.astro';
+ *     <MoteurImage image={page.fields.cover} sizes="(min-width: 60rem) 50vw, 100vw" />
+ *
+ * Writes a `<picture>`: AVIF first, then WebP in the `<img>`, each with a `srcset` (never wider
+ * than the original). The field's crop is kept, and the focal point is the `object-position`,
+ * so CSS `object-fit: cover` crops around it too. `alt` is the field's text, else the asset's,
+ * in the page's language; empty when there is none.
+ *
+ * Where the files come from (`from`):
+ * - `site`, the default on pages built ahead: the build downloads each picture once (with its
+ *   crop) and Astro writes every size into the site. Visitors never reach Moteur, and the next
+ *   build reuses Astro's cache. Needs the `moteur()` integration, or Moteur's host in
+ *   `image.domains`; without it, the picture comes from Moteur and the build says so.
+ * - `moteur`, the default on pages rendered on request (like `/preview`): every size is
+ *   Moteur's, made on its first request and cached for good.
+ */
+import type { HTMLAttributes } from 'astro/types';
+import { getImage } from 'astro:assets';
+import {
+  imageAttributes,
+  imageSrcset,
+  imageUrl,
+  focalPosition,
+  IMAGE_WIDTHS,
+  type ImageFormat,
+  type ImageRatio,
+  type ImageSource,
+} from '@moteurio/client';
+import { originalOf, warnNotAllowed } from '@moteurio/astro/integration';
+
+interface Props extends Omit<HTMLAttributes<'img'>, 'src' | 'srcset' | 'width' | 'height'> {
+  /** A media field's value (read with `resolveAssets`, as the loaders do), or an asset. */
+  image: ImageSource;
+  /** How wide the picture shows, as in `<img sizes>` (default `100vw`). */
+  sizes?: string;
+  /** Crop to this shape, around the focal point (default: the field's own crop, if any). */
+  ratio?: ImageRatio;
+  /** The widths to offer (default: every width the server makes). */
+  widths?: readonly number[];
+  /** Formats from best to most supported; the last one is the `<img>` (default avif, webp). */
+  formats?: ImageFormat[];
+  /** The picture the page opens on: loaded first, not lazily. */
+  priority?: boolean;
+  /** The language of `alt` when it has several (default: the page's, `Astro.currentLocale`). */
+  locale?: string;
+  /** Where the files come from: written into the site at build, or Moteur's (see above). */
+  from?: 'site' | 'moteur';
+}
+
+const {
+  image,
+  sizes = '100vw',
+  ratio,
+  widths,
+  formats = ['avif', 'webp'],
+  priority = false,
+  locale = Astro.currentLocale,
+  alt,
+  style,
+  from = Astro.isPrerendered ? 'site' : 'moteur',
+  ...rest
+} = Astro.props;
+
+const fallback = formats[formats.length - 1];
+const fallbackWidth = widths?.length ? Math.max(...widths) : undefined;
+const { alt: altText, ...img } = imageAttributes(image, {
+  sizes,
+  ratio,
+  widths,
+  format: fallback,
+  locale,
+  ...(fallbackWidth && { fallbackWidth }),
+});
+let sources = formats.slice(0, -1).map((format) => ({
+  type: `image/${format === 'jpg' ? 'jpeg' : format}`,
+  srcset: imageSrcset(image, { ratio, widths, format }),
+}));
+
+if (from === 'site' && img.src && img.width && img.height) {
+  // One download per picture at full size: the file as uploaded, or Moteur's crop of it,
+  // lossless, so the build's encoding is the only one.
+  const { width, height } = img;
+  const original =
+    ratio || (image as { cropUrl?: string }).cropUrl
+      ? imageUrl(image, width, { ratio, format: 'png' })
+      : originalOf(image);
+  const fallbackAt = Math.min(fallbackWidth ?? 1024, width);
+  const built = original
+    ? await Promise.all(
+        formats.map((format) =>
+          getImage({
+            src: original,
+            width: fallbackAt,
+            height: Math.round((fallbackAt * height) / width),
+            widths: [...(widths ?? IMAGE_WIDTHS)].filter((w) => w <= width),
+            format,
+            sizes,
+          }),
+        ),
+      )
+    : [];
+  // Astro hands back the address unchanged when its host isn't allowed: Moteur's sizes, then.
+  if (built.length && built[0].src !== original) {
+    const last = built[built.length - 1];
+    img.src = last.src;
+    img.srcset = last.srcSet.attribute;
+    sources = sources.map((s, i) => ({ type: s.type, srcset: built[i].srcSet.attribute }));
+  } else if (original) warnNotAllowed(original);
+}
+const position = `object-position:${focalPosition(image)}`;
+---
+
+{
+  img.src && (
+    <picture>
+      {sources.map((s) => s.srcset && <source type={s.type} srcset={s.srcset} sizes={sizes} />)}
+      <img
+        {...img}
+        alt={alt ?? altText}
+        loading={priority ? 'eager' : 'lazy'}
+        decoding={priority ? 'sync' : 'async'}
+        fetchpriority={priority ? 'high' : undefined}
+        style={typeof style === 'object' && style ? { objectPosition: focalPosition(image), ...style } : [position, style].filter(Boolean).join(';')}
+        {...rest}
+      />
+    </picture>
+  )
+}

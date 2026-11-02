@@ -1,0 +1,26 @@
+{
+    "name": "@moteurio/vue",
+    "version": "2026.10.24",
+    "private": true,
+    "description": "Vue helpers for Moteur delivery",
+    "type": "module",
+    "main": "./dist/index.js",
+    "types": "./dist/index.d.ts",
+    "exports": {
+        ".": {
+            "types": "./dist/index.d.ts",
+            "import": "./dist/index.js"
+        },
+        "./MoteurBlocks.vue": "./src/MoteurBlocks.vue"
+    },
+    "peerDependencies": {
+        "vue": ">=3.4"
+    },
+    "dependencies": {
+        "@moteurio/client": "workspace:*"
+    },
+    "scripts": {
+        "build": "tsc -b"
+    },
+    "license": "MIT"
+}

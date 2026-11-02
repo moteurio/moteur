@@ -1,0 +1,22 @@
+{
+    "name": "@moteurio/vanilla",
+    "version": "2026.10.24",
+    "private": true,
+    "description": "Vanilla JS helpers for Moteur delivery (fetch wrapper + block registry)",
+    "type": "module",
+    "main": "./dist/index.js",
+    "types": "./dist/index.d.ts",
+    "exports": {
+        ".": {
+            "types": "./dist/index.d.ts",
+            "import": "./dist/index.js"
+        }
+    },
+    "dependencies": {
+        "@moteurio/client": "workspace:*"
+    },
+    "scripts": {
+        "build": "tsc -b"
+    },
+    "license": "MIT"
+}
