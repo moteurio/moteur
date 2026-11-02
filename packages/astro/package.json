@@ -54,7 +54,7 @@
     "devDependencies": {
         "@moteurio/client": "workspace:*",
         "astro": "7.4.2",
-        "vitest": "^5.0.5"
+        "vitest": "^5.0.4"
     },
     "publishConfig": {
         "access": "public"
