@@ -14,5 +14,5 @@
         "composite": true
     },
     "include": ["src/**/*.ts", "src/**/*.tsx"],
-    "references": [{ "path": "../../../moteur/packages/client" }]
+    "references": [{ "path": "../client" }]
 }

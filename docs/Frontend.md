@@ -22,7 +22,7 @@ Never put member JWTs in browser bundles. See [Pages and navigation](Pages%20and
 | `@moteurio/vanilla` | [packages/vanilla](../packages/vanilla)                        | ESM helpers + block registry                                                                                                |
 | `moteurio/php`      | [moteur-starters](https://github.com/moteurio/moteur-starters) | Guzzle client, preview middleware (Composer)                                                                                |
 
-Framework adapters are **not** host plugins — they are npm packages for your site. The blocks plugins add (embeds, QR codes, polls, maps) have their own, `@moteurio/frontend-plugin-*`, in this repo too: see [Plugin blocks on the site](#plugin-blocks-on-the-site). Install only the ones your site uses.
+Framework adapters are **not** host plugins — they are npm packages for your site. The blocks plugins add (embeds, QR codes, polls, maps) have their own, `@moteurio/frontend-plugin-*`, released apart from Moteur: see [Plugin blocks on the site](#plugin-blocks-on-the-site). Install only the ones your site uses.
 
 ## Types
 
