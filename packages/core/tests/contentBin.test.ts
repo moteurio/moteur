@@ -85,6 +85,9 @@ describe('the bin for entries and pages', () => {
             entry: { id: 'hello', data: { title: 'Hello' }, status: 'published' }
         });
 
+        // The deletion's commit first: a commit records the files as they are when it runs, so
+        // one still running when the entry comes back would take the restore with it.
+        await gitIdle();
         const back = await restoreFromContentBin(projectId, writer, item.id);
         expect(back).toMatchObject({ kind: 'entry', entry: { status: 'unpublished' } });
         expect((await getEntryForProject(projectId, 'post', 'hello'))?.data?.title).toBe('Hello');
