@@ -4,7 +4,7 @@ The engine stores authoritative content in files. Its default SQLite content ind
 
 ## Host and persistent storage
 
-Run the API on a compatible Node.js 22+ runtime, with Git available for revision and snapshot features. The default index needs `node:sqlite` (Node 22.13+); the engine logs a warning and uses file scans when that module is unavailable. A host installs the engine packages and explicitly composes optional plugins. For local development in this repository, install dependencies, build, and use `pnpm server:dev`.
+Run the API on a compatible Node.js 22+ runtime with Git installed: every project is a Git repository, so without it the API refuses to start (slim container images such as `node:22-slim` don't include it). The default index needs `node:sqlite` (Node 22.13+); the engine logs a warning and uses file scans when that module is unavailable. A host installs the engine packages and explicitly composes optional plugins. For local development in this repository, install dependencies, build, and use `pnpm server:dev`.
 
 Set `DATA_ROOT` explicitly to a persistent location in deployed environments. Relative storage settings resolve from it; an absolute `PROJECTS_DIR`, `AUTH_USERS_FILE` or other configured path can place data elsewhere and must be included in backups.
 
