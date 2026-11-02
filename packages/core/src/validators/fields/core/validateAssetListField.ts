@@ -16,6 +16,27 @@ export function validateAssetListField(value: any, field: Field, path: string): 
         return issues;
     }
 
+    const { minItems, maxItems } = (field.options ?? {}) as {
+        minItems?: number;
+        maxItems?: number;
+    };
+    if (typeof minItems === 'number' && value.length < minItems)
+        issues.push({
+            type: 'error',
+            code: 'ASSET_LIST_TOO_FEW',
+            message: `At least ${minItems} needed (${value.length} here).`,
+            path,
+            context: { count: value.length, min: minItems }
+        });
+    if (typeof maxItems === 'number' && value.length > maxItems)
+        issues.push({
+            type: 'error',
+            code: 'ASSET_LIST_TOO_MANY',
+            message: `At most ${maxItems} (${value.length} here).`,
+            path,
+            context: { count: value.length, max: maxItems }
+        });
+
     value.forEach((item, i) => {
         issues.push(...validateAssetField(item, field, `${path}[${i}]`));
     });

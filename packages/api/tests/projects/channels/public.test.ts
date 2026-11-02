@@ -15,7 +15,8 @@ vi.mock('@moteurio/core/previewTokens.js', () => ({
 vi.mock('@moteurio/core/entries.js', () => ({
     queryEntriesForProject: vi.fn(),
     getEntryForProject: vi.fn(),
-    getPublishedEntryForProject: vi.fn()
+    getPublishedEntryForProject: vi.fn(),
+    settingsEntryId: vi.fn()
 }));
 vi.mock('@moteurio/core/models.js', () => ({
     getModelSchemaForProject: vi.fn()
@@ -44,7 +45,8 @@ import { previewTokenAuth } from '../../../src/middlewares/previewToken.js';
 import {
     queryEntriesForProject,
     getEntryForProject,
-    getPublishedEntryForProject
+    getPublishedEntryForProject,
+    settingsEntryId
 } from '@moteurio/core/entries.js';
 import { getModelSchemaForProject } from '@moteurio/core/models.js';
 import { getProjectJson, listProjectKeys } from '@moteurio/core/utils/projectStorage.js';
@@ -331,6 +333,34 @@ describe('GET /projects/:projectId/channels/:channelId/:resourceId/entries', () 
             { id: 'n', type: 'articles', status: 'draft', data: { title: 'New' } }
         ]);
         expect(res.headers['x-total-count']).toBe('2');
+    });
+
+    it('gives a settings model’s one entry, without its id', async () => {
+        vi.mocked(getChannel).mockResolvedValue({
+            ...channel,
+            resources: [{ resourceType: 'model' as const, resourceId: 'site-settings' }]
+        });
+        vi.mocked(settingsEntryId).mockResolvedValue('site');
+        vi.mocked(getPublishedEntryForProject).mockResolvedValue({
+            id: 'site',
+            type: 'site-settings',
+            status: 'published',
+            data: { title: 'Moteur' }
+        });
+        const res = await request(app)
+            .get('/projects/demo/channels/c1/settings/site-settings')
+            .set('x-api-key', 'key');
+        expect(res.status).toBe(200);
+        expect(res.body).toMatchObject({ id: 'site', data: { title: 'Moteur' } });
+        expect(getPublishedEntryForProject).toHaveBeenCalledWith('demo', 'site-settings', 'site');
+
+        // The project changed (its settings entry deleted): answered afresh.
+        vi.mocked(settingsEntryId).mockResolvedValue(undefined);
+        touchProject('demo');
+        const none = await request(app)
+            .get('/projects/demo/channels/c1/settings/site-settings')
+            .set('x-api-key', 'key');
+        expect(none.status).toBe(404);
     });
 
     it('keeps a site’s answers until the project changes, per API key', async () => {
@@ -857,6 +887,29 @@ describe('page links and page relations on delivery', () => {
             fields: {
                 cta: { pageId: 'pricing', label: { en: 'See prices' } },
                 more: { pageId: 'soon' },
+                notes: {
+                    en: 'See [prices](page:pricing), [soon](page:soon).',
+                    fr: 'Voir [les tarifs](page:pricing).'
+                },
+                body: {
+                    schema: 'dast',
+                    document: {
+                        type: 'root',
+                        children: [
+                            {
+                                type: 'paragraph',
+                                children: [
+                                    {
+                                        type: 'link',
+                                        url: '/old',
+                                        meta: [{ id: 'pageId', value: 'pricing' }],
+                                        children: [{ type: 'span', value: 'Prices' }]
+                                    }
+                                ]
+                            }
+                        ]
+                    }
+                },
                 related: ['pricing', 'soon']
             }
         }),
@@ -872,6 +925,8 @@ describe('page links and page relations on delivery', () => {
             fields: {
                 cta: { type: 'core/link', label: 'Call to action' },
                 more: { type: 'core/link', label: 'More' },
+                notes: { type: 'core/markdown', label: 'Notes', options: { multilingual: true } },
+                body: { type: 'core/rich-text', label: 'Body' },
                 related: {
                     type: 'core/relations',
                     label: 'Related',
@@ -975,6 +1030,60 @@ describe('page links and page relations on delivery', () => {
             .get('/projects/demo/channels/site/pages/pricing?locale=fr')
             .set('x-api-key', 'valid-key');
         expect(pricing.body.fields.seo).toEqual({ title: 'Tarifs' });
+    });
+
+    it('gives links to pages written in text their address, in each language', async () => {
+        const all = await request(app)
+            .get('/projects/demo/channels/site/pages/home')
+            .set('x-api-key', 'valid-key');
+        expect(all.body.fields.notes).toEqual({
+            en: 'See [prices](/pricing), soon.',
+            fr: 'Voir [les tarifs](/fr/tarifs).'
+        });
+        expect(all.body.fields.body.document.children[0].children[0].url).toBe('/pricing');
+        const fr = await request(app)
+            .get('/projects/demo/channels/site/pages/home?locale=fr')
+            .set('x-api-key', 'valid-key');
+        expect(fr.body.fields.notes).toBe('Voir [les tarifs](/fr/tarifs).');
+        expect(fr.body.fields.body.document.children[0].children[0].url).toBe('/fr/tarifs');
+    });
+
+    it('says which language a page is in, and which fields fell back', async () => {
+        const home = await request(app)
+            .get('/projects/demo/channels/site/pages/home?locale=fr')
+            .set('x-api-key', 'valid-key');
+        expect(home.body).toMatchObject({ locale: 'fr', fallbacks: ['cta'] });
+        const pricing = await request(app)
+            .get('/projects/demo/channels/site/pages/pricing?locale=fr')
+            .set('x-api-key', 'valid-key');
+        expect(pricing.body.locale).toBe('fr');
+        expect(pricing.body).not.toHaveProperty('fallbacks');
+    });
+
+    it('gives a page not in the language read in the default one, with no address there', async () => {
+        const before = stored['pages/pricing.json'];
+        stored['pages/pricing.json'] = { ...(before as object), languages: ['en'] };
+        touchProject('demo');
+        try {
+            const pricing = await request(app)
+                .get('/projects/demo/channels/site/pages/pricing?locale=fr')
+                .set('x-api-key', 'valid-key');
+            expect(pricing.body).toMatchObject({
+                locale: 'en',
+                path: '/pricing',
+                paths: { en: '/pricing' },
+                fields: { seo: { title: 'Pricing' } }
+            });
+            expect(pricing.body.paths).not.toHaveProperty('fr');
+            const home = await request(app)
+                .get('/projects/demo/channels/site/pages/home?locale=fr')
+                .set('x-api-key', 'valid-key');
+            // A French page's link to it leads to the English address.
+            expect(home.body.fields.cta.url).toBe('/pricing');
+        } finally {
+            stored['pages/pricing.json'] = before;
+            touchProject('demo');
+        }
     });
 
     it('resolves page links in entries, by their model', async () => {

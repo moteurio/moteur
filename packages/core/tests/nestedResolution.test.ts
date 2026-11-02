@@ -116,7 +116,7 @@ describe('project structures in validation', () => {
     });
 
     it('still reports a structure the project does not have', () => {
-        const issues = validateFieldValue({}, field, 'x', { structures: {} });
+        const issues = validateFieldValue({ label: 'Try' }, field, 'x', { structures: {} });
         expect(issues.map(i => i.code)).toEqual(['STRUCTURE_SCHEMA_NOT_FOUND']);
     });
 

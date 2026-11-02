@@ -15,17 +15,23 @@ Fields are the **building blocks** of everything you store in Moteur: **models**
 - **Options** — every key from `optionsSchema` in the registry: **you set these on the field definition**, not inside the saved value.
 - **Examples** — a minimal field definition and a realistic saved value.
 
-Field definitions (simplified) look like:
+A schema's `fields` are keyed by name, as an import bundle and the API take them:
 
 ```json
-{
-    "key": "myField",
-    "type": "core/text",
-    "label": "My field",
-    "required": true,
-    "options": { "maxLength": 200 }
+"fields": {
+    "myField": {
+        "type": "core/text",
+        "label": "My field",
+        "options": { "required": true, "maxLength": 200 }
+    }
 }
 ```
+
+Every field may have `required`, `multilingual` and `ui` in its options. The rest are its type's, listed in its section. An option a type doesn't have is refused when the schema is saved.
+
+A field that isn't required may be left out or empty (`""`, `[]`, `{}`). A required one may not, unless its type takes `allowEmpty` and it says `true`: `allowEmpty` only matters for a required field.
+
+A value for a field the schema doesn't have is kept with a warning when content is saved, and refused by an import, with its place in the bundle (`pages[4].fields.blocks[2].data.kicker`).
 
 ---
 
@@ -55,7 +61,7 @@ Anchors follow common Markdown slug rules (`core/foo` → `#core-foo`). If a vie
 
 **Links & contact:** [core/email](#core-email) · [core/link](#core-link) · [core/phone](#core-phone) · [core/slug](#core-slug) · [core/url](#core-url)
 
-**Structured data:** [core/json](#core-json) · [core/list](#core-list) · [core/object](#core-object) · [core/structure](#core-structure) · [core/variant](#core-variant) · [core/table](#core-table) · [core/layout](#core-layout) · [core/block-list](#core-block-list)
+**Structured data:** [core/json](#core-json) · [core/list](#core-list) · [core/map](#core-map) · [core/object](#core-object) · [core/structure](#core-structure) · [core/variant](#core-variant) · [core/table](#core-table) · [core/layout](#core-layout) · [core/block-list](#core-block-list)
 
 **Relations:** [core/categories](#core-categories) · [core/relation](#core-relation) · [core/relations](#core-relations) · [core/tags](#core-tags)
 
@@ -121,6 +127,7 @@ Tables follow the order of Studio's field picker. **core/media-image** is docume
 | --------------- | ----------------------------------------- |
 | core/json       | Any JSON (+ optional JSON Schema)         |
 | core/list       | Repeater with item schema                 |
+| core/map        | Keys to values of one field type          |
 | core/object     | Bag of nested fields you define           |
 | core/structure  | Object validated by shared structure      |
 | core/variant    | One of several shapes, chosen by `kind`   |
@@ -221,9 +228,11 @@ Tables follow the order of Studio's field picker. **core/media-image** is docume
 
 ```json
 {
-    "en": "## Title\n\nSome **bold** text."
+    "en": "## Title\n\nSome **bold** text. See [our prices](page:pricing)."
 }
 ```
+
+**Links to pages.** `[words](page:<page id>)` links to a page and follows it: on delivery it becomes the page's address in the language read (or the default's when the page isn't in it), wherever the page has moved. A link to a page that is gone or not live leaves only its words.
 
 ---
 
@@ -253,16 +262,32 @@ Tables follow the order of Studio's field picker. **core/media-image** is docume
 }
 ```
 
-**Value example** (illustrative DAST fragment)
+**Value example**
 
 ```json
 {
-    "en": {
+    "schema": "dast",
+    "document": {
         "type": "root",
-        "children": [{ "type": "paragraph", "children": [{ "type": "text", "value": "Hello" }] }]
+        "children": [
+            {
+                "type": "paragraph",
+                "children": [
+                    { "type": "span", "value": "See our " },
+                    {
+                        "type": "link",
+                        "url": "/pricing",
+                        "meta": [{ "id": "pageId", "value": "pricing" }],
+                        "children": [{ "type": "span", "value": "prices" }]
+                    }
+                ]
+            }
+        ]
     }
 }
 ```
+
+**Links to pages.** A link that names a page in its `meta` (`{ "id": "pageId", "value": "<page id>" }`) follows the page, as a [`core/link`](#core-link) does: on delivery its `url` is the page's address, in the language read (or the default's when the page isn't in it), wherever the page has moved. A link to a page that is gone or not live loses the link and keeps its words. The Studio's link button offers "A page of the site". In an import bundle, the page can be a ref: `"value": { "$ref": "page:pricing" }`.
 
 ---
 
@@ -958,6 +983,19 @@ To a page, stored and then delivered:
 ```
 
 ---
+
+## core/map
+
+Keys to values, each value of one field type: a word per language, a label per plan, an answer per question.
+
+**Stored value:** an object, `{ "yes": { "ok": true, "text": { "en": "Right" } } }`.
+
+**Options:**
+
+- `value`: the field each key holds (`{ "type": "core/text" }`, or an object with its own fields). Default: text.
+- `keys`: the keys it may have, in order (`["en", "fr"]`, or `[{ "value": "en", "label": "English" }]`). Without it, any key.
+
+Validation checks each key against `keys` and each value against `value`. Delivery goes into its values (languages, pictures, links), and `moteur types` types it as its keys (`{ yes?: …; no?: … }`) or `Record<string, …>`.
 
 ## core/list
 

@@ -6,7 +6,7 @@ import path from 'node:path';
 const { demoProjectFor } = await import('../src/onboarding.js');
 const { keepDemoCopy, sweepIdleDemoCopies, DEMO_IDLE_DAYS } = await import('../src/demoCopies.js');
 const { createKey } = await import('../src/projectApiKey.js');
-const { getProjectById } = await import('../src/projects.js');
+const { getProjectById, listTrashedProjects } = await import('../src/projects.js');
 const { getUserById, reloadUsers } = await import('../src/users.js');
 const { onEvent } = await import('../src/utils/eventBus.js');
 const limits = await import('../src/planLimits.js');
@@ -114,9 +114,7 @@ describe('a demo copy: for trying things, until its person keeps it', () => {
         const later = Date.now() + (DEMO_IDLE_DAYS + 1) * 86_400_000;
         expect(await sweepIdleDemoCopies(later)).toEqual([id]);
         expect(await getProjectById(id)).toBeFalsy();
-        expect(fs.existsSync(path.join(root, 'data', 'projects', '.trash', 'projects', id))).toBe(
-            true
-        );
+        expect(listTrashedProjects().map(t => t.id)).toContain(id);
 
         reloadUsers();
         const again = await demoProjectFor(ADA).catch(() => null);

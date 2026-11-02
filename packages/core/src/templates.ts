@@ -18,6 +18,7 @@ import { templateFilePath, trashTemplatesDir } from './utils/pathUtils.js';
 import { validateTemplate } from './validators/validateTemplate.js';
 import { checkCountRoom } from './planLimits.js';
 import { countOf } from './projectCounts.js';
+import { assertFieldDefinitions } from './validators/fieldDefinitions.js';
 
 function parseTemplateIds(listResult: string[]): string[] {
     return listResult
@@ -92,6 +93,7 @@ export async function createTemplate(
         updatedAt: now
     };
 
+    assertFieldDefinitions(schema.fields, `Template "${id}"`);
     await triggerEvent('template.beforeCreate', { template: schema, user, projectId });
     await putProjectJson(projectId, templateKey(id), schema);
     triggerEvent('content.saved', {
@@ -113,6 +115,7 @@ export async function updateTemplate(
     const current = await getTemplateWithAuth(user, projectId, id);
     const updated = { ...current, ...patch };
 
+    assertFieldDefinitions(updated.fields, `Template "${updated.id}"`);
     await triggerEvent('template.beforeUpdate', { template: updated, user, projectId });
     await putProjectJson(projectId, templateKey(id), updated);
     triggerEvent('content.saved', {

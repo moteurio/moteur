@@ -1,3 +1,4 @@
+import type { Localizable } from './PublicSchema.js';
 import type { Field } from './Field.js';
 
 export const templateSchemaFields: Record<string, Field> = {
@@ -21,7 +22,8 @@ export const templateSchemaFields: Record<string, Field> = {
 export interface TemplateSchema {
     id: string;
     projectId: string;
-    label: string;
+    /** Its name: one, or one per language (`{ en, fr }`). */
+    label: Localizable;
     description?: string;
     fields: Record<string, Field>;
     createdAt: string;

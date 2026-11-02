@@ -1,6 +1,8 @@
 import { TemplateSchema } from '@moteurio/types/Template.js';
 import { ValidationResult } from '@moteurio/types/ValidationResult.js';
 import { createValidationResult, addIssue } from '../utils/validation.js';
+import { fieldDefinitionIssues } from './fieldDefinitions.js';
+import { isLabel, LABEL_RULE } from '../utils/validation.js';
 
 export function validateTemplate(template: TemplateSchema): ValidationResult {
     const result = createValidationResult();
@@ -14,11 +16,11 @@ export function validateTemplate(template: TemplateSchema): ValidationResult {
         });
     }
 
-    if (!template.label || typeof template.label !== 'string') {
+    if (!isLabel(template.label)) {
         addIssue(result, {
             type: 'error',
             code: 'TEMPLATE_INVALID_LABEL',
-            message: 'Template "label" must be a non-empty string.',
+            message: `Template "label" must be ${LABEL_RULE}.`,
             path: 'label'
         });
     }
@@ -52,6 +54,8 @@ export function validateTemplate(template: TemplateSchema): ValidationResult {
             }
         });
     }
+
+    for (const issue of fieldDefinitionIssues(template.fields as never)) addIssue(result, issue);
 
     return result;
 }

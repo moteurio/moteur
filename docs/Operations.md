@@ -51,6 +51,12 @@ Take a consistent filesystem backup with writes stopped or using a storage snaps
 
 Restore into an isolated host first, using the matching engine/plugins and required secrets. Check sign-in, a published entry with newer draft edits, media retrieval, form submission access and schedule state before directing traffic to the restored instance. Rebuild the content index when necessary. [Git](Git.md) explains the narrower workspace and user-data snapshot features.
 
+## Deleted projects
+
+A deleted project waits in `data/projects/.trash/deleted-projects/` with its bin, one folder per deletion (`journal@2026-11-02T10-00-00Z`), so the same id deleted twice keeps both. Its id is free again at once. Backups include the trash.
+
+Operators empty it: `GET /operator/projects/trash` lists what's there, `DELETE /operator/projects/trash/:folder` removes one copy for good, and `DELETE /operator/projects/:projectId` deletes a live project for good without the trash. A project's billing record stays, marked deleted.
+
 ## Resource budgets
 
 HTTP entry lists default to 100 rows and accept at most 1,000. Public reference expansion shares a request budget of 200 reference edges and 8 MiB of serialized entry work; repeated inlining is charged even when lookups are cached. An oversized query returns 422 `READ_BUDGET_EXCEEDED`: reduce its page size or expansion.

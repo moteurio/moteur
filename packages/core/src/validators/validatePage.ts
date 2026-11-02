@@ -1,6 +1,6 @@
 import type { TemplateSchema } from '@moteurio/types/Template.js';
 import { ValidationResult } from '@moteurio/types/ValidationResult.js';
-import { validateFieldsAgainstSchema } from './validateFieldsAgainstSchema.js';
+import { unknownFieldIssues, validateFieldsAgainstSchema } from './validateFieldsAgainstSchema.js';
 import { validateLayoutFieldValues } from './validateLayoutFieldValues.js';
 import { listStructures } from '../structures.js';
 import type { Field } from '@moteurio/types/Field.js';
@@ -33,6 +33,14 @@ export async function validatePage(
         pathPrefix,
         'PAGE_MISSING_REQUIRED_FIELD',
         fieldOpts
+    );
+    issues.push(
+        ...unknownFieldIssues(
+            page.fields,
+            schema.fields as Record<string, Field>,
+            pathPrefix,
+            `template "${schema.id}"`
+        )
     );
 
     const layoutFieldIssues = await validateLayoutFieldValues(

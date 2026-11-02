@@ -72,7 +72,16 @@ export type SendApiErrorOptions = {
 };
 
 /**
- * Send a JSON error body and log server-side. For 5xx in production, the client sees a generic message.
+ * Whether answers may say what went wrong inside the server (a 5xx's message, the stack): only
+ * while developing (`NODE_ENV=development`, or `test`). A server that never sets NODE_ENV, as a
+ * self-hosted one may not, says nothing more than "Internal server error".
+ */
+export const developing = () =>
+    process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'test';
+
+/**
+ * Send a JSON error body and log server-side. For a 5xx, the client sees a generic message unless
+ * developing (see `developing`).
  */
 export function sendApiError(
     res: Response,
@@ -97,7 +106,7 @@ export function sendApiError(
         res.locals.errorLogged = true;
     }
 
-    const exposeDetails = process.env.NODE_ENV !== 'production';
+    const exposeDetails = developing();
     const clientMessage = status >= 500 && !exposeDetails ? 'Internal server error' : rawMessage;
 
     const body: Record<string, unknown> = {

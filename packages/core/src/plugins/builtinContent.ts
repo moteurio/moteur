@@ -283,8 +283,9 @@ export const builtinStructureSchemas: StructureSchema[] = [
                 description: 'Custom meta description for search engines.',
                 options: { multilingual: true, ui: 'textarea' }
             }),
-            seoImage: structureField('core/image', 'SEO Image', {
-                description: 'Image used for social sharing (e.g., Open Graph).'
+            seoImage: structureField('core/asset', 'SEO Image', {
+                description:
+                    'The picture shown when the page is shared (Open Graph), from the media library. Delivery gives its file with `resolveAssets`.'
             }),
             canonicalUrl: structureField('core/url', 'Canonical URL', {
                 description: 'Preferred URL for this content.'

@@ -1,5 +1,5 @@
 import type { Request, Response, NextFunction } from 'express';
-import { getHttpStatusForError, getMessage } from '../utils/apiError.js';
+import { developing, getHttpStatusForError, getMessage } from '../utils/apiError.js';
 
 /**
  * Express error middleware: consistent JSON, production-safe messages, always logs 5xx.
@@ -31,7 +31,7 @@ export function globalErrorHandler(
         console.error('[API unhandled]', logPayload, err);
     }
 
-    const exposeDetails = process.env.NODE_ENV !== 'production';
+    const exposeDetails = developing();
     const clientMessage = status >= 500 && !exposeDetails ? 'Internal server error' : rawMessage;
 
     const body: Record<string, unknown> = {

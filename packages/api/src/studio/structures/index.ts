@@ -127,6 +127,8 @@ const structurePaths: Record<string, OpenAPIV3.PathItemObject> = {
         },
         post: {
             summary: 'Create structure',
+            description:
+                'The body is the structure: `{ type, label, fields }`. `type` is its name, without a namespace (`cta`): a name with a slash is the server’s (`core/seo`). Or `{ blueprintId, type?, label? }` to make one from a structure blueprint.',
             tags: ['Structures'],
             parameters: [
                 { name: 'projectId', in: 'path', required: true, schema: { type: 'string' } }
@@ -137,10 +139,14 @@ const structurePaths: Record<string, OpenAPIV3.PathItemObject> = {
                         schema: {
                             type: 'object',
                             properties: {
-                                blueprintId: { type: 'string' },
-                                id: { type: 'string' },
+                                type: { type: 'string', description: 'Its name: `cta`' },
                                 label: { type: 'string' },
-                                handle: { type: 'string' }
+                                description: { type: 'string' },
+                                fields: { $ref: '#/components/schemas/JsonRecord' },
+                                blueprintId: {
+                                    type: 'string',
+                                    description: 'Make it from this structure blueprint'
+                                }
                             }
                         }
                     }

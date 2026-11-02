@@ -1,3 +1,4 @@
+import type { Localizable } from './PublicSchema.js';
 import { Field } from './Field.js';
 
 export interface Block {
@@ -12,7 +13,8 @@ export interface Block {
 
 export interface BlockSchema {
     type: string; // Schema type
-    label: string; // Display label
+    /** Its name: one, or one per language (`{ en, fr }`). */
+    label: Localizable;
     description?: string; // Optional description
     category?: string; // Category for grouping
     fields: Record<string, Field>; // Field definitions for the block

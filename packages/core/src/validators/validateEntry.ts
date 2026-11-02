@@ -1,7 +1,7 @@
 import { Entry } from '@moteurio/types/Model.js';
 import { ModelSchema } from '@moteurio/types/Model.js';
 import { ValidationResult } from '@moteurio/types/ValidationResult.js';
-import { validateFieldsAgainstSchema } from './validateFieldsAgainstSchema.js';
+import { unknownFieldIssues, validateFieldsAgainstSchema } from './validateFieldsAgainstSchema.js';
 import { validateLayoutFieldValues } from './validateLayoutFieldValues.js';
 import { listStructures } from '../structures.js';
 
@@ -36,6 +36,9 @@ export async function validateEntry(
         pathPrefix,
         'ENTRY_MISSING_REQUIRED_FIELD',
         fieldOpts
+    );
+    issues.push(
+        ...unknownFieldIssues(entry.data, schema.fields, pathPrefix, `model "${schema.id}"`)
     );
 
     const layoutFieldIssues = await validateLayoutFieldValues(

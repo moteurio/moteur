@@ -6,7 +6,13 @@ import { User } from '@moteurio/types/User.js';
 import { ValidationResult } from '@moteurio/types/ValidationResult.js';
 import { isValidId } from './utils/idUtils.js';
 import { isExistingProjectId } from './utils/fileUtils.js';
-import { projectDir, baseProjectsDir } from './utils/pathUtils.js';
+import {
+    projectDir,
+    baseProjectsDir,
+    deletedProjectDir,
+    deletedProjectsDir,
+    trashProjectDir
+} from './utils/pathUtils.js';
 import { assertUserCanAccessProject, assertUserCanCreateProject } from './utils/access.js';
 import { triggerEvent } from './utils/eventBus.js';
 import { validateProject } from './validators/validateProject.js';
@@ -327,18 +333,67 @@ export async function deleteProject(user: User, projectId: string): Promise<void
 
     await triggerEvent('project.beforeDelete', { project, user });
 
-    const base = baseProjectsDir();
-    const source = path.join(base, projectId);
-    const destDir = path.join(base, '.trash', 'projects');
-    const dest = path.join(destDir, projectId);
+    const source = path.join(baseProjectsDir(), projectId);
+    const dest = deletedProjectDir(projectId);
 
-    fs.mkdirSync(destDir, { recursive: true });
+    fs.mkdirSync(path.dirname(dest), { recursive: true });
     (await getContentIndex()).close(projectId);
     fs.renameSync(source, dest);
+    // Its bin (what was deleted from it) goes with it.
+    const bin = trashProjectDir(projectId);
+    if (fs.existsSync(bin)) fs.renameSync(bin, path.join(dest, '.bin'));
 
     await removeProjectFromAllUsers(projectId);
 
     triggerEvent('project.afterDelete', { project, user });
+}
+
+/** A deleted project waiting in the trash: its id, when, and its folder's name there. */
+export type TrashedProject = { id: string; deletedAt: string; folder: string };
+
+/** Every deleted project still in the trash, newest first. */
+export function listTrashedProjects(): TrashedProject[] {
+    const dir = deletedProjectsDir();
+    if (!fs.existsSync(dir)) return [];
+    return fs
+        .readdirSync(dir, { withFileTypes: true })
+        .filter(e => e.isDirectory())
+        .map(e => {
+            const [id, at] = e.name.split('@');
+            const deletedAt = at
+                ? at.replace(/T(\d{2})-(\d{2})-(\d{2})Z$/, 'T$1:$2:$3Z')
+                : fs.statSync(path.join(dir, e.name)).mtime.toISOString();
+            return { id: id!, deletedAt, folder: e.name };
+        })
+        .sort((a, b) => b.deletedAt.localeCompare(a.deletedAt));
+}
+
+/**
+ * For the server's operators: a deleted project's copy in the trash, removed for good (its files,
+ * its history). Nothing else on the server names it any more.
+ */
+export function purgeTrashedProject(folder: string): void {
+    const found = listTrashedProjects().find(t => t.folder === folder);
+    if (!found) throw Object.assign(new Error('No such project in the trash'), { status: 404 });
+    fs.rmSync(path.join(deletedProjectsDir(), found.folder), { recursive: true, force: true });
+}
+
+/**
+ * For the server's operators: a project deleted for good at once, without the trash. Its members
+ * lose it, as when it's deleted; then its files and history are removed.
+ */
+export async function purgeProject(operator: User, projectId: string): Promise<void> {
+    if (!isValidId(projectId) || !isExistingProjectId(projectId))
+        throw Object.assign(new Error(`Project "${projectId}" not found`), { status: 404 });
+    const project =
+        (await getProjectJson<ProjectSchema>(projectId, PROJECT_KEY)) ??
+        ({ id: projectId } as ProjectSchema);
+    await triggerEvent('project.beforeDelete', { project, user: operator });
+    (await getContentIndex()).close(projectId);
+    fs.rmSync(path.join(baseProjectsDir(), projectId), { recursive: true, force: true });
+    fs.rmSync(trashProjectDir(projectId), { recursive: true, force: true });
+    await removeProjectFromAllUsers(projectId);
+    triggerEvent('project.afterDelete', { project, user: operator });
 }
 
 const DEFAULT_DEMO_PROJECT_ID = 'demo';

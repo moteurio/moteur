@@ -13,7 +13,10 @@ export interface ImportBundle {
     version: 1;
     /** What to do with something that already exists (same id): change it (default), keep it, or stop. */
     existing?: 'update' | 'skip' | 'fail';
-    /** Put pages and entries live once saved. An agent's import waits for a person's approval. */
+    /**
+     * Put every page and entry live once saved. Without it, only those that say `published`.
+     * An agent's import waits for a person's approval either way.
+     */
     publish?: boolean;
     structures?: StructureSchema[];
     blocks?: BlockSchema[];
@@ -59,6 +62,10 @@ export interface ImportPage {
     modelId?: string;
     urlPattern?: string;
     fields?: Record<string, unknown>;
+    /** The languages it is in (the default always). Left out: every language. */
+    languages?: string[];
+    /** Put it live once saved (an export says which were). */
+    published?: boolean;
 }
 
 export interface ImportEntry {
@@ -66,6 +73,10 @@ export interface ImportEntry {
     /** How the bundle names it (default: its id): `{ "$ref": "entry:<model>/<ref>" }`. */
     ref?: string;
     data: Record<string, unknown>;
+    /** The languages it is in (the default always). Left out: every language. */
+    languages?: string[];
+    /** Put it live once saved (an export says which were). */
+    published?: boolean;
 }
 
 export interface ImportMenu {
@@ -130,6 +141,8 @@ export interface ImportJob {
     progress: { done: number; total: number };
     items: ImportItemResult[];
     issues: ImportIssue[];
+    /** Worth saying, not wrong: what HTML lost (`2 pictures left out`), the links it made to pages. */
+    notes?: ImportIssue[];
     /** The commit holding everything the import saved. */
     commit?: string;
     /** What goes live on approval (or went live). */

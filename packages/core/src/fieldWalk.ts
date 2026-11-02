@@ -5,6 +5,7 @@ import { listBlocks } from './blocks.js';
 import { findStructure, listStructures } from './structures.js';
 import { isPlainObject } from './validators/fieldValueUtils.js';
 import { variantsOf } from './validators/fields/core/validateVariantField.js';
+import { mapValueField } from './validators/fields/core/validateMapField.js';
 
 /** The block and structure schemas of one project, read once for a whole walk. */
 export type FieldWalkSchemas = {
@@ -106,6 +107,14 @@ export async function walkField(
             for (let i = 0; i < items.length; i++)
                 out.push(await walkField(items[i], item, `${path}[${i}]`, schemas, visit));
             return wrapped ? { ...(value as object), items: out } : out;
+        }
+        case 'core/map': {
+            if (!isPlainObject(value)) return value;
+            const valueField = mapValueField(field);
+            const out: Record<string, unknown> = {};
+            for (const [key, v] of Object.entries(value as Record<string, unknown>))
+                out[key] = await walkField(v, valueField, `${path}.${key}`, schemas, visit);
+            return out;
         }
         case 'core/block-list': {
             if (!Array.isArray(value)) return value;

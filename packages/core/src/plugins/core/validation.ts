@@ -3,6 +3,7 @@ import type { PluginContext } from '../pluginContext.js';
 import { validateProject } from '../../validators/validateProject.js';
 import { validateModel } from '../../validators/validateModel.js';
 import { validateTemplate } from '../../validators/validateTemplate.js';
+import { assertNoErrors } from '../../utils/validation.js';
 
 export const manifest: PluginManifest = {
     id: 'validation',
@@ -31,52 +32,34 @@ export const manifest: PluginManifest = {
 export function init(ctx: PluginContext): void {
     ctx.onEvent('project.beforeCreate', async ({ project }) => {
         const result = validateProject(project);
-        if (result.issues.length > 0) {
-            const errors = result.issues.map(issue => `${issue.path}: ${issue.message}`).join(', ');
-            throw new Error(`Project validation failed: ${errors}`);
-        }
+        assertNoErrors('Project', result.issues);
     });
 
     ctx.onEvent('project.beforeUpdate', async ({ project }) => {
         const result = validateProject(project, {
             existingProjectId: project.id
         });
-        if (result.issues.length > 0) {
-            const errors = result.issues.map(issue => `${issue.path}: ${issue.message}`).join(', ');
-            throw new Error(`Project validation failed: ${errors}`);
-        }
+        assertNoErrors('Project', result.issues);
     });
 
     ctx.onEvent('model.beforeCreate', async ({ model }) => {
         const result = validateModel(model);
-        if (result.issues.length > 0) {
-            const errors = result.issues.map(issue => `${issue.path}: ${issue.message}`).join(', ');
-            throw new Error(`Model validation failed: ${errors}`);
-        }
+        assertNoErrors('Model', result.issues);
     });
 
     ctx.onEvent('model.beforeUpdate', async ({ model }) => {
         const result = validateModel(model);
-        if (result.issues.length > 0) {
-            const errors = result.issues.map(issue => `${issue.path}: ${issue.message}`).join(', ');
-            throw new Error(`Model validation failed: ${errors}`);
-        }
+        assertNoErrors('Model', result.issues);
     });
 
     ctx.onEvent('template.beforeCreate', async ({ template }) => {
         const result = validateTemplate(template);
-        if (result.issues.length > 0) {
-            const errors = result.issues.map(issue => `${issue.path}: ${issue.message}`).join(', ');
-            throw new Error(`Template validation failed: ${errors}`);
-        }
+        assertNoErrors('Template', result.issues);
     });
 
     ctx.onEvent('template.beforeUpdate', async ({ template }) => {
         const result = validateTemplate(template);
-        if (result.issues.length > 0) {
-            const errors = result.issues.map(issue => `${issue.path}: ${issue.message}`).join(', ');
-            throw new Error(`Template validation failed: ${errors}`);
-        }
+        assertNoErrors('Template', result.issues);
     });
 }
 

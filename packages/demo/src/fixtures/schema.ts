@@ -34,7 +34,13 @@ export const everyField: Record<string, Field> = {
     tags: f.tags('Tags'),
     categories: f.categories('Categories', 'category'),
     order: f.order(),
-    status: f.status('Status', { choices: ['draft', 'review', 'live'] }),
+    status: f.status('Status', {
+        values: [
+            { value: 'draft', label: 'Draft' },
+            { value: 'review', label: 'Review' },
+            { value: 'live', label: 'Live' }
+        ]
+    }),
     select: f.select('Select', ['alpha', 'beta', 'gamma']),
     multiSelect: f.multiSelect('Multi-select', ['red', 'green', 'blue']),
     address: f.address('Address'),

@@ -78,3 +78,25 @@ export function validateFieldsAgainstSchema(
 
     return issues;
 }
+
+/**
+ * Values for fields the schema doesn't have (`kicker` on a block with no kicker): kept, never
+ * delivered, so a typo or a renamed field goes unnoticed. A warning when content is saved (data
+ * from before a field was removed stays editable); an import refuses them (FIELD_UNKNOWN).
+ */
+export function unknownFieldIssues(
+    data: unknown,
+    schemaFields: Record<string, Field>,
+    pathPrefix: string,
+    owner: string
+): ValidationIssue[] {
+    if (!data || typeof data !== 'object' || Array.isArray(data)) return [];
+    return Object.keys(data)
+        .filter(key => !(key in schemaFields))
+        .map(key => ({
+            type: 'warning' as const,
+            code: 'FIELD_UNKNOWN',
+            message: `"${key}" is not a field of ${owner}.`,
+            path: `${pathPrefix}.${key}`
+        }));
+}

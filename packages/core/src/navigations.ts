@@ -16,9 +16,15 @@ import { NAVIGATIONS_KEY } from './utils/storageKeys.js';
 import { triggerEvent } from './utils/eventBus.js';
 import { isValidId } from './utils/idUtils.js';
 import type { PageNode } from '@moteurio/types/Page.js';
-import { listPages } from './pages.js';
+import { listPages, urlLanguage } from './pages.js';
 import { publicPages } from './pages/publishedPages.js';
-import { buildNodeMap, isShown, resolveNodePrefix } from './pages/urlResolver.js';
+import {
+    buildNodeMap,
+    isShown,
+    languageFor,
+    resolveNodePrefix,
+    type UrlLanguage
+} from './pages/urlResolver.js';
 import { getAsset, resolveAssetUrl } from './assets/assetService.js';
 import { dispatch as webhookDispatch } from './webhooks/webhookService.js';
 
@@ -364,7 +370,8 @@ async function deleteNavigationUnlocked(projectId: string, user: User, id: strin
 async function resolveItemUrl(
     projectId: string,
     item: NavItem,
-    nodeMap: Map<string, PageNode>
+    nodeMap: Map<string, PageNode>,
+    lang?: UrlLanguage
 ): Promise<string | undefined> {
     switch (item.linkType) {
         case 'custom':
@@ -374,7 +381,8 @@ async function resolveItemUrl(
             const node = nodeMap.get(item.pageId);
             // A draft page has no address on the site yet.
             if (!node || !isShown(node)) return undefined;
-            const prefix = resolveNodePrefix(item.pageId, nodeMap);
+            // The page's address in the menu's language (`/fr/tarifs`), as blocks' links have it.
+            const prefix = resolveNodePrefix(item.pageId, nodeMap, languageFor(node, lang));
             return prefix || '/';
         }
         case 'asset': {
@@ -393,9 +401,10 @@ async function resolveItem(
     projectId: string,
     item: NavItem,
     nodeMap: Map<string, PageNode>,
-    language?: { locale: string; fallback: string }
+    language?: { locale: string; fallback: string },
+    lang?: UrlLanguage
 ): Promise<ResolvedNavItem> {
-    const url = await resolveItemUrl(projectId, item, nodeMap);
+    const url = await resolveItemUrl(projectId, item, nodeMap, lang);
     const { pageId: _p, assetId: _a, children, ...rest } = item;
     const resolved: ResolvedNavItem = {
         ...rest,
@@ -406,7 +415,7 @@ async function resolveItem(
     };
     if (children && children.length > 0) {
         resolved.children = await Promise.all(
-            children.map(child => resolveItem(projectId, child, nodeMap, language))
+            children.map(child => resolveItem(projectId, child, nodeMap, language, lang))
         );
     }
     return resolved;
@@ -424,8 +433,9 @@ export async function resolveNavigation(
     // Menus are delivered to sites: pages as published.
     const pages = await publicPages(projectId, await listPages(projectId));
     const nodeMap = buildNodeMap(pages);
+    const lang = language ? await urlLanguage(projectId, language.locale) : undefined;
     const items = await Promise.all(
-        navigation.items.map(item => resolveItem(projectId, item, nodeMap, language))
+        navigation.items.map(item => resolveItem(projectId, item, nodeMap, language, lang))
     );
     const { items: _i, ...rest } = navigation;
     return {

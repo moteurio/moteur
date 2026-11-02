@@ -2,6 +2,8 @@ import { ModelSchema } from '@moteurio/types/Model.js';
 import { ValidationResult } from '@moteurio/types/ValidationResult.js';
 import { checkStudioForm, checkStudioList } from '@moteurio/types/StudioForm.js';
 import { createValidationResult, addIssue } from '../utils/validation.js';
+import { fieldDefinitionIssues } from './fieldDefinitions.js';
+import { isLabel, LABEL_RULE } from '../utils/validation.js';
 
 export function validateModel(model: ModelSchema): ValidationResult {
     const result = createValidationResult();
@@ -17,11 +19,11 @@ export function validateModel(model: ModelSchema): ValidationResult {
     }
 
     // label: required, string
-    if (!model.label || typeof model.label !== 'string') {
+    if (!isLabel(model.label)) {
         addIssue(result, {
             type: 'error',
             code: 'MODEL_INVALID_LABEL',
-            message: 'Model "label" must be a non-empty string.',
+            message: `Model "label" must be ${LABEL_RULE}.`,
             path: 'label'
         });
     }
@@ -103,6 +105,8 @@ export function validateModel(model: ModelSchema): ValidationResult {
             });
         }
     }
+
+    for (const issue of fieldDefinitionIssues(model.fields as never)) addIssue(result, issue);
 
     return result;
 }

@@ -36,14 +36,8 @@ function resolveBlockTypeKey(projectId: string, slugParam: string): string | und
     const param = decodeURIComponent(slugParam).trim();
     if (!param) return undefined;
     const all = listBlocks(projectId);
-    if (param.includes('/')) {
-        return all[param] ? param : undefined;
-    }
-    const projectKey = `${projectId}/${param}`;
-    if (all[projectKey]) return projectKey;
-    const coreKey = `core/${param}`;
-    if (all[coreKey]) return coreKey;
-    return Object.keys(all).find(k => k.endsWith(`/${param}`));
+    // Without a slash: the project's own block (`hero`); with one, the server's (`core/hero`).
+    return all[param] ? param : undefined;
 }
 
 router.get('/:slug', requireProjectAccess, (req: Request, res: Response) => {
@@ -156,7 +150,7 @@ const blockPaths: Record<string, OpenAPIV3.PathItemObject> = {
         post: {
             summary: 'Create a project-scoped block type',
             description:
-                'Writes data/projects/{projectId}/blocks/<slug>.json. Type becomes {projectId}/<slug>. Does not modify core/*.',
+                'Writes data/projects/{projectId}/blocks/<name>.json. A project’s own block is named without a namespace (`hero`); a name with a slash is the server’s and is refused here. Does not modify core/*.',
             tags: ['Blocks'],
             security: blocksSecurity,
             parameters: [
@@ -193,7 +187,7 @@ const blockPaths: Record<string, OpenAPIV3.PathItemObject> = {
         get: {
             summary: 'Get one block type by slug',
             description:
-                'Slug is the segment after the project namespace (e.g. hero for mysite/hero). You may also pass mysite/hero URL-encoded as one path segment.',
+                'The block’s name: the project’s own without a namespace (`hero`), the server’s with it, URL-encoded as one segment (`core%2Fhero`).',
             tags: ['Blocks'],
             security: blocksSecurity,
             parameters: [

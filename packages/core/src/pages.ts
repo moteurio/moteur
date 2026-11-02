@@ -62,6 +62,7 @@ import {
     resolveAllUrls as resolveAllUrlsFromTree,
     resolveBreadcrumb as resolveBreadcrumbFromTree,
     resolveNodePrefix,
+    inLanguage,
     interpolatePattern,
     joinPath,
     slugIn,
@@ -85,6 +86,9 @@ import type { TemplateSchema } from '@moteurio/types/Template.js';
 import { assertEntryComplete } from './validators/entryComplete.js';
 import { perVersion } from './deliveryCache.js';
 import { dispatch as webhookDispatch } from './webhooks/webhookService.js';
+import { assertNoErrors } from './utils/validation.js';
+import { normalizeLanguages } from './utils/contentLanguages.js';
+export { normalizeLanguages };
 
 export type { ResolvedUrl, NavigationNode, BreadcrumbItem };
 
@@ -198,7 +202,8 @@ export async function getPageBySlug(
     if (locale) {
         const project = await getProjectById(projectId);
         const lang = { locale, defaultLocale: project?.defaultLocale ?? locale };
-        return pages.find(p => slugIn(p, lang) === slug) ?? null;
+        // A page not in this language has no slug in it.
+        return pages.find(p => inLanguage(p, lang) && slugIn(p, lang) === slug) ?? null;
     }
     const found =
         pages.find(p => p.slug === slug) ??
@@ -335,6 +340,7 @@ function ensurePageNodeDefaults(
         label: data.label,
         slug: data.slug,
         ...(data.slugs && Object.keys(data.slugs).length > 0 && { slugs: data.slugs }),
+        ...(data.languages && { languages: data.languages }),
         parentId: data.parentId ?? null,
         order,
         navInclude: data.navInclude ?? true,
@@ -398,6 +404,7 @@ export async function createPage(
     }
 
     assertTranslatedSlugs(data.slugs, project);
+    data = { ...data, languages: normalizeLanguages(data.languages, project) };
 
     const allPages = await loadAllPages(projectId);
     assertCountRoom(projectId, 'pages', allPages.length);
@@ -426,10 +433,7 @@ export async function createPage(
                 draft: true
             }
         );
-        if (!validation.valid) {
-            const msg = validation.issues.map(i => `${i.path}: ${i.message}`).join('; ');
-            throw new Error(`Page validation failed: ${msg}`);
-        }
+        assertNoErrors('Page', validation.issues, 422);
         if ((page as StaticPage).status === 'published')
             assertPageComplete(page as StaticPage, await getTemplate(projectId, templateId));
     }
@@ -534,7 +538,8 @@ async function updatePageUnlocked(
             Boolean
         );
         const extra = Object.keys(patch).filter(
-            key => key !== 'fields' && key !== 'slugs' && key !== 'updatedAt'
+            // A translator may say a page is now in their language.
+            key => key !== 'fields' && key !== 'slugs' && key !== 'languages' && key !== 'updatedAt'
         );
         const beforeFields = (current as { fields?: unknown }).fields ?? {};
         const afterFields =
@@ -568,10 +573,7 @@ async function updatePageUnlocked(
                     draft: true
                 }
             );
-            if (!validation.valid) {
-                const msg = validation.issues.map(i => `${i.path}: ${i.message}`).join('; ');
-                throw new Error(`Page validation failed: ${msg}`);
-            }
+            assertNoErrors('Page', validation.issues, 422);
             if ((updated as StaticPage).status === 'published' && !waiting)
                 assertPageComplete(updated as StaticPage, template);
         }
@@ -582,6 +584,12 @@ async function updatePageUnlocked(
         if (!isUrlSafeSlug(updated.slug, isRoot)) {
             throw new Error('Slug must be URL-safe (no spaces or slashes).');
         }
+    }
+    if (patch.languages !== undefined) {
+        // null or [] clears it: every language.
+        const languages = normalizeLanguages(patch.languages, await getProjectById(projectId));
+        if (languages) updated.languages = languages;
+        else delete updated.languages;
     }
     if (patch.slugs !== undefined) {
         assertTranslatedSlugs(patch.slugs, await getProjectById(projectId));
@@ -966,7 +974,7 @@ export async function resolveAllUrls(projectId: string): Promise<ResolvedUrl[]> 
 }
 
 /** A language of the project, for one address; an unknown or missing locale is the default. */
-async function urlLanguage(projectId: string, locale?: string): Promise<UrlLanguage> {
+export async function urlLanguage(projectId: string, locale?: string): Promise<UrlLanguage> {
     const languages = urlLanguagesFor(await getProjectById(projectId));
     return {
         locale: locale && languages.locales.includes(locale) ? locale : languages.defaultLocale,
@@ -1036,6 +1044,7 @@ export async function resolveEntryUrls(
     const languages = urlLanguagesFor(await getProjectById(projectId));
     const urls: Record<string, string> = {};
     for (const lang of languageList(languages)) {
+        if (!inLanguage(entry, lang)) continue;
         const segment = interpolatePattern(collectionPage.urlPattern, entry, lang);
         if (!segment) continue;
         const prefix = resolveNodePrefix(collectionPage.id, nodeMap, { ...lang, prefix: 'none' });

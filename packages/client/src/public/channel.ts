@@ -9,7 +9,8 @@ import type {
     ModelId,
     PageOf,
     SchemaShape,
-    UntypedSchema
+    UntypedSchema,
+    SettingsId
 } from './schema.js';
 
 /** For any read: one language (the answer is in it), and pictures with their files. */
@@ -58,6 +59,13 @@ export interface PublicChannel<
             options?: O
         ): Promise<EntryOf<S, K, ModeOf<O, D>>>;
     };
+    /**
+     * A settings model's one entry (the site's settings, its interface's words): no list, no id.
+     */
+    settings<K extends SettingsId<S>, O extends EntryReadOptions<S>>(
+        model: K,
+        options?: O
+    ): Promise<EntryOf<S, K, ModeOf<O, D>>>;
     /** Menus with item addresses resolved, by handle (`header`, `footer`). */
     menus: {
         list(options?: { locale?: S['locale'] }): Promise<ResolvedNavigation[]>;
@@ -120,6 +128,7 @@ export function createPublicChannel<
             list: (model, options) => get(`${root}/${enc(model)}/entries`, options),
             get: (model, id, options) => get(`${root}/${enc(model)}/entries/${enc(id)}`, options)
         },
+        settings: (model, options) => get(`${root}/settings/${enc(model)}`, options),
         menus: {
             list: options => get(`${root}/menus`, options),
             get: (handle, options) => get(`${root}/menus/${enc(handle)}`, options)

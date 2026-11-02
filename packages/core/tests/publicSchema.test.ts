@@ -49,32 +49,32 @@ const rival = {
 };
 
 const blocks = {
-    'www-moteur/hero': {
-        type: 'www-moteur/hero',
+    hero: {
+        type: 'hero',
         label: 'Hero',
         fields: {
             title: { type: 'core/text', label: 'Title', options: { multilingual: true } },
             primary: {
                 type: 'core/structure',
                 label: 'Button',
-                options: { structure: 'www-moteur/cta' }
+                options: { structure: 'cta' }
             }
         }
     },
-    'www-moteur/faq': { type: 'www-moteur/faq', label: 'FAQ', fields: {} },
+    faq: { type: 'faq', label: 'FAQ', fields: {} },
     'core/note': { type: 'core/note', label: 'Note', editorial: true, fields: {} }
 };
 
 const structures = {
-    'www-moteur/cta': {
-        type: 'www-moteur/cta',
+    cta: {
+        type: 'cta',
         label: 'Call to action',
         fields: {
             label: { type: 'core/text', label: 'Label' },
             link: { type: 'core/link', label: 'Link' }
         }
     },
-    'www-moteur/unused': { type: 'www-moteur/unused', label: 'Unused', fields: {} }
+    unused: { type: 'unused', label: 'Unused', fields: {} }
 };
 
 const page = {
@@ -85,7 +85,7 @@ const page = {
         blocks: {
             type: 'core/block-list',
             label: 'Blocks',
-            options: { allowedBlockTypes: ['www-moteur/hero', 'core/note'], ui: 'cards' }
+            options: { allowedBlockTypes: ['hero', 'core/note'], ui: 'cards' }
         }
     }
 };
@@ -130,11 +130,11 @@ describe('a channel’s public schema', () => {
         const s = (await channelSchema('www-moteur', 'site'))!;
         expect(Object.keys(s.templates)).toEqual(['page']);
         expect(s.templates.page!.fields.blocks!.options).toEqual({
-            allowedBlockTypes: ['www-moteur/hero']
+            allowedBlockTypes: ['hero']
         });
         // The hero only: the FAQ isn't allowed, the note is editorial.
-        expect(Object.keys(s.blocks)).toEqual(['www-moteur/hero']);
-        expect(Object.keys(s.structures)).toEqual(['www-moteur/cta']);
+        expect(Object.keys(s.blocks)).toEqual(['hero']);
+        expect(Object.keys(s.structures)).toEqual(['cta']);
     });
 
     it('gives every template for every page, and a version that follows the schemas', async () => {
@@ -147,7 +147,7 @@ describe('a channel’s public schema', () => {
 
         vi.mocked(listStructures).mockResolvedValue({
             ...structures,
-            'www-moteur/cta': { ...structures['www-moteur/cta'], label: 'Button' }
+            cta: { ...structures['cta'], label: 'Button' }
         } as never);
         expect((await channelSchema('www-moteur', 'site'))!.version).not.toBe(before.version);
     });

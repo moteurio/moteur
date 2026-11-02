@@ -16,10 +16,16 @@ import { binEntry, getBinItem, removeFromBin } from './contentBin.js';
 import { User } from '@moteurio/types/User.js';
 import { getModelSchema, getModelSchemaForProject } from './models.js';
 import { getProject } from './projects.js';
+import { normalizeLanguages } from './utils/contentLanguages.js';
 import { hasApprovedReview, useApprovals } from './reviews.js';
 import { triggerEvent } from './utils/eventBus.js';
-import { getProjectJson, putProjectJson, hasProjectKey } from './utils/projectStorage.js';
-import { entryKey } from './utils/storageKeys.js';
+import {
+    getProjectJson,
+    putProjectJson,
+    hasProjectKey,
+    listProjectKeys
+} from './utils/projectStorage.js';
+import { entryKey, entryListPrefix } from './utils/storageKeys.js';
 import {
     gitSettled,
     addAndCommit,
@@ -54,6 +60,7 @@ import { checkCountRoom } from './planLimits.js';
 import { countOf } from './projectCounts.js';
 import { withProjectWriteLock } from './utils/projectWriteLock.js';
 import { entryVersion } from './utils/entryVersion.js';
+import { labelText } from './utils/validation.js';
 
 /** How an entry is named in commit messages: its slug when it is a plain string, else its id. */
 function commitRef(entry: Entry, entryId: string): string {
@@ -152,6 +159,22 @@ export async function getEntryForProject(
     return entry ?? null;
 }
 
+/**
+ * A settings model's one entry: its id, or nothing while it has none. Refuses a model that isn't
+ * a settings model (404: there's no "the" entry to give).
+ */
+export async function settingsEntryId(
+    projectId: string,
+    modelId: string
+): Promise<string | undefined> {
+    const schema = await getModelSchemaForProject(projectId, modelId);
+    if (schema?.modelType !== 'settings')
+        throw Object.assign(new Error(`"${modelId}" is not a settings model`), { status: 404 });
+    // The model's entries folder lists its entries by id.
+    const [id] = await listProjectKeys(projectId, entryListPrefix(modelId));
+    return id;
+}
+
 export async function listEntries(
     user: User,
     projectId: string,
@@ -221,6 +244,9 @@ async function createEntryUnlocked(
     const projectLocales = [project.defaultLocale, ...(project.supportedLocales ?? [])].filter(
         Boolean
     );
+    const languages = normalizeLanguages(entry.languages, project);
+    entry = { ...entry, languages };
+    if (!languages) delete entry.languages;
     if (projectLocales.length > 0 && entry.data) {
         const localeErrors = validateBlockLocalesInPayload(entry.data, projectLocales, 'data');
         if (localeErrors.length > 0) {
@@ -266,6 +292,17 @@ async function createEntryUnlocked(
         throw new Error(`Entry "${entry.id}" already exists in model "${modelId}".`);
     }
     await checkCountRoom(projectId, 'entries', () => countOf(projectId, 'entries'));
+    // A settings model holds one entry: the site's settings, its interface's words.
+    if (schema.modelType === 'settings') {
+        const [other] = await listProjectKeys(projectId, entryListPrefix(modelId));
+        if (other)
+            throw Object.assign(
+                new Error(
+                    `"${labelText(schema.label, modelId)}" is a settings model: it has one entry, and it's there already. Change that one.`
+                ),
+                { status: 409, statusCode: 409, code: 'SETTINGS_ONE_ENTRY' }
+            );
+    }
 
     await triggerEvent('entry.beforeCreate', { entry, user, modelId, projectId });
     await putProjectJson(projectId, entryKey(modelId, entry.id), entry);
@@ -391,6 +428,12 @@ async function updateEntryUnlocked(
     }
     const coreIdFields = getCoreIdFieldIds(schema);
     const updated = mergeEntryPatch(current, patch, coreIdFields);
+    if (patch.languages !== undefined) {
+        // null or [] clears it: every language.
+        const languages = normalizeLanguages(patch.languages, project);
+        if (languages) updated.languages = languages;
+        else delete updated.languages;
+    }
     const restoredFrom = options?.restoredFrom;
     if (restoredFrom) {
         // A restore puts back the whole version: fields filled since then are emptied again.

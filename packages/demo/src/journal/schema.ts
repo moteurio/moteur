@@ -421,28 +421,28 @@ const listOf = (label: string, fields: Parameters<typeof f.object>[1], o = {}) =
 /** Blocks specific to the Journal (core blocks are added by core). */
 export const blocks: BlockSchema[] = [
     {
-        type: 'demo/teletype',
+        type: 'teletype',
         label: 'Teletype',
         description: 'A dateline typed out character by character, like a wire dispatch.',
         category: 'editorial',
         fields: { text: f.text('Text', mlReq) }
     },
     {
-        type: 'demo/pull-quote',
+        type: 'pull-quote',
         label: 'Pull quote',
         description: 'A large quotation lifted from the article.',
         category: 'editorial',
         fields: { text: f.richText('Text', mlReq), attribution: f.text('Attribution', ml) }
     },
     {
-        type: 'demo/data-callout',
+        type: 'data-callout',
         label: 'Data callout',
         description: 'One big number with a label.',
         category: 'editorial',
         fields: { number: f.text('Number', req), label: f.text('Label', mlReq) }
     },
     {
-        type: 'demo/timeline',
+        type: 'timeline',
         label: 'Timeline',
         description: 'A chronological sequence of events.',
         category: 'editorial',
@@ -455,7 +455,7 @@ export const blocks: BlockSchema[] = [
         }
     },
     {
-        type: 'demo/dialogue',
+        type: 'dialogue',
         label: 'Dialogue',
         description: 'A transcript between two speakers, typically a human and a robot.',
         category: 'editorial',
@@ -472,7 +472,7 @@ export const blocks: BlockSchema[] = [
         }
     },
     {
-        type: 'demo/spec-card',
+        type: 'spec-card',
         label: 'Spec card',
         description: 'A robot specification sheet with a status badge.',
         category: 'editorial',
@@ -488,14 +488,14 @@ export const blocks: BlockSchema[] = [
         }
     },
     {
-        type: 'demo/warning',
+        type: 'warning',
         label: 'Editor’s note',
         description: 'A boxed note from the editors.',
         category: 'editorial',
         fields: { text: f.richText('Text', mlReq), code: f.text('Label') }
     },
     {
-        type: 'demo/classified',
+        type: 'classified',
         label: 'Classified',
         description: 'A redacted, stamped document.',
         category: 'editorial',
@@ -506,7 +506,7 @@ export const blocks: BlockSchema[] = [
         }
     },
     {
-        type: 'demo/illustration-brief',
+        type: 'illustration-brief',
         label: 'Illustration brief',
         description: 'A placeholder describing an illustration still to be commissioned.',
         category: 'media',
@@ -517,7 +517,7 @@ export const blocks: BlockSchema[] = [
         }
     },
     {
-        type: 'demo/kinetic-text',
+        type: 'kinetic-text',
         label: 'Kinetic text',
         description: 'Animated display text.',
         category: 'interactive',
@@ -527,7 +527,7 @@ export const blocks: BlockSchema[] = [
         }
     },
     {
-        type: 'demo/ad',
+        type: 'ad',
         label: 'House ad',
         description: 'A promotional unit for Moteur Industries products.',
         category: 'editorial',
@@ -540,7 +540,7 @@ export const blocks: BlockSchema[] = [
         }
     },
     {
-        type: 'demo/3d-scene',
+        type: '3d-scene',
         label: '3D scene',
         description: 'A rotating 3D model of a robot.',
         category: 'media',
@@ -552,7 +552,7 @@ export const blocks: BlockSchema[] = [
         }
     },
     {
-        type: 'demo/signal-map',
+        type: 'signal-map',
         label: 'Signal map',
         description: 'Coordinates and readings from an expedition.',
         category: 'data',
@@ -566,7 +566,7 @@ export const blocks: BlockSchema[] = [
         }
     },
     {
-        type: 'demo/transmission',
+        type: 'transmission',
         label: 'Transmission',
         description: 'A radio message, with source, frequency and time.',
         category: 'editorial',
@@ -578,7 +578,7 @@ export const blocks: BlockSchema[] = [
         }
     },
     {
-        type: 'demo/atmosphere',
+        type: 'atmosphere',
         label: 'Atmosphere',
         description: 'A visual effect for pacing: fog, static, grain, void. No text.',
         category: 'interactive',
@@ -589,7 +589,7 @@ export const blocks: BlockSchema[] = [
         }
     },
     {
-        type: 'demo/audio-cue',
+        type: 'audio-cue',
         label: 'Audio cue',
         description: 'Ambient sound played when the block scrolls into view.',
         category: 'interactive',
@@ -602,7 +602,7 @@ export const blocks: BlockSchema[] = [
         }
     },
     {
-        type: 'demo/scroll-marker',
+        type: 'scroll-marker',
         label: 'Scroll marker',
         description: 'An invisible trigger that fires a named event in the reader’s browser.',
         category: 'interactive',

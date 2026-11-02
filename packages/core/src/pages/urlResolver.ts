@@ -39,13 +39,36 @@ export function slugIn(node: PageNode, lang?: UrlLanguage): string {
     return typeof translated === 'string' && translated !== '' ? translated : node.slug;
 }
 
+/**
+ * Whether a page or entry is in this language: the default always; another when it lists no
+ * languages (every one) or lists this one.
+ */
+export function inLanguage(
+    item: { languages?: string[] } | undefined,
+    lang?: UrlLanguage
+): boolean {
+    if (!lang || lang.locale === lang.defaultLocale) return true;
+    const languages = item?.languages;
+    return !Array.isArray(languages) || languages.length === 0 || languages.includes(lang.locale);
+}
+
+/** This language when the item is in it, else the default: where a link to it should lead. */
+export function languageFor(
+    item: { languages?: string[] } | undefined,
+    lang?: UrlLanguage
+): UrlLanguage | undefined {
+    return !lang || inLanguage(item, lang) ? lang : { ...lang, locale: lang.defaultLocale };
+}
+
 /** Add the language prefix the project asks for: /fr/a-propos, or /a-propos with `none`. */
 export function withLocale(path: string, lang?: UrlLanguage): string {
     if (!lang) return path;
     const prefix = lang.prefix ?? 'others';
     if (prefix === 'none' || (prefix === 'others' && lang.locale === lang.defaultLocale))
         return path;
-    const code = `/${lang.locale.toLowerCase()}`;
+    // The locale as the project spells it (`/zh-Hans`, `/pt-BR`): addresses a site already has
+    // keep working.
+    const code = `/${lang.locale}`;
     return path === '/' || path === '' ? code : `${code}${path}`;
 }
 
@@ -207,18 +230,20 @@ export async function resolveAllUrls(
                 if (node.type === 'static') {
                     const sp = node as StaticPage;
                     const finalUrl = prefix || '/';
-                    if (sp.status === 'published') emit(node, finalUrl);
+                    // A page not in this language has no address in it.
+                    if (sp.status === 'published' && inLanguage(sp, lang)) emit(node, finalUrl);
                 } else if (node.type === 'folder') {
                     walk(node.id, prefix);
                 } else if (node.type === 'collection') {
                     const cn = node as CollectionPage;
                     if (cn.status !== 'published') continue;
-                    emit(cn, prefix || '/');
+                    if (inLanguage(cn, lang)) emit(cn, prefix || '/');
                     const pattern = cn.urlPattern ?? '';
                     if (pattern && cn.sitemapIncludeEntries !== false) {
                         const idx = collectionNodes.findIndex(c => c.id === cn.id);
                         const entries = entryLists[idx] ?? [];
                         for (const entry of entries) {
+                            if (!inLanguage(entry, lang)) continue;
                             const segment = interpolatePattern(pattern, entry, lang);
                             if (!segment) continue;
                             emit(cn, joinPath(prefix, segment), entry.id, cn.modelId);
@@ -272,6 +297,8 @@ export function resolveBreadcrumb(
 ): { url: string; breadcrumb: BreadcrumbItem[] } {
     const node = nodeMap.get(nodeId);
     if (!node || !isShown(node)) return { url: '', breadcrumb: [] };
+    // Not in this language: its trail is the default language's.
+    lang = languageFor(entry ?? node, lang);
 
     const ancestors = getAncestors(nodeId, nodeMap);
     if (!ancestors.every(isShown)) return { url: '', breadcrumb: [] };
@@ -354,7 +381,7 @@ export function buildNavigationTree(
         for (const node of children) {
             if (!node.navInclude || !isShown(node)) continue;
             if (node.type === 'folder' && !hasNavIncludedDescendant(node, depth)) continue;
-            const url = resolveNodePrefix(node.id, nodeMap, lang) || '/';
+            const url = resolveNodePrefix(node.id, nodeMap, languageFor(node, lang)) || '/';
             const navNode: NavigationNode = {
                 id: node.id,
                 label: node.navLabel ?? node.label,

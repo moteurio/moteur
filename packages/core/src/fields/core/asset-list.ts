@@ -16,6 +16,18 @@ fieldRegistry.register({
                 'Pictures here are cropped to this shape around their focal point (`cropUrl` when assets are resolved). Empty: as uploaded.',
             required: false
         },
+        minItems: {
+            type: 'core/number',
+            label: 'At least',
+            description: 'The fewest pictures or files the list may hold.',
+            required: false
+        },
+        maxItems: {
+            type: 'core/number',
+            label: 'At most',
+            description: 'The most pictures or files the list may hold.',
+            required: false
+        },
         ui: {
             type: 'core/text',
             label: 'UI Hint',

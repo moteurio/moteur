@@ -14,6 +14,7 @@ import { listBlocks } from './blocks.js';
 import { findStructure, listStructures } from './structures.js';
 import { getProjectById } from './projects.js';
 import { childFieldsOf } from './fieldWalk.js';
+import { mapKeys, mapValueField } from './validators/fields/core/validateMapField.js';
 
 /** What types are made from: a project's stored schemas, or a channel's public schema. */
 type Described = { label?: unknown; fields?: unknown };
@@ -23,7 +24,7 @@ export type TypegenInput = {
     locales: string[];
     /** Made from this channel's schema: the header gives `--channel` to make them again. */
     channelId?: string;
-    models: Array<Pick<ModelSchema, 'id'> & Described>;
+    models: Array<Pick<ModelSchema, 'id'> & { modelType?: string } & Described>;
     templates: Array<Pick<TemplateSchema, 'id'> & Described>;
     blocks: Record<string, Described>;
     structures: Record<string, Pick<StructureSchema, 'type'> & Described>;
@@ -160,6 +161,12 @@ export interface Entry<D, Model extends string = string> {
     data: D;
     meta?: Record<string, unknown>;
     resolvedUrl?: string;
+    /** The languages it is in (the default always). Left out: every language. */
+    languages?: Locale[];
+    /** The language it was delivered in (\`?locale=\`): the one read, or the default when it isn't in that one. */
+    locale?: Locale;
+    /** Fields with nothing in that language, shown in the default's (\`body\`, \`blocks[2].data.title\`). */
+    fallbacks?: string[];
 }
 
 export interface Page<F, Template extends string = string> {
@@ -174,14 +181,24 @@ export interface Page<F, Template extends string = string> {
     status: 'draft' | 'published';
     /** Its address: in the language read (\`?locale=\`), otherwise the default language's. */
     path: string;
-    /** Its address in each language. */
-    paths: Record<Locale, string>;
+    /** Its address in each language it is in. */
+    paths: Partial<Record<Locale, string>>;
+    /** The languages it is in (the default always). Left out: every language. */
+    languages?: Locale[];
+    /** The language it was delivered in (\`?locale=\`): the one read, or the default when it isn't in that one. */
+    locale?: Locale;
+    /** Fields with nothing in that language, shown in the default's (\`body\`, \`blocks[2].data.title\`). */
+    fallbacks?: string[];
     fields: F;
     navInclude: boolean;
     navLabel?: string;
     modelId?: string;
     createdAt: string;
     updatedAt: string;
+    /** The commit it went live with, in the project's history (delivery reads what was published). */
+    publishedCommit?: string;
+    /** When it went live. */
+    publishedAt?: string;
 }
 
 export interface Block<T extends string, D> {
@@ -269,11 +286,8 @@ export function generateTypes(input: TypegenInput): string {
         for (const x of suffixes) used.add(stem + x);
         return stem;
     };
-    /** Project blocks and structures drop their namespace; core and plugin ones keep it. */
-    const short = (type: string) => {
-        const [ns, rest] = type.includes('/') ? type.split('/', 2) : ['', type];
-        return ns === input.projectId ? pascal(rest!) : pascal(type);
-    };
+    /** A project's own blocks and structures have no namespace (`hero`); the server's keep theirs (`core/hero`). */
+    const short = (type: string) => pascal(type);
 
     const structureNames = new Map<TypegenInput['structures'][string], string>();
     for (const s of Object.values(input.structures))
@@ -353,6 +367,13 @@ export function generateTypes(input: TypegenInput): string {
             const item = (f.options?.items ?? (f as Field & { items?: Field }).items) as
                 Field | undefined;
             return `Array<${item ? typeOf(item, indent) : 'unknown'}>`;
+        }
+        if (t === 'core/map') {
+            const valueType = typeOf(mapValueField(f), indent);
+            const keys = mapKeys(f);
+            return keys
+                ? `{ ${keys.map(k => `${key(k)}?: ${valueType}`).join('; ')} }`
+                : `Record<string, ${valueType}>`;
         }
         if (t === 'core/block-list') {
             const allowed = (f.options?.allowedBlockTypes as string[] | undefined)?.filter(b =>
@@ -449,6 +470,12 @@ export function generateTypes(input: TypegenInput): string {
             .map(m => `    ${key(m.id)}: ${entryName(m.id)}<M>;`)
             .join('\n')}\n}\n`
     );
+    const settingsModels = input.models.filter(m => m.modelType === 'settings');
+    out.push(
+        `/** The settings models: one entry each, read with \`channel.settings(id)\`. */\nexport interface Settings<${settingsModels.length ? 'M' : '_M'} extends LocaleMode = 'all'> {\n${settingsModels
+            .map(m => `    ${key(m.id)}: ${entryName(m.id)}<M>;`)
+            .join('\n')}\n}\n`
+    );
 
     out.push('// Templates (pages)\n');
     for (const t of input.templates) {
@@ -473,6 +500,7 @@ export function generateTypes(input: TypegenInput): string {
 /** What the project delivers, in a locale mode. */
 export interface MoteurContent<M extends LocaleMode = 'all'> {
     models: Models<M>;
+    settings: Settings<M>;
     pages: AnyPage<M>;
     /** The blocks its content can hold (not every block type the project has). */
     blocks: HeldBlock<M>;
@@ -486,8 +514,6 @@ export interface MoteurContent<M extends LocaleMode = 'all'> {
  */
 export interface MoteurSchema {
     locale: Locale;
-    /** The project's own blocks are \`\${namespace}/…\`: \`defineBlocks\` names them without it. */
-    namespace: ${quote(input.projectId)};
     all: MoteurContent<'all'>;
     one: MoteurContent<'one'>;
 }

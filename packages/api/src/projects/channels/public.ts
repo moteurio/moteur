@@ -12,7 +12,8 @@ import { requireDeveloper } from '../../middlewares/auth.js';
 import {
     getEntryForProject,
     getPublishedEntryForProject,
-    queryEntriesForProject
+    queryEntriesForProject,
+    settingsEntryId
 } from '@moteurio/core/entries.js';
 import { listPages, getPage, getPageBySlug, resolveEntryUrl } from '@moteurio/core/pages.js';
 import { publicPage, publicPages } from '@moteurio/core/pages/publishedPages.js';
@@ -76,6 +77,7 @@ import {
     channelPublicApiPaths,
     loadChannelOpenApiDocument
 } from '../../openapi/loadChannelOpenApi.js';
+import { inLanguage } from '@moteurio/core/pages/urlResolver.js';
 
 const router: Router = Router({ mergeParams: true });
 
@@ -296,8 +298,31 @@ async function sendContent(
 }
 
 /**
+ * The language a page or entry is delivered in: the one asked for when it is in it, the default
+ * otherwise. Each item gets its own, collecting the fields that fell back.
+ */
+function choiceFor(item: { languages?: string[] }, d: Delivery): LocaleChoice | undefined {
+    if (!d.choice) return undefined;
+    const lang = { locale: d.choice.locale, defaultLocale: d.choice.fallback };
+    return {
+        locale: inLanguage(item, lang) ? d.choice.locale : d.choice.fallback,
+        fallback: d.choice.fallback,
+        fallbacks: []
+    };
+}
+
+/** What a delivered item says of its language: which one it is in, and what isn't translated. */
+const languageNote = (choice: LocaleChoice | undefined) =>
+    choice
+        ? {
+              locale: choice.locale,
+              ...(choice.fallbacks?.length && { fallbacks: choice.fallbacks })
+          }
+        : {};
+
+/**
  * A page as delivered: links and page relations filled in, then pictures (whose alt may come
- * from the asset), then one language.
+ * from the asset), then one language (the default when it isn't in the one asked for).
  */
 async function deliverPage(page: PageNode, d: Delivery): Promise<PageNode> {
     if (page.type === 'folder') return page;
@@ -308,13 +333,14 @@ async function deliverPage(page: PageNode, d: Delivery): Promise<PageNode> {
         (await resolvePageLinks(page.fields, own, d.links, d.linkOptions)) ?? page.fields;
     let out = { ...page, fields: linked };
     if (d.resolveAssets) out = await resolvePageAssets(d.projectId, out, template, d.schemas);
-    const fields = d.choice
-        ? ((await localizeFields(out.fields, own, d.schemas, d.choice)) ?? out.fields)
+    const choice = choiceFor(page, d);
+    const fields = choice
+        ? ((await localizeFields(out.fields, own, d.schemas, choice)) ?? out.fields)
         : out.fields;
-    // Where it lives, so a page is all a site's route needs.
+    // Where it lives, so a page is all a site's route needs: `paths` has only its languages.
     const paths = d.links.urls(page.id);
-    const path = paths[d.choice?.locale ?? d.links.defaultLocale] ?? paths[d.links.defaultLocale];
-    const delivered = { ...out, path, paths, fields };
+    const path = paths[choice?.locale ?? d.links.defaultLocale] ?? paths[d.links.defaultLocale];
+    const delivered = { ...out, path, paths, fields, ...languageNote(choice) };
     return delivered;
 }
 
@@ -324,7 +350,10 @@ async function deliverEntry(entry: Entry, schema: ModelSchema | null, d: Deliver
     const data = await resolvePageLinks(entry.data, schema.fields, d.links, d.linkOptions);
     let out: Entry = { ...entry, data: data ?? entry.data };
     if (d.resolveAssets) out = await resolveEntryAssets(d.projectId, out, schema, d.schemas);
-    return d.choice ? localizeEntry(out, d.schemas, d.choice) : out;
+    const choice = choiceFor(entry, d);
+    return choice
+        ? { ...(await localizeEntry(out, d.schemas, choice)), ...languageNote(choice) }
+        : out;
 }
 
 /** Relations resolve by the model's schema, wherever they sit and however they are stored. */
@@ -762,7 +791,29 @@ router.get('/:channelId/:resourceId/entries', async (req: Request, res: Response
 });
 
 // GET /projects/:projectId/channels/:channelId/:resourceId/entries/:id
-router.get('/:channelId/:resourceId/entries/:id', async (req: Request, res: Response) => {
+// GET /projects/:projectId/channels/:channelId/settings/:modelId: a settings model's one entry,
+// delivered as the entry route delivers it.
+router.get('/:channelId/settings/:modelId', async (req: Request, res: Response) => {
+    const { projectId, channelId, modelId } = req.params as Record<string, string>;
+    if (!projectId || !channelId || !modelId)
+        return void res.status(400).json({ error: 'Missing path parameters' });
+    if (rejectIfChannelAccessForbidden(req, res, channelId)) return;
+    try {
+        const id = await settingsEntryId(projectId, modelId);
+        if (!id) return void res.status(404).json({ error: 'No settings yet' });
+        Object.assign(req.params, { resourceId: modelId, id });
+        return void (await deliverOneEntry(req, res));
+    } catch (err: unknown) {
+        return void sendApiError(res, req, err);
+    }
+});
+
+router.get('/:channelId/:resourceId/entries/:id', (req: Request, res: Response) =>
+    deliverOneEntry(req, res)
+);
+
+/** One entry of a channel's model, as the channel delivers it. */
+async function deliverOneEntry(req: Request, res: Response): Promise<void> {
     const { projectId, channelId, resourceId, id } = req.params as Record<string, string>;
     if (!projectId || !channelId || !resourceId || !id)
         return void res.status(400).json({ error: 'Missing path parameters' });
@@ -822,7 +873,7 @@ router.get('/:channelId/:resourceId/entries/:id', async (req: Request, res: Resp
     } catch (err: unknown) {
         return void sendApiError(res, req, err);
     }
-});
+}
 
 // GET /projects/:projectId/channels/:channelId/layouts
 router.get('/:channelId/layouts', async (req: Request, res: Response) => {
