@@ -6,7 +6,14 @@ import { onEvent } from '../utils/eventBus.js';
 import { getProjectById } from '../projects.js';
 import { projectDir } from '../utils/pathUtils.js';
 import { log, toActivityEvent } from '../activityLogger.js';
-import { addAndCommit, GITIGNORE_LINES, hasRemote, isGitRepo, schedulePush } from './gitService.js';
+import {
+    addAndCommit,
+    GITIGNORE_LINES,
+    hasRemote,
+    inBackground,
+    isGitRepo,
+    schedulePush
+} from './gitService.js';
 import type { User } from '@moteurio/types/User.js';
 import { runGitCommitHooks } from '../plugins/gitHooks.js';
 import { batchFor } from '../contentBatch.js';
@@ -32,7 +39,84 @@ async function handleContentChange(payload: ContentEventPayload): Promise<void> 
         for (const p of trackedPaths(payload.paths)) batch.paths.add(p.replace(/\\/g, '/'));
         return;
     }
-    await commitContentChange(payload);
+    // The save is on disk, which is its record: its commit follows in the background, so a save
+    // never waits for Git (a commit grows with the project: 0.4 s at 100,000 entries). What reads
+    // the latest history waits for it; a failed commit is taken along by the next one.
+    inBackground(projectDir(payload.projectId), handOver(payload));
+}
+
+type Waiting = ContentEventPayload & { done: () => void };
+
+/** Saves waiting for their commit, per project, and the projects whose commits are under way. */
+const waitingSaves = new Map<string, Waiting[]>();
+const committing = new Set<string>();
+
+/**
+ * A save's commit, in turn. With nothing under way it commits at once; saves that arrive while a
+ * commit runs wait, then go in together, so a busy project makes one commit per author for a
+ * batch of saves instead of one each. Resolves once this save is in history.
+ */
+function handOver(payload: ContentEventPayload): Promise<void> {
+    const { projectId } = payload;
+    return new Promise<void>(done => {
+        const list = waitingSaves.get(projectId) ?? [];
+        list.push({ ...payload, done });
+        waitingSaves.set(projectId, list);
+        if (committing.has(projectId)) return;
+        committing.add(projectId);
+        void (async () => {
+            for (;;) {
+                const batch = waitingSaves.get(projectId);
+                if (!batch?.length) {
+                    // Checked and cleared in the same turn: a save arriving next starts a new run.
+                    committing.delete(projectId);
+                    return;
+                }
+                waitingSaves.delete(projectId);
+                for (const group of byAuthor(batch)) {
+                    try {
+                        await commitContentChange(group);
+                    } catch (err) {
+                        console.error(
+                            `[moteur] Saves of "${projectId}" could not be committed:`,
+                            err instanceof Error ? err.message : err
+                        );
+                    }
+                }
+                for (const save of batch) save.done();
+            }
+        })();
+    });
+}
+
+/** Who a commit is by, as its message says it (`… — Ada`, `… — Ada via Claude`). */
+const attribution = (save: ContentEventPayload) =>
+    `${save.user?.id ?? ''}\0${save.message.split(' — ').slice(1).join(' — ')}`;
+
+/**
+ * Waiting saves as one commit per author, in the order they came. A file saved by several goes
+ * with the last of them: what is on disk is theirs.
+ */
+function byAuthor(saves: ContentEventPayload[]): ContentEventPayload[] {
+    const lastSaver = new Map<string, ContentEventPayload>();
+    for (const save of saves) for (const p of save.paths) lastSaver.set(p, save);
+    const groups = new Map<string, ContentEventPayload[]>();
+    for (const save of saves) {
+        const key = attribution(save);
+        groups.set(key, [...(groups.get(key) ?? []), save]);
+    }
+    return [...groups.values()].map(group => {
+        const paths = [...new Set(group.flatMap(s => s.paths.filter(p => lastSaver.get(p) === s)))];
+        const first = group[0];
+        if (group.length === 1) return { ...first, paths };
+        const who = first.message.split(' — ').slice(1).join(' — ');
+        const subject = `${group.length} saves${who ? ` — ${who}` : ''}`;
+        return {
+            ...first,
+            paths,
+            message: `${subject}\n\n${group.map(s => s.message).join('\n')}`
+        };
+    });
 }
 
 /**

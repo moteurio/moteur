@@ -1,6 +1,6 @@
 import type { CollectionPage, PageNode, StaticPage } from '@moteurio/types/Page.js';
 import type { User } from '@moteurio/types/User.js';
-import { addAndCommit, getLog, isGitRepo, readBlobs } from '../git/gitService.js';
+import { addAndCommit, getLog, gitSettled, isGitRepo, readBlobs } from '../git/gitService.js';
 import * as publishedCache from '../git/publishedContentCache.js';
 import { getProjectById } from '../projects.js';
 import { putProjectJson } from '../utils/projectStorage.js';
@@ -67,6 +67,8 @@ export async function publishPageVersion(
     save: () => Promise<unknown> = async () => {}
 ): Promise<PageNode> {
     if (!hasContent(page)) return page;
+    // Earlier saves' commits first: in the background, they would take this version along.
+    await gitSettled(projectDir(projectId));
     const { publishedCommit: _old, publishedAt: _at, ...content } = page;
     const live = { ...content, status: 'published' } as ContentPage;
     await putProjectJson(projectId, pageKey(page.id), live);

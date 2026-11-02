@@ -83,7 +83,46 @@ function inRepo<T>(projectDir: string, work: () => Promise<T>): Promise<T> {
 
 /** Every repository's Git work done (tests clean up after it; shutting down waits for it). */
 export async function gitIdle(): Promise<void> {
-    while (queues.size) await Promise.all([...queues.values()]);
+    while (queues.size || handedOver.size) {
+        await Promise.allSettled([
+            ...queues.values(),
+            ...[...handedOver.values()].flatMap(s => [...s])
+        ]);
+    }
+}
+
+/**
+ * Commits handed to the background, per repository, from the moment a save hands them over
+ * (before they reach the queue): a save doesn't wait for Git, so what reads the latest history
+ * waits for them first.
+ */
+const handedOver = new Map<string, Set<Promise<unknown>>>();
+
+/** Run `work` in the background for this repository; reads of its history wait for it. */
+export function inBackground(projectDir: string, work: Promise<unknown>): void {
+    const set = handedOver.get(projectDir) ?? new Set();
+    handedOver.set(projectDir, set);
+    const tracked = work.catch(err =>
+        console.error(
+            `[moteur] A commit in the background failed (${projectDir}):`,
+            err instanceof Error ? err.message : err
+        )
+    );
+    set.add(tracked);
+    void tracked.then(() => {
+        set.delete(tracked);
+        if (!set.size && handedOver.get(projectDir) === set) handedOver.delete(projectDir);
+    });
+}
+
+/**
+ * What was handed over for this repository committed: history as the last save left it. Code that
+ * writes a file and commits it itself (publishing) waits for this first, so a save's background
+ * commit can't take its new content along before it.
+ */
+export async function gitSettled(projectDir: string): Promise<void> {
+    while (handedOver.get(projectDir)?.size)
+        await Promise.allSettled([...handedOver.get(projectDir)!]);
 }
 
 function authorEnv(author: GitAuthor | { name?: string; email?: string; id?: string }) {
@@ -335,6 +374,7 @@ export async function getLog(
 ): Promise<CommitInfo[]> {
     if (!isGitRepo(projectDir)) return [];
     const normalized = relativePath.replace(/\\/g, '/');
+    await gitSettled(projectDir);
     try {
         // After the commits already waiting in this repository: history as the last save left it.
         const out = await inRepo(projectDir, () =>
@@ -377,6 +417,8 @@ export async function show(
 ): Promise<string | null> {
     if (!isGitRepo(projectDir)) return null;
     const normalized = relativePath.replace(/\\/g, '/');
+    // A commit named by its hash is what it is; HEAD or a branch waits for the saves handed over.
+    if (!/^[0-9a-f]{40}$/.test(rev)) await gitSettled(projectDir);
     try {
         return await inRepo(projectDir, () =>
             run(projectDir, ['show', '--end-of-options', `${rev}:${normalized}`])
@@ -455,6 +497,7 @@ export async function readBlobs(
         return result;
     }
 
+    if (specs.some(spec => !/^[0-9a-f]{40}:/.test(spec))) await gitSettled(projectDir);
     const byRev = new Map<string, string[]>();
     for (const spec of specs) {
         const rev = spec.slice(0, spec.indexOf(':'));

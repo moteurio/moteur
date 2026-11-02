@@ -21,6 +21,7 @@ import { triggerEvent } from './utils/eventBus.js';
 import { getProjectJson, putProjectJson, hasProjectKey } from './utils/projectStorage.js';
 import { entryKey } from './utils/storageKeys.js';
 import {
+    gitSettled,
     addAndCommit,
     getLog,
     hasRemote,
@@ -666,9 +667,11 @@ async function publishEntryUnlocked(
         publishedAt: now
     };
 
-    // Write + commit to capture the published content
-    await putProjectJson(projectId, entryKey(modelId, entryId), entry);
+    // Write + commit to capture the published content, once earlier saves' commits have landed
+    // (in the background, they would take this content along and leave this commit empty).
     const dir = projectDir(projectId);
+    await gitSettled(dir);
+    await putProjectJson(projectId, entryKey(modelId, entryId), entry);
     let commitHash: string | undefined;
     if (isGitRepo(dir)) {
         try {
