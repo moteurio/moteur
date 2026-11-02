@@ -24,7 +24,9 @@ import { gitSettled, isGitRepo, show } from '../git/gitService.js';
 import { projectDir } from '../utils/pathUtils.js';
 import { withProjectWriteLock } from '../utils/projectWriteLock.js';
 import { hasProjectKey, restoreProjectFile } from '../utils/projectStorage.js';
-import { pageKey, structureKey } from '../utils/storageKeys.js';
+import { formKey, pageKey, structureKey } from '../utils/storageKeys.js';
+import { createForm, updateForm } from '../forms.js';
+import type { FormSchema } from '@moteurio/types/Form.js';
 import { isValidId } from '../utils/idUtils.js';
 import { downloadPublicFile } from '../utils/publicDownload.js';
 import { getProject, getProjectById } from '../projects.js';
@@ -105,6 +107,7 @@ export function countItems(bundle: ImportBundle): number {
         (bundle.pages?.length ?? 0) +
         Object.values(bundle.entries ?? {}).reduce((n, list) => n + (list?.length ?? 0), 0) +
         (bundle.menus?.length ?? 0) +
+        (bundle.forms?.length ?? 0) +
         (bundle.redirects?.length ?? 0)
     );
 }
@@ -129,6 +132,7 @@ export function checkBundle(bundle: unknown): ImportIssue[] {
         'assets',
         'pages',
         'menus',
+        'forms',
         'redirects'
     ] as const;
     for (const key of lists)
@@ -177,6 +181,11 @@ export function checkBundle(bundle: unknown): ImportIssue[] {
             entryRef(e?.ref ?? e?.id, at);
         });
     }
+    const formId = seen('forms');
+    (b.forms ?? []).forEach((f, i) => {
+        if (!f?.id) return add(`forms[${i}].id`, 'A form needs an id.');
+        formId(f.id, `forms[${i}].id`);
+    });
     (b.menus ?? []).forEach((m, i) => {
         if (!m?.handle) add(`menus[${i}].handle`, 'A menu needs a handle.');
     });
@@ -639,6 +648,19 @@ async function saveAll(ctx: Context): Promise<void> {
             });
         }
 
+    for (const [i, f] of (bundle.forms ?? []).entries())
+        await step(ctx, `forms[${i}]`, 'form', async () => {
+            const form = { ...f, status: f.status ?? 'active' } as FormSchema;
+            if (await hasProjectKey(projectId, formKey(f.id))) {
+                if (whenExisting(ctx, `Form "${f.id}"`) === 'skip')
+                    return { id: f.id, action: 'skip' };
+                await updateForm(user, projectId, f.id, form);
+                return { id: f.id, action: 'update' };
+            }
+            await createForm(user, projectId, form);
+            return { id: f.id, action: 'create' };
+        });
+
     for (const [i, m] of (bundle.menus ?? []).entries())
         await step(ctx, `menus[${i}]`, 'menu', async () => {
             const { handle, label, ...rest } = resolveRefs(m, refs, `menus[${i}]`) as typeof m;
@@ -709,7 +731,8 @@ const summary = (items: ImportItemResult[]) => {
             count('block', 'block'),
             count('structure', 'structure'),
             count('menu', 'menu'),
-            count('redirect', 'redirect')
+            count('redirect', 'redirect'),
+            count('form', 'form')
         ]
             .filter(Boolean)
             .join(', ')

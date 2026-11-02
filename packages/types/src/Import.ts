@@ -2,6 +2,7 @@ import type { ModelSchema } from './Model.js';
 import type { TemplateSchema } from './Template.js';
 import type { BlockSchema } from './Block.js';
 import type { StructureSchema } from './Structure.js';
+import type { FormSchema } from './Form.js';
 
 /**
  * Many things saved at once, all or nothing: a project's schemas, files, pages, entries, menus
@@ -28,7 +29,13 @@ export interface ImportBundle {
     entries?: Record<string, ImportEntry[]>;
     menus?: ImportMenu[];
     redirects?: ImportRedirect[];
+    /** Forms, by id: what a site's visitors send (see the Forms guide). */
+    forms?: ImportForm[];
 }
+
+/** A form, as the forms API takes it; `status` is `active` unless it says otherwise. */
+export type ImportForm = Omit<FormSchema, 'createdAt' | 'updatedAt' | 'status'> &
+    Partial<Pick<FormSchema, 'status'>>;
 
 /** A file: from a public HTTPS address, or inline in base64 with its name. */
 export interface ImportAsset {
@@ -95,7 +102,16 @@ export interface ImportRedirect {
 }
 
 export type ImportItemKind =
-    'structure' | 'block' | 'model' | 'template' | 'asset' | 'page' | 'entry' | 'menu' | 'redirect';
+    | 'structure'
+    | 'block'
+    | 'model'
+    | 'template'
+    | 'asset'
+    | 'page'
+    | 'entry'
+    | 'menu'
+    | 'redirect'
+    | 'form';
 
 /** One thing the import did, or would do. */
 export interface ImportItemResult {
