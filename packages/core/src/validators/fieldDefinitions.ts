@@ -10,6 +10,12 @@ import fieldRegistry from '../registry/FieldRegistry.js';
 /** Options every field may have, whatever its type. */
 const EVERY_FIELD = new Set(['required', 'multilingual', 'ui']);
 
+/** What goes beside `type`, not in `options`: a list's item field, an object's fields. */
+const BESIDE_TYPE: Record<string, string> = {
+    'core/list': 'items',
+    'core/object': 'fields'
+};
+
 type FieldLike = {
     type?: unknown;
     options?: Record<string, unknown>;
@@ -60,6 +66,15 @@ export function fieldDefinitionIssues(
             const own = Object.keys(fieldRegistry.get(type).optionsSchema ?? {});
             for (const option of Object.keys(field.options ?? {})) {
                 if (EVERY_FIELD.has(option) || own.includes(option)) continue;
+                if (BESIDE_TYPE[type] === option) {
+                    issues.push({
+                        type: 'error',
+                        code: 'FIELD_OPTION_UNKNOWN',
+                        message: `"${path}" (${type}): "${option}" goes beside "type", not in "options".`,
+                        path: `${path}.options.${option}`
+                    });
+                    continue;
+                }
                 const meant = closest(option, [...own, ...EVERY_FIELD]);
                 issues.push({
                     type: 'error',

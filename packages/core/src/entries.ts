@@ -163,6 +163,17 @@ export async function getEntryForProject(
  * A settings model's one entry: its id, or nothing while it has none. Refuses a model that isn't
  * a settings model (404: there's no "the" entry to give).
  */
+/**
+ * The ids of a model's entries: folders that hold an entry. A folder left without one (by an
+ * import's undo, a crash) isn't an entry.
+ */
+async function entryIdsOf(projectId: string, modelId: string): Promise<string[]> {
+    const ids: string[] = [];
+    for (const id of await listProjectKeys(projectId, entryListPrefix(modelId)))
+        if (await hasProjectKey(projectId, entryKey(modelId, id)).catch(() => false)) ids.push(id);
+    return ids;
+}
+
 export async function settingsEntryId(
     projectId: string,
     modelId: string
@@ -170,8 +181,7 @@ export async function settingsEntryId(
     const schema = await getModelSchemaForProject(projectId, modelId);
     if (schema?.modelType !== 'settings')
         throw Object.assign(new Error(`"${modelId}" is not a settings model`), { status: 404 });
-    // The model's entries folder lists its entries by id.
-    const [id] = await listProjectKeys(projectId, entryListPrefix(modelId));
+    const [id] = await entryIdsOf(projectId, modelId);
     return id;
 }
 
@@ -294,8 +304,7 @@ async function createEntryUnlocked(
     await checkCountRoom(projectId, 'entries', () => countOf(projectId, 'entries'));
     // A settings model holds one entry: the site's settings, its interface's words.
     if (schema.modelType === 'settings') {
-        const [other] = await listProjectKeys(projectId, entryListPrefix(modelId));
-        if (other)
+        if ((await entryIdsOf(projectId, modelId)).length > 0)
             throw Object.assign(
                 new Error(
                     `"${labelText(schema.label, modelId)}" is a settings model: it has one entry, and it's there already. Change that one.`

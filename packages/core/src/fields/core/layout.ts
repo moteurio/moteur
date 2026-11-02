@@ -13,7 +13,7 @@ fieldRegistry.register({
     type: 'core/layout',
     label: 'Layout',
     description:
-        'Preset block regions from a project Layout. Editors fill slots; structure and order come from the Layout resource.',
+        'Preset block regions from a project Layout. Editors fill its slots, and the Layout sets their structure and order.',
     storeDirect: true,
     validate: validateLayoutField,
     optionsSchema: {

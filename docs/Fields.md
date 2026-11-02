@@ -2,7 +2,7 @@
 
 Fields are the **building blocks** of everything you store in Moteur: **models** (entries), **structures** (reusable shapes), **blocks** (page components), and **page templates**. Each field has a `type` like `core/text` or `core/layout`, plus **`options`** that tune validation and Studio UI.
 
-**Who this is for:** developers defining schemas in JSON/Blueprints or debugging saved content. When in doubt, the source of truth is `packages/core/src/fields/` (one file per type).
+**Who this is for:** developers defining schemas in JSON/Blueprints or debugging saved content. When in doubt, the source of truth is `packages/core/src/fields/` (one file per type). [The skill's field reference](../skills/moteur/references/fields.md) gives every type's options from the code, with a definition and a value checked by a test.
 
 **Multilingual:** Many types store **per-locale** values (e.g. `{ "en": "Hello", "fr": "Bonjour" }`). Below, examples often show a single locale for clarity.
 

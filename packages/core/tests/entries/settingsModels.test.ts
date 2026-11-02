@@ -57,6 +57,26 @@ describe('a settings model', () => {
         ).rejects.toMatchObject({ status: 409, code: 'SETTINGS_ONE_ENTRY' });
     });
 
+    it('ignores a folder left without its entry, writing and reading', async () => {
+        const entries = path.join(
+            tempDir,
+            'data',
+            'projects',
+            projectId,
+            'models',
+            'site-settings',
+            'entries'
+        );
+        await fs.mkdir(path.join(entries, 'aaa-left-over'), { recursive: true });
+        expect(await settingsEntryId(projectId, 'site-settings')).toBeUndefined();
+        await createEntry(user, projectId, 'site-settings', {
+            id: 'site',
+            type: 'site-settings',
+            data: {}
+        });
+        expect(await settingsEntryId(projectId, 'site-settings')).toBe('site');
+    });
+
     it('is the only kind with one entry, and the only kind read as "the" entry', async () => {
         await createEntry(user, projectId, 'post', { id: 'a', type: 'post', data: {} });
         await createEntry(user, projectId, 'post', { id: 'b', type: 'post', data: {} });
