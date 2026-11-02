@@ -61,6 +61,7 @@ import webhooksAssetsRouter from './webhooks/assets.js';
 import { storageConfig, validateStorageConfig } from '@moteurio/core';
 import { schedulerEngine, startSnapshotScheduler, stopSnapshotScheduler } from '@moteurio/core';
 import { startUsageAlerts, stopUsageAlerts } from '@moteurio/core/usageAlerts.js';
+import { startDemoSweeper, stopDemoSweeper } from '@moteurio/core/demoCopies.js';
 import { globalErrorHandler } from './middlewares/errorHandler.js';
 import { registerSocketEventBridge } from './bootstrap/socketEventBridge.js';
 import { mountResizedImages, mountStaticAssets } from './bootstrap/staticAssetsRoute.js';
@@ -366,6 +367,8 @@ httpServer.listen(PORT, async () => {
     startSnapshotScheduler(60_000);
     // Billing and Admin hear when a monthly allowance reaches 80%, then all of it.
     startUsageAlerts();
+    // Demo copies left 30 days without a change go to the trash.
+    startDemoSweeper();
     // Images uploaded just before a restart still need their resized copies.
     try {
         const queued = await resumeImageCopies(loadProjects());
@@ -407,6 +410,7 @@ async function gracefulShutdown(signal: string): Promise<void> {
     stopWebhookWorker();
     stopSnapshotScheduler();
     stopUsageAlerts();
+    stopDemoSweeper();
     await new Promise<void>(resolve => {
         httpServer.close(() => resolve());
         httpServer.closeIdleConnections();
