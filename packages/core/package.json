@@ -54,6 +54,7 @@
         "marked": "^18.1.1",
         "nodemailer": "^10.2.1",
         "safe-regex": "^2.1.1",
+        "htmlparser2": "^12.0.0",
         "sanitize-html": "^2.18.1",
         "sharp": "^0.35.5"
     },

@@ -14,4 +14,9 @@ describe('shipped blocks and structures', () => {
         expect(getStructureFromCore('core/publishable').fields.status.type).toBe('core/select');
         expect(getStructureFromCore('core/source').fields.source.required).toBe(true);
     });
+
+    it('takes the picture a page is shared with from the media library', () => {
+        // An asset, so delivery gives its file (resolveAssets); a URL field never had one.
+        expect(getStructureFromCore('core/seo').fields.seoImage!.type).toBe('core/asset');
+    });
 });

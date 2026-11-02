@@ -1,7 +1,9 @@
 /**
- * A project as an import bundle: its own schemas, files (by address), pages, entries, menus and
- * redirects. Imported elsewhere it makes the same project; pictures become `$ref`s, since their
- * ids change when they are stored again.
+ * A project as an import bundle: its own schemas, files, pages, entries, menus and redirects.
+ * Imported elsewhere it makes the same project: pictures become `$ref`s (their ids change when
+ * they are stored again), and what is live says `published`, so it goes live there too. Files are
+ * listed by address, or with `inlineFiles` carried in the bundle (base64): an address only this
+ * server can reach (a local Moteur's) can't be fetched by another.
  */
 import type { User } from '@moteurio/types/User.js';
 import type { ImportBundle, ImportPage } from '@moteurio/types/Import.js';
@@ -15,6 +17,7 @@ import { listBlocks } from '../blocks.js';
 import { listNavigations } from '../navigations.js';
 import { listRedirects } from '../redirects.js';
 import { listAssets } from '../assets/assetService.js';
+import { getProjectAdapter } from '../assets/adapterRegistry.js';
 import { projectRecords } from '../contentReferences.js';
 import { getProjectJson, listProjectKeys } from '../utils/projectStorage.js';
 import { structureKey, structureListPrefix } from '../utils/storageKeys.js';
@@ -41,17 +44,26 @@ const textOf = (v: unknown) =>
           ? (Object.values(v).find(x => typeof x === 'string') as string | undefined)
           : undefined;
 
-export async function exportBundle(user: User, projectId: string): Promise<ImportBundle> {
-    await getProject(user, projectId);
+export type ExportOptions = {
+    /** Each file's content in the bundle (base64), instead of its address. */
+    inlineFiles?: boolean;
+};
+
+export async function exportBundle(
+    user: User,
+    projectId: string,
+    options: ExportOptions = {}
+): Promise<ImportBundle> {
+    const project = await getProject(user, projectId);
     assertProjectAdmin(user, 'export the project');
     const structures: StructureSchema[] = [];
     for (const id of await listProjectKeys(projectId, structureListPrefix())) {
         const s = await getProjectJson<StructureSchema>(projectId, structureKey(id));
         if (s) structures.push(s);
     }
-    // The project's own blocks: the engine's and plugins' are there wherever it is imported.
-    const blocks = Object.values(listBlocks(projectId)).filter(b =>
-        b.type.startsWith(`${projectId}/`)
+    // The project's own blocks (named without a namespace): the server's are there wherever it's imported.
+    const blocks = Object.values(listBlocks(projectId)).filter(
+        b => !b.type.includes('/')
     ) as BlockSchema[];
     const assets = (await listAssets(projectId)).filter(a => !a.deletedAt && a.url);
     const ids = new Set(assets.map(a => a.id));
@@ -61,8 +73,18 @@ export async function exportBundle(user: User, projectId: string): Promise<Impor
     for (const { entry, schema } of entries)
         (byModel[schema.id] ??= []).push({
             id: entry.id,
-            data: assetRefs(entry.data ?? {}, ids) as Record<string, unknown>
+            data: assetRefs(entry.data ?? {}, ids) as Record<string, unknown>,
+            ...(entry.languages && { languages: entry.languages }),
+            ...(entry.status === 'published' && { published: true })
         });
+
+    const adapter = options.inlineFiles ? getProjectAdapter(project) : undefined;
+    const fileOf = async (a: (typeof assets)[number]) => {
+        // A video kept only by its host has no file here: its address it is.
+        if (adapter && a.path)
+            return { content: (await adapter.download(a.path)).toString('base64') };
+        return { url: a.url! };
+    };
 
     return {
         version: 1,
@@ -70,15 +92,17 @@ export async function exportBundle(user: User, projectId: string): Promise<Impor
         blocks,
         models: await listModelSchemas(user, projectId),
         templates: await listTemplates(projectId),
-        assets: assets.map(a => ({
-            ref: a.id,
-            url: a.url!,
-            name: a.filename,
-            ...(a.folder && { folder: a.folder }),
-            ...(textOf(a.alt) && { alt: textOf(a.alt) }),
-            ...(textOf(a.title) && { title: textOf(a.title) }),
-            ...(a.credit && { credit: a.credit })
-        })),
+        assets: await Promise.all(
+            assets.map(async a => ({
+                ref: a.id,
+                ...(await fileOf(a)),
+                name: a.filename,
+                ...(a.folder && { folder: a.folder }),
+                ...(textOf(a.alt) && { alt: textOf(a.alt) }),
+                ...(textOf(a.title) && { title: textOf(a.title) }),
+                ...(a.credit && { credit: a.credit })
+            }))
+        ),
         pages: pages.map(p => {
             const page = p as typeof p & Record<string, unknown>;
             const out: ImportPage = {
@@ -91,11 +115,13 @@ export async function exportBundle(user: User, projectId: string): Promise<Impor
                 order: p.order,
                 navInclude: p.navInclude,
                 ...(p.navLabel && { navLabel: p.navLabel }),
-                sitemapInclude: p.sitemapInclude
+                sitemapInclude: p.sitemapInclude,
+                ...(p.languages && { languages: p.languages })
             };
             if (p.type !== 'folder') {
                 out.templateId = p.templateId;
                 out.fields = assetRefs(p.fields ?? {}, ids) as Record<string, unknown>;
+                if (p.status === 'published') out.published = true;
             }
             if (p.type === 'collection') {
                 out.modelId = page.modelId as string;

@@ -11,6 +11,12 @@ export interface PageNodeBase {
     slug: string;
     /** The address segment in other languages, by locale. A language left out uses `slug`. */
     slugs?: Record<string, string>;
+    /**
+     * The languages it is in, besides the default (always). Left out: every language of the
+     * project. A language not listed has no address, sitemap line or hreflang, and links to it
+     * there lead to the default language's address.
+     */
+    languages?: string[];
     parentId: string | null;
     order: number;
     navInclude: boolean;

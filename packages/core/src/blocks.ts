@@ -8,6 +8,7 @@ import { normalizeType } from './utils/normalizeType.js';
 import { builtinBlockSchemas } from './plugins/builtinContent.js';
 import { readTextCachedSync } from './utils/fileCache.js';
 import { assertCountRoom, getCountLimit } from './planLimits.js';
+import { assertFieldDefinitions } from './validators/fieldDefinitions.js';
 
 const isTestEnv = (): boolean => process.env.NODE_ENV === 'test' || process.env.VITEST === 'true';
 
@@ -31,9 +32,13 @@ export function shippedBlockSchemas(): Record<string, BlockSchema> {
     return { ...pluginBlockRegistry };
 }
 
+/**
+ * Blocks in a folder. The server's (data/core) are named `core/<name>`; a project's own are named
+ * without a namespace (`hero`): a name with a slash is the server's, one without is the project's.
+ */
 function loadBlocksFromDir(
     root: string,
-    namespace: string,
+    namespace: string | null,
     registry: Record<string, BlockSchema>,
     isTestEnv: boolean
 ): void {
@@ -49,16 +54,17 @@ function loadBlocksFromDir(
                         console.warn(`Invalid schema in file: ${file} - ${schema?.type}`);
                     continue;
                 }
-                const key = schema.type.includes('/')
-                    ? schema.type
-                    : `${namespace}/${normalizeType(schema.type)}`;
+                const key =
+                    namespace === null || schema.type.includes('/')
+                        ? schema.type
+                        : `${namespace}/${normalizeType(schema.type)}`;
                 registry[key] = schema;
             } catch (err) {
                 if (!isTestEnv) console.error(`Failed to process file: ${file}`, err);
             }
         }
     } catch (err) {
-        if (!isTestEnv) console.error(`Failed to load blocks from namespace: ${namespace}`, err);
+        if (!isTestEnv) console.error(`Failed to load blocks from ${root}`, err);
     }
 }
 
@@ -73,7 +79,7 @@ export function listBlocks(projectId?: string): Record<string, BlockSchema> {
 
     if (projectId && isExistingProjectId(projectId)) {
         const projectBlocksRoot = path.join(storageConfig.projectsDir, projectId, 'blocks');
-        loadBlocksFromDir(projectBlocksRoot, projectId, registry, testEnv);
+        loadBlocksFromDir(projectBlocksRoot, null, registry, testEnv);
     }
     return registry;
 }
@@ -135,22 +141,16 @@ function projectBlockFilePath(projectId: string, slug: string): string {
 }
 
 /**
- * Parse route/query `id` for project block APIs: short `slug` or `{projectId}/{slug}` (encoded as one segment).
+ * Parse route/query `id` for project block APIs: the block's name, without a namespace (`hero`).
  */
 export function parseProjectBlockIdParam(projectId: string, param: string): string {
     const decoded = decodeURIComponent(param).trim();
     if (!decoded) {
         throw new Error('Empty block id');
     }
-    let slug = decoded;
-    if (decoded.includes('/')) {
-        const prefix = `${projectId}/`;
-        if (!decoded.startsWith(prefix)) {
-            throw new Error(`Block id must be a slug or "${projectId}/<slug>"`);
-        }
-        slug = decoded.slice(prefix.length);
-    }
-    if (!slug || slug.includes('/') || slug.includes('..')) {
+    const slug = decoded;
+    if (slug.includes('/')) throw ownName(slug);
+    if (!slug || slug.includes('..')) {
         throw new Error('Invalid block slug');
     }
     if (!/^[a-z0-9][a-z0-9-_]*$/i.test(slug)) {
@@ -159,23 +159,22 @@ export function parseProjectBlockIdParam(projectId: string, param: string): stri
     return slug;
 }
 
-function slugForNewProjectBlock(projectId: string, typeField: string): string {
+/** A project's own block named with a slash: refused, saying the rule. */
+function ownName(name: string) {
+    return Object.assign(
+        new Error(
+            `A project's own block is named without a namespace ("${name.split('/').pop()}", not "${name}"): a name with a slash is the server's (core/…, a plugin's).`
+        ),
+        { status: 400, code: 'BLOCK_TYPE_NAMESPACED' }
+    );
+}
+
+function slugForNewProjectBlock(typeField: string): string {
     const t = typeField.trim();
     if (!t) {
         throw new Error('Block schema must have a "type" field');
     }
-    if (t.includes('/')) {
-        const idx = t.indexOf('/');
-        const ns = t.slice(0, idx);
-        const rest = t.slice(idx + 1).trim();
-        if (ns !== projectId) {
-            throw new Error(`Project block type namespace must be "${projectId}"`);
-        }
-        if (!rest) {
-            throw new Error('Invalid block type');
-        }
-        return rest.replace(/[^a-z0-9-_]/gi, '-').toLowerCase() || 'block';
-    }
+    if (t.includes('/')) throw ownName(t);
     return t.replace(/[^a-z0-9-_]/gi, '-').toLowerCase() || 'block';
 }
 
@@ -198,7 +197,7 @@ function blockPayloadFromInput(
 
 /**
  * Create a project-scoped block under `data/projects/<projectId>/blocks/<slug>.json`.
- * `schema.type` may be a short name or `{projectId}/<slug>`.
+ * `schema.type` is its name, without a namespace (`hero`): a name with a slash is the server's.
  */
 export function createProjectBlock(projectId: string, schema: BlockSchema): BlockSchema {
     if (!isValidId(projectId) || !isExistingProjectId(projectId)) {
@@ -207,8 +206,8 @@ export function createProjectBlock(projectId: string, schema: BlockSchema): Bloc
     if (!schema?.type) {
         throw new Error('Block schema must have a "type" field');
     }
-    const safeSlug = slugForNewProjectBlock(projectId, schema.type);
-    const normalizedType = `${projectId}/${safeSlug}`;
+    const safeSlug = slugForNewProjectBlock(schema.type);
+    const normalizedType = safeSlug;
     const dir = projectBlocksDir(projectId);
     fs.mkdirSync(dir, { recursive: true });
     const filePath = projectBlockFilePath(projectId, safeSlug);
@@ -220,6 +219,7 @@ export function createProjectBlock(projectId: string, schema: BlockSchema): Bloc
         assertCountRoom(projectId, 'blocks', taken);
     }
     const toWrite = blockPayloadFromInput(normalizedType, safeSlug, schema);
+    assertFieldDefinitions(toWrite.fields, `Block type "${normalizedType}"`);
     writeJson(filePath, toWrite);
     return toWrite;
 }
@@ -240,12 +240,12 @@ export function updateProjectBlock(
     const filePath = projectBlockFilePath(projectId, slug);
     if (!fs.existsSync(filePath)) {
         throw new Error(
-            `Project block "${projectId}/${slug}" not found (built-in core/* types cannot be updated here)`
+            `Project block "${slug}" not found in "${projectId}" (the server's core/* types can't be changed here)`
         );
     }
     const raw = fs.readFileSync(filePath, 'utf-8');
     const current = JSON.parse(raw) as BlockSchema;
-    const normalizedType = `${projectId}/${slug}`;
+    const normalizedType = slug;
 
     const next: BlockSchema =
         mode === 'replace'
@@ -260,6 +260,7 @@ export function updateProjectBlock(
                   type: normalizedType
               } as BlockSchema);
 
+    assertFieldDefinitions(next.fields, `Block type "${next.type}"`);
     writeJson(filePath, next);
     return next;
 }
@@ -273,7 +274,7 @@ export function deleteProjectBlock(projectId: string, slugParam: string): void {
     const filePath = projectBlockFilePath(projectId, slug);
     if (!fs.existsSync(filePath)) {
         throw new Error(
-            `Project block "${projectId}/${slug}" not found (built-in types are not deleted here)`
+            `Project block "${slug}" not found in "${projectId}" (the server's types aren't deleted here)`
         );
     }
     fs.unlinkSync(filePath);

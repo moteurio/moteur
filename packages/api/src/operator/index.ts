@@ -4,7 +4,13 @@ import type { OpenAPIV3 } from 'openapi-types';
 import type { ProjectSchema } from '@moteurio/types/Project.js';
 import type { User } from '@moteurio/types/User.js';
 import { capabilitiesFromContributions, mergeContributions } from '@moteurio/types/Plugin.js';
-import { loadProjects, updateProject } from '@moteurio/core/projects.js';
+import {
+    loadProjects,
+    updateProject,
+    listTrashedProjects,
+    purgeProject,
+    purgeTrashedProject
+} from '@moteurio/core/projects.js';
 import { getUserById, listUsers, reloadUsers, updateUserAsOperator } from '@moteurio/core/users.js';
 import { creditBalance, currentPeriod, getMeteringStore } from '@moteurio/core/metering.js';
 import { pluginRegistry } from '@moteurio/core/registry/PluginRegistry.js';
@@ -213,6 +219,35 @@ router.patch('/projects/:projectId', async (req: Request, res: Response) => {
             plugins: plugins as unknown as string[]
         });
         res.json({ project: projectRow(updated, currentPeriod()) });
+    } catch (err) {
+        sendApiError(res, req, err);
+    }
+});
+
+/** Deleted projects still in the trash, newest first. */
+router.get('/projects/trash', (req: Request, res: Response) => {
+    try {
+        res.json({ projects: listTrashedProjects() });
+    } catch (err) {
+        sendApiError(res, req, err);
+    }
+});
+
+/** A deleted project's copy, removed from the trash for good. */
+router.delete('/projects/trash/:folder', (req: Request, res: Response) => {
+    try {
+        purgeTrashedProject(params(req).folder!);
+        res.status(204).send();
+    } catch (err) {
+        sendApiError(res, req, err);
+    }
+});
+
+/** A project deleted for good at once, without the trash: its id is free again. */
+router.delete('/projects/:projectId', async (req: Request, res: Response) => {
+    try {
+        await purgeProject(operator(req), params(req).projectId!);
+        res.status(204).send();
     } catch (err) {
         sendApiError(res, req, err);
     }
@@ -563,6 +598,54 @@ const paths: Record<string, OpenAPIV3.PathItemObject> = {
             responses: {
                 ...ok('`{ project }`', { project: projectRowSchema }),
                 '400': { description: 'Unknown plugin ids' }
+            }
+        },
+        delete: {
+            summary: 'Delete a project for good',
+            description:
+                'At once, without the trash: its members lose it, its files and history are removed, and its id is free again. Its billing record stays (deleted). Operators only.',
+            tags,
+            parameters: [
+                { name: 'projectId', in: 'path', required: true, schema: { type: 'string' } }
+            ],
+            responses: {
+                '204': { description: 'Deleted for good' },
+                '404': { description: 'No such project' }
+            }
+        }
+    },
+    '/operator/projects/trash': {
+        get: {
+            summary: 'Deleted projects still in the trash',
+            description:
+                'Newest first. `folder` names the copy (a project id deleted twice has two). Operators only.',
+            tags,
+            responses: ok('`{ projects }`: `{ id, deletedAt, folder }` each', {
+                projects: {
+                    type: 'array',
+                    items: {
+                        type: 'object',
+                        properties: {
+                            id: { type: 'string' },
+                            deletedAt: { type: 'string', format: 'date-time' },
+                            folder: { type: 'string' }
+                        }
+                    }
+                }
+            })
+        }
+    },
+    '/operator/projects/trash/{folder}': {
+        delete: {
+            summary: 'Remove a deleted project from the trash, for good',
+            description: 'Its files and history are gone. Operators only.',
+            tags,
+            parameters: [
+                { name: 'folder', in: 'path', required: true, schema: { type: 'string' } }
+            ],
+            responses: {
+                '204': { description: 'Removed for good' },
+                '404': { description: 'Not in the trash' }
             }
         }
     },

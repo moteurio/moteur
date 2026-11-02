@@ -11,6 +11,7 @@ import { pointsAtEntries, referenceOf } from './referenceResolution.js';
 import { getProjectJson, listProjectKeys } from './utils/projectStorage.js';
 import { entryKey, entryListPrefix, modelListPrefix } from './utils/storageKeys.js';
 import { isPlainObject } from './validators/fieldValueUtils.js';
+import { pagesLinkedIn } from './textLinks.js';
 
 /** An entry or a page, with the fields it is read by. */
 export type ContentRecord = {
@@ -49,6 +50,15 @@ export async function referencesIn(
             if (typeof pageId === 'string' && pageId.trim())
                 found.push({ from, path, via: 'link', to: { kind: 'page', id: pageId } });
             return undefined;
+        }
+        if (field.type === 'core/rich-text' || field.type === 'core/markdown') {
+            // Links to pages written in the text.
+            for (const id of pagesLinkedIn(
+                value,
+                field.type === 'core/rich-text' ? 'dast' : 'markdown'
+            ))
+                found.push({ from, path, via: 'link', to: { kind: 'page', id } });
+            return value;
         }
         if (field.type !== 'core/relation' && field.type !== 'core/relations') return undefined;
         const items = field.type === 'core/relations' && Array.isArray(value) ? value : [value];

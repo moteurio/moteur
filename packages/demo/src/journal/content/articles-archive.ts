@@ -86,7 +86,7 @@ export const archiveArticles: SourceEntry[] = [
                     }
                 },
                 {
-                    type: 'demo/pull-quote',
+                    type: 'pull-quote',
                     data: {
                         text: {
                             fr: `Le futur n'arrive pas de lui-même. Mais si vous le construisez pièce par pièce, dans un garage, en hiver, il finit par arriver quand même.`,
@@ -121,7 +121,7 @@ export const archiveArticles: SourceEntry[] = [
                     }
                 },
                 {
-                    type: 'demo/timeline',
+                    type: 'timeline',
                     data: {
                         events: [
                             {
@@ -158,7 +158,7 @@ export const archiveArticles: SourceEntry[] = [
                     }
                 },
                 {
-                    type: 'demo/data-callout',
+                    type: 'data-callout',
                     data: {
                         number: '47000',
                         label: {
@@ -168,7 +168,7 @@ export const archiveArticles: SourceEntry[] = [
                     }
                 },
                 {
-                    type: 'demo/illustration-brief',
+                    type: 'illustration-brief',
                     data: {
                         description: {
                             fr: `La Chose, premier prototype Moteur (1968). Schéma technique, garage rue Saint-Denis. Style: croquis technique, encre.`,
@@ -282,7 +282,7 @@ export const archiveArticles: SourceEntry[] = [
                     }
                 },
                 {
-                    type: 'demo/ad',
+                    type: 'ad',
                     data: {
                         eyebrow: {
                             fr: 'Moteur Studio · moteur.dev',
@@ -307,7 +307,7 @@ export const archiveArticles: SourceEntry[] = [
                     }
                 },
                 {
-                    type: 'demo/warning',
+                    type: 'warning',
                     data: {
                         code: 'NOTE RÉDACTION',
                         text: {
@@ -341,7 +341,7 @@ export const archiveArticles: SourceEntry[] = [
             order: 2,
             body: [
                 {
-                    type: 'demo/teletype',
+                    type: 'teletype',
                     data: {
                         text: {
                             fr: 'Mars 1968 · Rue Saint-Denis',
@@ -362,7 +362,7 @@ export const archiveArticles: SourceEntry[] = [
                     }
                 },
                 {
-                    type: 'demo/data-callout',
+                    type: 'data-callout',
                     data: {
                         number: '92',
                         label: {
@@ -405,7 +405,7 @@ export const archiveArticles: SourceEntry[] = [
             order: 0,
             body: [
                 {
-                    type: 'demo/kinetic-text',
+                    type: 'kinetic-text',
                     data: {
                         text: {
                             fr: 'Six Mois avec le MAISON-3',
@@ -415,14 +415,14 @@ export const archiveArticles: SourceEntry[] = [
                     }
                 },
                 {
-                    type: 'demo/scroll-marker',
+                    type: 'scroll-marker',
                     data: {
                         event: 'article-maison-3-begins',
                         offset: 'top'
                     }
                 },
                 {
-                    type: 'demo/teletype',
+                    type: 'teletype',
                     data: {
                         text: {
                             fr: 'Semaine 1',
@@ -443,7 +443,7 @@ export const archiveArticles: SourceEntry[] = [
                     }
                 },
                 {
-                    type: 'demo/3d-scene',
+                    type: '3d-scene',
                     data: {
                         model: {
                             src: '/models/maison-3.glb',
@@ -477,7 +477,7 @@ export const archiveArticles: SourceEntry[] = [
                     }
                 },
                 {
-                    type: 'demo/teletype',
+                    type: 'teletype',
                     data: {
                         text: {
                             fr: 'Semaine 3',
@@ -495,7 +495,7 @@ export const archiveArticles: SourceEntry[] = [
                     }
                 },
                 {
-                    type: 'demo/illustration-brief',
+                    type: 'illustration-brief',
                     data: {
                         description: {
                             fr: `MAISON-3 rangeant les livres. Bibliothèque par sentiment. Semaine 3. Style: chaleureux, domestique.`,
@@ -508,7 +508,7 @@ export const archiveArticles: SourceEntry[] = [
                     }
                 },
                 {
-                    type: 'demo/teletype',
+                    type: 'teletype',
                     data: {
                         text: {
                             fr: 'Semaine 7',
@@ -539,7 +539,7 @@ export const archiveArticles: SourceEntry[] = [
                     }
                 },
                 {
-                    type: 'demo/teletype',
+                    type: 'teletype',
                     data: {
                         text: {
                             fr: 'Semaine 26 · Six mois plus tard',
@@ -577,7 +577,7 @@ export const archiveArticles: SourceEntry[] = [
             order: 1,
             body: [
                 {
-                    type: 'demo/dialogue',
+                    type: 'dialogue',
                     data: {
                         exchanges: [
                             {
@@ -671,7 +671,7 @@ export const archiveArticles: SourceEntry[] = [
                     }
                 },
                 {
-                    type: 'demo/data-callout',
+                    type: 'data-callout',
                     data: {
                         number: '−87%',
                         label: {
@@ -690,7 +690,7 @@ export const archiveArticles: SourceEntry[] = [
                     }
                 },
                 {
-                    type: 'demo/dialogue',
+                    type: 'dialogue',
                     data: {
                         exchanges: [
                             {
@@ -741,7 +741,7 @@ export const archiveArticles: SourceEntry[] = [
                     }
                 },
                 {
-                    type: 'demo/illustration-brief',
+                    type: 'illustration-brief',
                     data: {
                         description: {
                             fr: `INDUSTRIE-F en poste à l'usine Leclerc. Schéma d'assemblage. Gaston Leclerc, portrait crayonné. Style: editorial, 70s.`,
@@ -771,7 +771,7 @@ export const archiveArticles: SourceEntry[] = [
             order: 1,
             body: [
                 {
-                    type: 'demo/classified',
+                    type: 'classified',
                     data: {
                         title: {
                             fr: 'INDUSTRIE-X: Ce Que Nous Pouvons Dire',
@@ -809,7 +809,7 @@ export const archiveArticles: SourceEntry[] = [
             order: 0,
             body: [
                 {
-                    type: 'demo/teletype',
+                    type: 'teletype',
                     data: {
                         text: {
                             fr: "1977 · Liste d'attente COMPAGNON-9",
@@ -818,7 +818,7 @@ export const archiveArticles: SourceEntry[] = [
                     }
                 },
                 {
-                    type: 'demo/spec-card',
+                    type: 'spec-card',
                     data: {
                         model_name: 'COMPAGNON-9',
                         series: 'COMPAGNON',
@@ -860,7 +860,7 @@ export const archiveArticles: SourceEntry[] = [
                     }
                 },
                 {
-                    type: 'demo/data-callout',
+                    type: 'data-callout',
                     data: {
                         number: '8243',
                         label: {
@@ -879,7 +879,7 @@ export const archiveArticles: SourceEntry[] = [
                     }
                 },
                 {
-                    type: 'demo/3d-scene',
+                    type: '3d-scene',
                     data: {
                         model: {
                             src: '/models/compagnon-9.glb',
@@ -980,7 +980,7 @@ export const archiveArticles: SourceEntry[] = [
                     }
                 },
                 {
-                    type: 'demo/illustration-brief',
+                    type: 'illustration-brief',
                     data: {
                         description: {
                             fr: `L'Originale, COMPAGNON-1, mise hors service, 3 novembre 1977. Antoine Dufresne tenant son dessin. Style: mémoire, doux.`,
@@ -1024,7 +1024,7 @@ export const archiveArticles: SourceEntry[] = [
                     }
                 },
                 {
-                    type: 'demo/warning',
+                    type: 'warning',
                     data: {
                         code: 'POLITIQUE MOTEUR',
                         text: {
@@ -1058,7 +1058,7 @@ export const archiveArticles: SourceEntry[] = [
             order: 0,
             body: [
                 {
-                    type: 'demo/teletype',
+                    type: 'teletype',
                     data: {
                         text: {
                             fr: '14 février 1978 · 03h17 MTL · Atlantique Nord',
@@ -1067,7 +1067,7 @@ export const archiveArticles: SourceEntry[] = [
                     }
                 },
                 {
-                    type: 'demo/signal-map',
+                    type: 'signal-map',
                     data: {
                         latitude: 45.5,
                         longitude: -48.2,
@@ -1081,7 +1081,7 @@ export const archiveArticles: SourceEntry[] = [
                     }
                 },
                 {
-                    type: 'demo/transmission',
+                    type: 'transmission',
                     data: {
                         source: 'HORIZON-E Unité 003',
                         frequency: '14.230 MHz',
@@ -1093,7 +1093,7 @@ export const archiveArticles: SourceEntry[] = [
                     }
                 },
                 {
-                    type: 'demo/atmosphere',
+                    type: 'atmosphere',
                     data: {
                         mood: 'void',
                         duration: 0,
@@ -1101,7 +1101,7 @@ export const archiveArticles: SourceEntry[] = [
                     }
                 },
                 {
-                    type: 'demo/audio-cue',
+                    type: 'audio-cue',
                     data: {
                         src: '/audio/ocean-ambient.mp3',
                         trigger: 'enter',
@@ -1123,7 +1123,7 @@ export const archiveArticles: SourceEntry[] = [
                     }
                 },
                 {
-                    type: 'demo/3d-scene',
+                    type: '3d-scene',
                     data: {
                         model: {
                             src: '/models/horizon-e.glb',
@@ -1167,7 +1167,7 @@ export const archiveArticles: SourceEntry[] = [
                     }
                 },
                 {
-                    type: 'demo/pull-quote',
+                    type: 'pull-quote',
                     data: {
                         text: {
                             fr: "La solitude, peut-être, requiert l'oubli. Je n'oublie rien.",
@@ -1180,7 +1180,7 @@ export const archiveArticles: SourceEntry[] = [
                     }
                 },
                 {
-                    type: 'demo/teletype',
+                    type: 'teletype',
                     data: {
                         text: {
                             fr: `PROFONDEUR CIBLE DEMAIN: 4,200m · FIN DU RAPPORT · — HORIZON-E UNITÉ 003 · ATLANTIQUE NORD · 14.02.1978`,
@@ -1304,7 +1304,7 @@ export const archiveArticles: SourceEntry[] = [
                     }
                 },
                 {
-                    type: 'demo/teletype',
+                    type: 'teletype',
                     data: {
                         text: {
                             fr: '— DIRECTION GÉNÉRALE · MOTEUR INDUSTRIES S.A. · MONTRÉAL · 1978',

@@ -180,7 +180,36 @@ function isNestedEntryLike(v: unknown): v is Entry {
 }
 
 /** The language a reader asked for, and the one to fall back to (the project's default). */
-export type LocaleChoice = { locale: string; fallback: string };
+export type LocaleChoice = {
+    locale: string;
+    fallback: string;
+    /**
+     * Collects where a value had nothing in `locale` and came from `fallback` (`body`,
+     * `blocks[2].data.title`): delivery says so as `fallbacks`.
+     */
+    fallbacks?: string[];
+};
+
+/** A language map with something in it but nothing in this language. */
+function missingIn(map: unknown, locale: string): boolean {
+    if (!isPlainObject(map)) return false;
+    const m = map as Record<string, unknown>;
+    return m[locale] == null && Object.values(m).some(v => v != null && v !== '');
+}
+
+/** Whether this multilingual value has no `locale` version, so the fallback's is shown. */
+function fellBack(field: Field, value: unknown, locale: string): boolean {
+    if (!isPlainObject(value)) return false;
+    const v = value as Record<string, unknown>;
+    if (field.type === 'core/rich-text')
+        return (
+            isPlainObject(v.dast) && !('type' in (v.dast as object)) && missingIn(v.dast, locale)
+        );
+    if (field.type === 'core/html') return missingIn(v.html, locale);
+    if (field.type === 'core/link')
+        return isLikelyLocaleStringMap(v.label) && missingIn(v.label, locale);
+    return isLikelyLocaleStringMap(value) && missingIn(value, locale);
+}
 
 /**
  * What a deep locale pass reads: the blocks and structures to walk into, and each model's schema
@@ -232,11 +261,24 @@ export async function localizeFields(
             '',
             schemas.blocks
         );
-    return walkFields(values, fields, schemas, async (value, field) => {
-        if (field.type === 'core/link')
+    const note = (field: Field, value: unknown, path: string) => {
+        if (
+            choice.fallbacks &&
+            choice.locale !== choice.fallback &&
+            fellBack(field, value, choice.locale)
+        )
+            choice.fallbacks.push(path);
+    };
+    // Entries inlined by relations are their own: their fallbacks aren't this record's.
+    const nested: LocaleChoice = { locale: choice.locale, fallback: choice.fallback };
+    return walkFields(values, fields, schemas, async (value, field, path) => {
+        if (field.type === 'core/link') {
+            note(field, value, path);
             return pick({ ...field, options: { ...field.options, multilingual: true } }, value);
+        }
         if (ASSET_TYPES.includes(field.type)) return localizeAssetTexts(value, choice);
         if (field.options?.multilingual === true || field.type === 'core/layout') {
+            note(field, value, path);
             const picked = pick(field, value);
             return picked === value ? undefined : picked;
         }
@@ -244,7 +286,7 @@ export async function localizeFields(
         if (RELATION_TYPES.includes(field.type)) {
             if (field.options?.target === 'pages') return value;
             const inner = (item: unknown) =>
-                isNestedEntryLike(item) ? localizeEntry(item, schemas, choice, depth - 1) : item;
+                isNestedEntryLike(item) ? localizeEntry(item, schemas, nested, depth - 1) : item;
             return Array.isArray(value) ? Promise.all(value.map(inner)) : inner(value);
         }
         return undefined;

@@ -18,6 +18,7 @@ import { checkCountRoom } from './planLimits.js';
 import { countOf } from './projectCounts.js';
 import { captchaSecret, hasStoredCaptchaSecret, setCaptchaSecret } from './formGuard.js';
 import { getFormAction } from './plugins/formExtensions.js';
+import { assertFieldDefinitions } from './validators/fieldDefinitions.js';
 
 /**
  * A captcha's secret key is written with the form but never kept in it (forms are in Git): it
@@ -143,6 +144,7 @@ export function checkForm(form: Partial<FormSchema>): void {
     for (const [key, field] of Object.entries(form.fields ?? {})) {
         if (!field || typeof field !== 'object' || typeof field.type !== 'string')
             bad(`field "${key}" needs a "type".`);
+        assertFieldDefinitions({ [key]: field } as never, 'Invalid form');
         for (const word of ['label', 'description', 'help', 'placeholder'] as const)
             if (field[word] !== undefined && !isText(field[word]))
                 bad(`field "${key}": "${word}" must be a text, or one text per language.`);

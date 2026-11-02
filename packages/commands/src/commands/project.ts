@@ -814,11 +814,21 @@ export const exportBundle = group('export', [
                 description: 'Write it to this file instead of printing it',
                 in: 'none',
                 local: true
+            },
+            {
+                name: 'inline-files',
+                type: 'boolean',
+                description:
+                    'Carry each file in the bundle, not its address (to move to another server)',
+                in: 'query',
+                key: 'inlineFiles'
             }
         ],
         run: async ctx => {
             const client = await ctx.client();
-            const bundle = await client.imports.export(await ctx.project());
+            const bundle = await client.imports.export(await ctx.project(), {
+                inlineFiles: ctx.args['inline-files'] === true
+            });
             if (!ctx.args.out) return bundle;
             if (!ctx.local) throw new Error('Files can’t be written here: leave out out.');
             fs.writeFileSync(String(ctx.args.out), JSON.stringify(bundle, null, 2));
@@ -826,6 +836,6 @@ export const exportBundle = group('export', [
         },
         covers: [`GET ${P}/export`],
         readOnly: true,
-        examples: ['moteur export --out site.json']
+        examples: ['moteur export --out site.json', 'moteur export --inline-files --out site.json']
     }
 ]);

@@ -126,7 +126,7 @@ export const series: SourceEntry[] = SERIES.map((s, i) => ({
                     data: { text: t('Trois générations', 'Three generations'), level: 'h2' }
                 },
                 {
-                    type: 'demo/timeline',
+                    type: 'timeline',
                     data: {
                         events: [
                             {

@@ -100,7 +100,11 @@ export function validateTableField(
             }
 
             if (cellSchema) {
-                const cellIssues = validateFieldValue(cell, cellSchema, cellPath, context);
+                // Cells that may not be empty are required ones: checked even when empty.
+                const cellField = allowEmpty
+                    ? cellSchema
+                    : { ...cellSchema, options: { ...cellSchema.options, required: true } };
+                const cellIssues = validateFieldValue(cell, cellField, cellPath, context);
                 issues.push(...cellIssues);
             }
         });

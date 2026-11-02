@@ -11,8 +11,8 @@ const input: TypegenInput = {
     defaultLocale: 'en',
     locales: ['fr'],
     structures: {
-        'www-moteur/cta': {
-            type: 'www-moteur/cta',
+        cta: {
+            type: 'cta',
             label: 'Call to action',
             fields: {
                 label: {
@@ -25,8 +25,8 @@ const input: TypegenInput = {
         }
     },
     blocks: {
-        'www-moteur/feature': {
-            type: 'www-moteur/feature',
+        feature: {
+            type: 'feature',
             label: { en: 'Feature', fr: 'Fonction' },
             fields: {
                 title: { type: 'core/text', label: 'Title', options: { multilingual: true } },
@@ -34,7 +34,7 @@ const input: TypegenInput = {
                 cta: {
                     type: 'core/structure',
                     label: 'CTA',
-                    options: { structure: 'www-moteur/cta' }
+                    options: { structure: 'cta' }
                 },
                 exhibit: {
                     type: 'core/variant',
@@ -68,6 +68,12 @@ const input: TypegenInput = {
     },
     models: [
         {
+            id: 'site',
+            label: 'Site',
+            modelType: 'settings',
+            fields: { name: { type: 'core/text', label: 'Name' } }
+        },
+        {
             id: 'author',
             label: 'Author',
             fields: { name: { type: 'core/text', label: 'Name', options: { required: true } } }
@@ -86,7 +92,7 @@ const input: TypegenInput = {
                 body: {
                     type: 'core/block-list',
                     label: 'Body',
-                    options: { allowedBlockTypes: ['www-moteur/feature'] }
+                    options: { allowedBlockTypes: ['feature'] }
                 },
                 'reading-time': { type: 'core/number', label: 'Reading time' }
             }
@@ -166,7 +172,7 @@ describe('generateTypes', () => {
         const out = generateTypes({
             ...input,
             structures: {},
-            blocks: { 'www-moteur/foo': { label: 'Foo', fields: {} } },
+            blocks: { foo: { label: 'Foo', fields: {} } },
             models: [{ id: 'foo-block', label: 'Foo block', fields: {} }],
             templates: [{ id: 'any', label: 'Any', fields: {} }]
         });
@@ -178,6 +184,14 @@ describe('generateTypes', () => {
         expect(out).toContain('export type Any2Page<');
         const names = [...out.matchAll(/^export (?:type|interface) (\w+)/gm)].map(m => m[1]);
         expect(names.length).toBe(new Set(names).size);
+    });
+
+    it('lists the settings models, one entry each', () => {
+        const out = generateTypes(input);
+        expect(out).toContain(
+            "export interface Settings<M extends LocaleMode = 'all'> {\n    site: SiteEntry<M>;\n}"
+        );
+        expect(out).toContain('    settings: Settings<M>;');
     });
 
     it('says how to make the file again, and not to format it', () => {
@@ -204,7 +218,7 @@ describe('generateTypes', () => {
                         blocks: {
                             type: 'core/block-list',
                             label: 'Blocks',
-                            options: { allowedBlockTypes: ['www-moteur/feature'] }
+                            options: { allowedBlockTypes: ['feature'] }
                         }
                     }
                 }
@@ -230,7 +244,7 @@ const stored: ArticleEntry = {
         'reading-time': 4,
         body: [
             {
-                type: 'www-moteur/feature',
+                type: 'feature',
                 data: {
                     title: { en: 'Inbox' },
                     shot: { assetId: 'inbox' },
@@ -248,13 +262,14 @@ const french: ArticleEntry<'one'> = {
     data: {
         title: 'Bonjour',
         author: { id: 'ada', type: 'author', data: { name: 'Ada' } },
-        body: [{ type: 'www-moteur/feature', data: { cta: { label: 'Essayer', link: { url: '/fr/tarifs' } } } }]
+        body: [{ type: 'feature', data: { cta: { label: 'Essayer', link: { url: '/fr/tarifs' } } } }]
     }
 };
 
 const home: HomePage<'one'> = {
     id: 'home', type: 'static', label: 'Home', slug: '', parentId: null, order: 0,
     templateId: 'home', status: 'published', path: '/fr', paths: { en: '/', fr: '/fr' }, navInclude: true, createdAt: '', updatedAt: '',
+    publishedCommit: '57875eb', publishedAt: '2026-11-02T01:49:21.872Z',
     fields: { seo: { title: 'Accueil' }, next: { id: 'pricing', label: 'Pricing', url: '/fr/tarifs', fields: { seo: { title: 'Tarifs' } } } }
 };
 
@@ -278,7 +293,7 @@ const wrong: ArticleEntry<'one'> = {
     type: 'article',
     data: {
         title: { en: 'Not one language' },
-        body: [{ type: 'www-moteur/feature', data: { exhibit: { kind: 'code', language: 'python' } } }]
+        body: [{ type: 'feature', data: { exhibit: { kind: 'code', language: 'python' } } }]
     }
 };
 export { wrong };
@@ -313,7 +328,7 @@ export async function build() {
         if (page.templateId === 'home') {
             const seo: string | undefined = page.fields.seo?.title;
             const blocks = page.fields.blocks ?? [];
-            for (const block of blocks) if (block.type === 'www-moteur/feature') block.data.title;
+            for (const block of blocks) if (block.type === 'feature') block.data.title;
         }
     const menus = await fr.menus.list();
     const urls = await moteur.locale('fr').site.urls();

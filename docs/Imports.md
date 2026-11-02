@@ -6,6 +6,7 @@ An import saves many things at once: a project's structures, blocks, models, tem
 moteur imports run site.json --dry-run   # check everything, keep nothing
 moteur imports run site.json             # save it
 moteur export --out site.json            # a project as a bundle
+moteur export --inline-files --out site.json   # with its files in it, to move to another server
 ```
 
 Over HTTP: `POST /projects/:projectId/imports` with the bundle as the body (`?dryRun=1` to check, `?wait=` seconds before answering). MCP clients use the `imports_run` tool with the bundle as `body`.
@@ -20,7 +21,7 @@ Imports and exports are for the project's admins, since an export holds every dr
     "existing": "update",
     "publish": false,
     "structures": [{ "type": "cta", "label": "CTA", "fields": { "...": {} } }],
-    "blocks": [{ "type": "www-moteur/hero", "label": "Hero", "fields": { "...": {} } }],
+    "blocks": [{ "type": "hero", "label": "Hero", "fields": { "...": {} } }],
     "models": [{ "id": "post", "label": "Post", "fields": { "...": {} } }],
     "templates": [{ "id": "page", "label": "Page", "fields": { "...": {} } }],
     "assets": [
@@ -36,7 +37,7 @@ Imports and exports are for the project's admins, since an export holds every dr
             "fields": {
                 "blocks": [
                     {
-                        "type": "www-moteur/hero",
+                        "type": "hero",
                         "data": {
                             "shot": { "assetId": { "$ref": "asset:inbox" } },
                             "cta": {
@@ -68,11 +69,12 @@ Imports and exports are for the project's admins, since an export holds every dr
 - **Ids:** pages and entries keep the `id` they are given, so importing again changes them instead of adding copies. A page without an id gets one.
 - **`existing`:** what to do with something already there (same id, type, handle or `from`): `update` it (the default; an entry's data is merged), `skip` it, or `fail` (and keep nothing).
 - **Files:** from a public HTTPS address (the server downloads it, refusing private network addresses) or inline in base64 with `name`. A file the library already has is used again, not added twice.
-- **Drafts:** pages and entries are saved as drafts. A page that is already live stays live as published, and the import's changes wait in it. With `"publish": true` they then go live in a second step, unless the person or agent needs approval (an agent, or a project whose workflow requires review): the import then waits as `awaiting_approval`, and one person approves it all with `moteur imports approve <id>` (`POST /imports/:id/approve`). An agent can't approve. Menus are live as soon as they're saved, so an agent's menus always wait for that approval, with `publish` or without.
+- **Rich text from HTML:** a rich-text field may be given as `{ "html": "<p>…</p>" }`, or `{ "html": { "en": "…", "fr": "…" } }` for one per language, at any depth. The import turns it into rich text: paragraphs, headings, lists, quotes, code, rules and line breaks; bold, italic, underline, struck, code and highlighted words; links. A link whose address is a page's, in the bundle or the project (`/download`, `/fr/telecharger`), becomes a link to that page and follows it. What rich text can't hold (pictures, tables, embeds, forms) is left out, and the job's `notes` say where: `pages[3].fields.body.html: 2 pictures and 1 table left out.` A dry run says the same.
+- **Drafts:** pages and entries are saved as drafts. A page that is already live stays live as published, and the import's changes wait in it. With `"publish": true` they all go live in a second step (a page or entry with `"published": true` does on its own, as an export marks them), unless the person or agent needs approval (an agent, or a project whose workflow requires review): the import then waits as `awaiting_approval`, and one person approves it all with `moteur imports approve <id>` (`POST /imports/:id/approve`). An agent can't approve. Menus are live as soon as they're saved, so an agent's menus always wait for that approval, with `publish` or without.
 
 ## Jobs
 
-An import is a job. The request waits for it (20 seconds by default, `wait` up to 60), then answers with the job: `200` when done, `422` when nothing was kept (its `issues` say where: `pages[3].fields.hero`, `entries.post[0].data.author`), or `202` while it runs. Follow it with `GET /projects/:projectId/imports/:id` (`moteur imports get <id>`); `progress` says how far it has come. A dry run goes through every item and reports all the problems at once.
+An import is a job. The request waits for it (20 seconds by default, `wait` up to 60), then answers with the job: `200` when done (its `notes` say what is worth knowing but not wrong), `422` when nothing was kept (its `issues` say where: `pages[3].fields.hero`, `entries.post[0].data.author`), or `202` while it runs. Follow it with `GET /projects/:projectId/imports/:id` (`moteur imports get <id>`). `progress` says how far it has come. A dry run goes through every item and reports all the problems at once, files included: each is read and checked as an upload would be (its type, its size, the project's storage, a picture that reads as one), and nothing is stored.
 
 While an import runs it holds the project's write lock, so other entry saves wait for it. If the server stops during an import, the next look at the project's imports puts its files back and marks it failed.
 
@@ -80,4 +82,6 @@ The import body can be up to `MOTEUR_IMPORT_BODY_LIMIT` (default `50mb`); each f
 
 ## Export
 
-`GET /projects/:projectId/export` (`moteur export`) gives the project as a bundle: its own structures and blocks, models, templates, files by address, pages, entries, menus and the redirects people made. Pictures in it are `$ref`s to the files, since their ids change once they are stored again. Imported into an empty project, it makes the same site. File addresses must be reachable from the importing server.
+`GET /projects/:projectId/export` (`moteur export`) gives the project as a bundle: its own structures and blocks, models, templates, files by address, pages, entries, menus and the redirects people made. Pictures in it are `$ref`s to the files, since their ids change once they are stored again. Pages and entries that are live say `"published": true`, so they go live where the bundle is imported and the drafts stay drafts. A live page's changes waiting for review are in the bundle as its content, so they go live with it. Imported into an empty project, it makes the same site.
+
+Files are listed by address, which the importing server fetches. An address only this server can reach (a local Moteur's `localhost`) can't be fetched by another: `--inline-files` (`?inlineFiles=1`) carries each file in the bundle instead, in base64.

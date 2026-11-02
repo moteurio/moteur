@@ -42,6 +42,18 @@ The project's `localePrefix` sets how an address shows its language:
 
 With `none`, a page whose slug is the same in two languages has one address, listed once.
 
+The folder is the locale as the project spells it: `zh-Hans` gives `/zh-Hans/about`, `pt-BR` gives `/pt-BR/about`. Menus read with `?locale=` give each page's address in that language, as links to pages in blocks do.
+
+### Which languages a page is in
+
+A page or entry is in every language of the project, unless it says otherwise with `languages`: `["en"]` for a guide that is only in English, `["en", "fr"]` once it is in French. The default language is always in. `[]` or `null` puts it back in every language. A language the project doesn't have is refused.
+
+A language it isn't in has no address in it: no line in `/urls` or the sitemap, no `hreflang` alternate, nothing at `/fr/guide` (`/resolve` answers 404). A link or a menu item pointing at it from a French page leads to its address in the default language. Read with `?locale=fr`, it comes in the default language and says `"locale": "en"`.
+
+A page that is in a language but not fully translated is delivered with the default language's values where it has none, and lists those fields in `fallbacks`.
+
+On a live page, `languages` is part of what goes live: a change waits in the page until it is published, like its content. Translators may change it.
+
 Every page and entry then has one address per language. `/urls` and `sitemap.json` list each with its `locale` and its `alternates` (the same page in every language), and take `?locale=` to keep one language. `sitemap.xml` lists every address with `hreflang` alternates and an `x-default`. `navigation`, `breadcrumb`, a page by slug, and an entry's `resolveUrl` take `?locale=` too.
 
 `GET /projects/:projectId/resolve?path=/fr/a-propos` says what lives at a path, for a site's catch-all route: `{ match: "page", locale, nodeId, entryId?, alternates… }`, or `{ match: "redirect", to, status }`, or 404.

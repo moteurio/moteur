@@ -5,14 +5,8 @@ function resolveBlockTypeKey(projectId: string, slugParam: string): string | und
     const param = decodeURIComponent(slugParam).trim();
     if (!param) return undefined;
     const all = listBlocks(projectId);
-    if (param.includes('/')) {
-        return all[param] ? param : undefined;
-    }
-    const projectKey = `${projectId}/${param}`;
-    if (all[projectKey]) return projectKey;
-    const coreKey = `core/${param}`;
-    if (all[coreKey]) return coreKey;
-    return Object.keys(all).find(k => k.endsWith(`/${param}`));
+    // Without a slash: the project's own block (`hero`); with one, the server's (`core/hero`).
+    return all[param] ? param : undefined;
 }
 
 const options = {

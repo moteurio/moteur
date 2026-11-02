@@ -26,7 +26,7 @@ Framework adapters are **not** host plugins — they are npm packages for your s
 
 ## Types
 
-`moteur types --out src/moteur.ts` writes TypeScript types for the project's content: an entry type per model (`ArticleEntry`), a page type per template (`HomePage`), and a type per block (`HeroBlock`, with `AnyBlock` for all of them) and per structure (`CtaStructure`). Lists, objects, variants, links and page relations are typed all the way down. Project blocks and structures drop their namespace (`www-moteur/hero` is `HeroBlock`).
+`moteur types --out src/moteur.ts` writes TypeScript types for the project's content: an entry type per model (`ArticleEntry`), a page type per template (`HomePage`), and a type per block (`HeroBlock`, with `AnyBlock` for all of them) and per structure (`CtaStructure`). Lists, objects, variants, links and page relations are typed all the way down. A project's own blocks and structures have no namespace (`hero` is `HeroBlock`). The server's keep theirs in the name (`core/hero` is `CoreHeroBlock`).
 
 Each type takes a locale mode. `'all'` (the default) is content as stored, a value per language. `'one'` is content read with `?locale=`:
 
@@ -55,7 +55,9 @@ The check compares the file as written, apart from line endings, so leave it out
 
 ## Pages and their addresses
 
-A delivered page has `path`, its address in the language read (`?locale=`, otherwise the default language), and `paths`, its address in each language. A route needs nothing else: `getStaticPaths` is one read, and `paths` gives the `hreflang` alternates.
+A delivered page has `path`, its address in the language read (`?locale=`, otherwise the default language), and `paths`, its address in each language it is in. A route needs nothing else: `getStaticPaths` is one read, and `paths` gives the `hreflang` alternates. A page not in French has no French address in `paths`, so a route built from them makes no French copy of it.
+
+Read in a language, a page also says `locale`, the language it came in (the default when it isn't in the one asked for), and `fallbacks`, the fields shown in the default language because they had nothing in this one. A site can mark them ("Not yet translated"), or leave the page out.
 
 ## The schema of a channel
 

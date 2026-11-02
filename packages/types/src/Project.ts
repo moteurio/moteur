@@ -7,6 +7,13 @@ export type LocalePrefix = 'others' | 'all' | 'none';
 
 export interface ProjectSchema {
     id: string; // Unique project ID (same as folder name)
+    /**
+     * A copy of the server's demo, made to show someone around: it serves no site (no API keys,
+     * no form submissions from sites), is never its person's free project (a host may give it a
+     * plan to try everything on, `project.demoCopied`), and goes to the trash after 30 days
+     * without a change, until its person keeps it (POST /projects/:id/keep).
+     */
+    demo?: { from: string; copiedAt: string };
     label: string; // Human-readable name
     description?: string; // Optional description
     defaultLocale: string; // Default language for fallbacks

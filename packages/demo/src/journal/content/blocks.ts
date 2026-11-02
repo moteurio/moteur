@@ -23,7 +23,7 @@ export const b = {
         data: { text: ml(fr, en), ...(author && { author: t(author, author) }) }
     }),
     pull: (fr: string, en: string | undefined, attribution?: string): Block => ({
-        type: 'demo/pull-quote',
+        type: 'pull-quote',
         data: { text: ml(fr, en), ...(attribution && { attribution: t(attribution, attribution) }) }
     }),
     image: (art: string, captionFr?: string, captionEn?: string, size?: string): Block => ({
@@ -39,16 +39,16 @@ export const b = {
         }
     }),
     callout: (number: string, fr: string, en?: string): Block => ({
-        type: 'demo/data-callout',
+        type: 'data-callout',
         data: { number, label: ml(fr, en) }
     }),
     teletype: (fr: string, en?: string): Block => ({
-        type: 'demo/teletype',
+        type: 'teletype',
         data: { text: ml(fr, en) }
     }),
     note: (text: string): Block => ({ type: 'core/note', data: { text } }),
     warning: (code: string, fr: string, en?: string): Block => ({
-        type: 'demo/warning',
+        type: 'warning',
         data: { code, text: ml(fr, en) }
     }),
     divider: (): Block => ({ type: 'core/divider', data: {} }),
@@ -73,7 +73,7 @@ export const b = {
         }
     }),
     dialogue: (exchanges: Array<['human' | 'robot', string, string, string?]>): Block => ({
-        type: 'demo/dialogue',
+        type: 'dialogue',
         data: {
             exchanges: exchanges.map(([speaker, name, fr, en]) => ({
                 speaker,
@@ -83,7 +83,7 @@ export const b = {
         }
     }),
     timeline: (events: Array<[string, string, string?]>): Block => ({
-        type: 'demo/timeline',
+        type: 'timeline',
         data: { events: events.map(([year, fr, en]) => ({ year, event: ml(fr, en) })) }
     }),
     transmission: (
@@ -93,7 +93,7 @@ export const b = {
         fr: string,
         en?: string
     ): Block => ({
-        type: 'demo/transmission',
+        type: 'transmission',
         data: { source, frequency, timestamp, body: ml(fr, en) }
     }),
     embed: (url: string, titleFr: string, titleEn?: string): Block => ({
@@ -172,7 +172,7 @@ export const b = {
         url: string,
         eyebrow?: [string, string]
     ): Block => ({
-        type: 'demo/ad',
+        type: 'ad',
         data: {
             ...(eyebrow && { eyebrow: t(...eyebrow) }),
             headline: t(headlineFr, headlineEn),
@@ -188,7 +188,7 @@ export const b = {
         status: string,
         specs: Array<[string, string, string, string]>
     ): Block => ({
-        type: 'demo/spec-card',
+        type: 'spec-card',
         data: {
             model_name: model,
             series,
@@ -203,7 +203,7 @@ export const b = {
         fr: string,
         en?: string
     ): Block => ({
-        type: 'demo/classified',
+        type: 'classified',
         data: { classification, title: t(titleFr, titleEn), content: ml(fr, en) }
     }),
     signalMap: (
@@ -215,7 +215,7 @@ export const b = {
         fr: string,
         en: string
     ): Block => ({
-        type: 'demo/signal-map',
+        type: 'signal-map',
         data: {
             latitude: lat,
             longitude: lng,
@@ -226,19 +226,19 @@ export const b = {
         }
     }),
     atmosphere: (mood: string, intensity = 'medium', duration?: number): Block => ({
-        type: 'demo/atmosphere',
+        type: 'atmosphere',
         data: { mood, intensity, ...(duration !== undefined && { duration }) }
     }),
     kinetic: (fr: string, en: string, animation = 'words'): Block => ({
-        type: 'demo/kinetic-text',
+        type: 'kinetic-text',
         data: { text: t(fr, en), animation }
     }),
     marker: (event: string, offset = 'center'): Block => ({
-        type: 'demo/scroll-marker',
+        type: 'scroll-marker',
         data: { event, offset }
     }),
     brief: (fr: string, en: string, style: string, color: string): Block => ({
-        type: 'demo/illustration-brief',
+        type: 'illustration-brief',
         data: { description: t(fr, en), style, placeholder_color: color }
     })
 };

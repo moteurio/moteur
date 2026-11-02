@@ -29,7 +29,8 @@ router.patch('/me/preferences', requireAuth, async (req: Request, res: Response)
 });
 
 const TOPIC_WORDS: Record<EmailTopic, { en: string; fr: string }> = {
-    reviews: { en: 'review emails', fr: 'les courriels de révision' }
+    reviews: { en: 'review emails', fr: 'les courriels de révision' },
+    usage: { en: 'usage emails', fr: 'les courriels de consommation' }
 };
 
 function page(title: string, body: string, fr: boolean): string {
@@ -109,12 +110,20 @@ const preferencesSchema: OpenAPIV3.SchemaObject = {
     properties: {
         look: { type: 'string', enum: ['discotheque', 'folio'] },
         locale: { type: 'string' },
-        emails: { type: 'object', properties: { reviews: { type: 'boolean' } } }
+        emails: {
+            type: 'object',
+            properties: { reviews: { type: 'boolean' }, usage: { type: 'boolean' } }
+        }
     }
 };
 const unsubscribeParams: OpenAPIV3.ParameterObject[] = [
     { name: 'u', in: 'query', required: true, schema: { type: 'string' }, description: 'User id' },
-    { name: 't', in: 'query', required: true, schema: { type: 'string', enum: ['reviews'] } },
+    {
+        name: 't',
+        in: 'query',
+        required: true,
+        schema: { type: 'string', enum: ['reviews', 'usage'] }
+    },
     { name: 's', in: 'query', required: true, schema: { type: 'string' }, description: 'Signature' }
 ];
 
@@ -123,7 +132,7 @@ export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
         patch: {
             summary: 'Change your look, language and notification emails',
             description:
-                'Any of `look` (`discotheque`, `folio`), `locale` (`fr`, `en-CA`…) and `emails` (`{ "reviews": false }`); null clears `look` or `locale`. The server’s emails follow them when the operator lets them.',
+                'Any of `look` (`discotheque`, `folio`), `locale` (`fr`, `en-CA`…) and `emails` (`{ "reviews": false, "usage": false }`); null clears `look` or `locale`. The server’s emails follow them when the operator lets them.',
             tags: ['Auth'],
             security: [{ bearerAuth: [] }],
             requestBody: json(preferencesSchema),

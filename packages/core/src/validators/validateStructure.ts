@@ -2,6 +2,8 @@ import { StructureSchema } from '@moteurio/types/Structure.js';
 import { ValidationResult } from '@moteurio/types/ValidationResult.js';
 import { createValidationResult, addIssue } from '../utils/validation.js';
 import fieldRegistry from '../registry/FieldRegistry.js';
+import { fieldDefinitionIssues } from './fieldDefinitions.js';
+import { isLabel, LABEL_RULE } from '../utils/validation.js';
 
 export function validateStructure(structure: StructureSchema): ValidationResult {
     const result = createValidationResult();
@@ -15,7 +17,7 @@ export function validateStructure(structure: StructureSchema): ValidationResult 
         });
     }
 
-    if (!structure.label || typeof structure.label !== 'string') {
+    if (!isLabel(structure.label)) {
         addIssue(result, {
             type: 'warning',
             code: 'STRUCTURE_MISSING_LABEL',
@@ -58,6 +60,8 @@ export function validateStructure(structure: StructureSchema): ValidationResult 
             });
         }
     }
+
+    for (const issue of fieldDefinitionIssues(fields as never)) addIssue(result, issue);
 
     return result;
 }

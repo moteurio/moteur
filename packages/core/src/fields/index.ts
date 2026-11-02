@@ -16,6 +16,7 @@ import './core/id.js';
 import './core/json.js';
 import './core/link.js';
 import './core/list.js';
+import './core/map.js';
 import './core/markdown.js';
 import './core/model-3d.js';
 import './core/multi-select.js';

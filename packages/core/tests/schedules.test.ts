@@ -157,7 +157,8 @@ describe('schedules', () => {
 
         it('normalizes scheduledAt to ISO 8601', async () => {
             const date = new Date(Date.now() + 60 * 60 * 1000);
-            date.setMilliseconds(0);
+            // In UTC: local setters move an hour in the hour that repeats when clocks fall back.
+            date.setUTCMilliseconds(0);
             const schedule = await createSchedule(editor, projectId, {
                 resourceType: 'page',
                 resourceId: 'p1',

@@ -29,5 +29,26 @@ export function validateFieldValue(
     const resolved =
         schema.resolveValue === false ? value : schema.storeDirect !== false ? value : value?.value;
 
+    // A field that isn't required may be empty, whatever its type: `allowEmpty` only matters for
+    // a required one.
+    if (!isRequired(field) && isEmptyValue(resolved)) return [];
+
     return schema.validate(resolved, field, path, context);
+}
+
+function isRequired(field: Field): boolean {
+    return field.required === true || field.options?.required === true;
+}
+
+/** Nothing in it: no value, '', [], {}, or a list's `{ items: [] }`. */
+export function isEmptyValue(value: unknown): boolean {
+    if (value === undefined || value === null || value === '') return true;
+    if (Array.isArray(value)) return value.length === 0;
+    if (typeof value === 'object') {
+        const keys = Object.keys(value as object);
+        if (keys.length === 0) return true;
+        const items = (value as { items?: unknown }).items;
+        return keys.length === 1 && Array.isArray(items) && items.length === 0;
+    }
+    return false;
 }

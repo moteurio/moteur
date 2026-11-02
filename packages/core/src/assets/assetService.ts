@@ -268,32 +268,44 @@ function generateId(): string {
     return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
+/**
+ * Whether this file may be added to the project, as an upload would decide: its type, its size,
+ * the project's storage (plus `alsoStoring` bytes about to be added) and, for a picture, that it
+ * reads as one. Throws what the upload would; stores nothing. An import's dry run uses it.
+ */
+export async function checkUpload(
+    projectId: string,
+    user: User,
+    file: UploadFile,
+    alsoStoring = 0
+): Promise<{ mimeType: string; assetType: ReturnType<typeof assertUploadAllowed> }> {
+    assertCanWrite(user);
+    const mimeType = resolveUploadMime(file.mimeType, sanitizeUploadFilename(file.originalName));
+    const project = await getProject(user, projectId);
+    const assetType = assertUploadAllowed(
+        project,
+        file.buffer.length,
+        mimeType,
+        (await storageUsed(projectId)) + alsoStoring
+    );
+    if (assetType === 'image') await readImageShape(file.buffer);
+    return { mimeType, assetType };
+}
+
 export async function uploadAsset(
     projectId: string,
     user: User,
     file: UploadFile,
     options?: UploadOptions
 ): Promise<Asset> {
-    assertCanWrite(user);
+    const { mimeType, assetType } = await checkUpload(projectId, user, file);
     let buffer = file.buffer;
-    file = {
-        ...file,
-        mimeType: resolveUploadMime(file.mimeType, sanitizeUploadFilename(file.originalName))
-    };
+    file = { ...file, mimeType };
     const safeOriginalName = nameForType(sanitizeUploadFilename(file.originalName), file.mimeType);
     const project = await getProject(user, projectId);
-    const assetType = assertUploadAllowed(
-        project,
-        buffer.length,
-        file.mimeType,
-        await storageUsed(projectId)
-    );
     const hash = fileHash(buffer);
     // Photos carry where they were taken: keep the picture, not that.
-    if (assetType === 'image') {
-        await readImageShape(buffer);
-        buffer = await stripImageMetadata(buffer, file.mimeType);
-    }
+    if (assetType === 'image') buffer = await stripImageMetadata(buffer, file.mimeType);
 
     const adapter = getProjectAdapter(project);
     const id = generateId();

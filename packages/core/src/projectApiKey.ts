@@ -1,4 +1,5 @@
 import crypto, { randomUUID } from 'crypto';
+import { assertNotDemoCopy } from './demoCopies.js';
 import type { ProjectApiKeyEntry } from '@moteurio/types/Project.js';
 import { User } from '@moteurio/types/User.js';
 import { getProject, getProjectById, loadProjects, updateProject } from './projects.js';
@@ -211,6 +212,8 @@ export async function createKey(
     input: CreateProjectApiKeyInput = {}
 ): Promise<{ rawKey: string; prefix: string; meta: ProjectApiKeyMeta }> {
     const project = await getProject(user, projectId);
+    // A key is what lets a site read the project: a demo copy serves no site.
+    assertNotDemoCopy(project, 'have API keys for a site');
     const keys = [...(project.apiKeys ?? [])];
     if (keys.length >= MAX_PROJECT_API_KEYS) {
         throw new Error(`At most ${MAX_PROJECT_API_KEYS} API keys per project`);

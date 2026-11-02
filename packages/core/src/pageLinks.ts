@@ -6,9 +6,10 @@ import { listPages, urlLanguagesFor } from './pages.js';
 import { getProjectById } from './projects.js';
 import { listTemplates } from './templates.js';
 import { localizeFields } from './entryLocaleResolution.js';
-import { buildNodeMap, resolveNodePrefix } from './pages/urlResolver.js';
+import { buildNodeMap, resolveNodePrefix, inLanguage } from './pages/urlResolver.js';
 import { fieldWalkSchemas, walkFields, type FieldWalkSchemas } from './fieldWalk.js';
 import { perVersion } from './deliveryCache.js';
+import { fillTextLinks, pagesLinkedIn } from './textLinks.js';
 import { isPlainObject } from './validators/fieldValueUtils.js';
 
 /** A page a link or a relation can point at: one with content, not a folder. */
@@ -34,6 +35,8 @@ export type PageLinkContext = {
     pages: Map<string, PageNode>;
     urls: (id: string) => Record<string, string>;
     defaultLocale: string;
+    /** The project's languages, default first. */
+    locales: string[];
     schemas: FieldWalkSchemas;
     /** By id: what a summary's fields are, to bring them down to one language. */
     templates?: Map<string, TemplateSchema>;
@@ -65,12 +68,16 @@ async function buildPageLinkContext(
         let found = cache.get(id);
         if (!found) {
             found = {};
-            for (const locale of locales)
-                found[locale] = resolveNodePrefix(id, pages, {
+            const page = pages.get(id);
+            for (const locale of locales) {
+                const lang = {
                     locale,
                     defaultLocale: languages.defaultLocale,
                     prefix: languages.prefix
-                });
+                };
+                // Only the languages it is in: a link in another leads to the default's address.
+                if (inLanguage(page, lang)) found[locale] = resolveNodePrefix(id, pages, lang);
+            }
             cache.set(id, found);
         }
         return found;
@@ -79,6 +86,7 @@ async function buildPageLinkContext(
         pages,
         urls,
         defaultLocale: languages.defaultLocale,
+        locales,
         schemas: await fieldWalkSchemas(projectId),
         templates: new Map((await listTemplates(projectId)).map(t => [t.id, t]))
     };
@@ -143,7 +151,9 @@ export const targetsPages = (field: Field): boolean => field.options?.target ===
  * - a `core/link` with a `pageId` gets the page's `url`, or `missing: true` and no `url` when the
  *   page is gone, a folder, or not live for this reader;
  * - a `core/relation`/`core/relations` with `target: "pages"` becomes page summaries; pages that
- *   are gone or not live are left out (a single relation becomes null).
+ *   are gone or not live are left out (a single relation becomes null);
+ * - links to pages written in rich text and Markdown get the page's address, or lose the link and
+ *   keep their words (see textLinks.ts).
  */
 export async function resolvePageLinks(
     values: Record<string, unknown> | undefined,
@@ -159,6 +169,20 @@ export async function resolvePageLinks(
             return page
                 ? { ...link, url: addressOf(page.id, ctx, options.locale) }
                 : { ...link, missing: true };
+        }
+        if (field.type === 'core/rich-text' || field.type === 'core/markdown') {
+            const kind = field.type === 'core/rich-text' ? 'dast' : 'markdown';
+            if (!pagesLinkedIn(value, kind).length) return value;
+            return fillTextLinks(
+                value,
+                kind,
+                (id, locale) => {
+                    const page = liveTarget(id, ctx, options);
+                    const url = page ? addressOf(page.id, ctx, locale) : undefined;
+                    return typeof url === 'string' && url ? url : null;
+                },
+                { locale: options.locale ?? ctx.defaultLocale, locales: ctx.locales }
+            );
         }
         if (field.type === 'core/relation' && targetsPages(field)) {
             const page = liveTarget(idOf(value), ctx, options);

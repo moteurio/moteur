@@ -8,6 +8,7 @@ import { shippedStructureSchemas } from './structures.js';
 import { validateStructure } from './validators/validateStructure.js';
 import { normalizeType } from './utils/normalizeType.js';
 import { writeJsonAtomic } from './utils/fileUtils.js';
+import { isLabel, LABEL_RULE } from './utils/validation.js';
 
 /**
  * Server-wide blocks and structures (the `core/` namespace), offered to every project. Some ship
@@ -98,7 +99,7 @@ export function saveServerSchema(
     const slug = slugOf(type);
     const full = `core/${slug}`;
     const next = { ...schema, type: full } as BlockSchema & StructureSchema;
-    if (!next.label || typeof next.label !== 'string') throw new Error('A label is required');
+    if (!isLabel(next.label)) throw new Error(`A label is required: ${LABEL_RULE}`);
     if (!next.fields || typeof next.fields !== 'object')
         throw new Error('fields must be an object');
     if (kind === 'structures') {

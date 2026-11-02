@@ -81,7 +81,12 @@ router.get('/export', requireProjectAdmin, async (req: Request, res: Response) =
     const { projectId } = req.params as Record<string, string>;
     try {
         res.setHeader('Cache-Control', 'no-store');
-        return void res.json(await exportBundle(req.user!, projectId!));
+        const inline = req.query.inlineFiles;
+        return void res.json(
+            await exportBundle(req.user!, projectId!, {
+                inlineFiles: inline === '1' || inline === 'true'
+            })
+        );
     } catch (err: unknown) {
         return void sendApiError(res, req, err);
     }
@@ -236,9 +241,19 @@ export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
         get: {
             summary: 'The project as an import bundle',
             description:
-                'Its own structures and blocks, models, templates, files (by address), pages, entries, menus and redirects people made. Imported into another project, it makes the same one.',
+                'Its own structures and blocks, models, templates, files (by address, or in the bundle with inlineFiles), pages, entries, menus and redirects people made. What is live says published: true. Imported into another project, it makes the same one.',
             tags: ['Imports'],
-            parameters: [P],
+            parameters: [
+                P,
+                {
+                    name: 'inlineFiles',
+                    in: 'query',
+                    required: false,
+                    description:
+                        "1: each file in the bundle (base64) instead of its address, for a server that can't reach this one",
+                    schema: { type: 'string', enum: ['1', 'true'] }
+                }
+            ],
             responses: {
                 '200': {
                     description: 'The bundle',

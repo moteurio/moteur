@@ -271,6 +271,34 @@ describe('urlResolver', () => {
             expect(paths).toContain('/blog/second');
         });
 
+        it('gives an entry addresses only in its languages', async () => {
+            const coll = collectionNode({
+                id: 'blog',
+                parentId: null,
+                slug: 'blog',
+                urlPattern: '[slug]',
+                sitemapIncludeEntries: true
+            });
+            const getEntries = async () =>
+                [
+                    { id: 'e1', type: 'post', data: { slug: 'both' }, status: 'published' },
+                    {
+                        id: 'e2',
+                        type: 'post',
+                        data: { slug: 'en-only' },
+                        status: 'published',
+                        languages: ['en']
+                    }
+                ] as Entry[];
+            const urls = await resolveAllUrls([coll], getEntries, 'p1', {
+                locales: ['en', 'fr'],
+                defaultLocale: 'en'
+            });
+            const of = (id: string) => urls.filter(u => u.entryId === id).map(u => u.url);
+            expect(of('e1')).toEqual(['/blog/both', '/fr/blog/both']);
+            expect(of('e2')).toEqual(['/blog/en-only']);
+        });
+
         it('does not expand entries when sitemapIncludeEntries is false', async () => {
             const coll = collectionNode({
                 id: 'blog',

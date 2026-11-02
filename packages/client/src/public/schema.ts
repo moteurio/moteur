@@ -12,14 +12,14 @@ export type LocaleMode = 'all' | 'one';
 export interface ContentShape {
     /** Each model's entry type, by model id. */
     models: object;
+    /** The settings models (one entry each), by model id. */
+    settings?: object;
     /** Any page of the project. */
     pages: unknown;
 }
 
 export interface SchemaShape {
     locale: string;
-    /** The project id, which its own block types start with (`www-moteur/hero`). */
-    namespace?: string;
     all: ContentShape;
     one: ContentShape;
 }
@@ -32,6 +32,12 @@ export interface DeliveredEntry {
     data: Record<string, unknown>;
     meta?: Record<string, unknown>;
     resolvedUrl?: string;
+    /** The languages it is in (the default always). Left out: every language. */
+    languages?: string[];
+    /** The language it was delivered in: the one read, or the default when it isn't in that one. */
+    locale?: string;
+    /** Fields with nothing in that language, shown in the default's. */
+    fallbacks?: string[];
 }
 
 /** A page as delivery gives it, when the client has no generated schema. */
@@ -47,9 +53,15 @@ export interface DeliveredPage {
     status: 'draft' | 'published';
     /** Its address: in the language read, otherwise the default language's. */
     path: string;
-    /** Its address in each language. */
+    /** Its address in each language it is in. */
     paths: Record<string, string>;
     fields: Record<string, unknown>;
+    /** The languages it is in (the default always). Left out: every language. */
+    languages?: string[];
+    /** The language it was delivered in: the one read, or the default when it isn't in that one. */
+    locale?: string;
+    /** Fields with nothing in that language, shown in the default's. */
+    fallbacks?: string[];
     [key: string]: unknown;
 }
 
@@ -62,6 +74,11 @@ export interface UntypedSchema {
 
 /** The project's model ids. */
 export type ModelId<S extends SchemaShape> = Extract<keyof S['all']['models'], string>;
+
+/** The settings models' ids (from `moteur types`); any model's without a generated schema. */
+export type SettingsId<S extends SchemaShape> = S['all'] extends { settings: infer T }
+    ? Extract<keyof T, string>
+    : ModelId<S>;
 
 /** A model's entry, in a locale mode. */
 export type EntryOf<S extends SchemaShape, K, M extends LocaleMode> = K extends keyof S[M]['models']

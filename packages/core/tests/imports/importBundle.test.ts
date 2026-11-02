@@ -73,7 +73,7 @@ function site(extra: Partial<ImportBundle> = {}, ns = projectId): ImportBundle {
         ],
         blocks: [
             {
-                type: `${ns}/hero`,
+                type: 'hero',
                 label: 'Hero',
                 fields: {
                     title: { type: 'core/text', label: 'Title', options: { multilingual: true } },
@@ -124,7 +124,7 @@ function site(extra: Partial<ImportBundle> = {}, ns = projectId): ImportBundle {
                 fields: {
                     blocks: [
                         {
-                            type: `${ns}/hero`,
+                            type: 'hero',
                             data: {
                                 title: { en: 'Moteur' },
                                 shot: { assetId: { $ref: 'asset:inbox' } },
@@ -263,6 +263,99 @@ describe('importing a bundle', () => {
         expect(await listPages(projectId)).toEqual([]);
     });
 
+    it('checks files in a dry run as the import would', async () => {
+        const exe = Buffer.from('MZ not a picture').toString('base64');
+        const out = await importBundle(
+            admin,
+            projectId,
+            site({
+                assets: [
+                    { ref: 'inbox', content: PNG, name: 'inbox.png' },
+                    { ref: 'tool', content: exe, name: 'tool.exe' },
+                    { ref: 'fake', content: exe, name: 'fake.png' }
+                ]
+            }),
+            { dryRun: true }
+        );
+        expect(out.status).toBe('failed');
+        expect(out.issues.map(i => i.path)).toEqual(['assets[1]', 'assets[2]']);
+    });
+
+    it('refuses values for fields their block or model does not have, saying where', async () => {
+        const out = await importBundle(
+            admin,
+            projectId,
+            site({
+                pages: [
+                    {
+                        id: 'home',
+                        label: 'Home',
+                        slug: '',
+                        templateId: 'page',
+                        fields: {
+                            blocks: [{ type: 'hero', data: { title: { en: 'M' }, kicker: 'New' } }]
+                        }
+                    }
+                ],
+                entries: { author: [{ id: 'ada', data: { name: 'Ada', bio: 'x' } }] },
+                menus: []
+            }),
+            { dryRun: true }
+        );
+        expect(out.status).toBe('failed');
+        expect(out.issues.map(i => i.path)).toEqual([
+            'pages[0].fields.blocks[0].data.kicker',
+            'entries.author[0].data.bio'
+        ]);
+        expect(out.issues[0]!.message).toContain('"kicker" is not a field of hero');
+    });
+
+    it('turns HTML into rich text, links to pages included, saying what it left out', async () => {
+        const out = await importBundle(
+            admin,
+            projectId,
+            site({
+                templates: [
+                    {
+                        id: 'page',
+                        label: 'Page',
+                        fields: {
+                            blocks: { type: 'core/block-list', label: 'Blocks' },
+                            story: { type: 'core/rich-text', label: 'Story' }
+                        }
+                    } as never
+                ],
+                pages: [
+                    { id: 'api', label: 'API', slug: 'api', templateId: 'page', fields: {} },
+                    {
+                        id: 'home',
+                        label: 'Home',
+                        slug: '',
+                        templateId: 'page',
+                        fields: {
+                            story: {
+                                html: '<p>Read <a href="/api/">the API</a> <img src="x.png"></p>'
+                            }
+                        }
+                    }
+                ],
+                menus: []
+            })
+        );
+        expect(out.status).toBe('done');
+        expect(out.notes?.map(n => [n.path, n.message])).toEqual([
+            ['pages[1].fields.story.html', '1 picture left out.'],
+            ['', '1 link in HTML now leads to a page, following it.']
+        ]);
+        const story = (await getPage(projectId, 'home')).fields!.story as any;
+        expect(story.document.children[0].children[1]).toEqual({
+            type: 'link',
+            url: '/api/',
+            meta: [{ id: 'pageId', value: 'api' }],
+            children: [{ type: 'span', value: 'the API' }]
+        });
+    });
+
     it('checks the bundle before saving anything', async () => {
         const out = await importBundle(admin, projectId, {
             version: 2,
@@ -366,10 +459,28 @@ describe('importing a bundle', () => {
     it('exports a project as a bundle that makes it again', async () => {
         await importBundle(admin, projectId, site());
         const bundle = await exportBundle(admin, projectId);
-        expect(bundle.blocks!.map(b => b.type)).toEqual([`${projectId}/hero`]);
+        expect(bundle.blocks!.map(b => b.type)).toEqual(['hero']);
         const shot = (bundle.pages!.find(p => p.id === 'home')!.fields as any).blocks[0].data.shot;
         expect(shot.assetId).toEqual({ $ref: `asset:${bundle.assets![0]!.ref}` });
         expect(bundle.assets![0]!.url).toMatch(/^http/);
+    });
+
+    it('moves a project: files in the bundle, what was live goes live', async () => {
+        await importBundle(admin, projectId, site({ publish: true }));
+        await importBundle(admin, projectId, {
+            version: 1,
+            pages: [{ id: 'later', label: 'Later', slug: 'later', templateId: 'page' }]
+        });
+        const bundle = await exportBundle(admin, projectId, { inlineFiles: true });
+        expect(bundle.assets![0]).toMatchObject({ content: expect.any(String) });
+        expect(bundle.assets![0]).not.toHaveProperty('url');
+        const flag = (id: string) => bundle.pages!.find(p => p.id === id)?.published;
+        expect([flag('home'), flag('later')]).toEqual([true, undefined]);
+
+        const out = await importBundle(admin, other, bundle);
+        expect(out.status).toBe('done');
+        expect((await getPage(other, 'home')).status).toBe('published');
+        expect((await getPage(other, 'later')).status).toBe('draft');
     });
 
     it('undoes a job the server stopped in the middle of', async () => {

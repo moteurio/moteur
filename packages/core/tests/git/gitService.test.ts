@@ -18,6 +18,7 @@ import {
     getCurrentBranch,
     WORKSPACE_SNAPSHOT_BRANCH
 } from '../../src/git/index.js';
+import { gitVersion } from '../../src/git/gitService.js';
 
 describe('gitService', () => {
     let tempDir: string;
@@ -312,6 +313,13 @@ describe('gitService', () => {
                     'extra.json should still exist (restore must not delete files absent from snapshot)'
                 );
             }
+        });
+    });
+
+    describe('gitVersion', () => {
+        it('says which git runs, or null when there is none', () => {
+            expect(gitVersion()).toMatch(/^git version \d/);
+            expect(gitVersion('git-that-is-not-installed')).toBeNull();
         });
     });
 });

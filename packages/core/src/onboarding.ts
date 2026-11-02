@@ -3,6 +3,7 @@ import { copyProjectForNewUser, getDemoProjectId, getProjectById } from './proje
 import { liveInviteFor } from './invites.js';
 import { getUserById, updateStoredUser } from './users.js';
 import { isExistingProjectId } from './utils/fileUtils.js';
+import { triggerEvent } from './utils/eventBus.js';
 import { emailUnavailable, sendEmail } from './emailNotifier.js';
 import { readerOf, renderEmail } from './email/render.js';
 import type { EmailLook } from './email/settings.js';
@@ -78,7 +79,10 @@ async function copyDemo(userId: string): Promise<string> {
         ...u,
         onboarding: { ...u.onboarding, demoProjectId: id, demoCopies: made + 1 }
     }));
-    await copyProjectForNewUser(source, id, userId);
+    const project = await copyProjectForNewUser(source, id, userId, {
+        demo: { from: source, copiedAt: new Date().toISOString() }
+    });
+    await triggerEvent('project.demoCopied', { project, user });
     return id;
 }
 

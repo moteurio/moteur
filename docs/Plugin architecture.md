@@ -47,7 +47,7 @@ Authors set `categories` and optional `contributes`. During `init()`, the engine
 | `video.activeProvider`                                    | `setVideoProvidersConfig`                                                                                                               |
 | `search.backend`                                          | Declarative (no core registry)                                                                                                          |
 | `extensions.aiProviders`                                  | `registerAIProvider` on `@moteurio/plugin-ai`                                                                                           |
-| `planLimits.*`                                            | `setCreditAllowance`, `set*Limit`, `set*Quota`                                                                                          |
+| `planLimits.*`                                            | `setCreditAllowance`, `set*Limit`, `set*Quota`, `setRequestFairUse`                                                                     |
 | `events.subscribes`                                       | `ctx.onEvent`                                                                                                                           |
 | `server.attach`                                           | `attachServer`                                                                                                                          |
 | `platform.onlinePresence`                                 | `setOnlineUserIdsProvider` from `@moteurio/core/host.js`                                                                                |

@@ -350,6 +350,33 @@ export const operator = group('operator', [
         readOnly: true
     },
     {
+        name: 'grant-plan',
+        summary: 'Give a project a plan without payment, saying why (and until when)',
+        args: [
+            id('Project'),
+            {
+                name: 'plan',
+                description: 'The plan (pro, extra…)',
+                required: true,
+                positional: 1,
+                in: 'body'
+            },
+            { name: 'reason', description: 'Why it is given', required: true, in: 'body' },
+            { name: 'until', description: 'When it ends (a date); none: until removed', in: 'body' }
+        ],
+        http: 'PUT /billing/operator/projects/{id}/grant',
+        examples: [
+            'moteur operator grant-plan ferry pro --reason "Moving to Moteur" --until 2027-01-01'
+        ]
+    },
+    {
+        name: 'end-grant',
+        summary: 'End a project’s granted plan now',
+        args: [id('Project')],
+        http: 'DELETE /billing/operator/projects/{id}/grant',
+        destructive: true
+    },
+    {
         name: 'revenue',
         summary: 'Monthly recurring revenue, and what Stripe collected',
         http: 'GET /billing/operator/revenue',

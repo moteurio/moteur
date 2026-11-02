@@ -20,19 +20,26 @@ import type {
 import { needsApproval } from '@moteurio/types';
 import { runInBatch, type ContentBatch } from '../contentBatch.js';
 import { commitContentChange } from '../git/contentCommitHook.js';
-import { isGitRepo, show } from '../git/gitService.js';
+import { gitSettled, isGitRepo, show } from '../git/gitService.js';
 import { projectDir } from '../utils/pathUtils.js';
 import { withProjectWriteLock } from '../utils/projectWriteLock.js';
 import { hasProjectKey, restoreProjectFile } from '../utils/projectStorage.js';
 import { pageKey, structureKey } from '../utils/storageKeys.js';
 import { isValidId } from '../utils/idUtils.js';
 import { downloadPublicFile } from '../utils/publicDownload.js';
-import { getProject } from '../projects.js';
+import { getProject, getProjectById } from '../projects.js';
 import { createStructure, updateStructure } from '../structures.js';
 import { createProjectBlock, updateProjectBlock } from '../blocks.js';
 import { createModelSchema, getModelSchemaForProject, updateModelSchema } from '../models.js';
 import { createTemplate, getTemplate, updateTemplate } from '../templates.js';
-import { createPage, getPage, updatePage } from '../pages.js';
+import { validatePage } from '../validators/validatePage.js';
+import { validateEntry } from '../validators/validateEntry.js';
+import { createPage, getPage, listPages, updatePage, urlLanguagesFor } from '../pages.js';
+import { resolveNodePrefix } from '../pages/urlResolver.js';
+import { fieldWalkSchemas, walkFields, type FieldWalkSchemas } from '../fieldWalk.js';
+import { isPlainObject } from '../validators/fieldValueUtils.js';
+import type { Field } from '@moteurio/types/Field.js';
+import { htmlToDast, leftOutText } from './htmlToDast.js';
 import { createEntry, getEntryForProject, publishEntry, updateEntry } from '../entries.js';
 import { createNavigation, getNavigationByHandle, updateNavigation } from '../navigations.js';
 import { createRedirect, listRedirects, normalizePath, updateRedirect } from '../redirects.js';
@@ -41,12 +48,12 @@ import {
     fileHash,
     getAsset,
     listAssets,
-    uploadAsset
+    uploadAsset,
+    checkUpload
 } from '../assets/assetService.js';
 import { log, toActivityEvent } from '../activityLogger.js';
 import { dispatch as webhookDispatch } from '../webhooks/webhookService.js';
 import { runFullScan } from '../radar/index.js';
-import { withOwnBlocks } from './ownBlocks.js';
 
 /** The asset list is undone by taking out what was added, not by putting the file back. */
 const ASSETS_KEY = 'assets.json';
@@ -68,6 +75,8 @@ export type ImportOutcome = {
     dryRun: boolean;
     items: ImportItemResult[];
     issues: ImportIssue[];
+    /** Worth saying, not wrong: what HTML lost, the links it made to pages. */
+    notes?: ImportIssue[];
     commit?: string;
     toPublish?: ImportToPublish;
     /** On the way out of the save: an agent's menus, which become `toPublish.menus`. */
@@ -280,6 +289,15 @@ type Context = {
     projectId: string;
     bundle: ImportBundle;
     dryRun: boolean;
+    /** What a dry run's files would add to the project's storage, so far. */
+    dryRunBytes: number;
+    /** The page an address leads to, among the project's and the bundle's (for HTML links). */
+    pageAt: (href: string) => string | null;
+    /** Blocks and structures, to find rich-text fields at any depth. */
+    walk?: FieldWalkSchemas;
+    /** What went well but is worth saying: what HTML lost, the links it made to pages. */
+    notes: ImportIssue[];
+    pageLinks: number;
     refs: Refs;
     items: ImportItemResult[];
     issues: ImportIssue[];
@@ -310,6 +328,107 @@ async function step(
     } finally {
         ctx.tick();
     }
+}
+
+/**
+ * Values for fields their block, template or model doesn't have: saving content keeps them with a
+ * warning, an import refuses them, all at once, at their place in the bundle
+ * (`pages[4].fields.blocks[2].data.kicker`).
+ */
+async function refuseUnknownFields(
+    validation: Promise<{ issues: { code?: string; path?: string; message: string }[] }>,
+    from: string,
+    to: string
+): Promise<void> {
+    const unknown = (await validation).issues.filter(i => i.code === 'FIELD_UNKNOWN');
+    if (!unknown.length) return;
+    const at = (path = '') => (path.startsWith(from) ? to + path.slice(from.length) : path);
+    throw new ImportError(
+        at(unknown[0]!.path),
+        unknown.map(i => `${at(i.path)}: ${i.message}`).join(' ')
+    );
+}
+
+/**
+ * Every address of the project's pages and the bundle's, in every language, to the page's id:
+ * a link written in HTML to one of them becomes a link to the page.
+ */
+async function pageAddresses(
+    projectId: string,
+    pages: (ImportPage & { id: string })[],
+    refs: Refs
+): Promise<(href: string) => string | null> {
+    const nodes = new Map<string, PageNode>();
+    for (const page of await listPages(projectId)) nodes.set(page.id, page);
+    for (const p of pages) {
+        const parentRef = typeof p.parent === 'string' ? `page:${p.parent}` : p.parent?.$ref;
+        nodes.set(p.id, {
+            id: p.id,
+            type: p.type ?? 'static',
+            slug: p.slug,
+            ...(p.slugs && { slugs: p.slugs }),
+            parentId: (parentRef && refs.get(parentRef)) || null
+        } as PageNode);
+    }
+    const languages = urlLanguagesFor(await getProjectById(projectId));
+    const byAddress = new Map<string, string>();
+    for (const node of nodes.values()) {
+        if (node.type === 'folder') continue;
+        for (const locale of new Set([languages.defaultLocale, ...languages.locales]))
+            byAddress.set(
+                resolveNodePrefix(node.id, nodes, {
+                    locale,
+                    defaultLocale: languages.defaultLocale,
+                    prefix: languages.prefix
+                }) || '/',
+                node.id
+            );
+    }
+    return href => {
+        if (!href.startsWith('/') || href.startsWith('//')) return null;
+        const path = href.replace(/[?#].*$/, '').replace(/(.)\/+$/, '$1') || '/';
+        return byAddress.get(path) ?? null;
+    };
+}
+
+/**
+ * A record's rich-text fields given as HTML (`{ "html": "…" }`, or one per language) turned into
+ * rich text, at any depth. What it leaves out is noted with its place in the bundle.
+ */
+async function richTextFromHtml(
+    ctx: Context,
+    values: Record<string, unknown>,
+    fields: Record<string, Field> | undefined,
+    where: string
+): Promise<Record<string, unknown>> {
+    if (!fields || !ctx.walk) return values;
+    const one = (html: unknown, at: string) => {
+        if (typeof html !== 'string')
+            throw new ImportError(at, '"html" is a string, or one per language.');
+        const result = htmlToDast(html, ctx.pageAt);
+        ctx.pageLinks += result.pageLinks;
+        if (Object.keys(result.leftOut).length)
+            ctx.notes.push({ path: at, message: `${leftOutText(result.leftOut)} left out.` });
+        return result.doc;
+    };
+    return (
+        (await walkFields(values, fields, ctx.walk, (value, field, path) => {
+            if (field.type !== 'core/rich-text' || !isPlainObject(value) || !('html' in value))
+                return undefined;
+            const html = (value as { html: unknown }).html;
+            const at = `${where}.${path}`;
+            if (isPlainObject(html))
+                return {
+                    dast: Object.fromEntries(
+                        Object.entries(html as Record<string, unknown>).map(([locale, h]) => [
+                            locale,
+                            one(h, `${at}.html.${locale}`)
+                        ])
+                    )
+                };
+            return one(html, `${at}.html`);
+        })) ?? values
+    );
 }
 
 /** What to do with something already there: update, skip, or refuse. */
@@ -381,12 +500,20 @@ async function saveAll(ctx: Context): Promise<void> {
 
     for (const [i, a] of (bundle.assets ?? []).entries())
         await step(ctx, `assets[${i}]`, 'asset', async () => {
+            const file = await fileOf(a);
             if (ctx.dryRun) {
-                // Not downloaded nor stored in a dry run: a stand-in id lets the rest be checked.
+                // Checked as an upload would be (type, size, storage, a picture that reads), not
+                // stored: a stand-in id lets the rest be checked.
+                await checkUpload(
+                    projectId,
+                    user,
+                    { buffer: file.buffer, originalName: file.name, mimeType: file.mimeType },
+                    ctx.dryRunBytes
+                );
+                ctx.dryRunBytes += file.buffer.length;
                 refs.set(`asset:${a.ref}`, `dry-run-${a.ref}`);
                 return { id: `dry-run-${a.ref}`, action: 'create' };
             }
-            const file = await fileOf(a);
             // The same file already in the library is used again, not added twice.
             const same = (await listAssets(projectId, { hash: fileHash(file.buffer) })).find(
                 x => !x.deletedAt
@@ -413,6 +540,9 @@ async function saveAll(ctx: Context): Promise<void> {
         for (const e of list) refs.set(`entry:${modelId}/${e.ref ?? e.id}`, e.id);
     await addProjectRefs(projectId, bundle, refs);
 
+    ctx.pageAt = await pageAddresses(projectId, pages, refs);
+    ctx.walk = await fieldWalkSchemas(projectId);
+
     const at = new Map(bundle.pages?.map((p, i) => [p, `pages[${i}]`]) ?? []);
     for (const p of inTreeOrder(pages, refs)) {
         const where = at.get((bundle.pages ?? [])[pages.indexOf(p)]!) ?? 'pages';
@@ -428,6 +558,7 @@ async function saveAll(ctx: Context): Promise<void> {
                 parent: _parent,
                 fields,
                 status: _status,
+                published: _published,
                 publishedCommit: _commit,
                 publishedAt: _at,
                 ...rest
@@ -436,14 +567,29 @@ async function saveAll(ctx: Context): Promise<void> {
                 publishedCommit?: unknown;
                 publishedAt?: unknown;
             };
+            const templateId = p.templateId;
+            const template = templateId ? await getTemplate(projectId, templateId) : undefined;
+            const resolved =
+                fields === undefined
+                    ? undefined
+                    : await richTextFromHtml(
+                          ctx,
+                          resolveRefs(fields, refs, `${where}.fields`) as Record<string, unknown>,
+                          template?.fields as Record<string, Field> | undefined,
+                          `${where}.fields`
+                      );
             const data = {
                 ...rest,
                 type: p.type ?? 'static',
                 parentId: parentId ?? null,
-                ...(fields !== undefined && {
-                    fields: resolveRefs(fields, refs, `${where}.fields`) as Record<string, unknown>
-                })
+                ...(resolved !== undefined && { fields: resolved })
             } as Partial<PageNode> & { type: PageNode['type']; label: string; slug: string };
+            if (template && resolved !== undefined)
+                await refuseUnknownFields(
+                    validatePage(projectId, { id, fields: resolved }, template),
+                    `pages/${id}.fields`,
+                    `${where}.fields`
+                );
             if (await hasProjectKey(projectId, pageKey(id))) {
                 if (whenExisting(ctx, `Page "${id}"`) === 'skip') return { id, action: 'skip' };
                 // A live page keeps its published version: the import's changes wait in it.
@@ -459,19 +605,35 @@ async function saveAll(ctx: Context): Promise<void> {
         for (const [i, e] of list.entries()) {
             const where = `entries.${modelId}[${i}]`;
             await step(ctx, where, 'entry', async () => {
-                const data = resolveRefs(e.data, refs, `${where}.data`) as Entry['data'];
                 const key = `${modelId}/${e.id}`;
+                const model = await getModelSchemaForProject(projectId, modelId);
+                const data = (await richTextFromHtml(
+                    ctx,
+                    resolveRefs(e.data, refs, `${where}.data`) as Record<string, unknown>,
+                    model?.fields,
+                    `${where}.data`
+                )) as Entry['data'];
+                if (model)
+                    await refuseUnknownFields(
+                        validateEntry(projectId, { id: e.id, data } as Entry, model),
+                        `models/${modelId}/entries/${e.id}.data`,
+                        `${where}.data`
+                    );
                 if (await getEntryForProject(projectId, modelId, e.id).catch(() => null)) {
                     if (whenExisting(ctx, `Entry "${key}"`) === 'skip')
                         return { id: key, action: 'skip' };
-                    await updateEntry(user, projectId, modelId, e.id, { data });
+                    await updateEntry(user, projectId, modelId, e.id, {
+                        data,
+                        ...(e.languages !== undefined && { languages: e.languages })
+                    });
                     return { id: key, action: 'update' };
                 }
                 await createEntry(user, projectId, modelId, {
                     id: e.id,
                     type: modelId,
                     status: 'draft',
-                    data
+                    data,
+                    ...(e.languages && { languages: e.languages })
                 } as Entry);
                 return { id: key, action: 'create' };
             });
@@ -560,6 +722,17 @@ const summary = (items: ImportItemResult[]) => {
  * unless the person (or agent) needs approval: the import then waits for one (see
  * `publishImport`).
  */
+/** What went well but is worth saying, once the import is through. */
+function notesOf(ctx: Context): { notes?: ImportIssue[] } {
+    const notes = [...ctx.notes];
+    if (ctx.pageLinks)
+        notes.push({
+            path: '',
+            message: `${ctx.pageLinks} ${ctx.pageLinks === 1 ? 'link' : 'links'} in HTML now ${ctx.pageLinks === 1 ? 'leads' : 'lead'} to a page, following it.`
+        });
+    return notes.length ? { notes } : {};
+}
+
 export async function importBundle(
     user: User,
     projectId: string,
@@ -581,16 +754,22 @@ export async function importBundle(
     const total = countItems(bundle);
     let done = 0;
     const outcome = await withProjectWriteLock<ImportOutcome>(projectId, async () => {
+        // Earlier saves' commits first, so the import's commit holds only the import.
+        await gitSettled(projectDir(projectId));
         const saved = await runInBatch(projectId, async batch => {
             const ctx: Context = {
                 user,
                 projectId,
-                bundle: withOwnBlocks(bundle, projectId),
+                bundle,
                 dryRun,
                 refs: new Map(),
                 items: [],
                 issues: [],
                 createdAssets: [],
+                dryRunBytes: 0,
+                pageAt: () => null,
+                notes: [],
+                pageLinks: 0,
                 batch,
                 waitingMenus: [],
                 tick: () => {
@@ -621,7 +800,8 @@ export async function importBundle(
                     : 'failed') as ImportOutcome['status'],
                 dryRun,
                 items: saved.ctx.items,
-                issues: saved.issues
+                issues: saved.issues,
+                ...notesOf(saved.ctx)
             };
         const commit = await commitContentChange({
             projectId,
@@ -634,6 +814,7 @@ export async function importBundle(
             dryRun,
             items: saved.ctx.items,
             issues: [],
+            ...notesOf(saved.ctx),
             waitingMenus: saved.ctx.waitingMenus,
             ...(commit && { commit })
         };
@@ -648,20 +829,26 @@ export async function importBundle(
     );
     const { waitingMenus, ...result } = outcome;
     const menus = waitingMenus?.length ? { menus: waitingMenus } : {};
-    const toPublish: ImportToPublish | undefined = bundle.publish
-        ? {
-              ...menus,
-              // Folders have nothing to publish: publishImport passes them by.
-              pages: outcome.items
-                  .filter(i => i.kind === 'page' && i.action !== 'skip')
-                  .map(i => i.id),
-              entries: outcome.items
-                  .filter(i => i.kind === 'entry' && i.action !== 'skip')
-                  .map(i => ({ modelId: i.id.split('/')[0]!, id: i.id.split('/')[1]! }))
-          }
-        : waitingMenus?.length
-          ? { pages: [], entries: [], ...menus }
-          : undefined;
+    // Everything with `publish`; otherwise what says `published` (an export's live pages and entries).
+    const livePages = new Set((bundle.pages ?? []).filter(p => p.published && p.id).map(p => p.id));
+    const liveEntries = new Set(
+        Object.entries(bundle.entries ?? {}).flatMap(([modelId, list]) =>
+            (list ?? []).filter(e => e.published).map(e => `${modelId}/${e.id}`)
+        )
+    );
+    const goesLive = (i: ImportItemResult) =>
+        i.action !== 'skip' &&
+        (bundle.publish === true ||
+            (i.kind === 'page' ? livePages.has(i.id) : liveEntries.has(i.id)));
+    const pagesLive = outcome.items.filter(i => i.kind === 'page' && goesLive(i)).map(i => i.id);
+    const entriesLive = outcome.items
+        .filter(i => i.kind === 'entry' && goesLive(i))
+        .map(i => ({ modelId: i.id.split('/')[0]!, id: i.id.split('/')[1]! }));
+    const toPublish: ImportToPublish | undefined =
+        pagesLive.length || entriesLive.length || waitingMenus?.length
+            ? // Folders have nothing to publish: publishImport passes them by.
+              { ...menus, pages: pagesLive, entries: entriesLive }
+            : undefined;
     if (toPublish && (needsApproval(user, project) || toPublish.menus))
         return { ...result, status: 'awaiting_approval', toPublish };
     const published = toPublish ? await publishImport(user, projectId, toPublish) : [];

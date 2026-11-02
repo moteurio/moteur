@@ -13,6 +13,10 @@ Start with a project: it owns membership, languages, schemas and content. A mode
 | Page template | Fields for a kind of page                      | A page's `fields`                                         |
 | Blueprint     | A starting point for a project or schema       | A copied starting configuration, not a live shared schema |
 
+**Settings.** A model with `"modelType": "settings"` holds one entry: a site's settings, the words of its interface. A second entry is refused. The Studio opens the entry from the sidebar (or offers to start it), and a channel gives it at `GET /projects/:projectId/channels/:channelId/settings/:modelId` (`channel.settings('site-settings')` in the client), typed by `moteur types` as `Settings`.
+
+**Names.** Models and templates are named by `id`, blocks and structures by `type`, the name content uses to point at them. A name with a slash is the server's (`core/hero`, `core/seo`, a plugin's `geo/map`). A project's own have none (`hero`, `cta`).
+
 Field definitions are keyed by field ID. For example, create a model with an authenticated `POST /projects/:projectId/models`:
 
 ```json

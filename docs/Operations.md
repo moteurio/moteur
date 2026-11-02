@@ -4,7 +4,7 @@ The engine stores authoritative content in files. Its default SQLite content ind
 
 ## Host and persistent storage
 
-Run the API on a compatible Node.js 22+ runtime, with Git available for revision and snapshot features. The default index needs `node:sqlite` (Node 22.13+); the engine logs a warning and uses file scans when that module is unavailable. A host installs the engine packages and explicitly composes optional plugins. For local development in this repository, install dependencies, build, and use `pnpm server:dev`.
+Run the API on a compatible Node.js 22+ runtime with Git installed: every project is a Git repository, so without it the API refuses to start (slim container images such as `node:22-slim` don't include it). The default index needs `node:sqlite` (Node 22.13+); the engine logs a warning and uses file scans when that module is unavailable. A host installs the engine packages and explicitly composes optional plugins. For local development in this repository, install dependencies, build, and use `pnpm server:dev`.
 
 Set `DATA_ROOT` explicitly to a persistent location in deployed environments. Relative storage settings resolve from it; an absolute `PROJECTS_DIR`, `AUTH_USERS_FILE` or other configured path can place data elsewhere and must be included in backups.
 
@@ -50,6 +50,12 @@ Publication schedules and snapshot timers run in process. Keep a writer running 
 Take a consistent filesystem backup with writes stopped or using a storage snapshot that captures the whole data set. Include overridden paths, local asset files and corresponding external stores. Git remotes preserve tracked content and history; they omit normal workspace state, submissions and account files unless separately backed up.
 
 Restore into an isolated host first, using the matching engine/plugins and required secrets. Check sign-in, a published entry with newer draft edits, media retrieval, form submission access and schedule state before directing traffic to the restored instance. Rebuild the content index when necessary. [Git](Git.md) explains the narrower workspace and user-data snapshot features.
+
+## Deleted projects
+
+A deleted project waits in `data/projects/.trash/deleted-projects/` with its bin, one folder per deletion (`journal@2026-11-02T10-00-00Z`), so the same id deleted twice keeps both. Its id is free again at once. Backups include the trash.
+
+Operators empty it: `GET /operator/projects/trash` lists what's there, `DELETE /operator/projects/trash/:folder` removes one copy for good, and `DELETE /operator/projects/:projectId` deletes a live project for good without the trash. A project's billing record stays, marked deleted.
 
 ## Resource budgets
 

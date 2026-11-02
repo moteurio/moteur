@@ -37,9 +37,15 @@ export function projectImportsApi(client: MoteurClient) {
         approve(projectId: string, id: string): Promise<ImportJob> {
             return client.post(`${base(projectId)}/imports/${encodeURIComponent(id)}/approve`);
         },
-        /** The project as a bundle, to import elsewhere. */
-        export(projectId: string): Promise<ImportBundle> {
-            return client.get(`${base(projectId)}/export`);
+        /**
+         * The project as a bundle, to import elsewhere. `inlineFiles` carries each file in it
+         * (base64) instead of its address, for a server that can't reach this one.
+         */
+        export(projectId: string, options: { inlineFiles?: boolean } = {}): Promise<ImportBundle> {
+            return client.get(
+                `${base(projectId)}/export`,
+                options.inlineFiles ? { inlineFiles: 1 } : undefined
+            );
         }
     };
 }

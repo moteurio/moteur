@@ -1,6 +1,11 @@
 import { BlockRegistry } from '../registry/BlockRegistry.js';
 import fieldRegistry from '../registry/FieldRegistry.js';
 import { validateFieldValue } from './validateFieldValue.js';
+import {
+    isFieldRequired,
+    isMissingValue,
+    unknownFieldIssues
+} from './validateFieldsAgainstSchema.js';
 import type { Field } from '@moteurio/types/Field.js';
 import type { ValidationIssue } from '@moteurio/types/ValidationResult.js';
 import type { Block } from '@moteurio/types/Block.js';
@@ -120,23 +125,16 @@ export function validateBlockInstances(
             const fieldValue = blockInstance.data?.[fieldName];
             const fieldPath = `${blockPath}.data.${fieldName}`;
 
-            if (fieldValue === undefined || fieldValue === null) {
-                const isRequired = fieldDef.required === true;
-                issues.push({
-                    type: isRequired && !options?.requiredAsWarning ? 'error' : 'warning',
-                    code:
-                        p === 'layout'
-                            ? isRequired
-                                ? 'LAYOUT_REQUIRED_FIELD'
-                                : 'LAYOUT_MISSING_FIELD'
-                            : isRequired
-                              ? 'BLOCK_REQUIRED_FIELD'
-                              : 'BLOCK_MISSING_FIELD',
-                    message: isRequired
-                        ? `Required field "${fieldName}" is missing.`
-                        : `Optional field "${fieldName}" has no value.`,
-                    path: fieldPath
-                });
+            if (isMissingValue(fieldValue)) {
+                // An optional field left out is fine; a required one is missing (a draft's, a
+                // warning). `required` as the import format has it (options.required) or at the top.
+                if (isFieldRequired(fieldDef))
+                    issues.push({
+                        type: options?.requiredAsWarning ? 'warning' : 'error',
+                        code: p === 'layout' ? 'LAYOUT_REQUIRED_FIELD' : 'BLOCK_REQUIRED_FIELD',
+                        message: `Required field "${fieldName}" is missing.`,
+                        path: fieldPath
+                    });
                 continue;
             }
 
@@ -160,6 +158,11 @@ export function validateBlockInstances(
                 })
             );
         }
+
+        // A value for a field the block doesn't have would be kept and never delivered: say so.
+        issues.push(
+            ...unknownFieldIssues(blockInstance.data, schemaFields, `${blockPath}.data`, blockType)
+        );
 
         if (blockInstance.locales != null) {
             if (!Array.isArray(blockInstance.locales)) {

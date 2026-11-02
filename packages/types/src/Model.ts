@@ -1,3 +1,4 @@
+import type { Localizable } from './PublicSchema.js';
 import { Audit } from './Audit.js';
 import { Field } from './Field.js';
 import type { ModelStudio } from './StudioForm.js';
@@ -9,6 +10,12 @@ export interface Entry {
     type: string; // The ModelSchema this instance belongs to
     data: Record<string, any>;
     status?: EntryStatus; // default: 'draft'
+    /**
+     * The languages it is in, besides the default (always). Left out: every language of the
+     * project. A language not listed has no address, sitemap line or hreflang, and links to it
+     * there lead to the default language's address.
+     */
+    languages?: string[];
     meta?: {
         audit?: Audit;
         /**
@@ -37,7 +44,8 @@ export interface AssistedMark {
 
 export interface ModelSchema {
     id: string; // Unique identifier (e.g., 'core/post')
-    label: string; // Human-readable label
+    /** Its name: one, or one per language (`{ en, fr }`). */
+    label: Localizable;
     description?: string; // Optional description
     fields: Record<string, Field>; // Field definitions
     modelType?: 'content' | 'userData' | 'taxonomy' | 'settings'; // Type of model
