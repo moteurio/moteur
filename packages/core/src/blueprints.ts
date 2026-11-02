@@ -1,6 +1,10 @@
 import fs from 'fs';
 import path from 'path';
-import type { BlueprintKind, BlueprintSchema } from '@moteurio/types/Blueprint.js';
+import type {
+    BlueprintKind,
+    BlueprintSchema,
+    BlueprintSummary
+} from '@moteurio/types/Blueprint.js';
 import type { User } from '@moteurio/types/User.js';
 import { isValidId } from './utils/idUtils.js';
 import { storageConfig } from './config/storageConfig.js';
@@ -9,6 +13,7 @@ import { triggerEvent } from './utils/eventBus.js';
 import { validateModel } from './validators/validateModel.js';
 import { validateStructure } from './validators/validateStructure.js';
 import { validateTemplate } from './validators/validateTemplate.js';
+import { checkBundle } from './imports/importBundle.js';
 
 const BLUEPRINT_KINDS: BlueprintKind[] = ['project', 'model', 'structure', 'template'];
 
@@ -21,6 +26,13 @@ const pluginBlueprintRegistry: Partial<Record<BlueprintKind, Map<string, Bluepri
 export function registerBlueprint(blueprint: BlueprintSchema): void {
     const kind = effectiveKind(blueprint);
     if (!blueprint.id || !isValidId(blueprint.id)) return;
+    try {
+        validateBlueprintPayload(blueprint);
+    } catch (err) {
+        // A plugin's broken blueprint is left out, not the server stopped.
+        console.warn(`[Moteur] Blueprint "${blueprint.id}" left out: ${(err as Error).message}`);
+        return;
+    }
     if (!pluginBlueprintRegistry[kind]) pluginBlueprintRegistry[kind] = new Map();
     pluginBlueprintRegistry[kind]!.set(blueprint.id, { ...blueprint, id: blueprint.id, kind });
 }
@@ -112,7 +124,19 @@ function validateBlueprintPayload(blueprint: BlueprintSchema): void {
             throw new Error('Invalid blueprint: only project blueprints can be "firstProject"');
         }
     }
-    if (k === 'model') {
+    if (k === 'project') {
+        if (blueprint.template !== undefined)
+            throw new Error(
+                'A project blueprint gives what the project starts with as "bundle" (an import bundle), not "template".'
+            );
+        if (blueprint.bundle !== undefined) {
+            const issues = checkBundle(blueprint.bundle);
+            if (issues.length)
+                throw new Error(
+                    `Blueprint "bundle": ${issues.map(i => (i.path ? `${i.path}: ${i.message}` : i.message)).join(' ')}`
+                );
+        }
+    } else if (k === 'model') {
         const t = blueprint.template as { model?: unknown } | undefined;
         if (!t?.model) {
             throw new Error('Blueprint kind "model" requires template.model');
@@ -221,4 +245,28 @@ export function deleteBlueprint(kind: BlueprintKind, id: string, performedBy?: U
             user: performedBy ?? systemUser()
         });
     }
+}
+
+/**
+ * A project blueprint for a list: what it is and what the project starts with, without its
+ * bundle (which may carry files). `getBlueprint` gives it whole.
+ */
+export function summarizeBlueprint(blueprint: BlueprintSchema): BlueprintSummary {
+    const { bundle, template: _t, ...rest } = blueprint;
+    if (!bundle) return rest;
+    const count = (list?: unknown[]) => list?.length ?? 0;
+    const contains = {
+        templates: count(bundle.templates),
+        models: count(bundle.models),
+        blocks: count(bundle.blocks),
+        structures: count(bundle.structures),
+        pages: count(bundle.pages),
+        entries: Object.values(bundle.entries ?? {}).reduce((n, list) => n + count(list), 0),
+        files: count(bundle.assets),
+        menus: count(bundle.menus)
+    };
+    return {
+        ...rest,
+        contains: Object.fromEntries(Object.entries(contains).filter(([, n]) => n > 0))
+    };
 }

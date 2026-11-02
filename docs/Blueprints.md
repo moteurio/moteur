@@ -2,14 +2,14 @@
 
 Blueprints are **reusable templates** with a **kind**: project, model, structure, or page template. They share the same storage and API; the **kind** determines how the template is used.
 
-- **Project blueprints** (`kind: 'project'` or omitted): used when creating a new project. The template can define initial models, layouts, and structures applied to the new project.
+- **Project blueprints** (`kind: 'project'` or omitted): what a new project starts with. Their `bundle` is an [import bundle](Imports.md): schemas, files, pages, entries and menus, imported into a project made from it.
 - **Model blueprints** (`kind: 'model'`): a single model schema template. Used to create a model in an existing project.
 - **Structure blueprints** (`kind: 'structure'`): a single structure schema template. Used to create a structure in an existing project.
 - **Template blueprints** (`kind: 'template'`): a single page template. Used to create a page template in an existing project.
 
 ## Blueprints vs block definitions
 
-Blueprints are **server-wide templates** (project / model / structure / page template). They are **not** stored inside a project folder. Applying a **project** blueprint at `POST /projects` creates **models, layouts, and structures** in the new project; it does **not** copy block schema files. Block types still come from **built-ins in `@moteurio/core`**, optional host plugins, and **`data/projects/<id>/blocks/`** (see [Blocks](Blocks.md)).
+Blueprints are **server-wide templates** (project / model / structure / page template). They are **not** stored inside a project folder. Making a project from a **project** blueprint at `POST /projects` imports its bundle, so the project gets the bundle's own blocks with the rest. The server's blocks come from **built-ins in `@moteurio/core`** and host plugins (see [Blocks](Blocks.md)).
 
 ## Where blueprints live (backend)
 
@@ -26,27 +26,41 @@ Blueprints are **server-wide templates** (project / model / structure / page tem
 ```json
 {
     "id": "blog",
-    "name": "Blog Site",
-    "description": "Your regular personal blog with posts, listing, and comments.",
-    "template": {
-        "models": [],
-        "layouts": [],
-        "structures": []
+    "name": "Blog",
+    "description": "Pages, a blog, a menu and the site's settings.",
+    "kind": "project",
+    "firstProject": true,
+    "bundle": {
+        "version": 1,
+        "templates": [
+            {
+                "id": "page",
+                "label": "Page",
+                "fields": { "title": { "type": "core/text", "label": "Title" } }
+            }
+        ],
+        "pages": [
+            {
+                "id": "home",
+                "label": "Home",
+                "slug": "",
+                "templateId": "page",
+                "published": true,
+                "fields": { "title": "Hello" }
+            }
+        ]
     }
 }
 ```
 
-- **id** (required): Unique id; must match the filename (without `.json`).
+- **id** (required): Unique id. Must match the filename (without `.json`).
 - **name** (required): Display name (e.g. in the project creation wizard).
 - **description** (optional): Short explanation of the blueprint.
 - **kind** (optional): Omit or set to `"project"` for project blueprints.
-- **firstProject** (optional): `true` offers this starting point to a new person making their first project. Operators mark the project blueprints that suit a first project; it must be `true` or `false` (anything else is **400**), and only project blueprints take it. `GET /blueprints/projects` returns it with the rest.
-- **template** (optional): Object with:
-    - **models**: Array of model schema objects to create in the new project.
-    - **layouts**: Array of layout objects to create.
-    - **structures**: Array of structure schema objects to create.
+- **firstProject** (optional): `true` offers this starting point to a new person making their first project. Operators mark the project blueprints that suit a first project. It must be `true` or `false` (anything else is **400**), and only project blueprints take it.
+- **bundle** (optional): an [import bundle](Imports.md#the-bundle), checked when the blueprint is saved. Without one, the project starts empty.
 
-If `template` is missing or has empty arrays, the blueprint only provides metadata (e.g. “Empty Project”); the project is created with no extra models, layouts, or structures.
+A list (`GET /blueprints/projects`) gives each project blueprint without its bundle, and says what it holds: `contains: { templates, models, blocks, structures, pages, entries, files, menus }`. `GET /blueprints/projects/:id` gives one whole.
 
 ### Model blueprint
 
@@ -115,15 +129,10 @@ If `template` is missing or has empty arrays, the blueprint only provides metada
 
 ### Project creation (project blueprints only)
 
-1. **Create project:** The client calls `POST /projects` with the usual project payload (`id`, `label`, `defaultLocale`, etc.) and an optional **blueprintId**.
-2. **Project creation:** The backend creates the project as usual (project record, storage, etc.).
-3. **Apply template:** If `blueprintId` is present and valid and the blueprint has **kind** `'project'` (or no kind), the backend loads it and, if it has a `template` with `models`/`layouts`/`structures`:
-    - Creates each **model** in the new project (same as a normal “create model” call).
-    - Creates each **layout** in the new project.
-    - Creates each **structure** in the new project.
-4. **Response:** The API returns the created project. Any template application errors are logged; the project is still considered created.
-
-Only blueprints with `kind === 'project'` (or kind omitted) are applied at project creation.
+1. **Create project:** `POST /projects` with the usual project payload (`id`, `label`, `defaultLocale`, `supportedLocales`…) and a **blueprintId** (`moteur projects create my-site --blueprint blog`). A blueprint that doesn't exist is refused (**404** `BLUEPRINT_NOT_FOUND`) before anything is made.
+2. **The project is made** as usual, with its creator as its admin.
+3. **Its bundle is imported** into it, as `POST /projects/:projectId/imports` would: all or nothing, in one commit, and what it marks `published` goes live (an agent's import waits for a person's approval).
+4. **Response:** the project, with `fromBlueprint`: `{ id, status, issues, notes? }`. A bundle that fails leaves the project made and empty, and `issues` say why.
 
 ### Create model from blueprint
 

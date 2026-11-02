@@ -1,17 +1,7 @@
 import type { ModelSchema } from './Model.js';
-import type { Layout } from './Layout.js';
 import type { StructureSchema } from './Structure.js';
 import type { Field } from './Field.js';
-
-/**
- * Template content applied when creating a project from a blueprint.
- * All arrays are optional; empty or missing means no resources of that type.
- */
-export interface BlueprintTemplate {
-    models?: ModelSchema[];
-    layouts?: Layout[];
-    structures?: StructureSchema[];
-}
+import type { ImportBundle } from './Import.js';
 
 /** Discriminator for blueprint kind. Default is 'project' when omitted. */
 export type BlueprintKind = 'project' | 'model' | 'structure' | 'template';
@@ -53,7 +43,8 @@ export interface TemplateBlueprintTemplate {
 
 /**
  * Blueprint: reusable template with metadata.
- * - kind 'project' (or omitted): template is BlueprintTemplate (models, layouts, structures).
+ * - kind 'project' (or omitted): `bundle`, an import bundle: what a new project starts with
+ *   (schemas, files, pages, entries, menus), imported when the project is made from it.
  * - kind 'model': template is ModelBlueprintTemplate (single model).
  * - kind 'structure': template is StructureBlueprintTemplate (single structure).
  * - kind 'template': template is TemplateBlueprintTemplate (single page template).
@@ -68,9 +59,25 @@ export interface BlueprintSchema {
      * blueprints; an operator marks them.
      */
     firstProject?: boolean;
-    template?:
-        | BlueprintTemplate
-        | ModelBlueprintTemplate
-        | StructureBlueprintTemplate
-        | TemplateBlueprintTemplate;
+    /** A project blueprint's content: imported, all or nothing, into a project made from it. */
+    bundle?: ImportBundle;
+    template?: ModelBlueprintTemplate | StructureBlueprintTemplate | TemplateBlueprintTemplate;
+}
+
+/** A project blueprint as a list gives it: what it is and what it holds, without the bundle. */
+export interface BlueprintSummary extends Omit<BlueprintSchema, 'bundle' | 'template'> {
+    /** How many of each the project starts with. */
+    contains?: Partial<
+        Record<
+            | 'templates'
+            | 'models'
+            | 'blocks'
+            | 'structures'
+            | 'pages'
+            | 'entries'
+            | 'files'
+            | 'menus',
+            number
+        >
+    >;
 }

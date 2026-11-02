@@ -28,11 +28,7 @@ import { getEffectiveGitRemoteUrl, applyProjectGitSideEffects } from './utils/pr
 import { removeProjectFromAllUsers, addProjectToUser, removeProjectFromUser } from './users.js';
 import { assertPeopleRoom, assertProjectRoom } from './planLimits.js';
 import { getBlueprint } from './blueprints.js';
-import type { BlueprintTemplate } from '@moteurio/types/Blueprint.js';
-import { createModelSchema } from './models.js';
-import { createLayout } from './layouts.js';
 import { readTextCachedSync } from './utils/fileCache.js';
-import { createStructure } from './structures.js';
 
 export function loadProjects(): ProjectSchema[] {
     const root = baseProjectsDir();
@@ -195,54 +191,59 @@ export async function createProject(
     return { project: projectWithUsers };
 }
 
+/** What making a project from a blueprint did: the import of its bundle. */
+export type BlueprintOutcome = {
+    id: string;
+    status: 'done' | 'failed' | 'awaiting_approval';
+    issues: { path: string; message: string }[];
+    notes?: { path: string; message: string }[];
+};
+
 /**
- * Create a new project and apply a blueprint's template (models, layouts, structures).
- * If blueprintId is missing or blueprint has no template, behaves like createProject.
+ * Create a project, then import its blueprint's bundle into it: schemas, files, pages, entries
+ * and menus, all or nothing, live as the bundle says. Without a blueprint (or one without a
+ * bundle), the project starts empty. A bundle that fails leaves the project made and empty, and
+ * says why (`blueprint.issues`).
  */
 export async function createProjectFromBlueprint(
     user: User,
     project: ProjectSchema,
     blueprintId: string | undefined
-): Promise<{ project?: ProjectSchema; validation?: ValidationResult }> {
+): Promise<{
+    project?: ProjectSchema;
+    validation?: ValidationResult;
+    blueprint?: BlueprintOutcome;
+}> {
+    if (blueprintId !== undefined && blueprintId !== '') {
+        // An unknown blueprint is refused before anything is made.
+        let found: ReturnType<typeof getBlueprint> | undefined;
+        try {
+            if (isValidId(blueprintId)) found = getBlueprint('project', blueprintId);
+        } catch {
+            found = undefined;
+        }
+        if (!found || (found.kind ?? 'project') !== 'project')
+            throw Object.assign(new Error(`No project blueprint "${blueprintId}"`), {
+                status: 404,
+                code: 'BLUEPRINT_NOT_FOUND'
+            });
+    }
     const result = await createProject(user, project);
-    if (result.validation || !result.project) return result;
+    if (result.validation || !result.project || !blueprintId) return result;
 
-    const projectId = result.project.id;
-    if (!blueprintId || !isValidId(blueprintId)) return result;
-
-    let blueprint;
-    try {
-        blueprint = getBlueprint('project', blueprintId);
-    } catch {
-        return result;
-    }
-    // Only project blueprints (kind missing or 'project') define project template
-    const kind = blueprint.kind ?? 'project';
-    if (kind !== 'project') return result;
-
-    const template = blueprint.template as BlueprintTemplate | undefined;
-    if (!template) return result;
-
-    try {
-        if (template.models?.length) {
-            for (const model of template.models) {
-                await createModelSchema(user, projectId, model);
-            }
+    const blueprint = getBlueprint('project', blueprintId);
+    if (!blueprint.bundle) return result;
+    const { importBundle } = await import('./imports/importBundle.js');
+    const outcome = await importBundle(user, result.project.id, blueprint.bundle);
+    return {
+        ...result,
+        blueprint: {
+            id: blueprintId,
+            status: outcome.status,
+            issues: outcome.issues,
+            ...(outcome.notes?.length && { notes: outcome.notes })
         }
-        if (template.layouts?.length) {
-            for (const layout of template.layouts) {
-                await createLayout(user, projectId, layout);
-            }
-        }
-        if (template.structures?.length) {
-            for (const structure of template.structures) {
-                await createStructure(projectId, structure, user);
-            }
-        }
-    } catch (err) {
-        console.error('[Moteur] Failed to apply blueprint template to project', projectId, err);
-    }
-    return result;
+    };
 }
 
 /**
