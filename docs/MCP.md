@@ -51,7 +51,7 @@ By default, tools act as a review-only agent for the signed-in person. History a
 | `--read-only`            | `readOnly=1`           | Offer only reading tools                               |
 | `--groups entries,media` | `groups=entries,media` | Limit command groups                                   |
 | `--allow-destructive`    | `allowDestructive=1`   | Include destructive tools                              |
-| `--all`                  | `all=1`                | Include normally omitted groups, including billing     |
+| `--all`                  | `all=1`                | Include the opt-in groups: billing, and raw API calls  |
 | `--compact`              | `compact=1`            | Use find/describe/run tools instead of one per command |
 
 These tool-selection options do not grant API permissions or create scoped credentials. The server still checks the token and project access for calls. Operator commands are excluded. Use `projects_describe` to discover a project's schemas, languages and workflow before editing.

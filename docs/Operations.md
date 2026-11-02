@@ -23,7 +23,7 @@ Verify actual paths in the deployment; the host can override defaults. Keep requ
 
 A project's credentials (storage keys, video hosts' tokens, a Shopify token, the Git token, forms' captcha secrets) are kept in its `.moteur/secrets.json`, not in `project.json`, which every save commits and pushes. Saving a project moves any that are still in `project.json`, and the API does it for every project at start. Earlier commits still hold those values: rotate the keys of any project that had them.
 
-Session files (`auth-sessions/`) and short-lived provider proofs (`provider-signins.json`) live beside the configured users file. Preserve the directory across restarts. After restoring older authentication state, revoke sessions or rotate signing keys before reopening traffic. See [Authentication](Authentication.md) for the upgrade requirement to sign in again.
+Session files (`auth-sessions/`) and short-lived provider proofs (`provider-signins.json`) live beside the configured users file. Preserve the directory across restarts. After restoring older authentication state, revoke sessions or rotate signing keys before reopening traffic. See [Authentication](Authentication.md#sessions-and-revocation).
 
 ## Configuration and health
 

@@ -158,6 +158,11 @@ Blueprints are **global**; no project ID is required. **Reading** them (`GET`) i
 | POST   | `/blueprints/structures`     | Create a structure blueprint.                                       |
 | PATCH  | `/blueprints/structures/:id` | Update a structure blueprint.                                       |
 | DELETE | `/blueprints/structures/:id` | Delete a structure blueprint.                                       |
+| GET    | `/blueprints/templates`      | List template blueprints.                                           |
+| GET    | `/blueprints/templates/:id`  | Get one template blueprint.                                         |
+| POST   | `/blueprints/templates`      | Create a template blueprint.                                        |
+| PATCH  | `/blueprints/templates/:id`  | Update a template blueprint.                                        |
+| DELETE | `/blueprints/templates/:id`  | Delete a template blueprint.                                        |
 
 Creating a project from a blueprint uses the existing **Create project** endpoint (`POST /projects`) with an optional **blueprintId** in the body (see [REST API](REST%20API.md)). The `blueprintId` must refer to a project blueprint (from `GET /blueprints/projects`). Creating a model or structure from a blueprint uses the same create endpoints with **blueprintId** (and optional overrides) in the body.
 

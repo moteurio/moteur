@@ -134,7 +134,7 @@ without anything breaking; the transport checks the list again before every emai
 
 ### The operator's line
 
-On hosted plans an operator may want a small "Sent with Moteur" (« Envoyé avec Moteur ») at the
+A host may want a small "Sent with Moteur" (« Envoyé avec Moteur ») at the
 foot of projects' mail. `projectCredit: true` adds it, with the operator's `productName`. It is off
 by default. A hosted service can turn it on for its whole deployment with the environment variable
 `MOTEUR_EMAIL_PROJECT_CREDIT=1`; the operator's `projectCredit` setting, when set, wins over it.

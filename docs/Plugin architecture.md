@@ -78,7 +78,7 @@ CLI / MCP           → builtins in @moteurio/commands; plugins add more with re
 Media / git         → adapters, variant presets, transforms, generators, git commit hooks
 ```
 
-Operator sign-in and console pages are composed as a Studio plugin (`@moteurio/studio-plugin-operator`). Geo is the public **full-stack** exemplar: fields, blocks, structures, blueprints, Studio companion.
+Geo is the public **full-stack** exemplar: fields, blocks, structures, blueprints, Studio companion.
 
 ## Catalog-only (declare on `contributes` until a hook exists)
 
@@ -98,7 +98,7 @@ See [Plugin SDK backlog](Plugin%20SDK%20backlog.md).
 | `storage` / `video`           | matching adapters                                        |
 | `search`                      | `search.backend`, project search routes, `content.saved` |
 | `ai` + `role: platform`       | `/ai`, events; providers add `extensions.aiProviders`    |
-| `billing` + `role: platform`  | `planLimits.*`, `/billing`, Stripe webhook               |
+| `billing` + `role: platform`  | `planLimits.*`, its own routes and webhooks              |
 | `presence` + `role: platform` | `server.attach`, `platform.onlinePresence`               |
 
 ## Studio companions
