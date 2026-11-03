@@ -261,6 +261,9 @@ describe('importing a bundle', () => {
         ]);
         expect(commits(projectId)).toBe(before);
         expect(await listPages(projectId)).toEqual([]);
+        // Nothing left behind, empty folders included: entries and models are listed by folder.
+        await expect(fs.access(path.join(dirOf(projectId), 'models'))).rejects.toThrow();
+        await expect(fs.access(path.join(dirOf(projectId), 'pages'))).rejects.toThrow();
     });
 
     it('checks files in a dry run as the import would', async () => {

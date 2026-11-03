@@ -191,6 +191,20 @@ export async function restoreProjectFile(
     const target = fullPath(projectId, key);
     if (text === null) {
         await fs.rm(target, { force: true });
+        // Folders left empty go too (an entry's): a folder is how entries and models are listed.
+        const root = fullPath(projectId, '');
+        for (
+            let dir = path.dirname(target);
+            dir.startsWith(root + path.sep);
+            dir = path.dirname(dir)
+        )
+            if (
+                !(await fs.rmdir(dir).then(
+                    () => true,
+                    () => false
+                ))
+            )
+                break;
         if (reachesSites(key)) touchProject(projectId);
         await updateContentIndex(projectId, key);
         return;

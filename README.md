@@ -192,6 +192,7 @@ Start with the [documentation index](docs/README.md) for the complete guide list
 | Collect visitor input                      | [Forms](docs/Forms.md)                                                                                                                 |
 | Review and publish                         | [Workflows](docs/Workflows.md), [Scheduling](docs/Scheduling.md)                                                                       |
 | Automate authoring                         | [CLI](docs/CLI.md), [MCP](docs/MCP.md), [REST API](docs/REST%20API.md)                                                                 |
+| Work on Moteur with an AI agent            | [The Moteur skill](skills/moteur/SKILL.md): exact shapes for fields, bundles and delivery, checked against Moteur by tests             |
 | Host and restore the API                   | [Operations](docs/Operations.md), [Configuration](docs/Configuration.md), [Authentication](docs/Authentication.md)                     |
 | Extend the engine                          | [Plugin SDK](packages/plugin-sdk/README.md), [host plugin guide](https://github.com/moteurio/moteur-plugins/blob/main/docs/Plugins.md) |
 | Choose a frontend starter                  | [Starters](docs/Starters.md)                                                                                                           |

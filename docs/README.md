@@ -43,6 +43,7 @@ These guides describe the engine in this repository: content modeling, delivery,
 | [Embedded core API](Developer%20API.md)                     | In-process engine access for tools and contributors             |
 | [CLI](CLI.md)                                               | Command reference                                               |
 | [MCP](MCP.md)                                               | Local stdio, hosted HTTP, credentials and agent restrictions    |
+| [The Moteur skill](../skills/moteur/SKILL.md)               | What an AI agent needs: fields, import bundles, delivery, CLI   |
 | [Webhooks](Webhooks.md)                                     | Events, signing, filtering and delivery                         |
 | [Starters](Starters.md)                                     | Frontend starter repositories                                   |
 | [Frontend](Frontend.md)                                     | Delivery SDKs, preview tokens, plugin web components            |

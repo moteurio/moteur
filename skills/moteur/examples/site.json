@@ -1,0 +1,321 @@
+{
+    "version": 1,
+    "existing": "update",
+    "structures": [
+        {
+            "type": "cta",
+            "label": {
+                "en": "Call to action",
+                "fr": "Appel à l’action"
+            },
+            "fields": {
+                "label": {
+                    "type": "core/text",
+                    "label": "Label",
+                    "options": {
+                        "required": true,
+                        "multilingual": true
+                    }
+                },
+                "link": {
+                    "type": "core/link",
+                    "label": "Link"
+                }
+            }
+        }
+    ],
+    "blocks": [
+        {
+            "type": "hero",
+            "label": "Hero",
+            "fields": {
+                "title": {
+                    "type": "core/text",
+                    "label": "Title",
+                    "options": {
+                        "required": true,
+                        "multilingual": true
+                    }
+                },
+                "picture": {
+                    "type": "core/asset",
+                    "label": "Picture"
+                },
+                "cta": {
+                    "type": "core/structure",
+                    "label": "Call to action",
+                    "options": {
+                        "structure": "cta"
+                    }
+                }
+            }
+        }
+    ],
+    "models": [
+        {
+            "id": "author",
+            "label": "Author",
+            "fields": {
+                "name": {
+                    "type": "core/text",
+                    "label": "Name",
+                    "options": {
+                        "required": true
+                    }
+                }
+            }
+        },
+        {
+            "id": "post",
+            "label": {
+                "en": "Post",
+                "fr": "Article"
+            },
+            "fields": {
+                "title": {
+                    "type": "core/text",
+                    "label": "Title",
+                    "options": {
+                        "required": true,
+                        "multilingual": true
+                    }
+                },
+                "slug": {
+                    "type": "core/text",
+                    "label": "Slug",
+                    "options": {
+                        "multilingual": true
+                    }
+                },
+                "author": {
+                    "type": "core/relation",
+                    "label": "Author",
+                    "options": {
+                        "model": "author"
+                    }
+                },
+                "body": {
+                    "type": "core/rich-text",
+                    "label": "Body",
+                    "options": {
+                        "multilingual": true
+                    }
+                }
+            }
+        },
+        {
+            "id": "settings",
+            "label": "Site settings",
+            "modelType": "settings",
+            "fields": {
+                "siteName": {
+                    "type": "core/text",
+                    "label": "Site name"
+                }
+            }
+        }
+    ],
+    "templates": [
+        {
+            "id": "page",
+            "label": {
+                "en": "Page",
+                "fr": "Page"
+            },
+            "fields": {
+                "blocks": {
+                    "type": "core/block-list",
+                    "label": "Blocks",
+                    "options": {
+                        "allowedBlockTypes": ["hero"]
+                    }
+                },
+                "body": {
+                    "type": "core/markdown",
+                    "label": "Body",
+                    "options": {
+                        "multilingual": true
+                    }
+                }
+            }
+        },
+        {
+            "id": "blog",
+            "label": "Blog",
+            "fields": {}
+        }
+    ],
+    "assets": [
+        {
+            "ref": "inbox",
+            "content": "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==",
+            "name": "inbox.png",
+            "alt": "The inbox"
+        }
+    ],
+    "pages": [
+        {
+            "id": "home",
+            "label": "Home",
+            "slug": "",
+            "templateId": "page",
+            "published": true,
+            "fields": {
+                "blocks": [
+                    {
+                        "type": "hero",
+                        "data": {
+                            "title": {
+                                "en": "Write once",
+                                "fr": "Écrire une fois"
+                            },
+                            "picture": {
+                                "assetId": {
+                                    "$ref": "asset:inbox"
+                                }
+                            },
+                            "cta": {
+                                "label": {
+                                    "en": "See prices",
+                                    "fr": "Voir les tarifs"
+                                },
+                                "link": {
+                                    "pageId": {
+                                        "$ref": "page:pricing"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                ],
+                "body": {
+                    "en": "Read [the guide](page:guide).",
+                    "fr": "Lisez [le guide](page:guide)."
+                }
+            }
+        },
+        {
+            "id": "pricing",
+            "label": "Pricing",
+            "slug": "pricing",
+            "slugs": {
+                "fr": "tarifs"
+            },
+            "templateId": "page",
+            "published": true,
+            "fields": {}
+        },
+        {
+            "id": "docs",
+            "type": "folder",
+            "label": "Docs",
+            "slug": "docs"
+        },
+        {
+            "id": "guide",
+            "parent": "docs",
+            "label": "Guide",
+            "slug": "guide",
+            "templateId": "page",
+            "languages": ["en"],
+            "published": true,
+            "fields": {
+                "body": {
+                    "en": "Only in English for now."
+                }
+            }
+        },
+        {
+            "id": "blog",
+            "type": "collection",
+            "label": "Blog",
+            "slug": "blog",
+            "templateId": "blog",
+            "modelId": "post",
+            "urlPattern": "[slug]",
+            "published": true
+        }
+    ],
+    "entries": {
+        "author": [
+            {
+                "id": "ada",
+                "data": {
+                    "name": "Ada"
+                },
+                "published": true
+            }
+        ],
+        "post": [
+            {
+                "id": "hello",
+                "published": true,
+                "data": {
+                    "title": {
+                        "en": "Hello",
+                        "fr": "Bonjour"
+                    },
+                    "slug": {
+                        "en": "hello",
+                        "fr": "bonjour"
+                    },
+                    "author": {
+                        "$ref": "entry:author/ada"
+                    },
+                    "body": {
+                        "html": {
+                            "en": "<p>See <a href=\"/pricing\">our prices</a>.</p>",
+                            "fr": "<p>Voir <a href=\"/fr/tarifs\">nos tarifs</a>.</p>"
+                        }
+                    }
+                }
+            }
+        ],
+        "settings": [
+            {
+                "id": "settings",
+                "data": {
+                    "siteName": "Example"
+                },
+                "published": true
+            }
+        ]
+    },
+    "menus": [
+        {
+            "handle": "main",
+            "label": "Main",
+            "items": [
+                {
+                    "id": "pricing",
+                    "label": {
+                        "en": "Pricing",
+                        "fr": "Tarifs"
+                    },
+                    "linkType": "page",
+                    "pageId": {
+                        "$ref": "page:pricing"
+                    }
+                },
+                {
+                    "id": "blog",
+                    "label": {
+                        "en": "Blog",
+                        "fr": "Blogue"
+                    },
+                    "linkType": "page",
+                    "pageId": {
+                        "$ref": "page:blog"
+                    }
+                }
+            ]
+        }
+    ],
+    "redirects": [
+        {
+            "from": "/prices",
+            "to": "/pricing",
+            "status": 301
+        }
+    ]
+}
