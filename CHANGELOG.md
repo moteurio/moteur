@@ -2,6 +2,30 @@
 
 All notable changes to published `@moteurio/*` packages are documented here. Version lines are kept aligned across the monorepo for coordinated releases (see [RELEASING.md](RELEASING.md) and [VERSIONING.md](VERSIONING.md)).
 
+## 2026.11.3
+
+- docs(release): @moteurio/astro is staged after the client (58c4b18)
+- docs(cli): blueprints create says a project blueprint has a bundle (ccceac6)
+- feat(links): links to pages keep their anchor (a95d648)
+- fix(channels): a page's relations to entries are inlined, in its blocks too (d1fc36f)
+- feat(blueprints): a blueprint's content fits the new project's languages (53a5573)
+- feat(imports): bundles carry forms, and exports keep them (dc80aa6)
+- feat(blueprints): a project blueprint is an import bundle (7b0a7da)
+- feat(skills): the Moteur skill for AI agents, checked against Moteur (fb7c69f)
+- docs: the open docs say what the engine does, and leave the hosted service to its own docs (c5f4435)
+- chore(astro): the repo's vitest, one copy for every package (d4c01db)
+- test(bin): the deletion's commit lands before the restore, so the restore gets its own (850486c)
+- fix(frontend): the adapters build against the client beside them; the frontend plugins stay out, released apart (e8f1783)
+- feat(frontend): the site adapters and frontend plugins live here, released with the client (4b19ce4)
+- fix: what the www.moteur.io move and Ferry's move found (c203–c233) (82ae7ef)
+- feat(demo): a demo copy is for trying, not a site: no API keys or site form answers, gone after 30 idle days, kept as a project on request (f74bf04)
+- perf(git): saves that wait behind a commit go in together, one commit per author (b471589)
+- perf(git): a save doesn't wait for its commit; history reads and publishing wait for the commits handed over (5beaba0)
+- feat(limits): image traffic gets a fair use level like requests; Billing and Admin hear at 80% and 100% of a month's allowance (c194) (5f2089d)
+- test(schedules): round the time in UTC, so the test passes in the hour clocks fall back (6c80f8e)
+- fix(api): no git, no start: the API says so, since every project is a Git repository (c192) (0772de5)
+- feat(limits): a fair use level for public requests, apart from the monthly quota (04e4ee7)
+
 ## 2026.10.31
 
 - fix(hooks): the pre-push tests never act on the repository being pushed (43e377c)
