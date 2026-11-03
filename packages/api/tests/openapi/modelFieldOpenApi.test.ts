@@ -50,6 +50,7 @@ describe('openApiSchemaForModelField', () => {
         expect(Object.keys(schema.properties!)).toEqual([
             'url',
             'pageId',
+            'anchor',
             'missing',
             'label',
             'ariaLabel'

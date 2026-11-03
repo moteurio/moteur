@@ -103,6 +103,12 @@ function addressOf(
     return urls[locale] ?? urls[ctx.defaultLocale];
 }
 
+/** A link's anchor as it goes after an address: `mac` or `#mac` → `#mac`; nothing → ''. */
+const anchorOf = (anchor: unknown): string => {
+    const name = typeof anchor === 'string' ? anchor.trim().replace(/^#/, '') : '';
+    return name ? `#${name}` : '';
+};
+
 /** The page behind an id, when it exists, has content and this reader may see it. */
 function liveTarget(id: unknown, ctx: PageLinkContext, options: PageLinkOptions) {
     if (typeof id !== 'string') return null;
@@ -166,9 +172,17 @@ export async function resolvePageLinks(
             if (!isPlainObject(value) || !('pageId' in value)) return undefined;
             const { url: _stale, missing: _m, ...link } = value as Record<string, unknown>;
             const page = liveTarget(link.pageId, ctx, options);
-            return page
-                ? { ...link, url: addressOf(page.id, ctx, options.locale) }
-                : { ...link, missing: true };
+            if (!page) return { ...link, missing: true };
+            // A place on the page (`anchor: "mac"`) follows its address in every language.
+            const hash = anchorOf(link.anchor);
+            const url = addressOf(page.id, ctx, options.locale);
+            return {
+                ...link,
+                url:
+                    typeof url === 'string'
+                        ? url + hash
+                        : Object.fromEntries(Object.entries(url).map(([l, u]) => [l, u + hash]))
+            };
         }
         if (field.type === 'core/rich-text' || field.type === 'core/markdown') {
             const kind = field.type === 'core/rich-text' ? 'dast' : 'markdown';

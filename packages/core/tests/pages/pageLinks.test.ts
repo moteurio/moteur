@@ -135,6 +135,24 @@ describe('resolvePageLinks', () => {
         });
     });
 
+    it('adds the anchor to the address, in every language or the one read', async () => {
+        const link = { footer: { pageId: 'pricing', anchor: 'billing' } };
+        const all = await resolvePageLinks(link, fields, context(), live);
+        expect(all!.footer).toMatchObject({
+            url: { en: '/pricing#billing', fr: '/fr/tarifs#billing' }
+        });
+        const fr = await resolvePageLinks(
+            { footer: { pageId: 'pricing', anchor: '#billing' } },
+            fields,
+            context(),
+            {
+                ...live,
+                locale: 'fr'
+            }
+        );
+        expect(fr!.footer).toMatchObject({ url: '/fr/tarifs#billing' });
+    });
+
     it('gives one address with a locale, and replaces a stale url', async () => {
         const out = await resolvePageLinks(
             { footer: { pageId: 'pricing', url: '/old-pricing' } },

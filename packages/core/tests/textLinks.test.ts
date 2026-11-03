@@ -67,6 +67,27 @@ describe('links to pages in text', () => {
         });
     });
 
+    it('keeps the anchor or query a link to a page was written with, in each language', () => {
+        const md = {
+            en: 'See [Mac](page:pricing#mac), [billing](page:pricing?tab=2#billing "Billing") and [gone](page:gone#x).',
+            fr: 'Voir [Mac](page:pricing#mac).'
+        };
+        expect(pagesLinkedIn(md, 'markdown')).toEqual(['pricing', 'gone']);
+        expect(fillTextLinks(md, 'markdown', addressOf, options)).toEqual({
+            en: 'See [Mac](/pricing#mac), [billing](/pricing?tab=2#billing "Billing") and gone.',
+            fr: 'Voir [Mac](/fr/tarifs#mac).'
+        });
+        const anchored = { ...link('pricing', 'Mac'), url: '/download#mac' };
+        const out = fillTextLinks(
+            { dast: { en: doc(anchored), fr: doc(anchored) } },
+            'dast',
+            addressOf,
+            options
+        ) as any;
+        const urlIn = (lang: string) => out.dast[lang].document.children[0].children[0].url;
+        expect([urlIn('en'), urlIn('fr')]).toEqual(['/pricing#mac', '/fr/tarifs#mac']);
+    });
+
     it('uses the language read when the value is in one language', () => {
         expect(
             fillTextLinks('[x](page:pricing)', 'markdown', addressOf, { ...options, locale: 'fr' })

@@ -168,6 +168,10 @@ export function openApiSchemaForModelField(
                     description: "Where it goes: for a link to a page, the page's address"
                 }),
                 pageId: { type: 'string', description: 'Set when the link points at a page' },
+                anchor: {
+                    type: 'string',
+                    description: 'With pageId: a place on the page, already added to `url` (`#mac`)'
+                },
                 missing: {
                     type: 'boolean',
                     description: 'True when its page is gone or not live: there is no `url`'

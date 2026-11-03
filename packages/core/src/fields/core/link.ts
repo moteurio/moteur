@@ -22,6 +22,13 @@ fieldRegistry.register({
                 "A page of the project. Delivery fills `url` with the page's address in each language.",
             required: false
         },
+        anchor: {
+            type: 'core/text',
+            label: 'Place on the page',
+            description:
+                'With a page: the id of a place on it (`mac`), added to its address in each language (`/fr/telecharger#mac`).',
+            required: false
+        },
         label: {
             type: 'core/text',
             multilingual: true,

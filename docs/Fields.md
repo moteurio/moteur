@@ -232,7 +232,7 @@ Tables follow the order of Studio's field picker. **core/media-image** is docume
 }
 ```
 
-**Links to pages.** `[words](page:<page id>)` links to a page and follows it: on delivery it becomes the page's address in the language read (or the default's when the page isn't in it), wherever the page has moved. A link to a page that is gone or not live leaves only its words.
+**Links to pages.** `[words](page:<page id>)` links to a page and follows it: on delivery it becomes the page's address in the language read (or the default's when the page isn't in it), wherever the page has moved. An anchor or a query goes after the id and stays on the address: `[Mac](page:download#mac)` becomes `[Mac](/fr/telecharger#mac)` in French. A link to a page that is gone or not live leaves only its words.
 
 ---
 
@@ -287,7 +287,7 @@ Tables follow the order of Studio's field picker. **core/media-image** is docume
 }
 ```
 
-**Links to pages.** A link that names a page in its `meta` (`{ "id": "pageId", "value": "<page id>" }`) follows the page, as a [`core/link`](#core-link) does: on delivery its `url` is the page's address, in the language read (or the default's when the page isn't in it), wherever the page has moved. A link to a page that is gone or not live loses the link and keeps its words. The Studio's link button offers "A page of the site". In an import bundle, the page can be a ref: `"value": { "$ref": "page:pricing" }`.
+**Links to pages.** A link that names a page in its `meta` (`{ "id": "pageId", "value": "<page id>" }`) follows the page, as a [`core/link`](#core-link) does: on delivery its `url` is the page's address, in the language read (or the default's when the page isn't in it), wherever the page has moved. An anchor or query in the stored `url` stays: a link stored as `/download#mac` comes as the page's address followed by `#mac`. A link to a page that is gone or not live loses the link and keeps its words. The Studio's link button offers "A page of the site". In an import bundle, the page can be a ref: `"value": { "$ref": "page:pricing" }`.
 
 ---
 
@@ -848,7 +848,7 @@ The URLs can point anywhere. To host the files in Moteur, upload them to the ass
 
 **When to use it:** CTAs, nav items, accessible buttons-as-links. For a bare URL string, **core/url** is simpler.
 
-**Links to pages.** Store `pageId` instead of `url`. Delivery fills `url` with the page's current address: one per language (`{ "en": "/pricing", "fr": "/fr/tarifs" }`), or the string in one language with `?locale=`. Moving or renaming the page changes every link to it. When the page is gone, a folder, or not live for the reader (a draft outside preview), the link comes with `missing: true` and no `url`, so a site can show its label without a dead link. A `url` stored beside a `pageId` is ignored (a warning on save). This works at any depth: inside blocks, lists, structures and variants.
+**Links to pages.** Store `pageId` instead of `url`. Delivery fills `url` with the page's current address: one per language (`{ "en": "/pricing", "fr": "/fr/tarifs" }`), or the string in one language with `?locale=`. Moving or renaming the page changes every link to it. When the page is gone, a folder, or not live for the reader (a draft outside preview), the link comes with `missing: true` and no `url`, so a site can show its label without a dead link. A `url` stored beside a `pageId` is ignored (a warning on save). `anchor` links to a place on the page: `{ "pageId": "download", "anchor": "mac" }` comes with `url` `/download#mac`, and `/fr/telecharger#mac` in French. This works at any depth: inside blocks, lists, structures and variants.
 
 | Option         | Type    | Default | Description                                  |
 | -------------- | ------- | ------- | -------------------------------------------- |

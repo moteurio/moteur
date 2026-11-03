@@ -1086,6 +1086,89 @@ describe('page links and page relations on delivery', () => {
         }
     });
 
+    it('inlines the entries a page points to, up to the page resource’s resolve, as published', async () => {
+        vi.mocked(getChannel).mockResolvedValue({
+            ...channel,
+            resources: [
+                { resourceType: 'page' as const, resourceId: 'pages', resolve: 1 },
+                { resourceType: 'model' as const, resourceId: 'plans', fields: ['name'] }
+            ]
+        });
+        stored['pages/offer.json'] = node('offer', 'offer', {
+            templateId: 'offer',
+            fields: { rows: [{ plans: ['free', 'sync', 'gone'] }], main: 'sync' }
+        });
+        stored['templates/offer.json'] = {
+            id: 'offer',
+            label: 'Offer',
+            fields: {
+                main: { type: 'core/relation', label: 'Main', options: { model: 'plans' } },
+                rows: {
+                    type: 'core/list',
+                    label: 'Rows',
+                    items: {
+                        type: 'core/object',
+                        label: 'Row',
+                        fields: {
+                            plans: {
+                                type: 'core/relations',
+                                label: 'Plans',
+                                options: { model: 'plans' }
+                            }
+                        }
+                    }
+                }
+            }
+        };
+        vi.mocked(getModelSchemaForProject).mockResolvedValue({
+            id: 'plans',
+            label: 'Plans',
+            fields: { name: { type: 'core/text', label: 'Name' } }
+        } as any);
+        const plan = (id: string, status = 'published') => ({
+            id,
+            type: 'plans',
+            status,
+            data: { name: id.toUpperCase(), secret: 'internal' }
+        });
+        vi.mocked(getPublishedEntryForProject).mockImplementation(async (_p, _m, id) =>
+            id === 'gone' ? null : (plan(id) as any)
+        );
+        const res = await request(app)
+            .get('/projects/demo/channels/site/pages/offer')
+            .set('x-api-key', 'valid-key');
+        expect(res.status).toBe(200);
+        // Inlined with the model's field allowlist; one that isn't published keeps its id.
+        expect(res.body.fields.rows[0].plans).toEqual([
+            expect.objectContaining({ id: 'free', data: { name: 'FREE' } }),
+            expect.objectContaining({ id: 'sync', data: { name: 'SYNC' } }),
+            'gone'
+        ]);
+        expect(res.body.fields.main).toMatchObject({ id: 'sync', data: { name: 'SYNC' } });
+        expect(getEntryForProject).not.toHaveBeenCalled();
+        delete stored['pages/offer.json'];
+        delete stored['templates/offer.json'];
+    });
+
+    it('leaves a page’s relations as ids when the page resource has no resolve', async () => {
+        stored['pages/offer.json'] = node('offer', 'offer', {
+            templateId: 'offer',
+            fields: { main: 'sync' }
+        });
+        stored['templates/offer.json'] = {
+            id: 'offer',
+            label: 'Offer',
+            fields: { main: { type: 'core/relation', label: 'Main', options: { model: 'plans' } } }
+        };
+        const res = await request(app)
+            .get('/projects/demo/channels/site/pages/offer')
+            .set('x-api-key', 'valid-key');
+        expect(res.body.fields.main).toBe('sync');
+        expect(getPublishedEntryForProject).not.toHaveBeenCalled();
+        delete stored['pages/offer.json'];
+        delete stored['templates/offer.json'];
+    });
+
     it('resolves page links in entries, by their model', async () => {
         vi.mocked(getModelSchemaForProject).mockResolvedValue({
             id: 'articles',
