@@ -2815,7 +2815,7 @@ Calls `GET /blueprints/{kind}s/{id}`.
 
 ### `moteur blueprints create <kind>`
 
-Create a blueprint (JSON: { id, name, description, template })
+Create a blueprint (JSON: { id, name, description }, with a bundle for a project blueprint, a template for the others)
 
 | Option                                         |                                                  |
 | ---------------------------------------------- | ------------------------------------------------ |
