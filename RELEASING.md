@@ -18,7 +18,7 @@ CI stages every package version; nothing is live on the registry until you **app
 1. [npm → Staged packages](https://www.npmjs.com/settings/~/packages/staged), or
 2. Locally: `npm stage list`, then `npm stage approve <stage-id>` (npm CLI **≥ 11.15**, Node **≥ 22.14**).
 
-Approve in **publish order** (types → … → api → optional cli) so dependents exist when downstream consumers resolve the new line.
+Approve in **publish order** (types → … → client → astro → … → api → optional cli) so dependents exist when downstream consumers resolve the new line.
 
 Emergency **direct** publish from a laptop (not CI): `npm publish` with your normal npm login session and 2FA — do not put that credential in GitHub.
 
@@ -59,10 +59,13 @@ Publish order is deterministic:
 3. `@moteurio/studio-plugin-sdk`
 4. `@moteurio/core`
 5. `@moteurio/client`
-6. `@moteurio/commands`
-7. `@moteurio/mcp` (the API serves it at `/mcp`)
-8. `@moteurio/api`
-9. optional: `@moteurio/cli`
+6. `@moteurio/astro` (the Astro adapter: it needs the client)
+7. `@moteurio/commands`
+8. `@moteurio/mcp` (the API serves it at `/mcp`)
+9. `@moteurio/api`
+10. optional: `@moteurio/cli`
+
+`@moteurio/react`, `@moteurio/vue` and `@moteurio/vanilla` are private for now: they are not published.
 
 **`@moteurio/plugin-ai`** (and **`ai-provider-*`**) live in **moteur-plugins-extra** (private tarballs). Studio UI companions (`@moteurio/studio-plugin-*` except the SDK) ship on the same GitHub Releases, not on npm.
 
