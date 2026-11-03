@@ -35,6 +35,20 @@ describe('validateLinkField', () => {
         ]);
     });
 
+    it('takes an anchor with a page, refuses one with spaces, and warns of one without a page', () => {
+        expect(validateLinkField({ pageId: 'pricing', anchor: 'billing' }, field, 'x')).toEqual([]);
+        expect(validateLinkField({ pageId: 'pricing', anchor: 'two words' }, field, 'x')).toEqual([
+            expect.objectContaining({
+                type: 'error',
+                code: 'LINK_INVALID_ANCHOR',
+                path: 'x.anchor'
+            })
+        ]);
+        expect(validateLinkField({ url: '/faq', anchor: 'billing' }, field, 'x')).toEqual([
+            expect.objectContaining({ type: 'warning', code: 'LINK_ANCHOR_WITHOUT_PAGE' })
+        ]);
+    });
+
     it('warns that a URL beside a page is replaced', () => {
         const issues = validateLinkField({ pageId: 'pricing', url: '/pricing' }, field, 'x');
         expect(issues).toEqual([

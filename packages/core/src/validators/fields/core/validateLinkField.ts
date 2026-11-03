@@ -67,6 +67,22 @@ function pageIssues(value: Record<string, unknown>, path: string): ValidationIss
             }
         ];
     }
+    if (
+        value.anchor !== undefined &&
+        value.anchor !== '' &&
+        (typeof value.anchor !== 'string' || /\s/.test(value.anchor))
+    ) {
+        return [
+            {
+                type: 'error',
+                code: 'LINK_INVALID_ANCHOR',
+                message:
+                    'Link "anchor" must be the id of a place on the page, without spaces: "mac".',
+                path: `${path}.anchor`,
+                context: { anchor: value.anchor }
+            }
+        ];
+    }
     if (value.url !== undefined && value.url !== '') {
         return [
             {
@@ -112,6 +128,15 @@ export function validateLinkField(value: any, field: Field, path: string): Valid
         issues.push(...pageIssues(value, path));
     } else {
         issues.push(...urlPresenceIssues(value.url, `${path}.url`));
+        if (value.anchor !== undefined && value.anchor !== '')
+            issues.push({
+                type: 'warning',
+                code: 'LINK_ANCHOR_WITHOUT_PAGE',
+                message:
+                    'Link "anchor" goes with a page (pageId). For an address, put it in the url: "/faq#billing".',
+                path: `${path}.anchor`,
+                context: { anchor: value.anchor }
+            });
     }
 
     if (

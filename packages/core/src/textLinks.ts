@@ -4,15 +4,24 @@
  * - rich text (DAST): a `link` node naming its page in `meta`:
  *   `{ "type": "link", "url": "/pricing", "meta": [{ "id": "pageId", "value": "pricing" }] }`;
  * - Markdown: `[See prices](page:pricing)`.
- * On delivery each gets the page's address; a page that is gone or not live loses the link and
- * keeps its words.
+ * On delivery each gets the page's address, with the anchor or query it was written with
+ * (`page:download#mac`, a link to `/download#mac`); a page that is gone or not live loses the link
+ * and keeps its words.
  */
 import { isPlainObject } from './validators/fieldValueUtils.js';
 
 export type TextKind = 'dast' | 'markdown';
 
-/** `[words](page:id)` or `[words](page:id "title")`; not a picture (`![…]`). */
-const MARKDOWN_PAGE_LINK = /(?<!!)\[((?:\\.|[^\]\\])*)\]\(\s*page:([^\s)]+)(\s+"[^"]*")?\s*\)/g;
+/**
+ * `[words](page:id)`, `[words](page:id#anchor)` or `[words](page:id "title")`; not a picture
+ * (`![…]`). Groups: the words, the page id, its anchor or query, the title.
+ */
+const MARKDOWN_PAGE_LINK =
+    /(?<!!)\[((?:\\.|[^\]\\])*)\]\(\s*page:([^\s)#?]+)([?#][^\s)]*)?(\s+"[^"]*")?\s*\)/g;
+
+/** What follows a page's address in a link: its anchor or query (`#mac`, `?tab=2#mac`). */
+const suffixOf = (url: unknown): string =>
+    typeof url === 'string' ? (url.match(/[?#].*$/)?.[0] ?? '') : '';
 
 /** The page a DAST link names in its meta, if any. */
 export function dastLinkPage(node: unknown): string | null {
@@ -64,10 +73,13 @@ export function fillTextLinks(
     const isLocale = (key: string) => options.locales.includes(key);
 
     const markdown = (text: string, locale: string) =>
-        text.replace(MARKDOWN_PAGE_LINK, (_all, words: string, id: string, title = '') => {
-            const url = addressOf(id, locale);
-            return url ? `[${words}](${url}${title})` : words;
-        });
+        text.replace(
+            MARKDOWN_PAGE_LINK,
+            (_all, words: string, id: string, suffix = '', title = '') => {
+                const url = addressOf(id, locale);
+                return url ? `[${words}](${url}${suffix}${title})` : words;
+            }
+        );
 
     /** A node, or the nodes standing in for it (an unwrapped link's children). */
     const walk = (v: unknown, locale: string): unknown => {
@@ -92,7 +104,11 @@ export function fillTextLinks(
         for (const [key, sub] of Object.entries(obj))
             out[key] = walk(sub, isLocale(key) ? key : locale);
         const page = kind === 'dast' ? dastLinkPage(obj) : null;
-        if (page) out.url = addressOf(page, locale) ?? obj.url;
+        if (page) {
+            // The page's address now, with the anchor the link was written with.
+            const url = addressOf(page, locale);
+            out.url = url ? url + suffixOf(obj.url) : obj.url;
+        }
         return out;
     };
     return walk(value, options.locale);

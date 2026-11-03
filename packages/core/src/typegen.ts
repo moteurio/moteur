@@ -134,6 +134,8 @@ export interface AssetRef<M extends LocaleMode = 'all'> {
 export interface Link<M extends LocaleMode = 'all'> {
     url?: MaybeLocalized<string, M>;
     pageId?: string;
+    /** With \`pageId\`: a place on the page, already added to \`url\` (\`#mac\`). */
+    anchor?: string;
     /** The page is gone or not live: there is no \`url\`. */
     missing?: true;
     label?: MaybeLocalized<string, M>;
