@@ -6,7 +6,8 @@ import {
     getBlueprint,
     createBlueprint,
     updateBlueprint,
-    deleteBlueprint
+    deleteBlueprint,
+    summarizeBlueprint
 } from '@moteurio/core/blueprints.js';
 import type { BlueprintKind, BlueprintSchema } from '@moteurio/types/Blueprint.js';
 import type { OpenAPIV3 } from 'openapi-types';
@@ -19,7 +20,10 @@ function createKindRouter(kind: BlueprintKind): Router {
     router.get('/', requireAuthOrOperator, (req: Request, res: Response) => {
         try {
             const blueprints = listBlueprints(kind);
-            return void res.json({ blueprints });
+            // Project blueprints carry whole bundles: a list says what each holds instead.
+            return void res.json({
+                blueprints: kind === 'project' ? blueprints.map(summarizeBlueprint) : blueprints
+            });
         } catch (err: unknown) {
             return void sendApiError(res, req, err);
         }
@@ -94,10 +98,12 @@ export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
     '/blueprints/projects': {
         get: {
             summary: 'List project blueprints',
+            description:
+                'Each without its bundle: `id`, `name`, `description`, `firstProject`, and `contains`, how many templates, models, blocks, structures, pages, entries, files, menus and forms a project made from it starts with. `GET /blueprints/projects/:id` gives one whole.',
             tags: ['Blueprints'],
             responses: {
                 '200': {
-                    description: 'List of project blueprints',
+                    description: '`{ blueprints }`: the project blueprints, each summarized',
                     content: {
                         'application/json': {
                             schema: {
@@ -105,7 +111,20 @@ export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
                                 properties: {
                                     blueprints: {
                                         type: 'array',
-                                        items: { $ref: '#/components/schemas/Blueprint' }
+                                        items: {
+                                            type: 'object',
+                                            properties: {
+                                                id: { type: 'string' },
+                                                name: { type: 'string' },
+                                                description: { type: 'string' },
+                                                kind: { type: 'string' },
+                                                firstProject: { type: 'boolean' },
+                                                contains: {
+                                                    type: 'object',
+                                                    additionalProperties: { type: 'integer' }
+                                                }
+                                            }
+                                        }
                                     }
                                 }
                             }
@@ -552,24 +571,19 @@ export const schemas: OpenAPIV3.ComponentsObject['schemas'] = {
                 description:
                     'Offer this starting point to a new person making their first project. Project blueprints only; set by an operator.'
             },
+            bundle: {
+                type: 'object',
+                additionalProperties: true,
+                description:
+                    'Project blueprints: an import bundle (see POST /projects/:projectId/imports), imported all or nothing into a project made from it.'
+            },
             template: { $ref: '#/components/schemas/BlueprintTemplate' }
         }
     },
     BlueprintTemplate: {
         type: 'object',
+        description: 'Model, structure and template blueprints: the one schema they make.',
         properties: {
-            models: {
-                type: 'array',
-                items: { $ref: '#/components/schemas/Model' }
-            },
-            layouts: {
-                type: 'array',
-                items: { type: 'object' }
-            },
-            structures: {
-                type: 'array',
-                items: { type: 'object' }
-            },
             model: { $ref: '#/components/schemas/Model' },
             structure: { type: 'object' },
             template: {

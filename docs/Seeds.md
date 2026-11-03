@@ -1,17 +1,16 @@
 # Seeds
 
-**Seeds** are canonical blueprint files that you copy into your project’s `data/blueprints/` directory. They give you a one-command way to get started with predefined project, model, structure, and template blueprints (e.g. blog, basic-page, publishable, SEO, article template).
+**Seeds** are starter blueprint files a server copies into its own blueprints (`data/blueprints/`, for every project on the server). They give you a one-command way to get started with predefined project, model, structure and template blueprints.
 
 ---
 
 ## What gets seeded
 
-Seeds live under `data/seeds/blueprints/` by kind:
+Seed files don't come with the repository: you put them on the server, by kind, under `{DATA_ROOT}/data/seeds/blueprints/`:
 
-- **project/** — e.g. empty, blog
-- **model/** — e.g. blog-post, basic-page
-- **structure/** — e.g. publishable, seo
-- **template/** — e.g. landing, article, default
+- **project/**, **model/**, **structure/**, **template/**: one blueprint JSON file each (see [Blueprints](Blueprints.md) for their shape).
+
+Without that folder, seeding stops with "Seeds directory not found". Most servers don't need seeds: the starter blueprints come in code from [`@moteurio/plugin-core-blueprints`](https://github.com/moteurio/moteur-plugins) (person, event, product, question and more), and a host's own come from its plugins.
 
 Running the seed command copies **missing** files from `data/seeds/blueprints/<kind>/` into `data/blueprints/<kind>/`. Existing blueprint files are left unchanged unless you use the force option.
 
@@ -19,24 +18,22 @@ Running the seed command copies **missing** files from `data/seeds/blueprints/<k
 
 ## How to run
 
-From the **moteur** directory:
+From the **moteur** directory, with the engine built (`pnpm build`), on the server's data (`DATA_ROOT`):
 
 ```bash
 # Copy only missing blueprints (safe default)
 pnpm run seed
 
-# Overwrite existing blueprint files with seed versions
+# Overwrite existing blueprint files with the seed versions
 pnpm run seed:force
 ```
 
-Via the **CLI**:
+On a running server, an operator does the same with the CLI (after `moteur operator login`):
 
 ```bash
-pnpm run cli -- seed
-pnpm run cli -- seed --force
+moteur operator seed
+moteur operator seed --overwrite
 ```
-
-The data root is resolved the same way as the API (e.g. `DATA_ROOT` env or default when run from the workspace root).
 
 ---
 
@@ -48,5 +45,3 @@ Once blueprints are in `data/blueprints/`, you can:
 - Create **models**, **structures**, and **templates** from their blueprints via Studio or the API (pass `blueprintId` when creating).
 
 See [Blueprints](Blueprints.md) for how blueprints are used, and the main [README](../README.md) for quick start.
-
-**Monorepo note:** Runtime paths always live under `{DATA_ROOT}/data/seeds/blueprints/` (with `data/` gitignored locally). Canonical seed JSON for development is kept at [`_data/seeds/`](../_data/seeds/README.md); copy or sync that tree into `data/seeds/` before running `pnpm run seed`.

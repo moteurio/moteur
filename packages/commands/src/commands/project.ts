@@ -157,7 +157,7 @@ export const members = group('members', [
     },
     {
         name: 'update',
-        summary: 'Change someone’s roles in the project, or turn their access off',
+        summary: 'Change someone’s roles in the project',
         args: [
             project,
             userArg,
@@ -167,15 +167,7 @@ export const members = group('members', [
                 description:
                     'writer, translator, reviewer, lead, builder, admin, developer, billing',
                 in: 'body'
-            },
-            {
-                name: 'active',
-                type: 'boolean',
-                description: 'Access on (--no-active: off)',
-                in: 'body',
-                key: 'isActive'
-            },
-            { name: 'name', description: 'Name', in: 'body' }
+            }
         ],
         http: `PATCH ${P}/users/{user}`,
         done: (_r, a) => `Saved ${a.user}.`

@@ -117,7 +117,8 @@ export const blueprints = group('blueprints', [
     },
     {
         name: 'create',
-        summary: 'Create a blueprint (JSON: { id, name, description, template })',
+        summary:
+            'Create a blueprint (JSON: { id, name, description }, with a bundle for a project blueprint, a template for the others)',
         args: [kindArg],
         body: 'json',
         http: 'POST /blueprints/{kind}s',
