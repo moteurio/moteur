@@ -1,6 +1,6 @@
 {
     "name": "@moteurio/api",
-    "version": "2026.11.3",
+    "version": "2026.11.3-2",
     "description": "Express REST API for Moteur: admin, public channels, OpenAPI, webhooks",
     "main": "./dist/index.js",
     "bin": {

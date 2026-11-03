@@ -1,6 +1,6 @@
 {
     "name": "@moteurio/vanilla",
-    "version": "2026.11.3",
+    "version": "2026.11.3-2",
     "private": true,
     "description": "Vanilla JS helpers for Moteur delivery (fetch wrapper + block registry)",
     "type": "module",

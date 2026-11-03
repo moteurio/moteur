@@ -1,6 +1,6 @@
 {
     "name": "@moteurio/vue",
-    "version": "2026.11.3",
+    "version": "2026.11.3-2",
     "private": true,
     "description": "Vue helpers for Moteur delivery",
     "type": "module",

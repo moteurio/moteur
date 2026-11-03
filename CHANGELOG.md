@@ -2,6 +2,10 @@
 
 All notable changes to published `@moteurio/*` packages are documented here. Version lines are kept aligned across the monorepo for coordinated releases (see [RELEASING.md](RELEASING.md) and [VERSIONING.md](VERSIONING.md)).
 
+## 2026.11.3-2
+
+- fix(blueprints): a project whose main language isn't the blueprint's keeps its home page (de60caa)
+
 ## 2026.11.3
 
 - docs(release): @moteurio/astro is staged after the client (58c4b18)

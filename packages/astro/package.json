@@ -1,6 +1,6 @@
 {
     "name": "@moteurio/astro",
-    "version": "2026.11.3",
+    "version": "2026.11.3-2",
     "description": "Moteur for Astro: content loaders, typed blocks and templates, pictures, rich text and preview",
     "keywords": [
         "moteur",
