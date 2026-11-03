@@ -68,6 +68,60 @@ describe('a project made from a blueprint', () => {
         expect((await getPage('site', 'home')).status).toBe('published');
     });
 
+    it('gets its content while it waits for a plan, and the plan applies after', async () => {
+        const limits = await import('../../src/planLimits.js');
+        // A project waiting for a plan: room for nothing (the host's billing says 0 for it).
+        limits.setCountLimit(() => 0);
+        limits.setStorageLimit(() => 0);
+        try {
+            registerBlueprint(mini as never);
+            const made = await projects.createProjectFromBlueprint(
+                ada(),
+                { id: 'waits', label: 'Waits', defaultLocale: 'en' } as never,
+                'mini'
+            );
+            expect(made.blueprint).toMatchObject({ status: 'done', issues: [] });
+            await gitIdle();
+            expect((await getPage('waits', 'home')).status).toBe('published');
+            // Outside its making, the plan's limits hold, and say what to do.
+            expect(limits.getCountLimit('waits', 'pages')).toBe(0);
+            expect(() => limits.assertStorageRoom('waits', 0, 10)).toThrow(/waiting for a plan/);
+        } finally {
+            limits.setCountLimit(null);
+            limits.setStorageLimit(null);
+        }
+    });
+
+    it('adds a blueprint to an empty project made without it, and never to one with content', async () => {
+        registerBlueprint(mini as never);
+        await projects.createProjectFromBlueprint(
+            ada(),
+            { id: 'bare', label: 'Bare', defaultLocale: 'en' } as never,
+            undefined
+        );
+        await expect(
+            projects.applyBlueprintToProject(ada(), 'bare', 'mini')
+        ).resolves.toMatchObject({
+            id: 'mini',
+            status: 'done',
+            issues: []
+        });
+        await gitIdle();
+        expect((await getPage('bare', 'home')).status).toBe('published');
+        // It has content now: a second blueprint would replace some of it.
+        await expect(projects.applyBlueprintToProject(ada(), 'bare', 'mini')).rejects.toMatchObject(
+            {
+                status: 409,
+                code: 'PROJECT_NOT_EMPTY'
+            }
+        );
+        await expect(projects.applyBlueprintToProject(ada(), 'bare', 'nope')).rejects.toMatchObject(
+            {
+                status: 404
+            }
+        );
+    });
+
     it('says why when its bundle fails, and the project is made empty', async () => {
         registerBlueprint({
             ...mini,

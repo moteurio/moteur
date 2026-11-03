@@ -71,7 +71,7 @@ function messageFromAxiosError(err: unknown): string {
 /** Thrown when the API returns a non-2xx response (after axios). Check `status` and `response`. */
 export class MoteurApiError extends Error {
     readonly status?: number;
-    readonly response?: unknown;
+    declare readonly response?: unknown;
     /** The JSON body the API answered with, if any. */
     readonly data?: Record<string, unknown>;
     /** A machine-readable reason from the body (`code`, else a snake_case `error`), e.g. `insufficient_credits`. */
@@ -81,7 +81,13 @@ export class MoteurApiError extends Error {
         super(message);
         this.name = 'MoteurApiError';
         this.status = options?.status;
-        this.response = options?.response;
+        // The raw response links back to its request: kept, but out of what gets copied or sent
+        // as JSON (a dev server showing the error must not choke on it).
+        Object.defineProperty(this, 'response', {
+            value: options?.response,
+            enumerable: false,
+            configurable: true
+        });
         const body = (options?.response as { data?: unknown } | undefined)?.data;
         if (body && typeof body === 'object' && !Array.isArray(body)) {
             this.data = body as Record<string, unknown>;
@@ -91,6 +97,17 @@ export class MoteurApiError extends Error {
                 this.code = error;
         }
         Object.setPrototypeOf(this, new.target.prototype);
+    }
+
+    /** What the error says, as plain data: safe to log or send anywhere. */
+    toJSON(): { name: string; message: string; status?: number; code?: string; data?: unknown } {
+        return {
+            name: this.name,
+            message: this.message,
+            ...(this.status !== undefined && { status: this.status }),
+            ...(this.code !== undefined && { code: this.code }),
+            ...(this.data !== undefined && { data: this.data })
+        };
     }
 
     /** Seconds the server asked to wait (429 `Retry-After`), if it said. */

@@ -71,3 +71,27 @@ describe('onError', () => {
         expect(heard).toHaveLength(1);
     });
 });
+
+describe('MoteurApiError as data', () => {
+    it('turns into JSON and copies without its raw response, which loops back to its request', () => {
+        const request: Record<string, unknown> = {};
+        const response = {
+            status: 404,
+            data: { error: '"settings" is not a settings model' },
+            request
+        };
+        request.res = response;
+        const error = new MoteurApiError('"settings" is not a settings model', {
+            status: 404,
+            response
+        });
+        expect(JSON.parse(JSON.stringify(error))).toEqual({
+            name: 'MoteurApiError',
+            message: '"settings" is not a settings model',
+            status: 404,
+            data: { error: '"settings" is not a settings model' }
+        });
+        expect(Object.keys(error)).not.toContain('response');
+        expect(error.response).toBe(response);
+    });
+});
