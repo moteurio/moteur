@@ -61,6 +61,13 @@ Imports and exports are for the project's admins, since an export holds every dr
         ]
     },
     "menus": [{ "handle": "header", "label": "Header", "items": [] }],
+    "forms": [
+        {
+            "id": "contact",
+            "label": "Contact",
+            "fields": { "email": { "type": "core/email", "label": "Email" } }
+        }
+    ],
     "redirects": [{ "from": "/old", "to": "/new", "status": 301 }]
 }
 ```
@@ -70,6 +77,7 @@ Imports and exports are for the project's admins, since an export holds every dr
 - **`existing`:** what to do with something already there (same id, type, handle or `from`): `update` it (the default; an entry's data is merged), `skip` it, or `fail` (and keep nothing).
 - **Files:** from a public HTTPS address (the server downloads it, refusing private network addresses) or inline in base64 with `name`. A file the library already has is used again, not added twice.
 - **Rich text from HTML:** a rich-text field may be given as `{ "html": "<p>…</p>" }`, or `{ "html": { "en": "…", "fr": "…" } }` for one per language, at any depth. The import turns it into rich text: paragraphs, headings, lists, quotes, code, rules and line breaks; bold, italic, underline, struck, code and highlighted words; links. A link whose address is a page's, in the bundle or the project (`/download`, `/fr/telecharger`), becomes a link to that page and follows it. What rich text can't hold (pictures, tables, embeds, forms) is left out, and the job's `notes` say where: `pages[3].fields.body.html: 2 pictures and 1 table left out.` A dry run says the same.
+- **Forms:** by `id`, as the forms API takes them (see [Forms](Forms.md)). A form is `active` unless it says otherwise, so it takes answers as soon as the import is saved.
 - **Drafts:** pages and entries are saved as drafts. A page that is already live stays live as published, and the import's changes wait in it. With `"publish": true` they all go live in a second step (a page or entry with `"published": true` does on its own, as an export marks them), unless the person or agent needs approval (an agent, or a project whose workflow requires review): the import then waits as `awaiting_approval`, and one person approves it all with `moteur imports approve <id>` (`POST /imports/:id/approve`). An agent can't approve. Menus are live as soon as they're saved, so an agent's menus always wait for that approval, with `publish` or without.
 
 ## Jobs

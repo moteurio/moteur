@@ -20,7 +20,10 @@ const mockCreateBlueprint = vi.fn();
 const mockUpdateBlueprint = vi.fn();
 const mockDeleteBlueprint = vi.fn();
 
-vi.mock('@moteurio/core/blueprints.js', () => ({
+vi.mock('@moteurio/core/blueprints.js', async importOriginal => ({
+    // Pure: the real one.
+    summarizeBlueprint: (await importOriginal<typeof import('@moteurio/core/blueprints.js')>())
+        .summarizeBlueprint,
     listBlueprints: (...args: unknown[]) => mockListBlueprints(...args),
     getBlueprint: (...args: unknown[]) => mockGetBlueprint(...args),
     createBlueprint: (...args: unknown[]) => mockCreateBlueprint(...args),
@@ -51,6 +54,31 @@ describe('GET /blueprints/projects', () => {
         expect(res.status).toBe(200);
         expect(res.body).toEqual({ blueprints });
         expect(mockListBlueprints).toHaveBeenCalledWith('project');
+    });
+
+    it('lists each by what it holds, not its whole bundle', async () => {
+        mockListBlueprints.mockReturnValue([
+            {
+                id: 'blog',
+                name: 'Blog',
+                kind: 'project',
+                bundle: {
+                    version: 1,
+                    templates: [{ id: 'page' }, { id: 'blog' }],
+                    models: [{ id: 'post' }],
+                    pages: [{ id: 'home' }],
+                    entries: { post: [{ id: 'a' }, { id: 'b' }] },
+                    assets: [{ ref: 'x', content: 'AAAA', name: 'x.png' }]
+                }
+            }
+        ]);
+        const res = await request(app).get('/blueprints/projects');
+        expect(res.body.blueprints[0]).toEqual({
+            id: 'blog',
+            name: 'Blog',
+            kind: 'project',
+            contains: { templates: 2, models: 1, pages: 1, entries: 2, files: 1 }
+        });
     });
 
     it('returns 500 when listBlueprints throws', async () => {
