@@ -93,6 +93,28 @@ export const projects = group('projects', [
             `Created ${(r as { project?: { id?: string } })?.project?.id ?? a.id}. Make it the default: moteur projects use ${a.id ?? '<id>'}`
     },
     {
+        name: 'add-blueprint',
+        summary: 'Add a blueprint’s content to an empty project (one made without it)',
+        args: [
+            project,
+            {
+                name: 'blueprint',
+                description: 'A project blueprint (moteur blueprints list project)',
+                required: true,
+                positional: 0,
+                in: 'body',
+                key: 'blueprintId'
+            }
+        ],
+        http: `POST ${P}/blueprint`,
+        done: r => {
+            const b = (r as { fromBlueprint?: { id?: string; status?: string } }).fromBlueprint;
+            return b?.status === 'done'
+                ? `The ${b.id} blueprint’s content is in.`
+                : `The import ${b?.status ?? 'stopped'}.`;
+        }
+    },
+    {
         name: 'update',
         summary: 'Change a project’s settings (JSON with the fields to change, or a new label)',
         args: [projectFirst, { name: 'label', description: 'New name', in: 'body' }],
