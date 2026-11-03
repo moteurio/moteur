@@ -61,7 +61,8 @@ export function adaptBundleToLanguages(
                 const bySource: Record<string, string> = { ...page.slugs, [source]: page.slug };
                 const slugs = Object.fromEntries(
                     target
-                        .filter(l => l !== to.defaultLocale && bySource[l] !== undefined)
+                        // The home page's empty address is its own in every language: no slug.
+                        .filter(l => l !== to.defaultLocale && bySource[l])
                         .map(l => [l, bySource[l]!])
                 );
                 const { slugs: _s, languages: list, fields, ...rest } = page;

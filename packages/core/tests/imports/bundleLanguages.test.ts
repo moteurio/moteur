@@ -68,6 +68,21 @@ describe('a bundle made to fit a project’s languages', () => {
         expect(out.pages![1]).toMatchObject({ languages: ['fr'] });
     });
 
+    it('keeps the home page at the root in a French project with English beside it', () => {
+        const home = { id: 'home', label: 'Home', slug: '', templateId: 'home', fields: {} };
+        const out = adaptBundleToLanguages({ version: 1, pages: [home] } as never, from, {
+            defaultLocale: 'fr',
+            locales: ['en']
+        });
+        expect(out.pages![0]).toEqual({
+            id: 'home',
+            label: 'Home',
+            slug: '',
+            templateId: 'home',
+            fields: {}
+        });
+    });
+
     it('gives a language the bundle doesn’t have its main language’s text, to translate', () => {
         const out = adaptBundleToLanguages(bundle as never, from, {
             defaultLocale: 'de',
