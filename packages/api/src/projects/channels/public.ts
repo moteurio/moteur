@@ -21,6 +21,7 @@ import type { PageNode } from '@moteurio/types/Page.js';
 import { selectFields, selectFieldsFromList } from '@moteurio/core/fieldSelection.js';
 import {
     resolveEntryReferences,
+    resolveFieldReferences,
     type EntryResolver,
     type ReferenceSchemas
 } from '@moteurio/core/referenceResolution.js';
@@ -254,6 +255,8 @@ type Delivery = {
     /** `?locale=`: every multilingual value comes down to this language. */
     choice?: LocaleChoice;
     resolveAssets: boolean;
+    /** Relations to entries in a page's fields: inlined this deep (the page resource's `resolve`). */
+    pageReferences: { depth: 0 | 1 | 2; statuses: EntryStatus[]; resolve: EntryResolver };
 };
 
 async function deliveryFor(
@@ -274,8 +277,16 @@ async function deliveryFor(
                     )))
     });
     const locale = parseLocaleQuery(req);
+    // A page's relations show what a site may see: entries as published (drafts too in a
+    // preview of drafts), of the models the channel gives, with their field allowlists.
+    const budget = new EntryReadBudget(drafts ? getEntryForProject : getPublishedEntryForProject);
     return {
         projectId,
+        pageReferences: {
+            depth: (resource?.resolve ?? 0) as 0 | 1 | 2,
+            statuses: drafts ? ['draft', 'published'] : ['published'],
+            resolve: channelResolver(channel, budget.resolve)
+        },
         schemas: await localeSchemas(projectId, links.schemas.blocks),
         links,
         linkOptions: pageLinkOptions(channel, req, drafts),
@@ -321,7 +332,8 @@ const languageNote = (choice: LocaleChoice | undefined) =>
         : {};
 
 /**
- * A page as delivered: links and page relations filled in, then pictures (whose alt may come
+ * A page as delivered: relations to entries inlined (the page resource's `resolve`), links and
+ * page relations filled in, then pictures (whose alt may come
  * from the asset), then one language (the default when it isn't in the one asked for).
  */
 async function deliverPage(page: PageNode, d: Delivery): Promise<PageNode> {
@@ -329,8 +341,18 @@ async function deliverPage(page: PageNode, d: Delivery): Promise<PageNode> {
     const template = d.links.templates?.get(page.templateId);
     if (!template) return page;
     const own = template.fields as ModelSchema['fields'];
-    const linked =
-        (await resolvePageLinks(page.fields, own, d.links, d.linkOptions)) ?? page.fields;
+    const { depth, statuses, resolve } = d.pageReferences;
+    // Relations to entries, wherever they sit: in the page's fields and in its blocks.
+    const related = depth
+        ? await resolveFieldReferences(page.fields ?? {}, own, {
+              projectId: d.projectId,
+              depth,
+              statusFilter: statuses,
+              entryResolver: resolve,
+              schemas: referenceSchemas(d)
+          })
+        : page.fields;
+    const linked = (await resolvePageLinks(related, own, d.links, d.linkOptions)) ?? related;
     let out = { ...page, fields: linked };
     if (d.resolveAssets) out = await resolvePageAssets(d.projectId, out, template, d.schemas);
     const choice = choiceFor(page, d);

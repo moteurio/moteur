@@ -53,6 +53,58 @@ export function referenceOf(value: unknown, field: Field): { modelId: string; id
     return null;
 }
 
+export type FieldReferenceOptions = {
+    projectId: string;
+    /** 1 = the entries a relation points to, 2 = theirs as well. */
+    depth: 0 | 1 | 2;
+    visited?: Set<string>;
+    statusFilter?: EntryStatus[];
+    entryResolver?: EntryResolver;
+    schemas: ReferenceSchemas;
+};
+
+/**
+ * Relations to entries inlined in any record with a schema (an entry's data, a page's fields),
+ * wherever they sit: in blocks, lists, structures and variants. Each entry inlined resolves its
+ * own relations, `depth - 1` levels more.
+ */
+export async function resolveFieldReferences(
+    data: Record<string, unknown>,
+    fields: Record<string, Field>,
+    options: FieldReferenceOptions
+): Promise<Record<string, any>> {
+    const { projectId, depth, statusFilter, schemas } = options;
+    const visited = options.visited ?? new Set<string>();
+    const entryResolver = options.entryResolver ?? getEntryForProject;
+    if (depth === 0) return data;
+    const inline = async (value: unknown, field: Field): Promise<unknown> => {
+        const ref = referenceOf(value, field);
+        if (!ref) return value;
+        const refKey = `${ref.modelId}:${ref.id}`;
+        if (visited.has(refKey)) return value;
+        const resolved = await entryResolver(projectId, ref.modelId, ref.id);
+        if (!resolved || !allowedStatus(resolved, statusFilter)) return value;
+        return resolveEntryReferences(
+            resolved,
+            projectId,
+            ref.modelId,
+            (depth - 1) as 0 | 1 | 2,
+            new Set(visited).add(refKey),
+            statusFilter,
+            entryResolver,
+            schemas
+        );
+    };
+    return (await walkFields(data, fields, schemas.walk, async (value, field) => {
+        if (!pointsAtEntries(field)) return undefined;
+        if (field.type === 'core/relation') return inline(value, field);
+        if (!Array.isArray(value)) return value;
+        const out = [];
+        for (const item of value) out.push(await inline(item, field));
+        return out;
+    })) as Record<string, any>;
+}
+
 function allowedStatus(resolved: Entry, statusFilter?: EntryStatus[]): boolean {
     if (!statusFilter || statusFilter.length === 0) return true;
     const s = resolved.status ?? 'draft';
@@ -84,39 +136,15 @@ export async function resolveEntryReferences(
 
     const schema = schemas ? await schemas.model(currentModelId) : null;
     let source: Record<string, any> = entry.data;
-    if (schema && schemas) {
-        const inline = async (value: unknown, field: Field): Promise<unknown> => {
-            const ref = referenceOf(value, field);
-            if (!ref) return value;
-            const refKey = `${ref.modelId}:${ref.id}`;
-            if (visited.has(refKey)) return value;
-            const resolved = await entryResolver(projectId, ref.modelId, ref.id);
-            if (!resolved || !allowedStatus(resolved, statusFilter)) return value;
-            return resolveEntryReferences(
-                resolved,
-                projectId,
-                ref.modelId,
-                (depth - 1) as 0 | 1 | 2,
-                new Set(visited).add(refKey),
-                statusFilter,
-                entryResolver,
-                schemas
-            );
-        };
-        source = (await walkFields(
-            entry.data,
-            schema.fields,
-            schemas.walk,
-            async (value, field) => {
-                if (!pointsAtEntries(field)) return undefined;
-                if (field.type === 'core/relation') return inline(value, field);
-                if (!Array.isArray(value)) return value;
-                const out = [];
-                for (const item of value) out.push(await inline(item, field));
-                return out;
-            }
-        )) as Record<string, any>;
-    }
+    if (schema && schemas)
+        source = await resolveFieldReferences(entry.data, schema.fields, {
+            projectId,
+            depth,
+            visited,
+            statusFilter,
+            entryResolver,
+            schemas
+        });
 
     // With the model's schema, its relation fields are the only references: a `{ id, type }`
     // stored anywhere else is content.

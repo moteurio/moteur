@@ -1,5 +1,9 @@
 import { describe, it, expect } from 'vitest';
-import { resolveEntryReferences, type EntryResolver } from '../src/referenceResolution.js';
+import {
+    resolveEntryReferences,
+    resolveFieldReferences,
+    type EntryResolver
+} from '../src/referenceResolution.js';
 import type { Entry } from '@moteurio/types/Model.js';
 
 function makeEntry(id: string, type: string, data: Record<string, any> = {}): Entry {
@@ -165,5 +169,75 @@ describe('resolveEntryReferences', () => {
         );
         // Author is draft, but filter is published-only — should not inline
         expect(result.data?.author).toEqual({ id: 'author-1', type: 'authors' });
+    });
+});
+
+describe('resolveFieldReferences', () => {
+    const plans = {
+        id: 'plans',
+        label: 'Plans',
+        fields: {
+            name: { type: 'core/text', label: 'Name' },
+            next: { type: 'core/relation', label: 'Next', options: { model: 'plans' } }
+        }
+    };
+    const schemas = {
+        model: async (id: string) => (id === 'plans' ? (plans as any) : null),
+        walk: {
+            blocks: {
+                pricing: {
+                    type: 'pricing',
+                    label: 'Pricing',
+                    fields: {
+                        plans: {
+                            type: 'core/relations',
+                            label: 'Plans',
+                            options: { model: 'plans' }
+                        }
+                    }
+                }
+            } as any,
+            structures: {}
+        }
+    };
+    const resolver: EntryResolver = async (_p, model, id) =>
+        model === 'plans' ? makeEntry(id, 'plans', { name: id.toUpperCase(), next: 'sync' }) : null;
+    const fields = { blocks: { type: 'core/block-list', label: 'Blocks' } } as any;
+    const data = { blocks: [{ type: 'pricing', data: { plans: ['free', 'sync'] } }] };
+
+    it('inlines relations stored as ids inside blocks', async () => {
+        const out = await resolveFieldReferences(data, fields, {
+            projectId: 'p',
+            depth: 1,
+            entryResolver: resolver,
+            schemas
+        });
+        expect(
+            out.blocks[0].data.plans.map((p: Entry) => [p.id, p.data.name, p.data.next])
+        ).toEqual([
+            ['free', 'FREE', 'sync'],
+            ['sync', 'SYNC', 'sync']
+        ]);
+    });
+
+    it('goes one level further at depth 2, and leaves everything at depth 0', async () => {
+        const two = await resolveFieldReferences(data, fields, {
+            projectId: 'p',
+            depth: 2,
+            entryResolver: resolver,
+            schemas
+        });
+        expect(two.blocks[0].data.plans[0].data.next).toMatchObject({
+            id: 'sync',
+            data: { name: 'SYNC' }
+        });
+        expect(
+            await resolveFieldReferences(data, fields, {
+                projectId: 'p',
+                depth: 0,
+                entryResolver: resolver,
+                schemas
+            })
+        ).toBe(data);
     });
 });
