@@ -16,6 +16,7 @@ import { listTemplates } from '../templates.js';
 import { listBlocks } from '../blocks.js';
 import { listNavigations } from '../navigations.js';
 import { listRedirects } from '../redirects.js';
+import { listFormsForProject } from '../forms.js';
 import { listAssets } from '../assets/assetService.js';
 import { getProjectAdapter } from '../assets/adapterRegistry.js';
 import { projectRecords } from '../contentReferences.js';
@@ -138,6 +139,13 @@ export async function exportBundle(
             ...(n.itemSchema && { itemSchema: n.itemSchema }),
             items: assetRefs(n.items, ids) as unknown[]
         })),
+        // Forms as they are, without their dates (secrets live apart and don't travel).
+        forms: (await listFormsForProject(projectId)).map(
+            ({ createdAt: _c, updatedAt: _u, ...form }) => {
+                const { secretSet: _s, ...captcha } = form.captcha ?? ({} as never);
+                return form.captcha ? { ...form, captcha } : form;
+            }
+        ),
         // Moteur's own redirects come back as addresses change: only the ones people made.
         redirects: (await listRedirects(projectId))
             .filter(r => !r.auto)

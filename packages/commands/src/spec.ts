@@ -97,6 +97,34 @@ export interface CommandSpec {
     examples?: string[];
 }
 
+/**
+ * Commands a host plugin serves, not the engine: they work against a host that has the plugin
+ * (api.moteur.io has them all). By group, or by `group name` for single commands, and `''` for a
+ * command of such a group the engine serves itself. The open command reference lists them by
+ * name only, and the host's docs describe them.
+ */
+export const PLUGIN_COMMANDS: Record<string, string> = {
+    ai: 'AI helpers',
+    billing: 'billing',
+    search: 'search',
+    shopify: 'Shopify',
+    play: 'play blocks',
+    'operator plans': 'billing',
+    'operator update-plan': 'billing',
+    'operator billing': 'billing',
+    'operator grant-plan': 'billing',
+    'operator end-grant': 'billing',
+    'operator revenue': 'billing',
+    // Served by the engine (the AI audit trail) and by the open oEmbed plugin.
+    'ai audit': '',
+    'ai audit-event': '',
+    'play oembed': ''
+};
+
+/** The host plugin a command needs, if any (see PLUGIN_COMMANDS). */
+export const pluginOf = (c: Pick<CommandSpec, 'group' | 'name'>): string | undefined =>
+    (PLUGIN_COMMANDS[`${c.group} ${c.name}`] ?? PLUGIN_COMMANDS[c.group]) || undefined;
+
 /** Lists a group's commands. */
 export const group = (name: string, commands: Omit<CommandSpec, 'group'>[]): CommandSpec[] =>
     commands.map(c => ({ ...c, group: name }));

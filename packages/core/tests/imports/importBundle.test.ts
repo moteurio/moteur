@@ -486,6 +486,29 @@ describe('importing a bundle', () => {
         expect((await getPage(other, 'later')).status).toBe('draft');
     });
 
+    it('brings forms, and an export carries them', async () => {
+        const contact = {
+            id: 'contact',
+            label: 'Contact',
+            fields: {
+                email: { type: 'core/email', label: 'Email', options: { required: true } },
+                message: { type: 'core/textarea', label: 'Message' }
+            },
+            honeypot: true
+        };
+        const out = await importBundle(admin, projectId, { version: 1, forms: [contact] } as never);
+        expect(out).toMatchObject({
+            status: 'done',
+            items: [{ kind: 'form', id: 'contact', action: 'create' }]
+        });
+        const bundle = await exportBundle(admin, projectId);
+        expect(bundle.forms).toEqual([expect.objectContaining({ ...contact, status: 'active' })]);
+        expect(bundle.forms![0]).not.toHaveProperty('createdAt');
+        expect(
+            (await importBundle(admin, other, { version: 1, forms: bundle.forms } as never)).status
+        ).toBe('done');
+    });
+
     it('undoes a job the server stopped in the middle of', async () => {
         const half = path.join(dirOf(projectId), 'pages', 'half.json');
         await fs.mkdir(path.dirname(half), { recursive: true });

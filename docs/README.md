@@ -63,6 +63,6 @@ These guides describe the engine in this repository: content modeling, delivery,
 | [Studio plugin SDK](../packages/studio-plugin-sdk/README.md)    | The engine-owned browser extension contract                                  |
 | [Versioning](../VERSIONING.md) and [releasing](../RELEASING.md) | Package compatibility and release procedure                                  |
 
-Plugin installation and authoring guidance lives in [moteur-plugins](https://github.com/moteurio/moteur-plugins/blob/main/docs/Plugins.md). AI and Socket.IO presence are optional private plugins; their runtime manuals live with their implementations in `moteur-plugins-extra`. They are not bundled engine APIs.
+Plugin installation and authoring guidance lives in [moteur-plugins](https://github.com/moteurio/moteur-plugins/blob/main/docs/Plugins.md). AI helpers and live presence are optional host plugins, not part of the engine. Their manuals come with them.
 
 The API serves Scalar at `{API_BASE_PATH}/docs` and its merged schema at `{API_BASE_PATH}/openapi.json`. The hosted [API reference](https://docs.api.moteur.io) describes the production host's plugin composition, which can differ from an engine-only installation.

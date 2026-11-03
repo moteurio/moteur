@@ -6,10 +6,10 @@ Blocks are content units that live inside **layouts** and **block-list** fields.
 
 ## Global vs project block schemas
 
-| Layer        | Storage (typical)                                            | Type id prefix | Who changes it                                                                                                                             |
-| ------------ | ------------------------------------------------------------ | -------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
-| **Built-in** | Shipped in `@moteurio/core` and/or `data/core/blocks/*.json` | `core/`        | Engine release; operators can add or change them in Studio **Operator › Blocks & structures**, or via `{basePath}/operator/schemas/blocks` |
-| **Project**  | `data/projects/<projectId>/blocks/<name>.json`               | none (`hero`)  | Anyone with project access (Studio `POST/PATCH/DELETE …/projects/:id/blocks`)                                                              |
+| Layer        | Storage (typical)                                            | Type id prefix | Who changes it                                                                                                               |
+| ------------ | ------------------------------------------------------------ | -------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| **Built-in** | Shipped in `@moteurio/core` and/or `data/core/blocks/*.json` | `core/`        | Engine release; operators can add or change them through `{basePath}/operator/schemas/blocks` (`moteur operator put-schema`) |
+| **Project**  | `data/projects/<projectId>/blocks/<name>.json`               | none (`hero`)  | A project's builders (`POST/PATCH/DELETE …/projects/:id/blocks`)                                                             |
 
 **The rule:** a name with a slash is the server's (`core/hero`, a plugin's `geo/map`). A name without one is the project's own (`hero`). Structures follow the same rule (`cta`, `core/seo`). Content stores the name as it is, so a project's content doesn't carry the project's id and moves to another project as it is. A project block named with a slash is refused.
 

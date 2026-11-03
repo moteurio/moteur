@@ -30,8 +30,13 @@ router.post('/', requireAuth, async (req: Request, res: Response) => {
                 .status(400)
                 .json({ validation: result.validation.issues, error: 'Validation failed' });
         }
-        // TODO (optional): send email to creator/owner that a new project was created
-        return void res.status(201).json(result.project && redactProjectSecrets(result.project));
+        return void res.status(201).json(
+            result.project && {
+                ...redactProjectSecrets(result.project),
+                // What the blueprint's import did: done, or why it kept nothing.
+                ...(result.blueprint && { fromBlueprint: result.blueprint })
+            }
+        );
     } catch (err: unknown) {
         return void sendApiError(res, req, err);
     }
@@ -55,7 +60,7 @@ export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
                                         blueprintId: {
                                             type: 'string',
                                             description:
-                                                'Optional blueprint id to apply template (models, layouts, structures) to the new project.'
+                                                'A project blueprint to start from: its bundle is imported into the new project, and the answer says how in `fromBlueprint` (`status`, `issues`). An unknown one is refused (404) before anything is made.'
                                         }
                                     }
                                 }
@@ -113,7 +118,7 @@ export const schemas: OpenAPIV3.ComponentsObject['schemas'] = {
             locale: { type: 'string' },
             blueprintId: {
                 type: 'string',
-                description: 'Optional blueprint id to apply template to the new project.'
+                description: 'A project blueprint to start from (its bundle is imported).'
             },
             modules: {
                 type: 'array',

@@ -39,17 +39,17 @@ Refusals carry a machine `code`, and `retryAfter` (seconds, also the `Retry-Afte
 
 ## 📁 Projects
 
-All project endpoints require JWT. Project list/get/update/delete may require **operator** (platform) access or project membership depending on implementation.
+All project endpoints require JWT and act on projects you are a member of. Operators manage every project through `/operator` (below).
 
-| Method | Endpoint                             | Description                                                                                                                                                                                                                                                                                                |
-| ------ | ------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| GET    | `/projects`                          | List all projects (operator). Returns `{ projects }`.                                                                                                                                                                                                                                                      |
-| GET    | `/projects/:projectId`               | Get one project. Returns `{ project }`.                                                                                                                                                                                                                                                                    |
-| POST   | `/projects`                          | Create a project. Body may include `blueprintId`. Returns created project.                                                                                                                                                                                                                                 |
-| PATCH  | `/projects/:projectId`               | Update a project. Returns `{ project }`.                                                                                                                                                                                                                                                                   |
-| DELETE | `/projects/:projectId`               | Delete a project.                                                                                                                                                                                                                                                                                          |
-| GET    | `/projects/:projectId/users`         | List users with access to the project. See [Project members](#project-members) below.                                                                                                                                                                                                                      |
-| PATCH  | `/projects/:projectId/users/:userId` | Update a user record (platform **operator** role only — `admin` / `OPERATOR_ROLE_SLUG`). Target must already be in the project. Body: optional `name`, `email`, `isActive`, `roles` (string array), `avatar` (URL/path or empty string to clear). Returns `{ user }` in the same public shape as the list. |
+| Method | Endpoint                             | Description                                                                                                                                       |
+| ------ | ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| GET    | `/projects`                          | List your projects. Returns `{ projects }`.                                                                                                       |
+| GET    | `/projects/:projectId`               | Get one project. Returns `{ project }`.                                                                                                           |
+| POST   | `/projects`                          | Create a project. Body may include `blueprintId`. Returns created project.                                                                        |
+| PATCH  | `/projects/:projectId`               | Update a project. Returns `{ project }`.                                                                                                          |
+| DELETE | `/projects/:projectId`               | Delete a project.                                                                                                                                 |
+| GET    | `/projects/:projectId/users`         | List users with access to the project. See [Project members](#project-members) below.                                                             |
+| PATCH  | `/projects/:projectId/users/:userId` | Change someone's roles in the project: `{ "roles": ["writer", "reviewer"] }`. A project admin can. See [Project members](#project-members) below. |
 
 ### Project members
 
@@ -60,12 +60,12 @@ All project endpoints require JWT. Project list/get/update/delete may require **
 | `id`, `email`, `name?`, `avatar?` | Identity and display                                                                                                                                                                                                     |
 | `roles`                           | Role slugs from `users.json`                                                                                                                                                                                             |
 | `isActive`                        | Account enabled                                                                                                                                                                                                          |
-| `lastLoginAt?`                    | ISO 8601 time of last successful **password or OAuth** sign-in (not updated on JWT refresh alone)                                                                                                                        |
+| `lastLoginAt?`                    | ISO 8601 time of their last sign-in, however they signed in (not updated on a token refresh)                                                                                                                             |
 | `online`                          | `true` if the user currently has **Studio presence** in this project within **`ONLINE_PRESENCE_MAX_IDLE_MS`** (default 90s; see [Configuration](Configuration.md)). Needs the presence plugin; always `false` without it |
 
 **Omitted** from this list (never returned): `passwordHash`, `auth` (OAuth ids, etc.), and `projects`.
 
-`PATCH` is for **platform operators** only (the same `admin` role used for `/projects` list/create, `/studio/*`, etc.), in addition to project access. Use it from Studio **Users & Permissions** to edit name, email, active flag, roles, and avatar.
+`PATCH` changes someone's **roles** in the project. A project admin can, and Developer and Billing are given or taken only by someone who has them. A person's account (name, email, whether it is active) is theirs to change, or an operator's (`PATCH /operator/users/:userId`): a project can't, and answers **403**.
 
 ---
 
@@ -168,7 +168,7 @@ Stored per project. All require JWT + project access.
 | GET    | `/projects/:projectId/comments`             | List comments. Query: `resourceType`, `resourceId` (required), `fieldPath?`, `includeResolved?` (default false). Returns `{ comments }`. |
 | PATCH  | `/projects/:projectId/comments/:id`         | Edit comment. Body: `{ body }`. Author only. Returns updated comment.                                                                    |
 | POST   | `/projects/:projectId/comments/:id/resolve` | Mark resolved. Returns updated comment.                                                                                                  |
-| DELETE | `/projects/:projectId/comments/:id`         | Delete comment. Author or operator. Returns 204.                                                                                         |
+| DELETE | `/projects/:projectId/comments/:id`         | Delete comment. Its author, a content lead or an admin. Returns 204.                                                                     |
 
 `resourceType` is `entry` or `layout`. For entries, `resourceId` is `modelId__entryId`. Comment body length limit: `COMMENTS_MAX_BODY_LENGTH` (default 10000).
 
@@ -176,14 +176,14 @@ Stored per project. All require JWT + project access.
 
 ## 📋 Review & Approval Workflow
 
-Requires `project.workflow.enabled`. Approve/reject require `reviewer` or **operator** (platform) role. See [Workflows.md](Workflows.md).
+Requires `project.workflow.enabled`. Approve and reject need someone who can review: reviewer, content lead or admin (never an agent working for review, the default for agents). See [Workflows.md](Workflows.md).
 
 | Method | Endpoint                                                              | Description                                                                                                      |
 | ------ | --------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
 | POST   | `/projects/:projectId/models/:modelId/entries/:entryId/submit-review` | Submit for review. Body: `{ assignedTo?: string }`. Returns `{ review }`.                                        |
 | GET    | `/projects/:projectId/reviews`                                        | List reviews. Query: `modelId?`, `entryId?`, `status?` (pending \| approved \| rejected). Returns `{ reviews }`. |
 | GET    | `/projects/:projectId/reviews/:reviewId`                              | Get one review. Returns `{ review }`.                                                                            |
-| POST   | `/projects/:projectId/reviews/:reviewId/approve`                      | Approve (reviewer or operator). Returns `{ review }`.                                                            |
+| POST   | `/projects/:projectId/reviews/:reviewId/approve`                      | Approve (reviewer, content lead or admin). Returns `{ review }`.                                                 |
 | POST   | `/projects/:projectId/reviews/:reviewId/reject`                       | Reject. Body: `{ reason: string }`. Returns `{ review }`.                                                        |
 
 ---
@@ -241,7 +241,7 @@ Operators, who sign in apart from accounts (see [Authentication](Authentication.
 | GET    | `/operator/settings`            | `{ settings, env }`: what operators saved, and what the environment gives (`termsUrl`, `privacyUrl`).             |
 | PATCH  | `/operator/settings`            | Body: any of `termsUrl`, `privacyUrl` (an https address, or `null` to clear). **400** `URL_INVALID`.              |
 
-On api.moteur.io, billing adds `/billing/operator/plans`, `PATCH /billing/operator/plans/:planId`, `/billing/operator/projects` and `/billing/operator/revenue` (MRR from active subscriptions, plus paid invoices by month).
+Host plugins may add operator routes of their own.
 
 ---
 
@@ -311,7 +311,7 @@ def verify_signature(secret: bytes, raw_body: bytes, signature_header: str) -> b
     return hmac.compare_digest(signature_header, expected)
 ```
 
-**Retry schedule:** On non-2xx or network error, Moteur retries with exponential backoff: attempt 2 after 30s, 3 after 5min, 4 after 30min, 5 after 2hr. After 5 attempts the delivery is marked `failed` and can be retried manually via the API or Studio. Retries are in-process (`setTimeout`); they are lost on server restart.
+**Retry schedule:** On non-2xx or network error, Moteur retries with exponential backoff: attempt 2 after 30s, 3 after 5min, 4 after 30min, 5 after 2hr. After 5 attempts the delivery is marked `failed` and can be retried by hand through the API. Pending retries are saved with their dates, so they survive a restart (see [Webhooks](Webhooks.md)).
 
 ---
 
@@ -352,7 +352,7 @@ JWT + project access.
 
 ## 📊 Usage (request counts)
 
-JWT + **operator** role only. Returns current request counts in two buckets: **studio** (global) and **public** (per project). Use for audit and future billing/limits.
+An operator's token only (see [Authentication](Authentication.md#operators)). Returns current request counts in two buckets: **studio** (global) and **public** (per project).
 
 | Method | Endpoint        | Description                                                                                                   |
 | ------ | --------------- | ------------------------------------------------------------------------------------------------------------- |
@@ -485,7 +485,7 @@ From the monorepo root: `pnpm openapi:export`. CI guard for documented 2xx JSON 
 
 Set **`MOTEUR_FAIL_ON_OPENAPI_COLLISION=1`** to fail bootstrap when merged plugin paths collide with core paths.
 
-**Hosted docs ([docs.api.moteur.io](https://docs.api.moteur.io)):** Built from the **[api.moteur.io](https://github.com/moteurio/api.moteur.io)** repo (`npm run docs:build` → Scalar + `openapi.json` for the production plugin composition). The live API also serves Scalar at `{API_BASE_PATH}/docs` and JSON at `{API_BASE_PATH}/openapi.json`. A minimal redirect shell lives in [`packages/api-docs/index.html`](../packages/api-docs/index.html).
+**Hosted reference:** api.moteur.io's, with its plugins' routes, is at [docs.api.moteur.io](https://docs.api.moteur.io). The live API also serves Scalar at `{API_BASE_PATH}/docs` and JSON at `{API_BASE_PATH}/openapi.json`. A minimal redirect shell lives in [`packages/api-docs/index.html`](../packages/api-docs/index.html).
 
 ---
 
@@ -523,7 +523,7 @@ Output is JSON: `{ source, window, totals: { [windowKey]: { studio, public: { [p
 
 ## 💳 Plan limits
 
-Moteur on its own limits nothing. A host plugin sets limits in its `init` (api.moteur.io's billing plugin does, from each project's plan); each answers `null` for no limit. Going over answers **402** `{ error, code: "plan_limit", limit, max }`:
+Moteur on its own limits nothing. A host plugin sets limits in its `init` (a billing plugin does, from each project's plan). Each answers `null` for no limit. Going over answers **402** `{ error, code: "plan_limit", limit, max }`:
 
 | `limit`                                                                                | Set with                                         | Refused                                                                                                                                                                                                                                                                        |
 | -------------------------------------------------------------------------------------- | ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -534,7 +534,7 @@ Moteur on its own limits nothing. A host plugin sets limits in its `init` (api.m
 | `projects`                                                                             | `ctx.setProjectsLimit(userId => { taken, max })` | Creating a project once `taken` reaches `max`; what counts is the plugin's to say.                                                                                                                                                                                             |
 | `channels`, `models`, `entries`, `forms`, `structures`, `blocks`, `templates`, `pages` | `ctx.setCountLimit((projectId, kind) => max)`    | Creating one more once the project has `max`. Entries count in every status across models; structures and blocks are the project's own (not core or plugin ones); pages include folders. Entries a form submission would create fail as a form action; the submission is kept. |
 
-Apart from a quota, a host may set where its fair use notice starts with `ctx.setRequestFairUse(projectId => perMonth)` (null: no notice). It is not a limit: the Studio shows the notice once the month's public requests reach it, and requests go on being answered. api.moteur.io gives Free a quota and paid plans a fair use level instead.
+Apart from a quota, a host may set where its fair use notice starts with `ctx.setRequestFairUse(projectId => perMonth)` (null: no notice). It is not a limit: the Studio shows the notice once the month's public requests reach it, and requests go on being answered.
 
 A project already over a limit (after a downgrade) keeps what it has; it just can't add more. `GET /projects/:projectId/usage` reports `people`, `storage: { used, max }`, `requests: { public, max, fairUse }`, `submissions: { received, max }` and `counts: { [kind]: { used, max } }` with the AI credits (Admin or Billing role). `GET /projects/:projectId/limits` gives just the limits to any member. The Studio explains each refusal and offers the plans to whoever handles billing.
 
