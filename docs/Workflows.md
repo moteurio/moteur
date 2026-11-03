@@ -6,9 +6,9 @@ This document describes Moteur’s **Review & Approval Workflow**: how to enable
 
 ## Overview
 
-The workflow lets projects require that **entries are reviewed before being published**. Authors submit entries for review; users with the **reviewer** (or **operator**) role approve or reject. Approval can auto-publish the entry; rejection returns it to draft and attaches the rejection reason as a **Comment** on the entry.
+The workflow lets projects require that **entries are reviewed before being published**. Authors submit entries for review, and people who can review (**reviewer**, **content lead** or **admin** in the project) approve or reject. Approval can publish the entry at once, and rejection returns it to draft and attaches the rejection reason as a **Comment** on the entry.
 
-- **Backend and API only** — no built-in studio UI; your frontend uses the REST API and/or [`@moteurio/client`](../packages/client/README.md).
+- **In the API**, so any client can use it: the REST API, [`@moteurio/client`](../packages/client/README.md), the CLI and MCP. The Studio has it built in.
 - **Optional per project** — enable via `project.workflow` in `project.json`.
 - **Integrates with** Activity Log (all actions logged), Comments (rejection reason), and Notifications (in-studio + optional email).
 
@@ -31,7 +31,7 @@ Status is set by:
 - **Submitting for review** — sets status to `in_review`.
 - **Approving a review** — in `auto_publish` mode, sets status to `published`.
 - **Rejecting a review** — sets status back to `draft`.
-- **PATCH entry status** — operators can set any status; other users are restricted when `requireReview` is enabled.
+- **PATCH entry status** — when `requireReview` is enabled, only a content lead or an admin can publish without an approved review.
 
 ---
 
@@ -52,11 +52,11 @@ In the project’s `project.json`, add an optional `workflow` object:
 }
 ```
 
-| Field           | Type    | Default | Description                                                                                                                                                         |
-| --------------- | ------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `enabled`       | boolean | `false` | When `true`, the review workflow is active for this project.                                                                                                        |
-| `mode`          | string  | —       | Currently only `auto_publish` (approve → entry becomes `published`).                                                                                                |
-| `requireReview` | boolean | —       | When `true`, users **without** the operator role cannot set an entry to `published` unless it has an **approved** review. Operators can always set status directly. |
+| Field           | Type    | Default | Description                                                                                                          |
+| --------------- | ------- | ------- | -------------------------------------------------------------------------------------------------------------------- |
+| `enabled`       | boolean | `false` | When `true`, the review workflow is active for this project.                                                         |
+| `mode`          | string  | —       | Currently only `auto_publish` (approve → entry becomes `published`).                                                 |
+| `requireReview` | boolean | —       | When `true`, only a **content lead** or an **admin** can set an entry to `published` without an **approved** review. |
 
 If `workflow` is missing or `workflow.enabled` is `false`, the project behaves as before: no submit/approve/reject, and no publish guard.
 
@@ -67,8 +67,8 @@ If `workflow` is missing or `workflow.enabled` is `false`, the project behaves a
 ### `auto_publish` (current)
 
 - Author (or any project member) **submits** an entry for review → entry status becomes `in_review`, a **Review** record is created with status `pending`.
-- A user with **reviewer** or **operator** role **approves** the review → the Review is resolved as `approved`, and the entry status is set to **`published`**.
-- A reviewer or operator **rejects** the review → the Review is resolved as `rejected`, a **Comment** is created on the entry with the rejection reason, and the entry status is set back to **`draft`**. The Comment ID is stored on the Review as `rejectionCommentId`.
+- Someone who can review **approves** it → the Review is resolved as `approved`, and the entry status is set to **`published`**.
+- Someone who can review **rejects** it → the Review is resolved as `rejected`, a **Comment** is created on the entry with the rejection reason, and the entry status is set back to **`draft`**. The Comment ID is stored on the Review as `rejectionCommentId`.
 
 Other modes (e.g. manual publish after approval) may be added later; the API is designed so new modes can be supported without breaking existing behaviour.
 
@@ -98,18 +98,13 @@ Account roles live in `users.json`. A project's `memberRoles[userId]`, when pres
 - **Publish without approval**: when `workflow.requireReview` is `true`, only a **content lead** or an **admin** can set an entry or page to `published` without an approved review. Others get a 403 if they try (e.g. via PATCH entry or PATCH status).
 - **Translator saves**: the API rejects changes to the default locale, plain fields, status (other than submitting for review), and file credit, folder, or focal point.
 
-To grant reviewer rights, add `"reviewer"` to the user’s `roles` in `data/users.json`:
+To let someone review, give them the role in the project (an admin can):
 
-```json
-{
-    "id": "jane",
-    "name": "Jane",
-    "email": "jane@example.com",
-    "roles": ["reviewer"],
-    "projects": ["my-project"],
-    "isActive": true
-}
+```bash
+moteur members update jane --roles writer,reviewer
 ```
+
+Over HTTP: `PATCH /projects/:projectId/users/:userId` with `{ "roles": ["writer", "reviewer"] }`.
 
 ---
 
@@ -145,7 +140,7 @@ To grant reviewer rights, add `"reviewer"` to the user’s `roles` in `data/user
 When **`workflow.enabled`** and **`workflow.requireReview`** are both `true`:
 
 - Any attempt to set an entry’s status to **`published`** (via PATCH entry or PATCH status) is allowed only if:
-    - the user is an **operator**, or
+    - the person is a **content lead** or an **admin** in the project, or
     - the entry has **at least one approved Review**.
 - Otherwise the API returns **403** with a message that publishing requires an approved review.
 
@@ -158,7 +153,7 @@ When `workflow.enabled` is `false` or `requireReview` is `false`, there is no gu
 ### In-studio notifications
 
 - Stored per project in **`notifications.json`**.
-- **When an entry is submitted for review**: all users with the **reviewer** role (or the optional `assignedTo` user) receive a `review_requested` notification.
+- **When an entry is submitted for review**: everyone in the project who can review (reviewer, content lead, admin), or only the `assignedTo` person when there is one, receive a `review_requested` notification.
 - **When a review is approved or rejected**: the user who submitted (`requestedBy`) receives an `approved` or `rejected` notification.
 
 API: `GET .../notifications`, `POST .../notifications/:id/read`, `POST .../notifications/read-all`. See [REST API](REST%20API.md) and [`@moteurio/client`](../packages/client/README.md).
@@ -187,7 +182,7 @@ When the optional presence plugin is installed, the workflow event bridge emits 
 - `review:rejected` — payload: full Review (includes `rejectionCommentId`).
 - `review:status_changed` — payload: `{ entryId, modelId, status }`.
 
-The Socket.IO contract belongs to `plugin-presence` in `moteur-plugins-extra`. These live updates are optional; REST review operations work without that plugin.
+The Socket.IO transport belongs to the presence plugin. These live updates are optional: review operations work the same without it.
 
 ---
 
@@ -202,7 +197,7 @@ The Socket.IO contract belongs to `plugin-presence` in `moteur-plugins-extra`. T
 | Reject            | `POST .../reviews/:reviewId/reject` body `{ reason }` |
 | Set entry status  | `PATCH .../entries/:id/status` body `{ status }`      |
 
-All REST endpoints require JWT and project access. Approve/reject require **reviewer** or **operator** role (403 otherwise).  
+All REST endpoints require JWT and project access. Approve and reject need someone who can review: reviewer, content lead or admin (403 otherwise). An agent working for review, the default for agents, can't.  
 Full details: [REST API](REST%20API.md). In-process equivalents exist on `Moteur.reviews` in `@moteurio/core`—see [Embedded core API](Developer%20API.md).
 
 ---
@@ -273,14 +268,14 @@ The cache can be cleared at any time (`publishedCache.clear()`) with no data los
 
 ## Related guides
 
-| Topic         | Summary                                                                                                                                |
-| ------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
-| **Enable**    | Set `workflow.enabled: true` (and optionally `requireReview: true`) in `project.json`.                                                 |
-| **Mode**      | Only `auto_publish`: approve → entry becomes `published`.                                                                              |
-| **Roles**     | `reviewer` or operator slug (in `users.json`) to approve/reject; only operators bypass the publish guard when `requireReview` is true. |
-| **Statuses**  | `draft` → `in_review` (submit) → `published` (approve) or back to `draft` (reject).                                                    |
-| **Rejection** | Stored as a Comment on the entry; `Review.rejectionCommentId` links to it.                                                             |
-| **Guard**     | When `requireReview` is true, users without the operator role need an approved review to set `published`.                              |
-| **Revisions** | Git-native. `revision` bumps on every save; `publishedCommit` points to the live git commit.                                           |
+| Topic         | Summary                                                                                                    |
+| ------------- | ---------------------------------------------------------------------------------------------------------- |
+| **Enable**    | Set `workflow.enabled: true` (and optionally `requireReview: true`) in `project.json`.                     |
+| **Mode**      | Only `auto_publish`: approve → entry becomes `published`.                                                  |
+| **Roles**     | Reviewer, content lead or admin approve and reject. Content leads and admins may publish without a review. |
+| **Statuses**  | `draft` → `in_review` (submit) → `published` (approve) or back to `draft` (reject).                        |
+| **Rejection** | Stored as a Comment on the entry; `Review.rejectionCommentId` links to it.                                 |
+| **Guard**     | When `requireReview` is true, everyone else needs an approved review to set `published`.                   |
+| **Revisions** | Git-native. `revision` bumps on every save; `publishedCommit` points to the live git commit.               |
 
 For timed publication, see [Scheduling](Scheduling.md). For safe concurrent edits and list queries, see [Content modeling](Content%20modeling.md) and [Entry queries](Entry%20queries.md).

@@ -237,36 +237,6 @@ Remove a server-wide block or structure Asks first (or `--yes`).
 
 Calls `DELETE /operator/schemas/{kind}/{name}`.
 
-### `moteur operator plans`
-
-Every plan: limits, features, availability (billing)
-
-Calls `GET /billing/operator/plans`.
-
-### `moteur operator update-plan <id>`
-
-Change a plan’s limits, features or availability (JSON)
-
-| Option            |                                   |
-| ----------------- | --------------------------------- |
-| `--id <string>`   | Plan id (required)                |
-| `--file <string>` | Read the JSON body from this file |
-| `--data <string>` | The JSON body, inline             |
-
-Calls `PATCH /billing/operator/plans/{id}`.
-
-### `moteur operator billing`
-
-Every project’s plan and extras
-
-Calls `GET /billing/operator/projects`.
-
-### `moteur operator revenue`
-
-Monthly recurring revenue, and what Stripe collected
-
-Calls `GET /billing/operator/revenue`.
-
 ### `moteur operator requests`
 
 API request counts (Studio and public)
@@ -2215,15 +2185,13 @@ Calls `GET /projects/{project}/users`.
 
 ### `moteur members update <user>`
 
-Change someone’s roles in the project, or turn their access off
+Change someone’s roles in the project
 
 | Option               |                                                                              |
 | -------------------- | ---------------------------------------------------------------------------- |
 | `--project <string>` | Project id (default: MOTEUR_PROJECT, .moteur.json, or `moteur projects use`) |
 | `--user <string>`    | Person id (required)                                                         |
 | `--roles <list>`     | writer, translator, reviewer, lead, builder, admin, developer, billing       |
-| `--active`           | Access on (--no-active: off)                                                 |
-| `--name <string>`    | Name                                                                         |
 
 Calls `PATCH /projects/{project}/users/{user}`.
 
@@ -2741,168 +2709,14 @@ The project as an import bundle
 | -------------------- | ---------------------------------------------------------------------------- |
 | `--project <string>` | Project id (default: MOTEUR_PROJECT, .moteur.json, or `moteur projects use`) |
 | `--out <string>`     | Write it to this file instead of printing it                                 |
+| `--inline-files`     | Carry each file in the bundle, not its address (to move to another server)   |
 
 ```bash
 moteur export --out site.json
+moteur export --inline-files --out site.json
 ```
 
 ## ai
-
-### `moteur ai status`
-
-Whether AI is on, and with which provider
-
-Calls `GET /ai/status`.
-
-### `moteur ai settings`
-
-The project’s AI: provider and credits
-
-| Option               |                                                                              |
-| -------------------- | ---------------------------------------------------------------------------- |
-| `--project <string>` | Project id (default: MOTEUR_PROJECT, .moteur.json, or `moteur projects use`) |
-
-Calls `GET /ai/settings/{project}`.
-
-### `moteur ai helpers`
-
-The helpers you may use here, with credits
-
-| Option               |                                                                              |
-| -------------------- | ---------------------------------------------------------------------------- |
-| `--project <string>` | Project id (default: MOTEUR_PROJECT, .moteur.json, or `moteur projects use`) |
-
-Calls `GET /ai/helpers/{project}`.
-
-### `moteur ai write <action>`
-
-Suggest text for a field: draft, rewrite, shorten, expand, change the tone
-
-| Option                                                                                                            |                                                                              |
-| ----------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
-| `--project <string>`                                                                                              | Project id (default: MOTEUR_PROJECT, .moteur.json, or `moteur projects use`) |
-| `--action <draft\|rewrite\|shorten\|expand\|tone:formal\|tone:conversational\|tone:editorial\|summarise-excerpt>` | What to do (required)                                                        |
-| `--field <string>`                                                                                                | The field’s key (title, excerpt…) (required)                                 |
-| `--field-type <string>`                                                                                           | core/text, core/textarea or core/rich-text (default `core/textarea`)         |
-| `--model <string>`                                                                                                | The model, for context                                                       |
-| `--entry <string>`                                                                                                | The entry, for context                                                       |
-| `--value <string>`                                                                                                | The current text                                                             |
-| `--locale <string>`                                                                                               | Its language                                                                 |
-| `--context <string>`                                                                                              | The rest of the entry’s text, for context                                    |
-
-```bash
-moteur ai write shorten --field excerpt --value "…" --locale fr
-```
-
-### `moteur ai translate <value>`
-
-Translate a field’s text from one language to another
-
-| Option                  |                                                                              |
-| ----------------------- | ---------------------------------------------------------------------------- |
-| `--project <string>`    | Project id (default: MOTEUR_PROJECT, .moteur.json, or `moteur projects use`) |
-| `--value <string>`      | The text (required)                                                          |
-| `--from <string>`       | From this language (required)                                                |
-| `--to <string>`         | Into this language (required)                                                |
-| `--field <string>`      | The field’s key (title, excerpt…)                                            |
-| `--field-type <string>` | core/text, core/textarea or core/rich-text (default `core/textarea`)         |
-| `--model <string>`      | The model, for context                                                       |
-| `--entry <string>`      | The entry, for context                                                       |
-
-### `moteur ai alt <asset>`
-
-Suggest alt text and a caption for a picture
-
-| Option                 |                                                                              |
-| ---------------------- | ---------------------------------------------------------------------------- |
-| `--project <string>`   | Project id (default: MOTEUR_PROJECT, .moteur.json, or `moteur projects use`) |
-| `--asset <string>`     | File id (required)                                                           |
-| `--locale <string>`    | In this language                                                             |
-| `--other-alt <string>` | Its alt text in another language, as a hint                                  |
-
-Calls `POST /ai/analyse/image`.
-
-### `moteur ai image <prompt>`
-
-Make pictures from a description
-
-| Option               |                                                                              |
-| -------------------- | ---------------------------------------------------------------------------- |
-| `--project <string>` | Project id (default: MOTEUR_PROJECT, .moteur.json, or `moteur projects use`) |
-| `--prompt <string>`  | What to make (required)                                                      |
-| `--ratio <string>`   | Shape: 1:1, 16:9…                                                            |
-| `--count <number>`   | How many                                                                     |
-| `--style <string>`   | Style hints                                                                  |
-| `--entry <string>`   | The entry they’re for                                                        |
-
-Calls `POST /ai/generate-image`.
-
-### `moteur ai audio <prompt>`
-
-Make speech from text
-
-| Option               |                                                                              |
-| -------------------- | ---------------------------------------------------------------------------- |
-| `--project <string>` | Project id (default: MOTEUR_PROJECT, .moteur.json, or `moteur projects use`) |
-| `--prompt <string>`  | What to say (required)                                                       |
-| `--voice <string>`   | Which voice                                                                  |
-| `--entry <string>`   | The entry it’s for                                                           |
-| `--field <string>`   | The field it’s for                                                           |
-
-Calls `POST /ai/generate-audio`.
-
-### `moteur ai model3d <prompt>`
-
-Make a 3D model from a description
-
-| Option               |                                                                              |
-| -------------------- | ---------------------------------------------------------------------------- |
-| `--project <string>` | Project id (default: MOTEUR_PROJECT, .moteur.json, or `moteur projects use`) |
-| `--prompt <string>`  | What to make (required)                                                      |
-| `--textured`         | With textures                                                                |
-| `--format <string>`  | glb, usdz…                                                                   |
-| `--entry <string>`   | The entry it’s for                                                           |
-| `--field <string>`   | The field it’s for                                                           |
-
-Calls `POST /ai/generate-3d`.
-
-### `moteur ai keep-model <url>`
-
-Keep a generated 3D model in the media library
-
-| Option                 |                                                                              |
-| ---------------------- | ---------------------------------------------------------------------------- |
-| `--project <string>`   | Project id (default: MOTEUR_PROJECT, .moteur.json, or `moteur projects use`) |
-| `--url <string>`       | The model’s address (from model3d) (required)                                |
-| `--format <string>`    | glb, usdz…                                                                   |
-| `--title <string>`     | Title                                                                        |
-| `--prompt <string>`    | What it was made from                                                        |
-| `--thumbnail <string>` | Thumbnail address                                                            |
-
-Calls `POST /ai/save-generated-model`.
-
-### `moteur ai fields <prompt>`
-
-Suggest fields for a model (JSON with the current fields, or none)
-
-| Option              |                                   |
-| ------------------- | --------------------------------- |
-| `--prompt <string>` | What the model is for (required)  |
-| `--file <string>`   | Read the JSON body from this file |
-| `--data <string>`   | The JSON body, inline             |
-
-### `moteur ai entry <prompt>`
-
-Draft a whole entry for a model (shown, not saved)
-
-| Option               |                                                                              |
-| -------------------- | ---------------------------------------------------------------------------- |
-| `--project <string>` | Project id (default: MOTEUR_PROJECT, .moteur.json, or `moteur projects use`) |
-| `--model <string>`   | Model id (required)                                                          |
-| `--prompt <string>`  | What it’s about (required)                                                   |
-| `--locale <string>`  | In this language                                                             |
-
-Calls `POST /ai/generate/entry`.
 
 ### `moteur ai audit`
 
@@ -2955,67 +2769,6 @@ Problems in one entry
 
 Calls `GET /projects/{project}/radar/entry/{slug}`.
 
-## search
-
-### `moteur search query <q>`
-
-Search entries in the project’s search engine
-
-| Option                            |                                                                              |
-| --------------------------------- | ---------------------------------------------------------------------------- |
-| `--project <string>`              | Project id (default: MOTEUR_PROJECT, .moteur.json, or `moteur projects use`) |
-| `--q <string>`                    | What to find (required)                                                      |
-| `--engine <meilisearch\|algolia>` | Which engine (default `meilisearch`)                                         |
-| `--limit <number>`                | How many                                                                     |
-
-Calls `GET /projects/{project}/search/{engine}`.
-
-### `moteur search reindex`
-
-Send every entry to the search engine again (operators)
-
-| Option                            |                                                                              |
-| --------------------------------- | ---------------------------------------------------------------------------- |
-| `--project <string>`              | Project id (default: MOTEUR_PROJECT, .moteur.json, or `moteur projects use`) |
-| `--engine <meilisearch\|algolia>` | Which engine (default `meilisearch`)                                         |
-
-Calls `POST /projects/{project}/search/{engine}/reindex`.
-
-## shopify
-
-### `moteur shopify status`
-
-The Shopify connection
-
-| Option               |                                                                              |
-| -------------------- | ---------------------------------------------------------------------------- |
-| `--project <string>` | Project id (default: MOTEUR_PROJECT, .moteur.json, or `moteur projects use`) |
-
-Calls `GET /projects/{project}/shopify`.
-
-### `moteur shopify connect`
-
-Set the shop, its token and the product model
-
-| Option               |                                                                              |
-| -------------------- | ---------------------------------------------------------------------------- |
-| `--project <string>` | Project id (default: MOTEUR_PROJECT, .moteur.json, or `moteur projects use`) |
-| `--shop <string>`    | my-shop.myshopify.com                                                        |
-| `--token <string>`   | Admin API access token                                                       |
-| `--model <string>`   | Model products go into                                                       |
-
-Calls `PATCH /projects/{project}/shopify`.
-
-### `moteur shopify sync`
-
-Pull products from Shopify into entries
-
-| Option               |                                                                              |
-| -------------------- | ---------------------------------------------------------------------------- |
-| `--project <string>` | Project id (default: MOTEUR_PROJECT, .moteur.json, or `moteur projects use`) |
-
-Calls `POST /projects/{project}/shopify/sync`.
-
 ## commands
 
 ### `moteur commands list`
@@ -3025,27 +2778,6 @@ Commands plugins added on this API
 Calls `GET /commands`.
 
 ## play
-
-### `moteur play poll <poll>`
-
-A poll’s results
-
-| Option               |                                                                              |
-| -------------------- | ---------------------------------------------------------------------------- |
-| `--project <string>` | Project id (default: MOTEUR_PROJECT, .moteur.json, or `moteur projects use`) |
-| `--poll <string>`    | Poll id (required)                                                           |
-
-Calls `GET /projects/{project}/play/polls/{poll}/results`.
-
-### `moteur play qr <text>`
-
-A QR code as SVG
-
-| Option               |                                                                              |
-| -------------------- | ---------------------------------------------------------------------------- |
-| `--project <string>` | Project id (default: MOTEUR_PROJECT, .moteur.json, or `moteur projects use`) |
-| `--text <string>`    | What it encodes (required)                                                   |
-| `--size <number>`    | Size in pixels                                                               |
 
 ### `moteur play oembed <url>`
 
@@ -3083,7 +2815,7 @@ Calls `GET /blueprints/{kind}s/{id}`.
 
 ### `moteur blueprints create <kind>`
 
-Create a blueprint (JSON: { id, name, description, template })
+Create a blueprint (JSON: { id, name, description }, with a bundle for a project blueprint, a template for the others)
 
 | Option                                         |                                                  |
 | ---------------------------------------------- | ------------------------------------------------ |
@@ -3117,58 +2849,6 @@ Delete a blueprint Asks first (or `--yes`).
 
 Calls `DELETE /blueprints/{kind}s/{id}`.
 
-## billing
-
-### `moteur billing show`
-
-The project’s plan and subscription
-
-| Option               |                                                                              |
-| -------------------- | ---------------------------------------------------------------------------- |
-| `--project <string>` | Project id (default: MOTEUR_PROJECT, .moteur.json, or `moteur projects use`) |
-
-Calls `GET /billing/projects/{project}`.
-
-### `moteur billing plans`
-
-Plans the project can be on, with prices
-
-Calls `GET /billing/plans`.
-
-### `moteur billing checkout <plan>`
-
-Move the project to a plan (gives the payment link)
-
-| Option                     |                                                                              |
-| -------------------------- | ---------------------------------------------------------------------------- |
-| `--project <string>`       | Project id (default: MOTEUR_PROJECT, .moteur.json, or `moteur projects use`) |
-| `--plan <string>`          | A plan id from `moteur billing plans` (personal, pro…) (required)            |
-| `--interval <month\|year>` | Billed monthly or yearly (default `month`)                                   |
-| `--studio-url <string>`    | Where to come back to (default: MOTEUR_STUDIO_URL)                           |
-
-### `moteur billing addons <addon> <packs>`
-
-Set how many packs of an extra the project has
-
-| Option               |                                                                              |
-| -------------------- | ---------------------------------------------------------------------------- |
-| `--project <string>` | Project id (default: MOTEUR_PROJECT, .moteur.json, or `moteur projects use`) |
-| `--addon <string>`   | An extra id from `moteur billing plans` (seats, storage…) (required)         |
-| `--packs <number>`   | How many packs (required)                                                    |
-
-Calls `POST /billing/projects/{project}/addons`.
-
-### `moteur billing portal`
-
-A link to the Stripe customer portal
-
-| Option                  |                                                                              |
-| ----------------------- | ---------------------------------------------------------------------------- |
-| `--project <string>`    | Project id (default: MOTEUR_PROJECT, .moteur.json, or `moteur projects use`) |
-| `--studio-url <string>` | Where to come back to (default: MOTEUR_STUDIO_URL)                           |
-
-Calls `POST /billing/projects/{project}/portal`.
-
 ## api
 
 ### `moteur api <method> <path>`
@@ -3195,3 +2875,13 @@ moteur api POST /projects/{project}/notifications/read-all
 ### `moteur doctor`
 
 Check the setup: config, API reachable, signed in, default project
+
+## Commands for host plugins
+
+These talk to plugins a host may have (api.moteur.io has them all). They are described in that host’s docs.
+
+- **AI helpers:** `moteur ai status`, `moteur ai settings`, `moteur ai helpers`, `moteur ai write`, `moteur ai translate`, `moteur ai alt`, `moteur ai image`, `moteur ai audio`, `moteur ai model3d`, `moteur ai keep-model`, `moteur ai fields`, `moteur ai entry`
+- **search:** `moteur search query`, `moteur search reindex`
+- **Shopify:** `moteur shopify status`, `moteur shopify connect`, `moteur shopify sync`
+- **play blocks:** `moteur play poll`, `moteur play qr`
+- **billing:** `moteur billing show`, `moteur billing plans`, `moteur billing checkout`, `moteur billing addons`, `moteur billing portal`, `moteur operator plans`, `moteur operator update-plan`, `moteur operator billing`, `moteur operator grant-plan`, `moteur operator end-grant`, `moteur operator revenue`
