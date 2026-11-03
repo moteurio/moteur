@@ -59,8 +59,20 @@ Blueprints are **server-wide templates** (project / model / structure / page tem
 - **kind** (optional): Omit or set to `"project"` for project blueprints.
 - **firstProject** (optional): `true` offers this starting point to a new person making their first project. Operators mark the project blueprints that suit a first project. It must be `true` or `false` (anything else is **400**), and only project blueprints take it.
 - **bundle** (optional): an [import bundle](Imports.md#the-bundle), checked when the blueprint is saved. Without one, the project starts empty.
+- **languages** (optional): the languages the bundle's content is written in, its main one first (default `["en"]`). See [Languages](#languages) below.
 
-A list (`GET /blueprints/projects`) gives each project blueprint without its bundle, and says what it holds: `contains: { templates, models, blocks, structures, pages, entries, files, menus }`. `GET /blueprints/projects/:id` gives one whole.
+A list (`GET /blueprints/projects`) gives each project blueprint without its bundle, and says what it holds: `contains: { templates, models, blocks, structures, pages, entries, files, menus, forms }`. `GET /blueprints/projects/:id` gives one whole.
+
+#### Languages
+
+A project made from a blueprint gets its content in the project's own languages, whatever the bundle is written in:
+
+- A value given per language (`{ "en": "About", "fr": "À propos" }`: text, rich text, links, menu labels, form fields) gets one for each of the project's languages. A language the bundle doesn't have takes the main language's text, to translate in the Studio. Languages the project doesn't have are left out.
+- A page's address follows: `slug` is the one for the project's default language, `slugs` the others'.
+- A page or entry in some languages only (`languages`) keeps those the project has, the main language standing for the project's default.
+- Schemas (structures, blocks, models, templates) are kept as they are: their labels are the Studio's.
+
+So a blueprint written in English and French makes a French project with the French first, and an English-only project without the French.
 
 ### Model blueprint
 

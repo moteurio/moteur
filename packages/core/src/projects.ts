@@ -234,7 +234,14 @@ export async function createProjectFromBlueprint(
     const blueprint = getBlueprint('project', blueprintId);
     if (!blueprint.bundle) return result;
     const { importBundle } = await import('./imports/importBundle.js');
-    const outcome = await importBundle(user, result.project.id, blueprint.bundle);
+    const { adaptBundleToLanguages } = await import('./imports/bundleLanguages.js');
+    // Written in its languages, made to fit the project's.
+    const made = result.project;
+    const bundle = adaptBundleToLanguages(blueprint.bundle, blueprint.languages ?? ['en'], {
+        defaultLocale: made.defaultLocale,
+        locales: made.supportedLocales ?? []
+    });
+    const outcome = await importBundle(user, made.id, bundle);
     return {
         ...result,
         blueprint: {

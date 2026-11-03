@@ -61,6 +61,11 @@ export interface BlueprintSchema {
     firstProject?: boolean;
     /** A project blueprint's content: imported, all or nothing, into a project made from it. */
     bundle?: ImportBundle;
+    /**
+     * The languages its bundle is written in, its main one first (default `["en"]`). A project
+     * made from it gets the content in its own languages: the main one's where it has none.
+     */
+    languages?: string[];
     template?: ModelBlueprintTemplate | StructureBlueprintTemplate | TemplateBlueprintTemplate;
 }
 
@@ -76,7 +81,8 @@ export interface BlueprintSummary extends Omit<BlueprintSchema, 'bundle' | 'temp
             | 'pages'
             | 'entries'
             | 'files'
-            | 'menus',
+            | 'menus'
+            | 'forms',
             number
         >
     >;

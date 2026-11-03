@@ -15,7 +15,8 @@ export interface BlockSchema {
     type: string; // Schema type
     /** Its name: one, or one per language (`{ en, fr }`). */
     label: Localizable;
-    description?: string; // Optional description
+    /** What it is for, shown in the Studio: one, or one per language. */
+    description?: Localizable;
     category?: string; // Category for grouping
     fields: Record<string, Field>; // Field definitions for the block
     optionsSchema?: Record<string, any>; // Additional options

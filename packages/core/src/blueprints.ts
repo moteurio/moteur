@@ -263,7 +263,8 @@ export function summarizeBlueprint(blueprint: BlueprintSchema): BlueprintSummary
         pages: count(bundle.pages),
         entries: Object.values(bundle.entries ?? {}).reduce((n, list) => n + count(list), 0),
         files: count(bundle.assets),
-        menus: count(bundle.menus)
+        menus: count(bundle.menus),
+        forms: count(bundle.forms)
     };
     return {
         ...rest,

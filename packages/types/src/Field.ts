@@ -1,3 +1,4 @@
+import type { Localizable } from './PublicSchema.js';
 import { ValidationIssue } from './ValidationResult.js';
 import type { StructureSchema } from './Structure.js';
 
@@ -23,8 +24,10 @@ export interface FieldValidationContext {
 export interface Field {
     id?: string; // Unique identifier for the field
     type: string; // Field type (e.g., "text", "number")
-    label: string; // Display label
-    description?: string; // Optional description for the field
+    /** Its name: one, or one per language (`{ en, fr }`). */
+    label: Localizable;
+    /** Help shown under it in the Studio: one, or one per language. */
+    description?: Localizable;
     data?: Record<string, Field>; // Values defined by schema's fields.
     meta?: FieldMeta; // Metadata for styling and attributes
     options?: Record<string, any>; // Additional options for the field

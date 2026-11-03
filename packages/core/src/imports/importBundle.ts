@@ -503,7 +503,7 @@ async function saveAll(ctx: Context): Promise<void> {
                 await updateTemplate(projectId, user, t.id, t);
                 return { id: t.id, action: 'update' };
             }
-            await createTemplate(projectId, user, t);
+            await createTemplate(projectId, user, { ...t, projectId });
             return { id: t.id, action: 'create' };
         });
 

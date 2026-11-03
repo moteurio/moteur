@@ -22,7 +22,8 @@ export interface ImportBundle {
     structures?: StructureSchema[];
     blocks?: BlockSchema[];
     models?: ModelSchema[];
-    templates?: TemplateSchema[];
+    /** As the templates API takes them: the project and the dates are the import's to set. */
+    templates?: Omit<TemplateSchema, 'projectId' | 'createdAt' | 'updatedAt'>[];
     assets?: ImportAsset[];
     pages?: ImportPage[];
     /** By model id. */

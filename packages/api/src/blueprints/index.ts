@@ -99,7 +99,7 @@ export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
         get: {
             summary: 'List project blueprints',
             description:
-                'Each without its bundle: `id`, `name`, `description`, `firstProject`, and `contains`, how many templates, models, blocks, structures, pages, entries, files and menus a project made from it starts with. `GET /blueprints/projects/:id` gives one whole.',
+                'Each without its bundle: `id`, `name`, `description`, `firstProject`, and `contains`, how many templates, models, blocks, structures, pages, entries, files, menus and forms a project made from it starts with. `GET /blueprints/projects/:id` gives one whole.',
             tags: ['Blueprints'],
             responses: {
                 '200': {
