@@ -76,6 +76,7 @@ function summary(workspace: Workspace, userId: string) {
         createdAt: workspace.createdAt,
         role: you?.role,
         ...(you?.role === 'member' && { access: you.access ?? 'chosen' }),
+        ...(you?.projectRoles && { projectRoles: you.projectRoles }),
         members: Object.keys(workspace.members).length,
         projects: projectsInWorkspace(workspace.id).length
     };
@@ -592,6 +593,11 @@ const summarySchema: OpenAPIV3.SchemaObject = {
         createdAt: { type: 'string', format: 'date-time' },
         role: { ...role, description: 'Your role in it.' },
         access: { type: 'string', enum: ['all', 'chosen'], description: 'Yours, as a Member.' },
+        projectRoles: {
+            type: 'array',
+            items: { type: 'string' },
+            description: 'Yours in every project, as a Member with `access: all`.'
+        },
         members: { type: 'integer', description: 'How many people are in it.' },
         projects: { type: 'integer', description: 'How many projects it has.' }
     }

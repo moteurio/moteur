@@ -94,10 +94,33 @@ export interface WorkspaceSummary {
     role: WorkspaceRole;
     /** Yours, as a Member. */
     access?: WorkspaceAccess;
+    /** Yours in every project, as a Member with `access: 'all'`. */
+    projectRoles?: string[];
     /** How many people are in it. */
     members: number;
     /** How many projects it has. */
     projects: number;
+}
+
+/**
+ * Your place in a workspace as `workspaceProjectRoles` reads it, from what `GET /workspaces` says
+ * of you: to work out your roles in its projects without the whole workspace.
+ */
+export function asOwnWorkspace(
+    summary: Pick<WorkspaceSummary, 'role' | 'access' | 'projectRoles'> | null | undefined,
+    userId: string
+): Pick<Workspace, 'members'> | undefined {
+    if (!summary?.role) return undefined;
+    return {
+        members: {
+            [userId]: {
+                role: summary.role,
+                ...(summary.access && { access: summary.access }),
+                ...(summary.projectRoles && { projectRoles: summary.projectRoles }),
+                joinedAt: ''
+            }
+        }
+    };
 }
 
 /** Someone in a workspace, as `GET /workspaces/:id` shows them. */

@@ -39,8 +39,6 @@ type WithRoles =
     | { roles?: readonly string[] | null; agent?: { reviewOnly?: boolean } | null }
     | null
     | undefined;
-type WithMemberRoles =
-    { memberRoles?: Record<string, readonly string[]> | null } | null | undefined;
 
 /**
  * Roles the person who creates a project gets on it: they run it, pay for it, and connect its
@@ -81,6 +79,12 @@ export function creatorRoles(user: WithRoles): string[] {
 
 type InWorkspace = Parameters<typeof workspaceProjectRoles>[0];
 
+/** A project, as far as roles go: its own roles for people, and who was added to it. */
+type ProjectLike =
+    | { memberRoles?: Record<string, readonly string[]> | null; users?: readonly string[] | null }
+    | null
+    | undefined;
+
 /**
  * The roles `user` has in `project`: those the project sets for them, else what its workspace
  * gives them (pass the project's workspace), else their account's when they are a project member.
@@ -88,7 +92,7 @@ type InWorkspace = Parameters<typeof workspaceProjectRoles>[0];
  */
 export function rolesInProject(
     user: (WithRoles & { id?: string }) | null | undefined,
-    project: WithMemberRoles & { users?: readonly string[] | null },
+    project: ProjectLike,
     workspace?: InWorkspace
 ): string[] {
     const fromWorkspace = workspaceProjectRoles(workspace, user?.id);
@@ -104,7 +108,7 @@ export function rolesInProject(
 /** `user` as they are in `project` (and its workspace): the same person, with their roles there. */
 export function inProject<T extends { id: string; roles?: readonly string[] | null }>(
     user: T,
-    project: WithMemberRoles & { users?: readonly string[] | null },
+    project: ProjectLike,
     workspace?: InWorkspace
 ): T {
     const own = project?.memberRoles?.[user.id];
