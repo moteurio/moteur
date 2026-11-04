@@ -2,6 +2,7 @@ import { createHash } from 'crypto';
 import type { Asset, AssetText, AssetType, ImageVariant } from '@moteurio/types/Asset.js';
 import type { VideoProviderId } from '@moteurio/types/Asset.js';
 import { hasRole, inProject, translatorOnly } from '@moteurio/types';
+import { workspaceOf } from '../workspaces.js';
 import type { User } from '@moteurio/types/User.js';
 import {
     assertCanEdit,
@@ -863,7 +864,7 @@ export async function migrateProvider(
     for (const projectId of options.projectIds) {
         try {
             const project = await getProject(user, projectId);
-            const there = inProject(user, project);
+            const there = inProject(user, project, workspaceOf(project));
             if ((project.videoProviders?.active ?? 'local') !== options.toProvider)
                 throw new Error(
                     `${projectId}: new videos go to "${project.videoProviders?.active ?? 'local'}", not "${options.toProvider}"; change it in Setup › Media first`

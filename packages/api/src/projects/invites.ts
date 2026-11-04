@@ -1,6 +1,5 @@
 import type { Request, Response } from 'express';
 import { Router } from 'express';
-import { URL } from 'url';
 import type { OpenAPIV3 } from 'openapi-types';
 import { hasRole } from '@moteurio/types';
 import {
@@ -20,32 +19,9 @@ import { emailUnavailable, sendEmail } from '@moteurio/core/emailNotifier.js';
 import { assertPeopleRoom } from '@moteurio/core/planLimits.js';
 import { requireProjectAdmin } from '../middlewares/auth.js';
 import { sendApiError } from '../utils/apiError.js';
+import { studioOrigin } from '../utils/studioOrigin.js';
 
 const router: Router = Router({ mergeParams: true });
-
-function allowedOrigins(): Set<string> {
-    return new Set(
-        [process.env.STUDIO_URL, process.env.CORS_ORIGINS]
-            .flatMap(v => (v ?? '').split(','))
-            .map(s => s.trim().replace(/\/$/, ''))
-            .filter(Boolean)
-    );
-}
-
-/** The Studio to link to: the caller's, when it is one we serve, else STUDIO_URL; null when unknown. */
-function studioOrigin(appUrl: unknown): string | null {
-    const allowed = allowedOrigins();
-    if (typeof appUrl === 'string') {
-        try {
-            const origin = new URL(appUrl).origin;
-            if (allowed.has(origin)) return origin;
-        } catch {
-            // fall through
-        }
-    }
-    const configured = process.env.STUDIO_URL?.split(',')[0]?.trim().replace(/\/$/, '');
-    return configured || null;
-}
 
 function toDto(invite: ProjectInvite) {
     const by = getUserById(invite.invitedBy);

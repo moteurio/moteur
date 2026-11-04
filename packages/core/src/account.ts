@@ -8,6 +8,13 @@ import { listAuthSessions } from './authSessions.js';
 import { withdrawInvitesBy } from './invites.js';
 import { deleteProject, loadProjects, updateProject } from './projects.js';
 import { hasTwoFactor } from './twoFactor.js';
+import {
+    projectsInWorkspace,
+    removeEmptyWorkspace,
+    removeWorkspaceMember,
+    workspaceOf,
+    workspacesOf
+} from './workspaces.js';
 import { deleteUser, getUserById, reloadUsers, withoutSecrets } from './users.js';
 import { triggerEvent } from './utils/eventBus.js';
 import { getProjectJson } from './utils/projectStorage.js';
@@ -89,7 +96,15 @@ export async function accountExport(userId: string, currentSessionId?: string) {
             expiresAt: new Date(session.expiresAt).toISOString(),
             current: session.id === currentSessionId
         })),
-        projects: projects.map(p => ({ ...ref(p), roles: rolesInProject(user, p) })),
+        projects: projects.map(p => ({
+            ...ref(p),
+            roles: rolesInProject(user, p, workspaceOf(p))
+        })),
+        workspaces: workspacesOf(userId).map(w => ({
+            id: w.id,
+            name: w.name,
+            role: w.members[userId].role
+        })),
         activity
     };
 }
@@ -101,32 +116,64 @@ export type AccountDeletion = {
     leaves: ProjectRef[];
     /** Others are in it and they are its only admin: someone else must be made admin first. */
     blocked: ProjectRef[];
+    workspaces: {
+        /** Only they are in it, and all its projects go: it goes too. */
+        deletes: ProjectRef[];
+        /** Others are in it: they leave it. */
+        leaves: ProjectRef[];
+        /**
+         * They are its only owner and others are in it, or a project of it stays (someone else
+         * is in it): make someone else an owner first, or move the project.
+         */
+        blocked: ProjectRef[];
+    };
 };
 
-/** What deleting this account would do to each of its projects. */
+/** What deleting this account would do to each of its projects and workspaces. */
 export function accountDeletion(userId: string): AccountDeletion {
     const user = account(userId);
-    const plan: AccountDeletion = { deletes: [], leaves: [], blocked: [] };
+    const plan: AccountDeletion = {
+        deletes: [],
+        leaves: [],
+        blocked: [],
+        workspaces: { deletes: [], leaves: [], blocked: [] }
+    };
     for (const project of loadProjects().filter(p => memberOf(p, userId))) {
+        const workspace = workspaceOf(project);
         const others = (project.users as string[])
             .filter(id => id !== userId)
             .map(id => getUserById(id))
             .filter((u): u is User => Boolean(u));
         if (!others.length) plan.deletes.push(ref(project));
-        else if (others.some(u => hasRole(inProject(u, project), 'admin')))
+        else if (others.some(u => hasRole(inProject(u, project, workspace), 'admin')))
             plan.leaves.push(ref(project));
-        else if (hasRole(inProject(user, project), 'admin')) plan.blocked.push(ref(project));
+        else if (hasRole(inProject(user, project, workspace), 'admin'))
+            plan.blocked.push(ref(project));
         // No admin at all: leaving changes nothing about who can run it.
         else plan.leaves.push(ref(project));
+    }
+    const going = new Set(plan.deletes.map(p => p.id));
+    for (const workspace of workspacesOf(userId)) {
+        const wsRef = { id: workspace.id, name: workspace.name };
+        const others = Object.keys(workspace.members).filter(id => id !== userId);
+        if (others.length) {
+            const otherOwner = others.some(id => workspace.members[id].role === 'owner');
+            const isOwner = workspace.members[userId].role === 'owner';
+            (isOwner && !otherOwner ? plan.workspaces.blocked : plan.workspaces.leaves).push(wsRef);
+        } else if (projectsInWorkspace(workspace.id).every(p => going.has(p.id))) {
+            plan.workspaces.deletes.push(wsRef);
+        } else plan.workspaces.blocked.push(wsRef);
     }
     return plan;
 }
 
 /**
  * Delete this person's account, for good. `confirmEmail` is their address typed back. Refused
- * (409 `SOLE_ADMIN`, with `projects`) while they are the only admin of a project others are in.
- * Projects only they are in go to the project trash; they leave the others; the invites they
- * sent are withdrawn; every session ends; the account leaves the users file.
+ * (409 `SOLE_ADMIN`, with `projects`) while they are the only admin of a project others are in,
+ * and (409 `SOLE_OWNER`, with `workspaces`) while they are the only owner of a workspace others
+ * are in. Projects only they are in go to the project trash; they leave the others; workspaces
+ * only they are in go once their projects have; the invites they sent are withdrawn; every
+ * session ends; the account leaves the users file.
  */
 export async function deleteAccount(
     userId: string,
@@ -144,6 +191,13 @@ export async function deleteAccount(
             new Error('Make someone else an admin of these projects first, or remove the others.'),
             { status: 409, code: 'SOLE_ADMIN', projects: plan.blocked }
         );
+    if (plan.workspaces.blocked.length)
+        throw Object.assign(
+            new Error(
+                'Make someone else an owner of these workspaces first, or move their projects.'
+            ),
+            { status: 409, code: 'SOLE_OWNER', workspaces: plan.workspaces.blocked }
+        );
     for (const { id } of plan.deletes) await deleteProject(user, id);
     for (const { id } of plan.leaves) {
         const project = loadProjects().find(p => p.id === id);
@@ -155,6 +209,8 @@ export async function deleteAccount(
             memberRoles
         });
     }
+    for (const { id } of plan.workspaces.leaves) await removeWorkspaceMember(user, id, userId);
+    for (const { id } of plan.workspaces.deletes) await removeEmptyWorkspace(id);
     const invitesWithdrawn = withdrawInvitesBy(userId);
     await deleteUser(userId);
     await triggerEvent('auth.account.deleted', { userId, email: user.email });

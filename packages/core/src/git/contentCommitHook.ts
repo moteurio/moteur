@@ -21,7 +21,7 @@ import { batchFor } from '../contentBatch.js';
 type ContentEventPayload = { projectId: string; paths: string[]; message: string; user: User };
 
 /**
- * Events may list workspace files (e.g. .moteur/reviews.json) next to content. Those are
+ * Events may list project state files (e.g. .moteur/reviews.json) next to content. Those are
  * gitignored, and `git add` fails outright when given an ignored path, which would leave the
  * content change uncommitted too.
  */

@@ -5,6 +5,9 @@ import { Field } from './Field.js';
 
 export type LocalePrefix = 'others' | 'all' | 'none';
 
+/** A project as asked for: its workspace is the maker's own when it names none. */
+export type NewProject = Omit<ProjectSchema, 'workspaceId'> & { workspaceId?: string };
+
 export interface ProjectSchema {
     id: string; // Unique project ID (same as folder name)
     /**
@@ -14,6 +17,11 @@ export interface ProjectSchema {
      * without a change, until its person keeps it (POST /projects/:id/keep).
      */
     demo?: { from: string; copiedAt: string };
+    /**
+     * The workspace this project belongs to (`Workspace`): the team that runs and pays for it.
+     * Set when the project is made; moving it to another workspace is a handover.
+     */
+    workspaceId: string;
     label: string; // Human-readable name
     description?: string; // Optional description
     defaultLocale: string; // Default language for fallbacks
@@ -22,11 +30,17 @@ export interface ProjectSchema {
     /** When true, the project is active and available for use. New projects are created with isActive: true. */
     isActive?: boolean;
 
-    users?: string[]; // Optional list of authorized users
+    /**
+     * The project's own members, by user id: whoever was added to it (a client is one, as a
+     * guest of this project only). Members of its workspace may be in it without being listed
+     * here (see `Workspace`).
+     */
+    users?: string[];
 
     /**
      * Roles per member on this project, by user id. A member listed here has these roles in this
-     * project instead of their account roles; others keep their account roles. Written through
+     * project instead of what their workspace or account gives them (a workspace Owner or Admin
+     * keeps theirs too); others keep those. Written through
      * `PATCH /projects/:projectId/users/:userId`, not through a project update.
      */
     memberRoles?: Record<string, string[]>;

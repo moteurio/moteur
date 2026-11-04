@@ -4,7 +4,7 @@ import { safeId } from './idUtils.js';
  * Storage key convention for project-scoped data.
  * All keys are relative to the project root.
  * - Content (Git tracked): project.json, models/, layouts/, pages/, etc.
- * - Workspace (gitignored): .moteur/ — comments, activity, radar, reviews, schedules, etc.
+ * - Project state (gitignored): .moteur/ — comments, activity, radar, reviews, schedules, etc.
  * - User data (gitignored): user-data/ — form submissions, etc.
  */
 export const PROJECT_KEY = 'project.json';
@@ -13,15 +13,15 @@ export const ASSETS_KEY = 'assets.json';
 
 export const CHANNELS_KEY = 'channels.json';
 
-/** Workspace store — gitignored, not committed. Snapshot to orphan branch. */
-const WORKSPACE = '.moteur/';
-export const ACTIVITY_KEY = `${WORKSPACE}activity.json`;
+/** Project state — gitignored, not committed. Snapshot to orphan branch. */
+const STATE = '.moteur/';
+export const ACTIVITY_KEY = `${STATE}activity.json`;
 /** AI call audit (prompts/responses on disk; API redacts for non-operators). */
-export const AI_AUDIT_KEY = `${WORKSPACE}ai-audit.json`;
-export const COMMENTS_KEY = `${WORKSPACE}comments.json`;
-export const REVIEWS_KEY = `${WORKSPACE}reviews.json`;
-export const NOTIFICATIONS_KEY = `${WORKSPACE}notifications.json`;
-export const WEBHOOK_LOG_KEY = `${WORKSPACE}webhook-log.json`;
+export const AI_AUDIT_KEY = `${STATE}ai-audit.json`;
+export const COMMENTS_KEY = `${STATE}comments.json`;
+export const REVIEWS_KEY = `${STATE}reviews.json`;
+export const NOTIFICATIONS_KEY = `${STATE}notifications.json`;
+export const WEBHOOK_LOG_KEY = `${STATE}webhook-log.json`;
 
 export function modelKey(modelId: string): string {
     return `models/${safeId(modelId)}/model.json`;
@@ -96,17 +96,17 @@ export function submissionListPrefix(formId: string): string {
     return `${USERDATA}forms/${safeId(formId)}/`;
 }
 
-/** Schedules live in workspace (operational, not content). */
+/** Schedules live in project state (operational, not content). */
 export function scheduleKey(scheduleId: string): string {
-    return `${WORKSPACE}schedules/${safeId(scheduleId)}.json`;
+    return `${STATE}schedules/${safeId(scheduleId)}.json`;
 }
 
 export function scheduleListPrefix(): string {
-    return `${WORKSPACE}schedules/`;
+    return `${STATE}schedules/`;
 }
 
-/** Radar violations (derived data, in workspace). */
-export const RADAR_KEY = `${WORKSPACE}radar.json`;
+/** Radar violations (derived data, in project state). */
+export const RADAR_KEY = `${STATE}radar.json`;
 
 /** Snapshot scheduler config: { enabled: boolean, cron?: string }. */
-export const SNAPSHOT_SCHEDULE_KEY = `${WORKSPACE}snapshot-schedule.json`;
+export const SNAPSHOT_SCHEDULE_KEY = `${STATE}snapshot-schedule.json`;

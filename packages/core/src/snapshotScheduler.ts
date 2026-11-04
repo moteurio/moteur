@@ -57,9 +57,9 @@ async function tick(): Promise<void> {
             if (lastRunSlot.get(project.id) === currentSlot) continue;
             lastRunSlot.set(project.id, currentSlot);
 
-            void SnapshotService.snapshotWorkspace(
+            void SnapshotService.snapshotState(
                 project.id,
-                `Scheduled workspace snapshot — ${now.toISOString()}`,
+                `Scheduled state snapshot — ${now.toISOString()}`,
                 SCHEDULER_USER as any
             ).catch(() => {});
             void SnapshotService.snapshotUserData(

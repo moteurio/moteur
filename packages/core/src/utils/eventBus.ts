@@ -12,6 +12,7 @@ import { StructureSchema } from '@moteurio/types/Structure.js';
 import type { TemplateSchema } from '@moteurio/types/Template.js';
 import type { PageNode } from '@moteurio/types/Page.js';
 import { User } from '@moteurio/types/User.js';
+import type { Workspace } from '@moteurio/types/Workspace.js';
 import type { Asset } from '@moteurio/types/Asset.js';
 import type { FormSchema, FormSubmission } from '@moteurio/types/Form.js';
 import { eventReachesSites, touchProject } from '../deliveryCache.js';
@@ -28,6 +29,10 @@ export interface EventMap {
     'auth.passkey.added': { userId: string; passkeyId: string };
     'auth.passkey.removed': { userId: string; passkeyId: string };
     'auth.passkey.used': { userId: string; passkeyId: string };
+    // Workspaces
+    'workspace.afterCreate': { workspace: Workspace; user: User };
+    'workspace.afterUpdate': { workspace: Workspace; user?: User };
+    'workspace.afterDelete': { workspace: Workspace; user: User };
     // Projects
     'project.beforeCreate': { project: ProjectSchema; user: User };
     'project.afterCreate': { project: ProjectSchema; user: User };
@@ -35,6 +40,8 @@ export interface EventMap {
     'project.demoCopied': { project: ProjectSchema; user: User };
     'project.beforeUpdate': { project: ProjectSchema; user: User };
     'project.afterUpdate': { project: ProjectSchema; user: User };
+    /** Moved to another workspace (`project.workspaceId` is the new one). */
+    'project.afterMove': { project: ProjectSchema; from: string; user: User };
     'project.beforeDelete': { project: ProjectSchema; user: User };
     'project.afterDelete': { project: ProjectSchema; user: User };
 

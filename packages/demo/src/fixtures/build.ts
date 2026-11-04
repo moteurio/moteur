@@ -1,7 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import sharp from 'sharp';
-import type { ProjectSchema } from '@moteurio/types/Project.js';
+import type { NewProject } from '@moteurio/types/Project.js';
 import type { BlockSchema } from '@moteurio/types/Block.js';
 import type { PageNode } from '@moteurio/types/Page.js';
 import type { NavItem } from '@moteurio/types/Navigation.js';
@@ -35,7 +35,7 @@ const bot: Persona = {
     roles: ['admin']
 };
 
-const project: ProjectSchema = {
+const project: NewProject = {
     id: FIXTURES_ID,
     label: 'Fixtures — edge cases',
     description:
@@ -46,7 +46,7 @@ const project: ProjectSchema = {
     isActive: true,
     workflow: { enabled: false, mode: 'auto_publish', requireReview: false },
     git: { enabled: false }
-} as ProjectSchema;
+} as NewProject;
 
 /** Images at the edges: tiny, huge, very tall, transparent, every format, awkward names. */
 function art(): ArtSpec[] {

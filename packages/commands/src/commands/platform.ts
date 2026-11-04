@@ -257,6 +257,24 @@ export const operator = group('operator', [
         readOnly: true
     },
     {
+        name: 'workspaces',
+        summary: 'Every workspace on the server',
+        http: 'GET /operator/workspaces',
+        pick: 'workspaces',
+        table: [
+            { key: 'id', header: 'id' },
+            { key: 'name', header: 'name' },
+            {
+                key: 'owners',
+                header: 'owners',
+                format: v => ((v as { email?: string }[]) ?? []).map(o => o.email).join(', ')
+            },
+            { key: 'members', header: 'people' },
+            { key: 'projects', header: 'projects' }
+        ],
+        readOnly: true
+    },
+    {
         name: 'project-plugins',
         summary: 'Set which plugins a project may use (JSON)',
         args: [{ ...project, required: true, positional: 0 }],

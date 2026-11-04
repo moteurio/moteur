@@ -246,6 +246,19 @@ export function validateProject(
         });
     }
 
+    // workspaceId: set by createProject when missing; a workspace's id when given
+    if (
+        project.workspaceId !== undefined &&
+        (typeof project.workspaceId !== 'string' || !/^ws_[A-Za-z0-9]+$/.test(project.workspaceId))
+    ) {
+        addIssue(result, {
+            type: 'error',
+            code: 'PROJECT_INVALID_WORKSPACE',
+            message: 'Project "workspaceId" is a workspace’s id (ws_…).',
+            path: 'workspaceId'
+        });
+    }
+
     // users: optional, array of strings
     if (project.users !== undefined) {
         if (!Array.isArray(project.users)) {

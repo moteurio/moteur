@@ -9,6 +9,7 @@
 import type { ProjectSchema } from '@moteurio/types/Project.js';
 import type { User } from '@moteurio/types/User.js';
 import { rolesInProject } from '@moteurio/types';
+import { workspaceOf } from './workspaces.js';
 import { assertProjectRoom } from './planLimits.js';
 import { deleteProject, getProject, loadProjects } from './projects.js';
 import { getUserById, updateStoredUser } from './users.js';
@@ -49,7 +50,7 @@ export async function keepDemoCopy(user: User, projectId: string): Promise<Proje
             statusCode: 409,
             code: 'NOT_DEMO_COPY'
         });
-    if (!rolesInProject(user, project).includes('admin'))
+    if (!rolesInProject(user, project, workspaceOf(project)).includes('admin'))
         throw Object.assign(new Error('Only the copy’s Admin can keep it.'), {
             status: 403,
             statusCode: 403

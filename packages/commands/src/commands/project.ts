@@ -121,6 +121,24 @@ export const projects = group('projects', [
         done: (_r, a) => `Default project: ${a.id}.`
     },
     {
+        name: 'move',
+        summary: 'Move a project to another workspace (a handover)',
+        description:
+            'Owners and admins of its workspace, to a workspace where they may start projects. People added to it one by one stay; the old team leaves, the new one comes in.',
+        args: [
+            projectFirst,
+            {
+                name: 'workspace',
+                description: 'The workspace it goes to (ws_…)',
+                required: true,
+                in: 'body',
+                key: 'workspaceId'
+            }
+        ],
+        http: `POST ${P}/move`,
+        done: (_r, a) => `Moved to ${a.workspace}.`
+    },
+    {
         name: 'usage',
         summary: 'This month’s use: entries, storage, requests, AI',
         args: [projectFirst],
@@ -137,6 +155,160 @@ export const projects = group('projects', [
 ]);
 
 const userArg: ArgSpec = { ...id('Person', 'user'), aliases: ['id', 'userId'] };
+
+const W = '/workspaces/{workspace}';
+const wsArg: ArgSpec = {
+    name: 'workspace',
+    description: 'Workspace id (ws_…)',
+    required: true,
+    positional: 0,
+    aliases: ['workspaceId']
+};
+const wsUser: ArgSpec = {
+    name: 'user',
+    description: 'Person id',
+    required: true,
+    aliases: ['userId']
+};
+const wsInvite: ArgSpec = {
+    name: 'invite',
+    description: 'Invite id',
+    required: true,
+    aliases: ['inviteId']
+};
+const placeArgs: ArgSpec[] = [
+    {
+        name: 'role',
+        description: 'owner, admin, billing or member',
+        choices: ['owner', 'admin', 'billing', 'member'],
+        required: true,
+        in: 'body'
+    },
+    {
+        name: 'access',
+        description: 'Members: every project (all) or those they are added to (chosen, default)',
+        choices: ['all', 'chosen'],
+        in: 'body'
+    },
+    {
+        name: 'project-roles',
+        type: 'list',
+        description: 'Members with all: their roles in every project (default writer)',
+        in: 'body',
+        key: 'projectRoles'
+    }
+];
+
+export const workspaces = group('workspaces', [
+    {
+        name: 'list',
+        summary: 'Your workspaces, and your role in each',
+        http: 'GET /workspaces',
+        pick: 'workspaces',
+        table: [
+            { key: 'id', header: 'id' },
+            { key: 'name', header: 'name' },
+            { key: 'role', header: 'role' },
+            { key: 'members', header: 'people' },
+            { key: 'projects', header: 'projects' }
+        ],
+        readOnly: true
+    },
+    {
+        name: 'get',
+        summary: 'A workspace and its people',
+        args: [wsArg],
+        http: `GET ${W}`,
+        readOnly: true
+    },
+    {
+        name: 'create',
+        summary: 'Start a workspace (you are its owner)',
+        args: [
+            { name: 'name', description: 'Its name', required: true, positional: 0, in: 'body' }
+        ],
+        http: 'POST /workspaces',
+        done: r =>
+            `Started ${(r as { workspace?: { id?: string } }).workspace?.id}. New projects go in it with: moteur projects create --data '{"workspaceId":"…"}'`
+    },
+    {
+        name: 'rename',
+        summary: 'Rename a workspace',
+        args: [wsArg, { name: 'name', description: 'Its new name', required: true, in: 'body' }],
+        http: `PATCH ${W}`,
+        done: () => 'Renamed.'
+    },
+    {
+        name: 'delete',
+        summary: 'Delete an empty workspace (owners)',
+        args: [wsArg],
+        http: `DELETE ${W}`,
+        destructive: true,
+        done: () => 'Deleted.'
+    },
+    {
+        name: 'set-member',
+        summary: 'Change someone’s place in a workspace',
+        args: [wsArg, wsUser, ...placeArgs],
+        http: `PATCH ${W}/members/{user}`,
+        done: (_r, a) => `Saved ${a.user}.`
+    },
+    {
+        name: 'remove-member',
+        summary: 'Take someone out of a workspace and all its projects (or leave it: your own id)',
+        args: [wsArg, wsUser],
+        http: `DELETE ${W}/members/{user}`,
+        destructive: true,
+        done: () => 'Removed.'
+    },
+    {
+        name: 'invites',
+        summary: 'Workspace invites not answered yet',
+        args: [wsArg],
+        http: `GET ${W}/invites`,
+        pick: 'invites',
+        table: [
+            { key: 'id', header: 'id' },
+            { key: 'email', header: 'email' },
+            { key: 'role', header: 'role' },
+            { key: 'expiresAt', header: 'expires' }
+        ],
+        readOnly: true
+    },
+    {
+        name: 'invite',
+        summary: 'Invite someone into a workspace',
+        args: [
+            wsArg,
+            { name: 'email', description: 'Their email', required: true, in: 'body' },
+            ...placeArgs,
+            {
+                name: 'studio-url',
+                description: 'The Studio the link opens (default: MOTEUR_STUDIO_URL)',
+                in: 'body',
+                key: 'appUrl',
+                default: process.env.MOTEUR_STUDIO_URL || undefined
+            }
+        ],
+        http: `POST ${W}/invites`,
+        done: (_r, a) => `Invited ${a.email}.`
+    },
+    {
+        name: 'resend-invite',
+        summary: 'Send a workspace invite again',
+        args: [wsArg, wsInvite],
+        http: `POST ${W}/invites/{invite}/resend`,
+        done: () => 'Sent again.'
+    },
+    {
+        name: 'withdraw-invite',
+        summary: 'Withdraw a workspace invite',
+        args: [wsArg, wsInvite],
+        http: `DELETE ${W}/invites/{invite}`,
+        destructive: true,
+        done: () => 'Withdrawn.'
+    }
+]);
 
 export const members = group('members', [
     {
@@ -252,7 +424,7 @@ export const invites = group('invites', [
     },
     {
         name: 'accept',
-        summary: 'Join a project with an invite (signed in)',
+        summary: 'Join a project or a workspace with an invite (signed in)',
         args: [tokenArg],
         http: 'POST /invites/{token}/accept',
         done: () => 'Joined.'

@@ -1,7 +1,7 @@
 import fs from 'fs';
 import path from 'path';
-import { creatorRoles, PROJECT_CREATOR_ROLES } from '@moteurio/types';
-import { ProjectSchema } from '@moteurio/types/Project.js';
+import { creatorRoles, isInProject, PROJECT_CREATOR_ROLES } from '@moteurio/types';
+import type { NewProject, ProjectSchema } from '@moteurio/types/Project.js';
 import { User } from '@moteurio/types/User.js';
 import { ValidationResult } from '@moteurio/types/ValidationResult.js';
 import { isValidId } from './utils/idUtils.js';
@@ -19,13 +19,25 @@ import { validateProject } from './validators/validateProject.js';
 import { getProjectJson, putProjectJson } from './utils/projectStorage.js';
 import { PROJECT_KEY } from './utils/storageKeys.js';
 import { mergeProjectSecrets, readProjectSecrets } from './utils/projectSecrets.js';
-import { ensureWorkspace } from './utils/workspaceStore.js';
+import { ensureProjectState } from './utils/stateStore.js';
+import {
+    ensurePersonalWorkspace,
+    getWorkspace,
+    workspaceForNewProject,
+    workspaceOf
+} from './workspaces.js';
+import { canStartProjectIn, runsWorkspace } from '@moteurio/types/Workspace.js';
 import { getContentIndex } from './contentIndex/index.js';
 import { ensureUserData } from './utils/userDataStore.js';
 import { initRepo, cloneFromRemote, addAllAndCommit, schedulePush } from './git/index.js';
 import { asPublished, pinCopy, renameCopy } from './projectCopyVersions.js';
 import { getEffectiveGitRemoteUrl, applyProjectGitSideEffects } from './utils/projectGit.js';
-import { removeProjectFromAllUsers, addProjectToUser, removeProjectFromUser } from './users.js';
+import {
+    addProjectToUser,
+    getUserById,
+    removeProjectFromAllUsers,
+    removeProjectFromUser
+} from './users.js';
 import { assertPeopleRoom, assertProjectRoom } from './planLimits.js';
 import { getBlueprint } from './blueprints.js';
 import { readTextCachedSync } from './utils/fileCache.js';
@@ -58,14 +70,30 @@ export function loadProjects(): ProjectSchema[] {
         .filter((p): p is ProjectSchema => p !== null);
 }
 
+/** One project as stored (no user check), or null when there is none. */
+export function loadProject(projectId: string): ProjectSchema | null {
+    if (!isValidId(projectId)) return null;
+    const dir = path.join(baseProjectsDir(), projectId);
+    const configPath = path.join(dir, 'project.json');
+    if (!fs.existsSync(configPath)) return null;
+    try {
+        const schema = mergeProjectSecrets(
+            JSON.parse(readTextCachedSync(configPath)) as ProjectSchema,
+            readProjectSecrets(dir)
+        );
+        return { ...schema, id: projectId };
+    } catch {
+        return null;
+    }
+}
+
 /**
- * Project IDs the user is allowed to access (from each project.json's users array).
- * Use this for JWT and /auth/me so project.json is the single source of truth.
+ * Project IDs the user is in: those they are a member of, and those their workspaces give them.
+ * Use this for JWT and /auth/me so project.json (and the workspaces) stay the source of truth.
  */
 export function getProjectIdsForUser(userId: string): string[] {
-    const projects = loadProjects();
-    return projects
-        .filter(p => Array.isArray(p.users) && (p.users as string[]).includes(userId))
+    return loadProjects()
+        .filter(p => isInProject(userId, p, workspaceOf(p)))
         .map(p => p.id);
 }
 
@@ -111,26 +139,26 @@ export function listProjects(user: User): ProjectSchema[] {
 
 export async function createProject(
     user: User,
-    project: ProjectSchema
+    input: NewProject
 ): Promise<{ project?: ProjectSchema; validation?: ValidationResult }> {
     assertUserCanCreateProject(user);
     assertProjectRoom(user.id);
-    if (!project || !project.id || !isValidId(project.id)) {
-        throw new Error(`Invalid project schema: "${JSON.stringify(project)}"`);
+    if (!input || !input.id || !isValidId(input.id)) {
+        throw new Error(`Invalid project schema: "${JSON.stringify(input)}"`);
     }
-    if (isExistingProjectId(project.id)) {
-        throw new Error(`Project with id "${project.id}" already exists`);
+    if (isExistingProjectId(input.id)) {
+        throw new Error(`Project with id "${input.id}" already exists`);
     }
     // The demo's address is the server's: nobody else may take it, or every newcomer would copy theirs.
     const demoId = process.env.DEMO_PROJECT_ID?.trim();
-    if (demoId && project.id === demoId) {
-        throw Object.assign(
-            new Error(`The project id "${project.id}" is reserved on this server.`),
-            {
-                status: 409
-            }
-        );
+    if (demoId && input.id === demoId) {
+        throw Object.assign(new Error(`The project id "${input.id}" is reserved on this server.`), {
+            status: 409
+        });
     }
+
+    const workspace = await workspaceForNewProject(user, input.workspaceId);
+    const project: ProjectSchema = { ...input, workspaceId: workspace.id };
 
     const validationErrors = validateProject(project);
     if (validationErrors.issues.length > 0) {
@@ -166,7 +194,7 @@ export async function createProject(
         }
 
         await putProjectJson(projectWithUsers.id, PROJECT_KEY, projectWithUsers);
-        await ensureWorkspace(projectWithUsers.id);
+        await ensureProjectState(projectWithUsers.id);
         await ensureUserData(projectWithUsers.id);
     } catch (err) {
         // All or nothing: a half-made folder would keep the id taken by a project nobody has.
@@ -207,7 +235,7 @@ export type BlueprintOutcome = {
  */
 export async function createProjectFromBlueprint(
     user: User,
-    project: ProjectSchema,
+    project: NewProject,
     blueprintId: string | undefined
 ): Promise<{
     project?: ProjectSchema;
@@ -276,7 +304,8 @@ export async function updateProject(
     patch: Partial<ProjectSchema>
 ): Promise<ProjectSchema> {
     const current = await getProject(user, projectId);
-    const updated = applyProjectPatch(current, patch);
+    // Its workspace changes only by moving the project (a handover), never in an update.
+    const updated = { ...applyProjectPatch(current, patch), workspaceId: current.workspaceId };
     await triggerEvent('project.beforeUpdate', { project: updated, user });
 
     // Keep user.projects in sync when project.users changes (so JWT and presence get correct list after re-login)
@@ -334,6 +363,84 @@ export async function addProjectMember(
     });
     triggerEvent('project.afterUpdate', { project: updated, user: member });
     return updated;
+}
+
+/**
+ * Move a project to another workspace (a handover: to a client's own workspace, say). Its
+ * workspace's owners and admins may move it, to a workspace where they may start projects. People
+ * added to it one by one stay in it; the old workspace's team no longer is, the new one's now is.
+ */
+export async function moveProject(
+    user: User,
+    projectId: string,
+    workspaceId: string
+): Promise<ProjectSchema> {
+    const current = await getProject(user, projectId);
+    const from = workspaceOf(current);
+    if (!runsWorkspace(from?.members?.[user.id]?.role))
+        throw Object.assign(
+            new Error('Only the owners and admins of its workspace can move a project.'),
+            { status: 403, statusCode: 403 }
+        );
+    const to = getWorkspace(workspaceId);
+    if (!to || !to.members?.[user.id])
+        throw Object.assign(new Error(`Workspace "${workspaceId}" not found.`), {
+            status: 404,
+            statusCode: 404,
+            code: 'WORKSPACE_NOT_FOUND'
+        });
+    if (to.id === current.workspaceId) return current;
+    if (!canStartProjectIn(to, user.id))
+        throw Object.assign(
+            new Error('Only its owners, admins and members bring projects into a workspace.'),
+            { status: 403, statusCode: 403 }
+        );
+    const updated: ProjectSchema = { ...current, workspaceId: to.id };
+    await triggerEvent('project.beforeUpdate', { project: updated, user });
+    await putProjectJson(projectId, PROJECT_KEY, updated);
+    triggerEvent('content.saved', {
+        projectId,
+        paths: [PROJECT_KEY],
+        message: `Move to workspace ${to.name} — ${user.name ?? user.id}`,
+        user
+    });
+    triggerEvent('project.afterUpdate', { project: updated, user });
+    triggerEvent('project.afterMove', { project: updated, from: current.workspaceId, user });
+    return updated;
+}
+
+/**
+ * Someone left a workspace's team: they are no longer in any of its projects, not even those
+ * they were added to one by one. Returns the ids of the projects they were taken out of.
+ */
+export async function leaveWorkspaceProjects(
+    workspaceId: string,
+    userId: string,
+    by: User
+): Promise<string[]> {
+    const left: string[] = [];
+    for (const project of loadProjects().filter(p => p.workspaceId === workspaceId)) {
+        const users = (project.users ?? []) as string[];
+        if (!users.includes(userId) && !project.memberRoles?.[userId]) continue;
+        const memberRoles = { ...project.memberRoles };
+        delete memberRoles[userId];
+        const updated: ProjectSchema = {
+            ...project,
+            users: users.filter(id => id !== userId),
+            memberRoles
+        };
+        await putProjectJson(project.id, PROJECT_KEY, updated);
+        await removeProjectFromUser(userId, project.id);
+        triggerEvent('content.saved', {
+            projectId: project.id,
+            paths: [PROJECT_KEY],
+            message: `Remove member ${userId} (left the workspace)`,
+            user: by
+        });
+        triggerEvent('project.afterUpdate', { project: updated, user: by });
+        left.push(project.id);
+    }
+    return left;
 }
 
 export async function deleteProject(user: User, projectId: string): Promise<void> {
@@ -442,7 +549,7 @@ export async function copyProjectForNewUser(
     const sourceDir = path.join(base, sourceProjectId);
     const destDir = path.join(base, newProjectId);
 
-    // The content only: models, entries, pages, media. Never the workspace (.moteur: secrets,
+    // The content only: models, entries, pages, media. Never the project state (.moteur: secrets,
     // notes, AI log, notifications), the history, the outbound hooks or what visitors sent.
     fs.cpSync(sourceDir, destDir, {
         recursive: true,
@@ -474,8 +581,14 @@ export async function copyProjectForNewUser(
         assetConfig: _assetConfig,
         ...content
     } = project;
+    // The copy is theirs: it goes in their own workspace unless told which.
+    const owner = getUserById(userId);
+    const workspaceId =
+        extra.workspaceId ?? (owner ? (await ensurePersonalWorkspace(owner)).id : undefined);
+    if (!workspaceId) throw new Error(`copyProjectForNewUser: no user "${userId}"`);
     const updated: ProjectSchema = {
         ...content,
+        workspaceId,
         id: newProjectId,
         label: (project.label || 'Demo').replace(/^demo$/i, 'My Demo') || 'My Demo',
         users: [userId],

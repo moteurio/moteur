@@ -223,7 +223,7 @@ describe('review workflow', () => {
         );
     });
 
-    it('commits review status changes despite listing gitignored workspace files', async () => {
+    it('commits review status changes despite listing gitignored project state files', async () => {
         await submitForReview(projectId, editor, 'article', 'e1');
         await vi.waitFor(() =>
             expect(commitMessages()).toContain('Submit for review article/e1 — Eddie')

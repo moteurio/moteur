@@ -99,11 +99,18 @@ router.delete('/me', requireAuth, async (req: Request, res: Response) => {
         await deleteAccount(req.user!.id, text(req.body?.email, 300) ?? '');
         res.status(204).end();
     } catch (err) {
-        const { code, projects } = err as { code?: string; projects?: unknown };
-        if (code === 'SOLE_ADMIN')
-            return void res
-                .status(409)
-                .json({ error: (err as Error).message, code, projects, requestId: req.requestId });
+        const { code, projects, workspaces } = err as {
+            code?: string;
+            projects?: unknown;
+            workspaces?: unknown;
+        };
+        if (code === 'SOLE_ADMIN' || code === 'SOLE_OWNER')
+            return void res.status(409).json({
+                error: (err as Error).message,
+                code,
+                ...(code === 'SOLE_ADMIN' ? { projects } : { workspaces }),
+                requestId: req.requestId
+            });
         sendApiError(res, req, err);
     }
 });
@@ -265,7 +272,7 @@ export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
             ...secured,
             summary: 'What deleting your account would do',
             description:
-                '`deletes`: projects only you are in (they go to the project trash). `leaves`: projects with others and another admin (you leave; your content stays, credited by name). `blocked`: projects with others where you are the only admin; deleting is refused until someone else is admin.',
+                '`deletes`: projects only you are in (they go to the project trash). `leaves`: projects with others and another admin (you leave; your content stays, credited by name). `blocked`: projects with others where you are the only admin; deleting is refused until someone else is admin. `workspaces`: the same for your workspaces (`blocked`: you are their only owner and others are in them, or a project of theirs stays).',
             responses: {
                 '200': {
                     description: 'Each project, by what would happen to it',
@@ -274,7 +281,15 @@ export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
                         properties: {
                             deletes: projectRefs,
                             leaves: projectRefs,
-                            blocked: projectRefs
+                            blocked: projectRefs,
+                            workspaces: {
+                                type: 'object',
+                                properties: {
+                                    deletes: projectRefs,
+                                    leaves: projectRefs,
+                                    blocked: projectRefs
+                                }
+                            }
                         }
                     })
                 },
@@ -299,13 +314,14 @@ export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
                 '403': reauth,
                 '409': {
                     description:
-                        'You are the only admin of projects others are in (`SOLE_ADMIN`): `projects` lists them',
+                        'You are the only admin of projects others are in (`SOLE_ADMIN`: `projects` lists them), or the only owner of workspaces others are in (`SOLE_OWNER`: `workspaces` lists them)',
                     ...json({
                         type: 'object',
                         properties: {
                             error: { type: 'string' },
                             code: { type: 'string' },
                             projects: projectRefs,
+                            workspaces: projectRefs,
                             requestId: { type: 'string' }
                         }
                     })

@@ -1,12 +1,12 @@
 /**
  * Imports as jobs: started, followed (progress), and, when they wait for it, approved. A job is
- * kept in the project's workspace (.moteur/imports.json), the last few of them.
+ * kept in the project's state (.moteur/imports.json), the last few of them.
  */
 import { randomUUID } from 'crypto';
 import type { User } from '@moteurio/types/User.js';
 import type { ImportBundle, ImportJob } from '@moteurio/types/Import.js';
 import { hasRole, needsApproval } from '@moteurio/types';
-import { read, write } from '../utils/workspaceStore.js';
+import { read, write } from '../utils/stateStore.js';
 import { restoreProjectFile } from '../utils/projectStorage.js';
 import { projectDir } from '../utils/pathUtils.js';
 import { show } from '../git/gitService.js';

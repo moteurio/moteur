@@ -28,6 +28,7 @@ import {
     OperatorAuthError
 } from '@moteurio/core/operators.js';
 import { requireOperator } from '../middlewares/auth.js';
+import { listWorkspaces } from '@moteurio/core/workspaces.js';
 import { sendApiError } from '../utils/apiError.js';
 import {
     pluginEntries,
@@ -67,6 +68,7 @@ function projectRow(p: ProjectSchema, period: string) {
         id: p.id,
         label: p.label || p.id,
         description: p.description,
+        workspaceId: p.workspaceId,
         createdAt: createdAt(p),
         members: (p.users ?? []).length,
         defaultLocale: p.defaultLocale,
@@ -219,6 +221,30 @@ router.patch('/projects/:projectId', async (req: Request, res: Response) => {
             plugins: plugins as unknown as string[]
         });
         res.json({ project: projectRow(updated, currentPeriod()) });
+    } catch (err) {
+        sendApiError(res, req, err);
+    }
+});
+
+/** Every workspace on the server: its owners, how many people and projects. */
+router.get('/workspaces', (req: Request, res: Response) => {
+    try {
+        const counts = new Map<string, number>();
+        for (const p of loadProjects())
+            counts.set(p.workspaceId, (counts.get(p.workspaceId) ?? 0) + 1);
+        res.json({
+            workspaces: listWorkspaces().map(w => ({
+                id: w.id,
+                name: w.name,
+                personal: !!w.personal,
+                createdAt: w.createdAt,
+                owners: Object.entries(w.members)
+                    .filter(([, m]) => m.role === 'owner')
+                    .map(([id]) => ({ id, email: getUserById(id)?.email })),
+                members: Object.keys(w.members).length,
+                projects: counts.get(w.id) ?? 0
+            }))
+        });
     } catch (err) {
         sendApiError(res, req, err);
     }
@@ -491,8 +517,9 @@ const projectRowSchema: OpenAPIV3.SchemaObject = {
         id: str,
         label: str,
         description: str,
+        workspaceId: str,
         createdAt: { type: 'string', format: 'date-time' },
-        members: int,
+        members: { ...int, description: 'People added to it (its workspace’s team not counted)' },
         defaultLocale: str,
         supportedLocales: strings,
         plugins: { ...strings, nullable: true, description: 'Null: every plugin the server runs' },
@@ -583,6 +610,37 @@ const paths: Record<string, OpenAPIV3.PathItemObject> = {
             tags,
             responses: ok('`{ projects }`', {
                 projects: { type: 'array', items: projectRowSchema }
+            })
+        }
+    },
+    '/operator/workspaces': {
+        get: {
+            summary: 'Every workspace on the server',
+            description:
+                'With its owners, how many people are in it and how many projects it has. Operators only.',
+            tags,
+            responses: ok('`{ workspaces }`', {
+                workspaces: {
+                    type: 'array',
+                    items: {
+                        type: 'object',
+                        properties: {
+                            id: str,
+                            name: str,
+                            personal: { type: 'boolean' },
+                            createdAt: { type: 'string', format: 'date-time' },
+                            owners: {
+                                type: 'array',
+                                items: {
+                                    type: 'object',
+                                    properties: { id: str, email: str }
+                                }
+                            },
+                            members: int,
+                            projects: int
+                        }
+                    }
+                }
             })
         }
     },

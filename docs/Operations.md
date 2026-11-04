@@ -15,7 +15,7 @@ Set `DATA_ROOT` explicitly to a persistent location in deployed environments. Re
 | Operators                           | `data/operators.json`                                   | Preserve separately from project membership                                                                                                           |
 | Blueprints                          | `data/blueprints/`                                      | Include local customizations                                                                                                                          |
 | Metering                            | `data/metering/`                                        | Includes persisted request/submission counts and credit ledger                                                                                        |
-| Workspace and submissions           | Each project's `.moteur/` and `user-data/`              | Gitignored by the content branch                                                                                                                      |
+| Project state and submissions       | Each project's `.moteur/` and `user-data/`              | Gitignored by the content branch                                                                                                                      |
 | Project credentials                 | Each project's `.moteur/secrets.json`                   | Storage keys, video hosts' tokens, Shopify and Git tokens, forms' captcha secrets and token key; encrypted with `MOTEUR_ENCRYPTION_KEY`, never in Git |
 | Media                               | Local asset storage and/or configured external adapters | Back up original binaries as well as metadata                                                                                                         |
 
@@ -37,7 +37,7 @@ Set the host's JWT secret, CORS origins and API base path. Use a separate operat
 
 `MOTEUR_CONTENT_INDEX_RECHECK_MS` controls background reconciliation (default 30,000 ms; `0` disables it). API writes update the index directly. If external tooling changes files, allow reconciliation or restart the API to trigger freshness checks. Do not confuse this index with optional Algolia/Meilisearch plugins.
 
-To force a clean index rebuild, stop the writer, move the project's content-index database and its SQLite sidecars out of the cache, and restart. Keep other workspace files. A rebuild cannot recover published content whose required Git snapshot is missing; restore that history or deliberately publish reviewed content again.
+To force a clean index rebuild, stop the writer, move the project's content-index database and its SQLite sidecars out of the cache, and restart. Keep other project state files. A rebuild cannot recover published content whose required Git snapshot is missing; restore that history or deliberately publish reviewed content again.
 
 ## Writer and scheduler model
 
@@ -47,9 +47,9 @@ Publication schedules and snapshot timers run in process. Keep a writer running 
 
 ## Backup and restore
 
-Take a consistent filesystem backup with writes stopped or using a storage snapshot that captures the whole data set. Include overridden paths, local asset files and corresponding external stores. Git remotes preserve tracked content and history; they omit normal workspace state, submissions and account files unless separately backed up.
+Take a consistent filesystem backup with writes stopped or using a storage snapshot that captures the whole data set. Include overridden paths, local asset files and corresponding external stores. Git remotes preserve tracked content and history; they omit normal project state, submissions and account files unless separately backed up.
 
-Restore into an isolated host first, using the matching engine/plugins and required secrets. Check sign-in, a published entry with newer draft edits, media retrieval, form submission access and schedule state before directing traffic to the restored instance. Rebuild the content index when necessary. [Git](Git.md) explains the narrower workspace and user-data snapshot features.
+Restore into an isolated host first, using the matching engine/plugins and required secrets. Check sign-in, a published entry with newer draft edits, media retrieval, form submission access and schedule state before directing traffic to the restored instance. Rebuild the content index when necessary. [Git](Git.md) explains the narrower project state and user-data snapshot features.
 
 ## Deleted projects
 

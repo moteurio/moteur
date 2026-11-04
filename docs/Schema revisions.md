@@ -21,7 +21,7 @@ Related: [Git integration](Git.md), [REST API](REST%20API.md), [Public API and C
 
 Built-in types are merged at runtime from `@moteurio/core`, plugins, and `data/core/`. Only files under `data/projects/{projectId}/` appear in git history for that project.
 
-Workspace snapshots (`moteur-workspace-snapshots`) and user-data snapshots do **not** include schemas; schemas are on the main content branch history. See [Git integration](Git.md).
+State snapshots (`moteur-state-snapshots`) and user-data snapshots do **not** include schemas; schemas are on the main content branch history. See [Git integration](Git.md).
 
 ---
 
@@ -146,7 +146,7 @@ Model file (models/…/model.json)
 
 ## See also
 
-- [Git integration](Git.md) — commits, branches, workspace snapshots
+- [Git integration](Git.md) — commits, branches, state snapshots
 - [Workflows](Workflows.md) — publish and entry lifecycle
 - [Blocks](Blocks.md) — built-in vs project block types
 - [Public API and Channels](Public%20API%20and%20Channels.md) — channels and OpenAPI

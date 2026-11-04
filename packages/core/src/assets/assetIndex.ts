@@ -14,7 +14,7 @@ import fs from 'fs';
 import path from 'path';
 import type { DatabaseSync, StatementSync, SQLInputValue } from 'node:sqlite';
 import type { Asset } from '@moteurio/types/Asset.js';
-import { projectDir, workspaceDir } from '../utils/pathUtils.js';
+import { projectDir, stateDir } from '../utils/pathUtils.js';
 import { ASSETS_KEY } from '../utils/storageKeys.js';
 import { busy, closeWhenIdle, INDEX_PRAGMAS } from '../utils/idleIndexes.js';
 import { ASSET_KINDS, fold, kindOf, searchText } from './assetFacts.js';
@@ -261,7 +261,7 @@ class SqliteAssetIndex implements AssetIndex {
     private open(projectId: string): Open | null {
         const dir = projectDir(projectId);
         if (!fs.existsSync(dir)) return null;
-        const dbFile = path.join(workspaceDir(projectId), 'cache', 'assets.sqlite');
+        const dbFile = path.join(stateDir(projectId), 'cache', 'assets.sqlite');
         const existing = this.projects.get(dir);
         if (existing) {
             let inode = -1;

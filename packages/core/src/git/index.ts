@@ -23,11 +23,11 @@ export {
     createBranch,
     checkoutBranch,
     mergeBranch,
-    snapshotWorkspace,
-    restoreWorkspace,
+    snapshotState,
+    restoreState,
     snapshotUserData,
     restoreUserData,
-    WORKSPACE_SNAPSHOT_BRANCH,
+    STATE_SNAPSHOT_BRANCH,
     USERDATA_SNAPSHOT_BRANCH
 } from './gitService.js';
 export type { GitAuthor, CommitInfo, GitStatus } from './gitService.js';

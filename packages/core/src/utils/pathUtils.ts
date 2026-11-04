@@ -42,8 +42,8 @@ export function projectDir(projectId: string): string {
     return path.join(baseProjectsDir(), safeId(projectId));
 }
 
-/** Workspace store — .moteur/ (gitignored). Comments, activity, radar, reviews, schedules. */
-export function workspaceDir(projectId: string): string {
+/** Project state — .moteur/ (gitignored). Comments, activity, radar, reviews, schedules. */
+export function stateDir(projectId: string): string {
     return path.join(projectDir(projectId), '.moteur');
 }
 
@@ -115,7 +115,7 @@ export function pageFilePath(projectId: string, pageId: string): string {
 }
 
 export function scheduleFilePath(projectId: string, scheduleId: string): string {
-    return path.join(workspaceDir(projectId), 'schedules', `${safeId(scheduleId)}.json`);
+    return path.join(stateDir(projectId), 'schedules', `${safeId(scheduleId)}.json`);
 }
 
 /** Original asset file path: assets/original/{id}-{filename} */

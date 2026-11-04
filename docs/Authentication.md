@@ -194,7 +194,7 @@ A server is closed by default: without `MOTEUR_SIGNUP=open`, only invited people
 
 **Terms and Privacy policy.** `GET /auth/signup` answers `{ open, emailCodes, legal }`. `legal` holds `terms` and `privacy`, the addresses of the server's Terms and Privacy policy, for the sign-up page to link to. A key is left out when the server has none, so `legal` may be `{}`. An operator sets them with `PATCH /operator/settings` (`{ termsUrl, privacyUrl }`, where `null` clears one), else they come from `MOTEUR_TERMS_URL` and `MOTEUR_PRIVACY_URL`. Either way they must be absolute `https` addresses (plain `http` only to `localhost`): the setting is refused with **400** `URL_INVALID`, and an environment value that isn't one is ignored, with one line in the log. Saved settings live in `server-settings.json`, beside the users file.
 
-A new account records how it was made and the site page that brought them (`signup`), and what they came for (`onboarding`: `PATCH /auth/me/onboarding`). The Studio's welcome screens ask once. `POST /auth/me/demo` copies the server's demo project (`DEMO_PROJECT_ID`) for them, at most three times: its content only, never its workspace (`.moteur/`), credentials, outbound webhooks, Git history or form submissions. Whoever creates a project is its admin, billing and developer.
+A new account records how it was made and the site page that brought them (`signup`), and what they came for (`onboarding`: `PATCH /auth/me/onboarding`). The Studio's welcome screens ask once. `POST /auth/me/demo` copies the server's demo project (`DEMO_PROJECT_ID`) for them, at most three times: its content only, never its project state (`.moteur/`), credentials, outbound webhooks, Git history or form submissions. Whoever creates a project is its admin, billing and developer.
 
 The copy is marked (`demo` on the project) and is for trying things, not a site:
 
@@ -253,6 +253,7 @@ What isn't in it: the content they wrote (entries, pages, files, notes and comme
 - `deletes`: projects only they are in. They go to the server's project trash with the account.
 - `leaves`: projects with other people, and another admin. They are removed from it; what they wrote stays, credited by name.
 - `blocked`: projects with other people where they are the only admin. Deleting is refused (**409** `SOLE_ADMIN`, with `projects`) until someone else is made admin there, or the others are removed.
+- `workspaces`: the same for their [workspaces](#workspaces), `{ deletes, leaves, blocked }`. A workspace only they are in goes once all its projects do. They leave one that has other members. Deleting is refused (**409** `SOLE_OWNER`, with `workspaces`) while they are the only owner of a workspace others are in, or a project of a workspace only they are in stays because someone else is in it. To unblock it, make someone else an owner, or move the project.
 
 `DELETE /auth/me` with `{ email }`, the account's own address typed back (else **400** `CONFIRM_MISMATCH`), deletes it: projects in `deletes` go to the trash, they leave the others, the invites they sent and that nobody has accepted are withdrawn, every session ends, and the account is removed from the users file. It answers **204**. Plugins hear `auth.account.deleted` (`{ userId, email }`): a billing plugin can cancel what it charged for.
 
@@ -320,7 +321,7 @@ Details and examples: [packages/client/README.md](../packages/client/README.md).
 
 ### Roles in a project
 
-Each user has **account roles** (`roles` in `users.json`). A project may set other roles for a member in `memberRoles` (user id to roles); in that project those replace the account roles. `requireProjectAccess` resolves them, so after it `req.user.roles` are the member's roles in that project (`req.account` keeps the stored account).
+Each user has **account roles** (`roles` in `users.json`). A project may set other roles for a member in `memberRoles` (user id to roles); in that project those replace the account roles. Its [workspace](#workspaces) may give roles too. `requireProjectAccess` resolves them, so after it `req.user.roles` are the member's roles in that project (`req.account` keeps the stored account).
 
 - Whoever creates a project (`POST /projects`, or the demo copy made at sign-up) becomes **Admin**, **Developer** and **Billing** on it, on top of their Studio roles.
 - Project admins (`requireProjectAdmin`) update or delete the project, invite people and set their roles, and import or export it.
@@ -333,9 +334,46 @@ Each user has **account roles** (`roles` in `users.json`). A project may set oth
 - `PATCH /projects/:projectId/users/:userId` with `roles` sets that member's roles in this project only. It needs Admin in the project, and the project must keep at least one admin. Only someone with **Developer** gives or takes Developer, and only someone with **Billing** gives or takes Billing, on members and in invitations alike. Admin implies neither. Unknown role names are dropped. `memberRoles` cannot be written through `PATCH /projects/:projectId`.
 - Ids that become file paths (entries, pages, schedules, forms, submissions and the rest) are letters, digits, `_` and `-` only; anything else answers **400**.
 - Uploaded files are stored under the extension of the type they were accepted as, and served with `nosniff`. Anything but images, video, audio, PDFs and 3D models is sent as a sandboxed download, never shown as a page on the API's origin.
-- `GET /projects` lists the projects the signed-in user belongs to. `GET /blueprints/*` is open to anyone signed in, so they can pick a starting point; changing blueprints is for operators (below).
+- `GET /projects` lists the projects the signed-in user is in, through its workspace too. `GET /blueprints/*` is open to anyone signed in, so they can pick a starting point; changing blueprints is for operators (below).
 - A project's member list changes through invitations and the members routes, never `PATCH /projects/:projectId`. A member's account itself (name, email, active) is changed by them, or by an operator: `PATCH /projects/:projectId/users/:userId` only sets their roles in that project.
 - A project's Git remote is an `https://` address, for everyone: a local path, `file://` or SSH could reach another project's repository on the host.
+
+### Workspaces
+
+A workspace is the team that owns projects: an agency, a studio, or one person. Every project belongs to exactly one (`workspaceId` on the project). Workspaces and their members are kept in `workspaces.json` next to the users file (`WORKSPACES_FILE` to move it).
+
+- Each member of a workspace has one role there. **Owner** runs the workspace and is Admin, Billing and Developer in every project of it. **Admin** manages its members and is Admin and Developer in every project. **Billing** is Billing in every project. **Member** starts projects in it. With `access: "all"`, a member is in every project, with the workspace's `projectRoles` (Writer when none). With `access: "chosen"` (the default), they are only in the projects they were added to.
+- A client is not a member of the workspace. They are a guest of their own project (its `users`), and never see the team's other projects.
+- A project's own roles for someone (`memberRoles`) take precedence over what the workspace gives a Member or Billing person. Owners and Admins keep their workspace roles in every project, whatever the project says.
+- A workspace always has an owner. Only owners make, change or remove owners. A workspace is deleted only by an owner, and only once it has no projects.
+- `POST /projects` takes `workspaceId`: the workspace must be one where the person is an owner, admin or member, else **403** (**404** when they are not in it). Without one, the project goes in their own workspace. That workspace is made with their first project, and so is the demo copy made at sign-up. A project patch never changes `workspaceId`.
+- `requireProjectAccess` lets in a project's members and the workspace members it gives that project to, and `GET /projects` lists the same (`?workspace=ws_…` narrows it to one workspace). `GET /projects/:projectId/users` lists both: each row has `workspaceRole` when the person is in the project's workspace, and `viaWorkspace: true` when only the workspace puts them there. Those people are taken out in the workspace, not in the project.
+- Leaving a workspace, or being taken out of it, takes someone out of every project of it too, even those they were added to one by one.
+- Host plugins read workspaces through `getWorkspace`, `workspaceOf` and `workspacesOf` in `@moteurio/core/host.js`. They hear `workspace.afterCreate`, `workspace.afterUpdate`, `workspace.afterDelete` and `project.afterMove`.
+
+#### Workspace routes
+
+Everyone signed in sees the workspaces they are a member of. A workspace someone is not in answers **404** (`WORKSPACE_NOT_FOUND`), as if it didn't exist.
+
+| Route                                           | Who                             | What                                                                                        |
+| ----------------------------------------------- | ------------------------------- | ------------------------------------------------------------------------------------------- |
+| `GET /workspaces`                               | anyone                          | Your workspaces, with your `role` (and `access`, as a Member), how many people and projects |
+| `POST /workspaces`                              | anyone                          | Start one, `{ name }`. You are its owner                                                    |
+| `GET /workspaces/:id`                           | members                         | The workspace and its `people`                                                              |
+| `PATCH /workspaces/:id`                         | owners, admins                  | Rename it, `{ name }`                                                                       |
+| `DELETE /workspaces/:id`                        | owners                          | Once it has no projects (**409** `WORKSPACE_NOT_EMPTY`). Its pending invites are withdrawn  |
+| `PATCH /workspaces/:id/members/:userId`         | owners, admins                  | `{ role, access?, projectRoles? }`. Only owners make, change or demote owners               |
+| `DELETE /workspaces/:id/members/:userId`        | owners, admins, or yourself     | Takes them out of it and its projects. Never the last owner (**409** `LAST_OWNER`)          |
+| `GET /workspaces/:id/invites`                   | owners, admins                  | Pending invites                                                                             |
+| `POST /workspaces/:id/invites`                  | owners, admins                  | `{ email, role, access?, projectRoles?, note? }`. Only owners invite owners                 |
+| `POST /workspaces/:id/invites/:inviteId/resend` | owners, admins                  | A new link and expiry                                                                       |
+| `DELETE /workspaces/:id/invites/:inviteId`      | owners, admins                  | Withdraw it                                                                                 |
+| `POST /projects/:projectId/move`                | owners, admins of its workspace | `{ workspaceId }`: hand the project over to another workspace where you may start projects  |
+| `GET /operator/workspaces`                      | operators                       | Every workspace, its owners, people and projects                                            |
+
+A workspace invite works like a project invite (see [Email](Email.md)): the same link, `/invite/<token>`, valid for the same time. The email names the workspace and the place offered in its team. `GET /invites/:token` answers `workspace` and `member` in place of `project` and `roles`. Accepting it (or `/register`, for an address with no account) makes the person a member with that place; someone already a member keeps theirs. Workspace members aren't counted against a project's people limit.
+
+`GET /auth/me` lists your `workspaces` (`id`, `name`, `personal`, `role`). The sign-in token carries neither projects nor workspaces: every request reads them from the server.
 
 ## Operators
 

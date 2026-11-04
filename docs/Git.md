@@ -1,6 +1,6 @@
 # Git integration
 
-Moteur stores project content on disk and uses Git for history. Workspace and user data live in gitignored directories and can be snapshotted to separate orphan branches.
+Moteur stores project content on disk and uses Git for history. Project state and user data live in gitignored directories and can be snapshotted to separate orphan branches.
 
 ---
 
@@ -22,11 +22,11 @@ All of these are under the project directory. Every content save or delete trigg
 
 These paths are in `.gitignore` and **must not** be committed to the main content branch:
 
-| Path         | Purpose                                                                                                                            |
-| ------------ | ---------------------------------------------------------------------------------------------------------------------------------- |
-| `.moteur/`   | Workspace data: activity log, comments, reviews, notifications, webhook log, Radar, schedules, presence, snapshot schedule config. |
-| `user-data/` | User data: form submissions.                                                                                                       |
-| `.trash/`    | Trashed projects and content.                                                                                                      |
+| Path         | Purpose                                                                                                                           |
+| ------------ | --------------------------------------------------------------------------------------------------------------------------------- |
+| `.moteur/`   | Project state: activity log, comments, reviews, notifications, webhook log, Radar, schedules, presence, snapshot schedule config. |
+| `user-data/` | User data: form submissions.                                                                                                      |
+| `.trash/`    | Trashed projects and content.                                                                                                     |
 
 New projects get `.gitignore` written (or merged) so `.moteur/`, `user-data/`, and `.trash/` are present. They are created and initialised with empty defaults when a project is created.
 
@@ -58,21 +58,21 @@ The current branch is returned by the branches list endpoint and is used for all
 
 ---
 
-## Workspace and user-data snapshots
+## State and user-data snapshots
 
-Workspace (`.moteur/`) and user data (`user-data/`) are stored in **separate orphan branches** so they are never mixed with content history:
+Project state (`.moteur/`) and user data (`user-data/`) are stored in **separate orphan branches** so they are never mixed with content history:
 
-| Branch                       | Contents                                                                                  |
-| ---------------------------- | ----------------------------------------------------------------------------------------- |
-| `moteur-workspace-snapshots` | Snapshot of `.moteur/` only. **`secrets.json` is never included** in any snapshot commit. |
-| `moteur-userdata-snapshots`  | Snapshot of `user-data/` only.                                                            |
+| Branch                      | Contents                                                                                  |
+| --------------------------- | ----------------------------------------------------------------------------------------- |
+| `moteur-state-snapshots`    | Snapshot of `.moteur/` only. **`secrets.json` is never included** in any snapshot commit. |
+| `moteur-userdata-snapshots` | Snapshot of `user-data/` only.                                                            |
 
-- **Snapshot workspace**: programmatically, `SnapshotService.snapshotWorkspace(projectId, message, user)` (no API route, so no CLI command yet).
+- **Snapshot project state**: programmatically, `SnapshotService.snapshotState(projectId, message, user)` (no API route, so no CLI command yet).
 - **Snapshot user data**: Programmatically `SnapshotService.snapshotUserData(projectId, message, user)` (CLI can be added similarly).
-- **Restore workspace**: programmatically, `SnapshotService.restoreWorkspace(projectId, fromBranch)` (no API route, so no CLI command yet). Restore **merges** snapshot contents into the existing `.moteur/` directory; it does not delete files that exist only locally and are absent from the snapshot.
+- **Restore project state**: programmatically, `SnapshotService.restoreState(projectId, fromBranch)` (no API route, so no CLI command yet). Restore **merges** snapshot contents into the existing `.moteur/` directory; it does not delete files that exist only locally and are absent from the snapshot.
 - **Restore user data**: `SnapshotService.restoreUserData(projectId, fromBranch)`. Same merge behaviour: existing files not in the snapshot are left in place.
 
-**Important:** Do not trigger CI on snapshot branch pushes. Document this in your CI config or README so that pipelines ignore `moteur-workspace-snapshots` and `moteur-userdata-snapshots`.
+**Important:** Do not trigger CI on snapshot branch pushes. Document this in your CI config or README so that pipelines ignore `moteur-state-snapshots` and `moteur-userdata-snapshots`.
 
 ---
 
@@ -82,7 +82,7 @@ The API can run an **in-process** snapshot scheduler (no external cron required)
 
 - It runs on a configurable interval (e.g. every 60 seconds) and checks each project for a snapshot schedule.
 - Per-project config: `.moteur/snapshot-schedule.json` with `{ "enabled": true, "cron": "0 * * * *" }` (e.g. hourly). If `enabled` is `false` or the file is missing, no scheduled snapshots run for that project.
-- When the cron expression matches the current time, it runs `snapshotWorkspace` and `snapshotUserData` asynchronously; they do not block Studio or other API requests.
+- When the cron expression matches the current time, it runs `snapshotState` and `snapshotUserData` asynchronously; they do not block Studio or other API requests.
 
 ---
 
@@ -95,12 +95,12 @@ The API can run an **in-process** snapshot scheduler (no external cron required)
 
 ## Summary
 
-| Topic                       | Detail                                                                                       |
-| --------------------------- | -------------------------------------------------------------------------------------------- |
-| Content                     | Tracked on main (or current) branch; commit on every save; optional push.                    |
-| `.moteur/` and `user-data/` | Gitignored; never committed to content branch.                                               |
-| Snapshots                   | Orphan branches; workspace and user data are separate; `secrets.json` never in snapshots.    |
-| Restore                     | Merge snapshot into existing dir; does not delete extra local files.                         |
-| Branches                    | List, create, switch, merge via API and CLI.                                                 |
-| Scheduler                   | In-process; per-project `enabled` and `cron` in `.moteur/snapshot-schedule.json`.            |
-| Schema revisions            | Git log per schema file; stable id = commit hash. [Schema revisions](Schema%20revisions.md). |
+| Topic                       | Detail                                                                                        |
+| --------------------------- | --------------------------------------------------------------------------------------------- |
+| Content                     | Tracked on main (or current) branch; commit on every save; optional push.                     |
+| `.moteur/` and `user-data/` | Gitignored; never committed to content branch.                                                |
+| Snapshots                   | Orphan branches; project state and user data are separate; `secrets.json` never in snapshots. |
+| Restore                     | Merge snapshot into existing dir; does not delete extra local files.                          |
+| Branches                    | List, create, switch, merge via API and CLI.                                                  |
+| Scheduler                   | In-process; per-project `enabled` and `cron` in `.moteur/snapshot-schedule.json`.             |
+| Schema revisions            | Git log per schema file; stable id = commit hash. [Schema revisions](Schema%20revisions.md).  |

@@ -80,6 +80,17 @@ export const storageConfig = {
     },
 
     /**
+     * The workspaces (the teams that own projects) and their members.
+     * Env: WORKSPACES_FILE. Default: workspaces.json next to the users file.
+     */
+    get workspacesFile(): string {
+        const raw = process.env.WORKSPACES_FILE;
+        return raw
+            ? resolveFromRoot(raw)
+            : path.join(path.dirname(this.usersFile), 'workspaces.json');
+    },
+
+    /**
      * The operators (the people who run the whole server), apart from users.json: their own
      * sign-in with a second factor. Env: OPERATORS_FILE. Default: data/operators.json.
      */

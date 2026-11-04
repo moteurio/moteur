@@ -26,6 +26,9 @@ export type { SubmissionRow } from './utils/submissionIndex.js';
 
 // People and sign-in
 export { getUserById } from './users.js';
+
+// Workspaces: the teams that own projects (read only)
+export { getWorkspace, workspaceOf, workspacesOf } from './workspaces.js';
 export { loginWithProvider, verifyJWT } from './auth.js';
 export { startProviderSignIn } from './providerSignIn.js';
 export { resolveOnlinePresenceMaxIdleMs, setOnlineUserIdsProvider } from './onlinePresence.js';

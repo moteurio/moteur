@@ -1,4 +1,4 @@
-import type { ProjectSchema } from '@moteurio/types/Project.js';
+import type { NewProject } from '@moteurio/types/Project.js';
 import type { Entry } from '@moteurio/types/Model.js';
 import type { Persona } from '../runtime/types.js';
 import { asUser } from '../runtime/boot.js';
@@ -73,7 +73,7 @@ export async function buildScale(opts: { count: number; log: Log }): Promise<voi
             supportedLocales: ['fr', 'en'],
             users: [],
             git: { enabled: true }
-        } as ProjectSchema,
+        } as NewProject,
         bot,
         [bot]
     );

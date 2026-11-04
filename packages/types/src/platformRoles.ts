@@ -33,6 +33,8 @@ export const ROLE_SLUGS = [
 
 export type RoleSlug = (typeof ROLE_SLUGS)[number];
 
+import { runsWorkspace, workspaceProjectRoles } from './Workspace.js';
+
 type WithRoles =
     | { roles?: readonly string[] | null; agent?: { reviewOnly?: boolean } | null }
     | null
@@ -77,22 +79,53 @@ export function creatorRoles(user: WithRoles): string[] {
     return [...new Set([...own, ...PROJECT_CREATOR_ROLES])];
 }
 
-/** The roles `user` has in `project`: those set on the project for them, else their account's. */
+type InWorkspace = Parameters<typeof workspaceProjectRoles>[0];
+
+/**
+ * The roles `user` has in `project`: those the project sets for them, else what its workspace
+ * gives them (pass the project's workspace), else their account's when they are a project member.
+ * A workspace Owner or Admin keeps their workspace roles there whatever the project sets.
+ */
 export function rolesInProject(
     user: (WithRoles & { id?: string }) | null | undefined,
-    project: WithMemberRoles
+    project: WithMemberRoles & { users?: readonly string[] | null },
+    workspace?: InWorkspace
 ): string[] {
+    const fromWorkspace = workspaceProjectRoles(workspace, user?.id);
     const own = user?.id ? project?.memberRoles?.[user.id] : undefined;
-    return Array.isArray(own) ? own.filter(r => typeof r === 'string') : storedRoles(user);
+    const set = Array.isArray(own) ? own.filter(r => typeof r === 'string') : undefined;
+    if (set && fromWorkspace && runsWorkspace(workspace?.members?.[user!.id!]?.role))
+        return [...new Set([...set, ...fromWorkspace])];
+    if (set) return set;
+    if (fromWorkspace) return fromWorkspace;
+    return storedRoles(user);
 }
 
-/** `user` as they are in `project`: the same person, with their roles there. */
+/** `user` as they are in `project` (and its workspace): the same person, with their roles there. */
 export function inProject<T extends { id: string; roles?: readonly string[] | null }>(
     user: T,
-    project: WithMemberRoles
+    project: WithMemberRoles & { users?: readonly string[] | null },
+    workspace?: InWorkspace
 ): T {
     const own = project?.memberRoles?.[user.id];
-    return Array.isArray(own) ? { ...user, roles: rolesInProject(user, project) } : user;
+    const fromWorkspace = workspaceProjectRoles(workspace, user.id);
+    return Array.isArray(own) || fromWorkspace
+        ? { ...user, roles: rolesInProject(user, project, workspace) }
+        : user;
+}
+
+/**
+ * Whether `userId` is in `project`: a project member (its guests among them), or a workspace
+ * member the workspace gives every project to.
+ */
+export function isInProject(
+    userId: string | undefined,
+    project: { users?: readonly string[] | null } | null | undefined,
+    workspace?: InWorkspace
+): boolean {
+    if (!userId) return false;
+    if (Array.isArray(project?.users) && project.users.includes(userId)) return true;
+    return workspaceProjectRoles(workspace, userId) !== null;
 }
 
 /** Whether this person has `role`, counting what a stored role implies. */

@@ -4,7 +4,7 @@ import path from 'path';
 import { existsSync, readdirSync, readFileSync, rmSync } from 'fs';
 import { gitAuthEnv } from '../gitCredentials.js';
 
-/** Paths to exclude from the repo. Workspace and user data are gitignored; content is tracked. */
+/** Paths to exclude from the repo. Project state and user data are gitignored; content is tracked. */
 export const GITIGNORE_LINES = ['.moteur/', 'user-data/', '.trash/'];
 
 export interface GitAuthor {
@@ -694,7 +694,7 @@ export function gitStatus(projectDir: string): GitStatus {
 }
 
 /**
- * Push a specific branch to remote. Used e.g. to push workspace snapshot branch.
+ * Push a specific branch to remote. Used e.g. to push state snapshot branch.
  */
 export function pushBranch(projectDir: string, branch: string): boolean {
     if (!isGitRepo(projectDir)) return false;
@@ -706,18 +706,18 @@ export function pushBranch(projectDir: string, branch: string): boolean {
     }
 }
 
-export const WORKSPACE_SNAPSHOT_BRANCH = 'moteur-workspace-snapshots';
-/** Separate orphan branch for user-data/ snapshots. Do not mix with workspace. */
+export const STATE_SNAPSHOT_BRANCH = 'moteur-state-snapshots';
+/** Separate orphan branch for user-data/ snapshots. Do not mix with project state. */
 export const USERDATA_SNAPSHOT_BRANCH = 'moteur-userdata-snapshots';
 
-const WORKSPACE_SECRETS_PATH = '.moteur/secrets.json';
+const STATE_SECRETS_PATH = '.moteur/secrets.json';
 /** Rebuildable caches (content index): never snapshotted. */
-const WORKSPACE_CACHE_PATH = '.moteur/cache/';
+const STATE_CACHE_PATH = '.moteur/cache/';
 
 /**
- * List local branch names (content branches). Excludes workspace snapshot branch from default list when filterWorkspaceBranch is true.
+ * List local branch names (content branches). Excludes state snapshot branch from default list when filterStateBranch is true.
  */
-export function listBranches(projectDir: string, filterWorkspaceBranch: boolean = true): string[] {
+export function listBranches(projectDir: string, filterStateBranch: boolean = true): string[] {
     if (!isGitRepo(projectDir)) return [];
     try {
         const out = spawnSync('git', ['branch', '--list', '--no-color'], {
@@ -729,8 +729,8 @@ export function listBranches(projectDir: string, filterWorkspaceBranch: boolean 
             .split(/\n/)
             .map(line => line.replace(/^\*?\s*/, '').trim())
             .filter(Boolean);
-        if (filterWorkspaceBranch) {
-            return branches.filter(b => b !== WORKSPACE_SNAPSHOT_BRANCH);
+        if (filterStateBranch) {
+            return branches.filter(b => b !== STATE_SNAPSHOT_BRANCH);
         }
         return branches;
     } catch {
@@ -800,12 +800,12 @@ export function getCurrentBranch(projectDir: string): string | null {
 }
 
 /**
- * Snapshot the workspace (.moteur/) to an orphan branch. Does not touch content history.
+ * Snapshot the project state (.moteur/) to an orphan branch. Does not touch content history.
  * Creates the branch with a single commit containing only .moteur/. Caller can push the branch.
  */
-export async function snapshotWorkspace(
+export async function snapshotState(
     projectDir: string,
-    message: string = `Workspace snapshot — ${new Date().toISOString().slice(0, 19).replace('T', ' ')}`,
+    message: string = `State snapshot — ${new Date().toISOString().slice(0, 19).replace('T', ' ')}`,
     author?: { name?: string; email?: string; id?: string }
 ): Promise<void> {
     if (!isGitRepo(projectDir)) return;
@@ -819,25 +819,25 @@ export async function snapshotWorkspace(
     };
 
     const moteurDir = path.join(projectDir, '.moteur');
-    const hasWorkspace = existsSync(moteurDir);
-    if (!hasWorkspace) {
+    const hasState = existsSync(moteurDir);
+    if (!hasState) {
         await fs.mkdir(moteurDir, { recursive: true });
         await fs.writeFile(
             path.join(moteurDir, '.keep'),
-            '# Workspace store — comments, activity, radar, reviews, schedules. Gitignored on main.\n',
+            '# Project state — comments, activity, radar, reviews, schedules. Gitignored on main.\n',
             'utf-8'
         );
     }
 
     try {
-        git(projectDir, ['checkout', '--orphan', WORKSPACE_SNAPSHOT_BRANCH], env);
+        git(projectDir, ['checkout', '--orphan', STATE_SNAPSHOT_BRANCH], env);
         try {
             git(projectDir, ['rm', '-rf', '--cached', '.'], env);
         } catch {
             // Orphan branch has empty index; nothing to rm
         }
         git(projectDir, ['add', '-f', '.moteur/'], env);
-        for (const excluded of [WORKSPACE_SECRETS_PATH, WORKSPACE_CACHE_PATH]) {
+        for (const excluded of [STATE_SECRETS_PATH, STATE_CACHE_PATH]) {
             try {
                 git(projectDir, ['reset', 'HEAD', '--', excluded], env);
             } catch {
@@ -859,11 +859,11 @@ export async function snapshotWorkspace(
 }
 
 /**
- * Restore .moteur/ from the workspace snapshot branch. Overwrites local .moteur/ with the branch contents.
+ * Restore .moteur/ from the state snapshot branch. Overwrites local .moteur/ with the branch contents.
  */
-export async function restoreWorkspace(
+export async function restoreState(
     projectDir: string,
-    fromBranch: string = WORKSPACE_SNAPSHOT_BRANCH
+    fromBranch: string = STATE_SNAPSHOT_BRANCH
 ): Promise<void> {
     if (!isGitRepo(projectDir)) return;
     const prevBranch = getCurrentBranch(projectDir);
@@ -898,7 +898,7 @@ export async function restoreWorkspace(
 }
 
 /**
- * Snapshot user-data/ to its own orphan branch. Does not touch content or workspace.
+ * Snapshot user-data/ to its own orphan branch. Does not touch content or project state.
  */
 export async function snapshotUserData(
     projectDir: string,

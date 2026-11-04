@@ -27,8 +27,9 @@ export type GitStatus = {
 export type GitTokenInfo = { hasToken: boolean; username?: string; setAt?: string };
 export function projectsApi(client: MoteurClient) {
     return {
-        list(): Promise<{ projects: ProjectSchema[] }> {
-            return client.get('/projects');
+        /** Every project you are in; `workspaceId` narrows it to one workspace's. */
+        list(workspaceId?: string): Promise<{ projects: ProjectSchema[] }> {
+            return client.get('/projects', workspaceId ? { workspace: workspaceId } : undefined);
         },
         get(projectId: string): Promise<{ project: ProjectSchema }> {
             return client.get(`/projects/${encodeURIComponent(projectId)}`);
@@ -44,6 +45,10 @@ export function projectsApi(client: MoteurClient) {
         },
         delete(projectId: string): Promise<void> {
             return client.delete(`/projects/${encodeURIComponent(projectId)}`);
+        },
+        /** Hand a project over to another workspace (its workspace's owners and admins). */
+        move(projectId: string, workspaceId: string): Promise<{ project: ProjectSchema }> {
+            return client.post(`/projects/${encodeURIComponent(projectId)}/move`, { workspaceId });
         },
         /** A demo copy becomes the person's own project, counted on their plan (Admin only). */
         keep(projectId: string): Promise<{ project: ProjectSchema }> {

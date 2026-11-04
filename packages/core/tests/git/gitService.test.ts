@@ -13,10 +13,10 @@ import {
     show,
     isGitRepo,
     GITIGNORE_LINES,
-    snapshotWorkspace,
-    restoreWorkspace,
+    snapshotState,
+    restoreState,
     getCurrentBranch,
-    WORKSPACE_SNAPSHOT_BRANCH
+    STATE_SNAPSHOT_BRANCH
 } from '../../src/git/index.js';
 import { gitVersion } from '../../src/git/gitService.js';
 
@@ -264,7 +264,7 @@ describe('gitService', () => {
         });
     });
 
-    describe('snapshotWorkspace', () => {
+    describe('snapshotState', () => {
         beforeEach(async () => {
             await initRepo(tempDir);
             await fs.mkdir(path.join(tempDir, '.moteur'), { recursive: true });
@@ -277,11 +277,11 @@ describe('gitService', () => {
                 '{"key":"secret"}',
                 'utf-8'
             );
-            await snapshotWorkspace(tempDir, 'Test snapshot', { name: 'T', email: 't@t.com' });
+            await snapshotState(tempDir, 'Test snapshot', { name: 'T', email: 't@t.com' });
             expect(getCurrentBranch(tempDir)).toBe('main');
             const r = spawnSync(
                 'git',
-                ['show', '--name-only', '--format=', 'moteur-workspace-snapshots'],
+                ['show', '--name-only', '--format=', 'moteur-state-snapshots'],
                 {
                     cwd: tempDir,
                     encoding: 'utf-8'
@@ -294,7 +294,7 @@ describe('gitService', () => {
         });
     });
 
-    describe('restoreWorkspace', () => {
+    describe('restoreState', () => {
         beforeEach(async () => {
             await initRepo(tempDir);
             await fs.mkdir(path.join(tempDir, '.moteur'), { recursive: true });
@@ -302,9 +302,9 @@ describe('gitService', () => {
         });
 
         it('files restored, does not delete files absent from snapshot', async () => {
-            await snapshotWorkspace(tempDir, 'Snap', { name: 'U', email: 'u@u.com' });
+            await snapshotState(tempDir, 'Snap', { name: 'U', email: 'u@u.com' });
             await fs.writeFile(path.join(tempDir, '.moteur', 'extra.json'), '{}', 'utf-8');
-            await restoreWorkspace(tempDir, WORKSPACE_SNAPSHOT_BRANCH);
+            await restoreState(tempDir, STATE_SNAPSHOT_BRANCH);
             const extraPath = path.join(tempDir, '.moteur', 'extra.json');
             try {
                 await fs.access(extraPath);

@@ -99,4 +99,11 @@ export interface ProjectMemberUser {
     isActive: boolean;
     lastLoginAt?: string;
     online: boolean;
+    /** Their role in the project's workspace, when they are in its team (a client never is). */
+    workspaceRole?: 'owner' | 'admin' | 'billing' | 'member';
+    /**
+     * True when only the workspace puts them in the project (they were never added to it): they
+     * leave it by leaving the workspace, or as a Member, by being given "chosen" access.
+     */
+    viaWorkspace: boolean;
 }

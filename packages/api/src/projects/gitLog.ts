@@ -175,7 +175,7 @@ export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
         put: {
             summary: 'Set the token pushes use (developers)',
             description:
-                'For a private repository: a token with write access to it (GitHub: a fine-grained token with Contents read and write; GitLab: a project access token). Kept encrypted with MOTEUR_ENCRYPTION_KEY in the gitignored workspace, sent to Git only as a header during a push, and never returned. `username` is optional (default `x-access-token`; Bitbucket needs `x-token-auth` or the account name).',
+                'For a private repository: a token with write access to it (GitHub: a fine-grained token with Contents read and write; GitLab: a project access token). Kept encrypted with MOTEUR_ENCRYPTION_KEY in the gitignored project state, sent to Git only as a header during a push, and never returned. `username` is optional (default `x-access-token`; Bitbucket needs `x-token-auth` or the account name).',
             tags: ['Git'],
             parameters: [
                 { name: 'projectId', in: 'path', required: true, schema: { type: 'string' } }

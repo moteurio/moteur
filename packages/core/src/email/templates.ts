@@ -62,6 +62,11 @@ export interface EmailData {
         expiresAt?: string;
         /** Replies go to the person who invited. */
         replyToInviter?: boolean;
+        /**
+         * An invite to a workspace's team, not one project: `project` is then the workspace's
+         * name, and `roles` is unused.
+         */
+        team?: { role: 'owner' | 'admin' | 'billing' | 'member'; access?: 'all' | 'chosen' };
     };
     /**
      * A project used 80% or all of a monthly allowance: a limit (`fairUse` false), past which
@@ -261,6 +266,46 @@ function roleOf(
         can: fr
             ? `${now ? 'Vous pouvez' : 'Vous pourrez'} ${can}.`
             : `${now ? 'You can' : 'You’ll be able to'} ${can}.`
+    };
+}
+
+/** A place in a workspace's team, and what it gives, as an invite says it. */
+function teamRoleOf(
+    team: NonNullable<EmailData['invite']['team']>,
+    locale: EmailLocale
+): { names: string; can: string } {
+    const fr = locale === 'fr';
+    const said = {
+        owner: {
+            en: ['Owner', 'run the workspace, its people and its billing, in every project'],
+            fr: ['Propriétaire', `gérer l’espace, son équipe et sa facturation, dans chaque projet`]
+        },
+        admin: {
+            en: ['Admin', 'run every project of the workspace and its people'],
+            fr: ['Admin', `gérer chaque projet de l’espace et son équipe`]
+        },
+        billing: {
+            en: ['Billing', 'see and pay for the workspace’s plans'],
+            fr: ['Facturation', `voir et payer les forfaits de l’espace`]
+        },
+        member: {
+            en: [
+                'Member',
+                team.access === 'all'
+                    ? 'work in every project of the workspace, and start new ones'
+                    : 'work in the projects you are added to, and start new ones'
+            ],
+            fr: [
+                'Membre',
+                team.access === 'all'
+                    ? `travailler dans chaque projet de l’espace, et en lancer de nouveaux`
+                    : `travailler dans les projets où l’on vous ajoute, et en lancer de nouveaux`
+            ]
+        }
+    }[team.role][fr ? 'fr' : 'en'];
+    return {
+        names: said[0]!,
+        can: fr ? `Vous pourrez ${said[1]}.` : `You’ll be able to ${said[1]}.`
     };
 }
 
@@ -516,7 +561,7 @@ const invite: Template<'invite'> = (d, ctx) => {
     const { locale, product: P } = ctx;
     const fr = locale === 'fr';
     const first = d.inviter.split(/\s+/)[0] || d.inviter;
-    const role = roleOf(d.roles, locale);
+    const role = d.team ? teamRoleOf(d.team, locale) : roleOf(d.roles, locale);
     const until = d.expiresAt ? dayOf(d.expiresAt, locale) : undefined;
     const site = d.projectSite ? siteLink(d.projectSite) : undefined;
     const project: Block[] = [
@@ -535,9 +580,13 @@ const invite: Template<'invite'> = (d, ctx) => {
             ? `Si le bouton ne fonctionne pas, ouvrez cette adresse${N}:`
             : 'If the button doesn’t work, open this address:'
     };
-    const already = fr
-        ? `Vous avez déjà un compte avec cette adresse${N}? Connectez-vous, et ${d.project} s’y ajoute.`
-        : `Already have an account with this address? Sign in, and ${d.project} is added to it.`;
+    const already = d.team
+        ? fr
+            ? `Vous avez déjà un compte avec cette adresse${N}? Connectez-vous, et vous rejoignez l’équipe de ${d.project}.`
+            : `Already have an account with this address? Sign in, and you join the ${d.project} team.`
+        : fr
+          ? `Vous avez déjà un compte avec cette adresse${N}? Connectez-vous, et ${d.project} s’y ajoute.`
+          : `Already have an account with this address? Sign in, and ${d.project} is added to it.`;
     const inviter = d.inviterEmail ? `${d.inviter} (${d.inviterEmail})` : d.inviter;
     const base = {
         subject: fr
@@ -560,7 +609,13 @@ const invite: Template<'invite'> = (d, ctx) => {
             { t: 'kicker', text: fr ? `Invitation · ${P}` : `Invitation · ${P}` },
             {
                 t: 'h',
-                text: fr ? `Invitation à rejoindre ${d.project}` : `You’re invited to ${d.project}`
+                text: d.team
+                    ? fr
+                        ? `Invitation à rejoindre l’équipe de ${d.project}`
+                        : `You’re invited to join the ${d.project} team`
+                    : fr
+                      ? `Invitation à rejoindre ${d.project}`
+                      : `You’re invited to ${d.project}`
             },
             {
                 t: 'panel',

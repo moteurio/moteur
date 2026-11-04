@@ -56,7 +56,7 @@ These guides describe the engine in this repository: content modeling, delivery,
 | [Configuration](Configuration.md)                               | Engine environment variables and host plugin selection                       |
 | [Authentication](Authentication.md)                             | JWTs, project permissions, API keys and operators                            |
 | [Email](Email.md)                                               | What the engine sends, sending setup, branding, SPF, DKIM, DMARC, checking   |
-| [Git](Git.md)                                                   | Content history, branches and workspace/user-data snapshots                  |
+| [Git](Git.md)                                                   | Content history, branches and state/user-data snapshots                      |
 | [Plugin architecture](Plugin%20architecture.md)                 | Roles, categories, contributions, declare vs derive                          |
 | [Plugin SDK backlog](Plugin%20SDK%20backlog.md)                 | Planned hooks (commands, models, media, git, operator API)                   |
 | [Plugin SDK](../packages/plugin-sdk/README.md)                  | The engine-owned API extension contract                                      |

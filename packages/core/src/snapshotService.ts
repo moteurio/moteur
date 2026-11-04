@@ -1,11 +1,11 @@
 /**
- * Snapshot service — wraps Git snapshot/restore for workspace and user-data.
+ * Snapshot service — wraps Git snapshot/restore for project state and user-data.
  * Use projectId; resolves project dir via pathUtils.
  */
 import { projectDir } from './utils/pathUtils.js';
 import {
-    snapshotWorkspace as gitSnapshotWorkspace,
-    restoreWorkspace as gitRestoreWorkspace,
+    snapshotState as gitSnapshotState,
+    restoreState as gitRestoreState,
     snapshotUserData as gitSnapshotUserData,
     restoreUserData as gitRestoreUserData,
     isGitRepo
@@ -16,20 +16,20 @@ function authorFromUser(user: { name?: string; email?: string; id?: string }) {
     return { name: user?.name, email: user?.email, id: user?.id };
 }
 
-export async function snapshotWorkspace(
+export async function snapshotState(
     projectId: string,
     message?: string,
     user?: User
 ): Promise<void> {
     const dir = projectDir(projectId);
     if (!isGitRepo(dir)) return;
-    await gitSnapshotWorkspace(dir, message, authorFromUser(user ?? {}));
+    await gitSnapshotState(dir, message, authorFromUser(user ?? {}));
 }
 
-export async function restoreWorkspace(projectId: string, fromBranch?: string): Promise<void> {
+export async function restoreState(projectId: string, fromBranch?: string): Promise<void> {
     const dir = projectDir(projectId);
     if (!isGitRepo(dir)) return;
-    await gitRestoreWorkspace(dir, fromBranch);
+    await gitRestoreState(dir, fromBranch);
 }
 
 export async function snapshotUserData(
@@ -49,8 +49,8 @@ export async function restoreUserData(projectId: string, fromBranch?: string): P
 }
 
 export const SnapshotService = {
-    snapshotWorkspace,
-    restoreWorkspace,
+    snapshotState,
+    restoreState,
     snapshotUserData,
     restoreUserData
 };

@@ -5,6 +5,7 @@ import path from 'node:path';
 
 type Project = {
     id: string;
+    workspaceId?: string;
     label: string;
     users: string[];
     memberRoles?: Record<string, string[]>;
@@ -39,6 +40,7 @@ const { getUserById, reloadUsers } = await import('../src/users.js');
 const { createAuthSession, listAuthSessions } = await import('../src/authSessions.js');
 const { createInvite, listInvites } = await import('../src/invites.js');
 const { onEvent } = await import('../src/utils/eventBus.js');
+const { reloadWorkspaces } = await import('../src/workspaces.js');
 
 const person = (id: string, email: string, extra: object = {}) => ({
     id,
@@ -163,8 +165,51 @@ describe('a person’s own account: export and deletion', () => {
         expect(accountDeletion('louise')).toEqual({
             deletes: [{ id: 'solo', name: 'Solo' }],
             leaves: [{ id: 'shared', name: 'Shared' }],
-            blocked: [{ id: 'mine', name: 'Mine' }]
+            blocked: [{ id: 'mine', name: 'Mine' }],
+            workspaces: { deletes: [], leaves: [], blocked: [] }
         });
+    });
+
+    it('takes their workspaces into account: leaves, deletes or refuses', async () => {
+        const at = '2026-11-01T00:00:00Z';
+        const ws = (id: string, members: Record<string, string>) => ({
+            id,
+            name: id,
+            createdAt: at,
+            createdBy: 'louise',
+            members: Object.fromEntries(
+                Object.entries(members).map(([u, role]) => [u, { role, joinedAt: at }])
+            )
+        });
+        fs.writeFileSync(
+            path.join(root, 'workspaces.json'),
+            JSON.stringify({
+                workspaces: [
+                    ws('ws_own', { louise: 'owner' }),
+                    ws('ws_team', { louise: 'owner', theo: 'owner' }),
+                    ws('ws_agency', { louise: 'owner', camille: 'member' }),
+                    ws('ws_kept', { louise: 'owner' })
+                ]
+            })
+        );
+        reloadWorkspaces();
+        store.projects = store.projects.filter(p => p.id !== 'mine');
+        store.projects[0] = { ...store.projects[0], workspaceId: 'ws_own' } as never;
+        // A project of hers someone else is in (and runs) stays: its workspace can't go.
+        store.projects[1] = { ...store.projects[1], workspaceId: 'ws_kept' } as never;
+        expect(accountDeletion('louise').workspaces).toEqual({
+            deletes: [{ id: 'ws_own', name: 'ws_own' }],
+            leaves: [{ id: 'ws_team', name: 'ws_team' }],
+            blocked: [
+                { id: 'ws_agency', name: 'ws_agency' },
+                { id: 'ws_kept', name: 'ws_kept' }
+            ]
+        });
+        await expect(deleteAccount('louise', 'louise@agency.test')).rejects.toMatchObject({
+            status: 409,
+            code: 'SOLE_OWNER'
+        });
+        expect(store.deleted).toEqual([]);
     });
 
     it('refuses while they are the only admin of a project others are in', async () => {

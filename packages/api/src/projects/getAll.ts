@@ -8,7 +8,9 @@ import type { OpenAPIV3 } from 'openapi-types';
 const router: Router = Router();
 
 router.get('/', requireAuth, (req: Request, res: Response) => {
-    const projects = listProjects(req.user!);
+    // `?workspace=ws_…`: only that workspace's (those of them the caller is in).
+    const workspace = typeof req.query.workspace === 'string' ? req.query.workspace : undefined;
+    const projects = listProjects(req.user!).filter(p => !workspace || p.workspaceId === workspace);
     res.json({ projects: projects.map(p => redactProjectSecrets(p)) });
 });
 
@@ -16,7 +18,18 @@ export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
     '/projects': {
         get: {
             summary: 'List the projects the signed-in user belongs to',
+            description:
+                'Every project you are in: those you were added to, and those your workspaces give you. `workspace` narrows it to one workspace.',
             tags: ['Projects'],
+            parameters: [
+                {
+                    name: 'workspace',
+                    in: 'query',
+                    required: false,
+                    schema: { type: 'string' },
+                    description: 'A workspace id (`ws_…`): only its projects.'
+                }
+            ],
             responses: {
                 '200': {
                     description: 'List of projects',

@@ -104,7 +104,8 @@ describe('GET /projects/:projectId/users', () => {
             roles: ['editor'],
             isActive: true,
             lastLoginAt: '2025-01-15T10:00:00.000Z',
-            online: false
+            online: false,
+            viaWorkspace: false
         });
         expect(res.body.users[0]).not.toHaveProperty('passwordHash');
         expect(res.body.users[0]).not.toHaveProperty('auth');
@@ -156,7 +157,8 @@ describe('PATCH /projects/:projectId/users/:userId', () => {
             email: 't@x.com',
             roles: ['reviewer'],
             isActive: true,
-            online: false
+            online: false,
+            viaWorkspace: false
         });
         expect(updateProject).toHaveBeenCalledWith(
             expect.objectContaining({ id: 'admin1' }),

@@ -2,7 +2,8 @@ import type { Request, Response } from 'express';
 import { Router } from 'express';
 import { randomUUID } from 'crypto';
 import type { OpenAPIV3 } from 'openapi-types';
-import { consumeInvite, findInviteByToken } from '@moteurio/core/invites.js';
+import { consumeInvite, findInviteByToken, isWorkspaceInvite } from '@moteurio/core/invites.js';
+import { addWorkspaceMember, getWorkspace } from '@moteurio/core/workspaces.js';
 import {
     createUser,
     getUserByEmail,
@@ -34,10 +35,28 @@ router.get('/:token', async (req: Request, res: Response) => {
     const invite = findInviteByToken(token);
     if (!invite) return void res.status(404).json(GONE);
     try {
-        const project = await getProjectById(invite.projectId);
-        if (!project) return void res.status(404).json(GONE);
         const by = getUserById(invite.invitedBy);
         const account = findAccount(invite.email);
+        const known = {
+            hasAccount: !!account,
+            // An account made with an email code has none: that person signs in by email.
+            hasPassword: !!account?.passwordHash
+        };
+        if (isWorkspaceInvite(invite)) {
+            const workspace = getWorkspace(invite.workspaceId);
+            if (!workspace) return void res.status(404).json(GONE);
+            return void res.json({
+                email: invite.email,
+                expiresAt: invite.expiresAt,
+                workspace: { id: workspace.id, name: workspace.name },
+                member: invite.member,
+                invitedBy: { name: by?.name ?? by?.email },
+                ...(invite.note && { note: invite.note }),
+                ...known
+            });
+        }
+        const project = await getProjectById(invite.projectId);
+        if (!project) return void res.status(404).json(GONE);
         return void res.json({
             email: invite.email,
             roles: invite.roles,
@@ -45,9 +64,7 @@ router.get('/:token', async (req: Request, res: Response) => {
             project: { id: project.id, label: project.label || project.id },
             invitedBy: { name: by?.name ?? by?.email },
             ...(invite.note && { note: invite.note }),
-            hasAccount: !!account,
-            // An account made with an email code has none: that person signs in by email.
-            hasPassword: !!account?.passwordHash
+            ...known
         });
     } catch (err) {
         return void sendApiError(res, req, err);
@@ -67,6 +84,15 @@ router.post('/:token/accept', requireAuth, async (req: Request, res: Response) =
         });
     }
     try {
+        if (isWorkspaceInvite(invite)) {
+            const workspace = getWorkspace(invite.workspaceId);
+            if (!workspace) return void res.status(404).json(GONE);
+            // An existing member keeps the place they have.
+            if (!workspace.members[user.id])
+                await addWorkspaceMember(workspace.id, user.id, invite.member);
+            consumeInvite(invite.id);
+            return void res.json({ workspaceId: workspace.id });
+        }
         const project = await getProjectById(invite.projectId);
         if (!project) return void res.status(404).json(GONE);
         // An existing member keeps the roles they have.
@@ -101,9 +127,11 @@ router.post('/:token/register', async (req: Request, res: Response) => {
         });
     }
     try {
-        const project = await getProjectById(invite.projectId);
-        if (!project) return void res.status(404).json(GONE);
-        assertPeopleRoom(invite.projectId, project.users?.length ?? 0);
+        const workspace = isWorkspaceInvite(invite) ? getWorkspace(invite.workspaceId) : undefined;
+        const project = isWorkspaceInvite(invite) ? null : await getProjectById(invite.projectId);
+        if (!workspace && !project) return void res.status(404).json(GONE);
+        if (project && !isWorkspaceInvite(invite))
+            assertPeopleRoom(invite.projectId, project.users?.length ?? 0);
         const user = await createUser({
             id: `user:${randomUUID()}`,
             isActive: true,
@@ -113,15 +141,20 @@ router.post('/:token/register', async (req: Request, res: Response) => {
             roles: [],
             projects: [],
             signup: { at: new Date().toISOString(), method: 'invite' },
-            // Invited to a project: the welcome screens have nothing to ask.
+            // Invited to a team: the welcome screens have nothing to ask.
             onboarding: { intent: 'team', finishedAt: new Date().toISOString() }
         });
-        await addProjectMember(invite.projectId, user, invite.roles);
+        if (isWorkspaceInvite(invite))
+            await addWorkspaceMember(workspace!.id, user.id, invite.member);
+        else await addProjectMember(invite.projectId, user, invite.roles);
         consumeInvite(invite.id);
-        // The welcome email, about the project they joined; never holds up the answer.
+        // The welcome email, about the project they joined (a team's has no project to tell of);
+        // never holds up the answer.
         void runOnboardingForNewUser(
             user,
-            { projectId: invite.projectId, invitedBy: invite.invitedBy, roles: invite.roles },
+            isWorkspaceInvite(invite)
+                ? undefined
+                : { projectId: invite.projectId, invitedBy: invite.invitedBy, roles: invite.roles },
             // The invitation page's look, for the welcome only; never stored.
             { look: pageLook(body.look) }
         );
@@ -141,7 +174,9 @@ router.post('/:token/register', async (req: Request, res: Response) => {
                 projects: signedIn.projects,
                 isActive: signedIn.isActive
             },
-            projectId: invite.projectId
+            ...(isWorkspaceInvite(invite)
+                ? { workspaceId: invite.workspaceId }
+                : { projectId: invite.projectId })
         });
     } catch (err) {
         return void sendApiError(res, req, err);

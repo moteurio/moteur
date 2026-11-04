@@ -2,7 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import type { DatabaseSync, StatementSync, SQLInputValue } from 'node:sqlite';
 import type { Entry } from '@moteurio/types/Model.js';
-import { projectDir, workspaceDir } from '../utils/pathUtils.js';
+import { projectDir, stateDir } from '../utils/pathUtils.js';
 import { entryKey } from '../utils/storageKeys.js';
 import {
     listEntryFiles,
@@ -193,7 +193,7 @@ const dataPath = (key: string, locale?: string) =>
 /**
  * One SQLite database per project at `.moteur/cache/content-index.sqlite`, holding a copy of
  * every entry plus its public version. Entry files stay the source of truth: the database is
- * gitignored, excluded from workspace snapshots, and rebuilt from the files when missing,
+ * gitignored, excluded from state snapshots, and rebuilt from the files when missing,
  * outdated or corrupt.
  *
  * Writes made through core update the index immediately. Changes made outside the server
@@ -488,7 +488,7 @@ export class SqliteIndex implements ContentIndex {
     private open(projectId: string, options?: { create?: boolean }): ProjectIndex | null {
         const dir = projectDir(projectId);
         const existing = this.projects.get(dir);
-        const dbFile = path.join(workspaceDir(projectId), 'cache', 'content-index.sqlite');
+        const dbFile = path.join(stateDir(projectId), 'cache', 'content-index.sqlite');
         if (existing) {
             let inode = -1;
             try {

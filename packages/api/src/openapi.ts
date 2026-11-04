@@ -34,7 +34,7 @@ const baseSchemas: OpenAPIV3.ComponentsObject['schemas'] = {
     /** Project-scoped list entry for `/projects/{projectId}/users` (no secrets). */
     ProjectMemberUser: {
         type: 'object',
-        required: ['id', 'email', 'roles', 'isActive', 'online'],
+        required: ['id', 'email', 'roles', 'isActive', 'online', 'viaWorkspace'],
         properties: {
             id: { type: 'string' },
             name: { type: 'string', nullable: true },
@@ -52,6 +52,17 @@ const baseSchemas: OpenAPIV3.ComponentsObject['schemas'] = {
                 type: 'boolean',
                 description:
                     'True when the user has active Studio presence in this project within ONLINE_PRESENCE_MAX_IDLE_MS (default 90000 ms)'
+            },
+            workspaceRole: {
+                type: 'string',
+                enum: ['owner', 'admin', 'billing', 'member'],
+                description:
+                    'Their role in the project’s workspace, when they are in its team (a client never is)'
+            },
+            viaWorkspace: {
+                type: 'boolean',
+                description:
+                    'True when only the workspace puts them in the project: they are taken out of it in the workspace, not here'
             }
         }
     },

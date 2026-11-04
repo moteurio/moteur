@@ -75,7 +75,7 @@ Content is plain JSON files, one folder per project:
 ├── models/article/model.json
 ├── models/article/entries/hello/entry.json   ← entryKey('article', 'hello')
 ├── layouts/ pages/ templates/ structures/ …
-├── .moteur/      workspace: comments, reviews, activity, caches (not in git)
+├── .moteur/      project state: comments, reviews, activity, caches (not in git)
 └── user-data/    visitors' form submissions (not in git)
 ```
 

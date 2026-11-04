@@ -7,6 +7,8 @@ import { getProjectUsers, type OperatorUserPatch } from '@moteurio/core/users.js
 import { getProject, updateProject } from '@moteurio/core/projects.js';
 import { sendApiError } from '../utils/apiError.js';
 import { getOnlineUserIdsForProject } from '@moteurio/core';
+import { workspaceOf } from '@moteurio/core/workspaces.js';
+import type { ProjectSchema } from '@moteurio/types/Project.js';
 
 const router: Router = Router({ mergeParams: true });
 
@@ -20,8 +22,10 @@ function toProjectUserDto(
         isActive: boolean;
         lastLoginAt?: string;
     },
-    online: Set<string>
+    online: Set<string>,
+    project: Pick<ProjectSchema, 'users' | 'workspaceId'> | undefined
 ) {
+    const workspaceRole = workspaceOf(project)?.members?.[u.id]?.role;
     return {
         id: u.id,
         name: u.name,
@@ -30,7 +34,9 @@ function toProjectUserDto(
         roles: u.roles,
         isActive: u.isActive,
         lastLoginAt: u.lastLoginAt,
-        online: online.has(u.id)
+        online: online.has(u.id),
+        ...(workspaceRole && { workspaceRole }),
+        viaWorkspace: !((project?.users ?? []) as string[]).includes(u.id)
     };
 }
 
@@ -54,7 +60,8 @@ router.get('/:projectId/users', requireProjectAccess, (req: Request, res: Respon
                     isActive: u.isActive,
                     lastLoginAt: u.lastLoginAt
                 },
-                online
+                online,
+                req.project
             )
         );
         return void res.json({ users });
@@ -151,7 +158,8 @@ router.patch(
                         isActive: member.isActive,
                         lastLoginAt: member.lastLoginAt
                     },
-                    online
+                    online,
+                    project
                 )
             });
         } catch (err: unknown) {

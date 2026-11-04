@@ -28,7 +28,8 @@ import {
     imports,
     projects,
     types,
-    webhooks
+    webhooks,
+    workspaces
 } from './commands/project.js';
 import { ai } from './commands/ai.js';
 import {
@@ -110,6 +111,7 @@ export const API_COMMANDS = [
     ...forms,
     ...submissions,
     ...fieldTypes,
+    ...workspaces,
     ...members,
     ...invites,
     ...keys,

@@ -1,4 +1,4 @@
-import type { ProjectSchema } from '@moteurio/types/Project.js';
+import type { NewProject } from '@moteurio/types/Project.js';
 import type { BlockSchema } from '@moteurio/types/Block.js';
 import type { SourceEntry } from '../runtime/types.js';
 import { prepareFields, type UploadedArt } from '../runtime/prepare.js';
@@ -25,7 +25,7 @@ import { JOURNAL_ID } from './ids.js';
 
 export { JOURNAL_ID };
 
-export const project: ProjectSchema = {
+export const project: NewProject = {
     id: JOURNAL_ID,
     label: 'Moteur Journal',
     description:
@@ -38,7 +38,7 @@ export const project: ProjectSchema = {
     workflow: { enabled: true, mode: 'auto_publish', requireReview: true },
     git: { enabled: true },
     ai: { enabled: true }
-} as ProjectSchema;
+} as NewProject;
 
 export type JournalOptions = { password?: string; log: Log };
 

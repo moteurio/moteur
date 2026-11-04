@@ -1,7 +1,9 @@
 import { forgetAuthSessions, revokeAuthSession } from './authSessions.js';
 import { withWriteLock } from './utils/projectWriteLock.js';
 import fs from 'fs';
-import { inProject, normalizeStoredRoles } from '@moteurio/types';
+import { inProject, normalizeStoredRoles, workspaceProjectRoles } from '@moteurio/types';
+import { loadProject } from './projects.js';
+import { workspaceOf } from './workspaces.js';
 import { User } from '@moteurio/types/User.js';
 import { storageConfig } from './config/storageConfig.js';
 import { writePrivateState } from './utils/privateStore.js';
@@ -96,13 +98,21 @@ async function linkUserProviderUnlocked(
     return updated;
 }
 
-/** Members of a project. Pass the project to get each member with their roles in it. */
+/**
+ * The people in a project: its own members (guests among them) and the members of its workspace
+ * the workspace gives every project to. Pass the project (or its `memberRoles`) to get each with
+ * their roles in it.
+ */
 export function getProjectUsers(
     projectId: string,
     project?: { memberRoles?: Record<string, readonly string[]> }
 ): User[] {
-    const members = getCachedUsers().filter(user => user.projects?.includes(projectId));
-    return project ? members.map(user => inProject(user, project)) : members;
+    const workspace = workspaceOf(loadProject(projectId));
+    const members = getCachedUsers().filter(
+        user =>
+            user.projects?.includes(projectId) || workspaceProjectRoles(workspace, user.id) !== null
+    );
+    return project ? members.map(user => inProject(user, project, workspace)) : members;
 }
 
 /**

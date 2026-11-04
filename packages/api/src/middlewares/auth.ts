@@ -1,10 +1,11 @@
 import { Request, Response, NextFunction } from 'express';
-import { hasRole, inProject } from '@moteurio/types';
+import { hasRole, inProject, isInProject } from '@moteurio/types';
 import { actingUser, verifyJWT } from '@moteurio/core/auth.js';
 import { getUserById } from '@moteurio/core/users.js';
 import { verifyOperatorToken } from '@moteurio/core/operators.js';
 import { systemActor } from '@moteurio/core/utils/systemActor.js';
 import { getProject } from '@moteurio/core/projects.js';
+import { workspaceOf } from '@moteurio/core/workspaces.js';
 import { verifyProjectApiKey } from '@moteurio/core/projectApiKey.js';
 import { noteApiKeyUse } from '@moteurio/core/apiKeyUsage.js';
 import { requestHostMatchesAllowed } from '@moteurio/core/apiKeyAllowedHosts.js';
@@ -134,12 +135,13 @@ export function requireProjectAccess(req: Request, res: Response, next: NextFunc
         } catch {
             return void res.status(403).json({ error: 'Access to this project is forbidden' });
         }
-        if (!project.users?.includes(user.id)) {
+        const workspace = workspaceOf(project);
+        if (!isInProject(user.id, project, workspace)) {
             return void res.status(403).json({ error: 'Access to this project is forbidden' });
         }
         req.account = user;
         req.project = project;
-        req.user = inProject(user, project);
+        req.user = inProject(user, project, workspace);
         next();
     });
 }

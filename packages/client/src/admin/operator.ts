@@ -27,6 +27,11 @@ export function operatorApi(client: MoteurClient) {
                 });
             }
         },
+        workspaces: {
+            list(): Promise<{ workspaces: Record<string, unknown>[] }> {
+                return client.get('/operator/workspaces');
+            }
+        },
         users: {
             list(): Promise<{ users: Record<string, unknown>[] }> {
                 return client.get('/operator/users');

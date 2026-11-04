@@ -1,7 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import bcrypt from 'bcrypt';
-import type { ProjectSchema } from '@moteurio/types/Project.js';
+import type { NewProject, ProjectSchema } from '@moteurio/types/Project.js';
 import type { Entry, ModelSchema } from '@moteurio/types/Model.js';
 import type { BlockSchema } from '@moteurio/types/Block.js';
 import type { TemplateSchema } from '@moteurio/types/Template.js';
@@ -48,14 +48,20 @@ export async function ensurePersonas(personas: Persona[], password?: string): Pr
 }
 
 export async function createProjectFor(
-    project: ProjectSchema,
+    project: NewProject,
     lead: Persona,
     personas: Persona[]
 ): Promise<void> {
     const { createProject } = await import('@moteurio/core/projects.js');
     const { addProjectToUser } = await import('@moteurio/core/users.js');
     const { validateProject } = await import('@moteurio/core/validators/validateProject.js');
-    const withUsers: ProjectSchema = { ...project, users: personas.map(p => p.id) };
+    const { ensurePersonalWorkspace } = await import('@moteurio/core/workspaces.js');
+    const workspace = await ensurePersonalWorkspace(asUser(lead));
+    const withUsers: ProjectSchema = {
+        ...project,
+        workspaceId: project.workspaceId ?? workspace.id,
+        users: personas.map(p => p.id)
+    };
     const reserved = validateProject(withUsers).issues.some(i => i.code === 'PROJECT_RESERVED_ID');
     if (reserved) {
         // Reserved ids (e.g. "demo", the template copied for new users) can't be created
@@ -63,7 +69,7 @@ export async function createProjectFor(
         const { projectDir } = await import('@moteurio/core/utils/pathUtils.js');
         const { initRepo, addAllAndCommit } = await import('@moteurio/core/git/index.js');
         const { putProjectJson } = await import('@moteurio/core/utils/projectStorage.js');
-        const { ensureWorkspace } = await import('@moteurio/core/utils/workspaceStore.js');
+        const { ensureProjectState } = await import('@moteurio/core/utils/stateStore.js');
         const { ensureUserData } = await import('@moteurio/core/utils/userDataStore.js');
         const now = new Date().toISOString();
         const dir = projectDir(project.id);
@@ -81,7 +87,7 @@ export async function createProjectFor(
                 }
             }
         });
-        await ensureWorkspace(project.id);
+        await ensureProjectState(project.id);
         await ensureUserData(project.id);
         await addAllAndCommit(dir, `Initial project — ${lead.name}`, asUser(lead));
     } else {

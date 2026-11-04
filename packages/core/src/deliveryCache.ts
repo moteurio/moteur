@@ -17,7 +17,7 @@ const versions = new Map<string, number>();
 
 /**
  * What never reaches a site, so changing it keeps the kept answers: visitors' submissions
- * (user-data/), the workspace (.moteur/: comments, reviews, notifications) and preview links.
+ * (user-data/), the project state (.moteur/: comments, reviews, notifications) and preview links.
  * Anything not listed counts as a change: a mistake here costs kept answers, never fresh ones.
  */
 const NOT_DELIVERED = ['user-data/', '.moteur/', 'preview-tokens'];

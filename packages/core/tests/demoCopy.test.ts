@@ -61,7 +61,7 @@ describe('copying the demo for someone', () => {
         fs.rmSync(root, { recursive: true, force: true });
     });
 
-    it('takes the content only: never the workspace, credentials, hooks or what visitors sent', async () => {
+    it('takes the content only: never the project state, credentials, hooks or what visitors sent', async () => {
         await copyProjectForNewUser('demo', 'demo-ada', 'user:ada');
         const copy = path.join(projects, 'demo-ada');
         const has = (file: string) => fs.existsSync(path.join(copy, file));

@@ -29,6 +29,8 @@ router.patch('/:projectId', requireProjectAdmin, async (req: Request, res: Respo
     delete patch.videoProviders;
     // Members come and go through invites and the members routes, never a project patch.
     delete patch.users;
+    // A project changes workspace only when it is moved (a handover), never in a patch.
+    delete patch.workspaceId;
     // The project's own mail is checked on its own path (PATCH /projects/:projectId/email).
     delete patch.email;
     const refusal = gitRemoteRefusal(patch.git);

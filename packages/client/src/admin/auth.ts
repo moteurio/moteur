@@ -8,7 +8,8 @@ import type {
     PasskeyRegistrationJSON,
     PasskeyRequestOptionsJSON,
     PasskeySummary,
-    User
+    User,
+    WorkspaceRole
 } from '@moteurio/types';
 
 type ProjectRef = { id: string; name: string };
@@ -18,6 +19,8 @@ export type AccountDeletion = {
     deletes: ProjectRef[];
     leaves: ProjectRef[];
     blocked: ProjectRef[];
+    /** The same for workspaces: `blocked` holds those where they are the only owner. */
+    workspaces: { deletes: ProjectRef[]; leaves: ProjectRef[]; blocked: ProjectRef[] };
 };
 
 /** Everything the server keeps about the signed-in person (`GET /auth/me/export`). */
@@ -34,8 +37,12 @@ export type AccountExport = {
         current: boolean;
     }[];
     projects: (ProjectRef & { roles: string[] })[];
+    workspaces: (ProjectRef & { role: WorkspaceRole })[];
     activity: Record<string, unknown>[];
 };
+
+/** A workspace you are in, as `me()` lists it. */
+export type MyWorkspace = { id: string; name: string; personal: boolean; role: WorkspaceRole };
 
 export function authApi(client: MoteurClient) {
     return {
@@ -116,7 +123,8 @@ export function authApi(client: MoteurClient) {
                 return client.delete(`/auth/passkeys/${encodeURIComponent(passkeyId)}`);
             }
         },
-        me(): Promise<{ user: User }> {
+        /** You, with the projects you are in and the workspaces you are a member of. */
+        me(): Promise<{ user: User & { workspaces: MyWorkspace[] } }> {
             return client.get('/auth/me');
         },
         refresh(): Promise<{ token: string }> {
@@ -212,7 +220,8 @@ export function authApi(client: MoteurClient) {
         /**
          * Delete your account, your sign-in email typed back as `email` (a sign-in in the last 10
          * minutes). Refused (409 `SOLE_ADMIN`, with `projects`) while `accountDeletion().blocked`
-         * isn't empty.
+         * isn't empty, and (409 `SOLE_OWNER`, with `workspaces`) while its `workspaces.blocked`
+         * isn't.
          */
         deleteAccount(email: string): Promise<void> {
             return client.request({ method: 'DELETE', url: '/auth/me', data: { email } });

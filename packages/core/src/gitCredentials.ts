@@ -7,7 +7,7 @@ import { readSecretsFile, writeSecretsFile } from './utils/secretsFile.js';
 
 /**
  * A project's Git token: what lets the server push to a private repository. It lives in the
- * workspace's secrets file (gitignored, never in a snapshot), encrypted with MOTEUR_ENCRYPTION_KEY,
+ * project state's secrets file (gitignored, never in a snapshot), encrypted with MOTEUR_ENCRYPTION_KEY,
  * and reaches Git only through the environment of each push: never the address, never git config.
  */
 type StoredToken = { token: string; username?: string; setAt: string; setBy?: string };
