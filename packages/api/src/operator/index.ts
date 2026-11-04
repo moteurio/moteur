@@ -5,6 +5,7 @@ import type { ProjectSchema } from '@moteurio/types/Project.js';
 import type { User } from '@moteurio/types/User.js';
 import { capabilitiesFromContributions, mergeContributions } from '@moteurio/types/Plugin.js';
 import {
+    getProjectIdsForUser,
     loadProjects,
     updateProject,
     listTrashedProjects,
@@ -28,7 +29,7 @@ import {
     OperatorAuthError
 } from '@moteurio/core/operators.js';
 import { requireOperator } from '../middlewares/auth.js';
-import { listWorkspaces } from '@moteurio/core/workspaces.js';
+import { listWorkspaces, workspacesOf } from '@moteurio/core/workspaces.js';
 import { sendApiError } from '../utils/apiError.js';
 import {
     pluginEntries,
@@ -94,7 +95,14 @@ function userRow(u: User, projectIds: Set<string>) {
         lastLoginAt: u.lastLoginAt,
         twoFactor: Boolean(u.twoFactor),
         passkeys: u.passkeys?.length ?? 0,
-        projects: (u.projects ?? []).filter(id => projectIds.has(id))
+        // Every project they are in: added one by one, or given by a workspace of theirs.
+        projects: getProjectIdsForUser(u.id).filter(id => projectIds.has(id)),
+        workspaces: workspacesOf(u.id).map(w => ({
+            id: w.id,
+            name: w.name,
+            personal: !!w.personal,
+            role: w.members[u.id]!.role
+        }))
     };
 }
 
@@ -165,6 +173,7 @@ router.get('/summary', (req: Request, res: Response) => {
         res.json({
             period,
             projects: { total: projects.length },
+            workspaces: { total: listWorkspaces().length },
             users: {
                 total: users.length,
                 active: users.filter(u => u.isActive).length,
@@ -539,7 +548,22 @@ const userRowSchema: OpenAPIV3.SchemaObject = {
         roles: strings,
         isActive: { type: 'boolean' },
         lastLoginAt: { type: 'string', format: 'date-time' },
-        projects: strings
+        projects: {
+            ...strings,
+            description: 'Every project they are in: added one by one, or through a workspace'
+        },
+        workspaces: {
+            type: 'array',
+            items: {
+                type: 'object',
+                properties: {
+                    id: str,
+                    name: str,
+                    personal: { type: 'boolean' },
+                    role: { type: 'string', enum: ['owner', 'admin', 'billing', 'member'] }
+                }
+            }
+        }
     }
 };
 const pluginRowSchema: OpenAPIV3.SchemaObject = {
@@ -581,6 +605,7 @@ const paths: Record<string, OpenAPIV3.PathItemObject> = {
             responses: ok('`{ period, projects, users, operators, month, plugins }`', {
                 period: str,
                 projects: { type: 'object', properties: { total: int } },
+                workspaces: { type: 'object', properties: { total: int } },
                 users: {
                     type: 'object',
                     properties: { total: int, active: int, signedInThisMonth: int }
