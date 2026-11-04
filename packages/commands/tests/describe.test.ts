@@ -39,4 +39,26 @@ describe('describing a project', () => {
         expect(d.you.roles).toEqual(['writer']);
         expect(d.models[0].fields).toEqual({ title: 'text' });
     });
+
+    it('counts the roles a workspace gives in its projects', () => {
+        const d = describeProject(
+            { id: 'site', label: 'Site', defaultLocale: 'en', workspaceId: 'ws_agency' },
+            [],
+            {
+                id: 'theo',
+                roles: [],
+                workspaces: [
+                    {
+                        id: 'ws_agency',
+                        name: 'Agency',
+                        personal: false,
+                        role: 'member',
+                        access: 'all',
+                        projectRoles: ['editor']
+                    }
+                ]
+            }
+        );
+        expect(d.you.roles).toEqual(['editor']);
+    });
 });

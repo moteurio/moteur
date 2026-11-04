@@ -9,6 +9,7 @@ import type {
     PasskeyRequestOptionsJSON,
     PasskeySummary,
     User,
+    WorkspaceAccess,
     WorkspaceRole
 } from '@moteurio/types';
 
@@ -42,7 +43,16 @@ export type AccountExport = {
 };
 
 /** A workspace you are in, as `me()` lists it. */
-export type MyWorkspace = { id: string; name: string; personal: boolean; role: WorkspaceRole };
+export type MyWorkspace = {
+    id: string;
+    name: string;
+    personal: boolean;
+    role: WorkspaceRole;
+    /** A Member's: every project of the workspace, or those they're added to. */
+    access?: WorkspaceAccess;
+    /** A Member with access to every project: their roles there. */
+    projectRoles?: string[];
+};
 
 export function authApi(client: MoteurClient) {
     return {

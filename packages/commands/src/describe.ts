@@ -2,7 +2,8 @@
  * A project's shape in one answer: its languages, how content goes live, who you are in it, and
  * each model's fields in a line. For agents (and people) about to read or write content.
  */
-import { rolesInProject } from '@moteurio/types';
+import { asOwnWorkspace, rolesInProject } from '@moteurio/types';
+import type { MyWorkspace } from '@moteurio/client';
 
 type Field = {
     type: string;
@@ -26,6 +27,8 @@ type Project = {
     siteUrl?: string;
     workflow?: { enabled?: boolean; requireReview?: boolean };
     memberRoles?: Record<string, string[]> | null;
+    users?: string[];
+    workspaceId?: string;
 };
 
 const text = (v: unknown): string | undefined => {
@@ -69,8 +72,13 @@ export function describeField(f: Field): string {
 export function describeProject(
     project: Project,
     models: Model[],
-    me: { id: string; name?: string; roles?: string[] }
+    me: { id: string; name?: string; roles?: string[]; workspaces?: MyWorkspace[] }
 ) {
+    // Your roles there may come from your place in its workspace.
+    const workspace = asOwnWorkspace(
+        me.workspaces?.find(w => w.id === project.workspaceId),
+        me.id
+    );
     const languages = [project.defaultLocale, ...(project.supportedLocales ?? [])].filter(
         (l, i, all): l is string => !!l && all.indexOf(l) === i
     );
@@ -92,7 +100,7 @@ export function describeProject(
             : workflow.requireReview
               ? 'Entries go live after a reviewer approves them: ask with entries_review. Admins may publish directly.'
               : 'Entries are drafts until published; reviews are available (entries_review) but not required.',
-        you: { name: me.name, roles: rolesInProject(me, project) },
+        you: { name: me.name, roles: rolesInProject(me, project, workspace) },
         models: models.map(m => ({
             id: m.id,
             name: text(m.label),

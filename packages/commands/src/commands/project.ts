@@ -50,7 +50,7 @@ export const projects = group('projects', [
             const [p, m, me] = await Promise.all([
                 c.get<{ project?: unknown }>(`/projects/${enc}`),
                 c.get<{ models?: unknown } | unknown[]>(`/projects/${enc}/models`),
-                c.get<{ user: { id: string; name?: string; roles?: string[] } }>('/auth/me')
+                c.get<{ user: Parameters<typeof describeProject>[2] }>('/auth/me')
             ]);
             const project = ((p as { project?: unknown }).project ?? p) as Parameters<
                 typeof describeProject

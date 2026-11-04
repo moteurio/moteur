@@ -212,6 +212,74 @@ describe('a person’s own account: export and deletion', () => {
         expect(store.deleted).toEqual([]);
     });
 
+    it('never deletes a project their workspace’s team is in, nor counts that team out', async () => {
+        const at = '2026-11-01T00:00:00Z';
+        fs.writeFileSync(
+            path.join(root, 'workspaces.json'),
+            JSON.stringify({
+                workspaces: [
+                    {
+                        id: 'ws_team',
+                        name: 'Team',
+                        createdAt: at,
+                        createdBy: 'theo',
+                        members: {
+                            louise: { role: 'member', access: 'chosen', joinedAt: at },
+                            theo: { role: 'owner', joinedAt: at }
+                        }
+                    }
+                ]
+            })
+        );
+        reloadWorkspaces();
+        // Only Louise was added to these one by one; Theo runs their workspace.
+        store.projects[0] = { ...store.projects[0], workspaceId: 'ws_team' } as never;
+        store.projects[2] = { ...store.projects[2], workspaceId: 'ws_team' } as never;
+        const plan = accountDeletion('louise');
+        expect(plan.deletes).toEqual([]);
+        expect(plan.blocked).toEqual([]);
+        expect(plan.leaves.map(p => p.id).sort()).toEqual(['mine', 'shared', 'solo']);
+        expect(plan.workspaces.leaves).toEqual([{ id: 'ws_team', name: 'Team' }]);
+    });
+
+    it('exports the projects their workspaces give them, and what they did there', async () => {
+        const at = '2026-11-01T00:00:00Z';
+        fs.writeFileSync(
+            path.join(root, 'workspaces.json'),
+            JSON.stringify({
+                workspaces: [
+                    {
+                        id: 'ws_team',
+                        name: 'Team',
+                        createdAt: at,
+                        createdBy: 'theo',
+                        members: {
+                            louise: { role: 'admin', joinedAt: at },
+                            theo: { role: 'owner', joinedAt: at }
+                        }
+                    }
+                ]
+            })
+        );
+        reloadWorkspaces();
+        store.projects[3] = { ...store.projects[3], workspaceId: 'ws_team' } as never;
+        store.activity.other = [
+            {
+                id: 'a3',
+                projectId: 'other',
+                userId: 'louise',
+                userName: 'louise',
+                action: 'updated',
+                resourceType: 'entry',
+                resourceId: 'post__3',
+                timestamp: '2026-02-03T00:00:00Z'
+            }
+        ];
+        const data = await accountExport('louise');
+        expect(data.projects.map(p => p.id)).toContain('other');
+        expect(data.activity.map(e => e.id)).toContain('a3');
+    });
+
     it('refuses while they are the only admin of a project others are in', async () => {
         await expect(deleteAccount('louise', 'louise@agency.test')).rejects.toMatchObject({
             status: 409,

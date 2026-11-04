@@ -1,4 +1,4 @@
-import { hasRole, inProject, rolesInProject } from '@moteurio/types';
+import { hasRole, inProject, isInProject, rolesInProject } from '@moteurio/types';
 import type { ActivityEvent } from '@moteurio/types/Activity.js';
 import type { ProjectSchema } from '@moteurio/types/Project.js';
 import type { User } from '@moteurio/types/User.js';
@@ -33,8 +33,19 @@ const ACTIVITY_WINDOW = 10_000;
 export type ProjectRef = { id: string; name: string };
 
 const ref = (p: ProjectSchema): ProjectRef => ({ id: p.id, name: p.label || p.id });
+/** Added to the project one by one (a guest among them), not only there through a workspace. */
 const memberOf = (p: ProjectSchema, userId: string) =>
     Array.isArray(p.users) && (p.users as string[]).includes(userId);
+
+/** Everyone in the project: its own members and those its workspace gives it to. */
+function peopleIn(project: ProjectSchema): string[] {
+    const workspace = workspaceOf(project);
+    const ids = new Set([
+        ...((project.users ?? []) as string[]),
+        ...Object.keys(workspace?.members ?? {})
+    ]);
+    return [...ids].filter(id => isInProject(id, project, workspace));
+}
 
 function account(userId: string): User {
     reloadUsers();
@@ -64,7 +75,7 @@ export async function accountExport(userId: string, currentSessionId?: string) {
         agent: _agent,
         ...rest
     } = withoutSecrets(user);
-    const projects = loadProjects().filter(p => memberOf(p, userId));
+    const projects = loadProjects().filter(p => isInProject(userId, p, workspaceOf(p)));
     const activity: ReturnType<typeof slim>[] = [];
     for (const project of projects) {
         const events = (await getProjectJson<ActivityEvent[]>(project.id, ACTIVITY_KEY)) ?? [];
@@ -140,7 +151,8 @@ export function accountDeletion(userId: string): AccountDeletion {
     };
     for (const project of loadProjects().filter(p => memberOf(p, userId))) {
         const workspace = workspaceOf(project);
-        const others = (project.users as string[])
+        // Their workspace's team is in it too, though not added one by one.
+        const others = peopleIn(project)
             .filter(id => id !== userId)
             .map(id => getUserById(id))
             .filter((u): u is User => Boolean(u));

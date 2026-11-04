@@ -21,14 +21,22 @@ router.get('/me', requireAuth, (req: Request, res: Response) => {
     res.json({ user: { ...safeUser, projects, workspaces: workspacesBrief(user.id) } });
 });
 
-/** The workspaces someone is in, and their role in each: enough to show a switcher. */
+/**
+ * The workspaces someone is in, and their place in each: enough to show a switcher, and to work
+ * out their roles in a workspace's projects (`asOwnWorkspace`).
+ */
 function workspacesBrief(userId: string) {
-    return workspacesOf(userId).map(w => ({
-        id: w.id,
-        name: w.name,
-        personal: !!w.personal,
-        role: w.members[userId]!.role
-    }));
+    return workspacesOf(userId).map(w => {
+        const { role, access, projectRoles } = w.members[userId]!;
+        return {
+            id: w.id,
+            name: w.name,
+            personal: !!w.personal,
+            role,
+            ...(access && { access }),
+            ...(projectRoles && { projectRoles })
+        };
+    });
 }
 
 /** Body `{ name }`: what you're called, everywhere in the Studio and its emails. */
