@@ -55,3 +55,28 @@ describe('operator settings: legal links', () => {
         expect((await request(app).patch('/operator/settings').send({})).status).toBe(400);
     });
 });
+
+describe('operator server: what it runs with', () => {
+    afterEach(() => vi.unstubAllEnvs());
+
+    it('says which variables are set, never their values', async () => {
+        vi.stubEnv('SMTP_PASS', 'hunter2-secret');
+        vi.stubEnv('MOTEUR_AI_PROVIDER', 'anthropic');
+        vi.stubEnv('MOTEUR_MCP', 'off');
+        vi.stubEnv('AUTH_GITHUB_CLIENT_ID', '');
+        const res = await request(app).get('/operator/server');
+        expect(res.status).toBe(200);
+        expect(JSON.stringify(res.body)).not.toContain('hunter2-secret');
+        expect(res.body).toMatchObject({
+            version: expect.stringMatching(/^\d{4}\.\d+\.\d+/),
+            node: process.version,
+            ai: { provider: 'anthropic' },
+            mcp: { on: false },
+            signIn: { providers: { github: false } }
+        });
+        const email = res.body.env.find((g: { group: string }) => g.group === 'email');
+        expect(email.vars).toContainEqual({ name: 'SMTP_PASS', set: true });
+        const signIn = res.body.env.find((g: { group: string }) => g.group === 'signIn');
+        expect(signIn.vars).toContainEqual({ name: 'AUTH_GITHUB_CLIENT_ID', set: false });
+    });
+});

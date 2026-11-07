@@ -46,6 +46,7 @@ import {
     type ServerSettingsPatch
 } from '@moteurio/core/serverSettings.js';
 import emailRouter, { emailPaths } from './email.js';
+import { serverInfo, serverPaths } from './server.js';
 
 /**
  * The operator's view of the whole server: every project, every account, every plugin, and the
@@ -426,6 +427,15 @@ router.patch('/plugins/:pluginId', (req: Request, res: Response) => {
 });
 
 // ---- server settings -------------------------------------------------------------------------
+
+/** What the server runs with: version, sign-in, AI, MCP, email, and which variables are set. */
+router.get('/server', (req: Request, res: Response) => {
+    try {
+        res.json(serverInfo());
+    } catch (err) {
+        sendApiError(res, req, err);
+    }
+});
 
 /** What the operator saved, and what the environment gives (a saved setting wins). */
 const settingsBody = () => ({ settings: readServerSettings(), env: envServerSettings() });
@@ -953,7 +963,7 @@ paths['/operator/operators/{id}'] = {
     }
 };
 
-Object.assign(paths, emailPaths);
+Object.assign(paths, emailPaths, serverPaths);
 
 /** Every operator route takes an operator token (operatorAuth), never a user's. */
 export const openapi: Record<string, OpenAPIV3.PathItemObject> = Object.fromEntries(

@@ -206,6 +206,12 @@ export const operator = group('operator', [
         readOnly: true
     },
     {
+        name: 'server',
+        summary: 'What the server runs with: version, sign-in, AI, MCP, email, variables set',
+        http: 'GET /operator/server',
+        readOnly: true
+    },
+    {
         name: 'users',
         summary: 'Every account',
         http: 'GET /operator/users',

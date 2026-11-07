@@ -138,6 +138,12 @@ The whole server at a glance
 
 Calls `GET /operator/summary`.
 
+### `moteur operator server`
+
+What the server runs with: version, sign-in, AI, MCP, email, variables set
+
+Calls `GET /operator/server`.
+
 ### `moteur operator users`
 
 Every account
