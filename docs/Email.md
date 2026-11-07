@@ -20,6 +20,7 @@ in DNS so receivers trust the mail.
 | Form notice                       | A form is filled in and the form notifies the team                            | The form's addresses    | By the form's settings                                      |
 | Form confirmation (the project's) | A form confirms to whoever filled it in (`confirmationEmail`)                 | The address they gave   | By the form's settings                                      |
 | Form email action (the project's) | A form's `email` action                                                       | The action's addresses  | By the form's settings                                      |
+| Server news                       | A new account, project or team workspace; an account deleted by its owner     | Each operator           | Yes: each one, a daily summary, or off, per operator        |
 | Test                              | An operator runs the check with an address                                    | That address            | n/a                                                         |
 
 A sign-in code or link that has been used, or has expired, is not resent on its own: the person

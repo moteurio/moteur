@@ -26,8 +26,13 @@ import {
     listOperators,
     removeOperator,
     resetOperator,
-    OperatorAuthError
+    markOperatorNewsSeen,
+    setOperatorNews,
+    OPERATOR_NEWS_MODES,
+    OperatorAuthError,
+    type OperatorNewsMode
 } from '@moteurio/core/operators.js';
+import { listServerNews } from '@moteurio/core/serverNews.js';
 import { requireOperator } from '../middlewares/auth.js';
 import { listWorkspaces, workspacesOf } from '@moteurio/core/workspaces.js';
 import { sendApiError } from '../utils/apiError.js';
@@ -389,6 +394,48 @@ router.delete('/operators/:id', (req: Request, res: Response) => {
         removeOperator(params(req).id);
         console.log(`[operators] ${req.operator!.email} removed operator ${params(req).id}`);
         res.status(204).end();
+    } catch (err) {
+        operatorFailed(res, req, err);
+    }
+});
+
+// ---- server news ----------------------------------------------------------------------------
+
+const NEWS_MAX = 200;
+
+/** New accounts, projects and workspaces (90 days), newest first, and when you last looked. */
+router.get('/news', (req: Request, res: Response) => {
+    try {
+        const since = typeof req.query.since === 'string' ? req.query.since : undefined;
+        const items = listServerNews(since).reverse();
+        const you = listOperators().find(o => o.id === req.operator!.id);
+        res.json({
+            items: items.slice(0, NEWS_MAX),
+            total: items.length,
+            seenAt: you?.newsSeenAt ?? null,
+            news: you?.news ?? 'each'
+        });
+    } catch (err) {
+        operatorFailed(res, req, err);
+    }
+});
+
+/** You looked: what's new after now shows as new. */
+router.post('/news/seen', (req: Request, res: Response) => {
+    try {
+        res.json({ operator: markOperatorNewsSeen(req.operator!.id) });
+    } catch (err) {
+        operatorFailed(res, req, err);
+    }
+});
+
+/** Body `{ news }`: each, daily or off: how you hear about what's new, by email. */
+router.patch('/me', (req: Request, res: Response) => {
+    const news = (req.body ?? {}).news as OperatorNewsMode;
+    if (!OPERATOR_NEWS_MODES.includes(news))
+        return void res.status(400).json({ error: 'news must be each, daily or off' });
+    try {
+        res.json({ operator: setOperatorNews(req.operator!.id, news) });
     } catch (err) {
         operatorFailed(res, req, err);
     }
@@ -923,7 +970,13 @@ const operatorObject: OpenAPIV3.SchemaObject = {
         enrolled: { type: 'boolean' },
         createdAt: str,
         lastLoginAt: str,
-        recoveryCodesLeft: int
+        recoveryCodesLeft: int,
+        news: {
+            type: 'string',
+            enum: ['each', 'daily', 'off'],
+            description: 'How they hear about new accounts, projects and workspaces by email'
+        },
+        newsSeenAt: { type: 'string', format: 'date-time' }
     }
 };
 paths['/operator/operators'] = {
@@ -960,6 +1013,66 @@ paths['/operator/operators/{id}'] = {
         description: 'Their sessions end at once. The last operator who can sign in stays.',
         tags,
         responses: { '204': { description: 'Removed' } }
+    }
+};
+
+const newsItemSchema: OpenAPIV3.SchemaObject = {
+    type: 'object',
+    description:
+        'As it was when it happened. `account`: email, name, method (email, provider, invite, added), provider, invitedBy, invitedTo, from. `project`: projectId, label, by, workspace or personal. `workspace`: workspaceId, name, by. `account-deleted`: email.',
+    properties: {
+        id: str,
+        at: { type: 'string', format: 'date-time' },
+        kind: { type: 'string', enum: ['account', 'project', 'workspace', 'account-deleted'] },
+        userId: str
+    },
+    additionalProperties: true
+};
+paths['/operator/news'] = {
+    get: {
+        summary: 'What’s new on the server',
+        description:
+            'New accounts, projects and team workspaces, and accounts deleted by their owners, kept 90 days; newest first, at most 200 (`total` counts them all). `?since=` (ISO time) keeps only what came after. Demo copies and personal workspaces are not news. `seenAt`: when you last marked it seen; `news`: your email choice.',
+        tags,
+        parameters: [
+            { name: 'since', in: 'query', schema: { type: 'string', format: 'date-time' } }
+        ],
+        responses: ok('`{ items, total, seenAt, news }`', {
+            items: { type: 'array', items: newsItemSchema },
+            total: int,
+            seenAt: { type: 'string', format: 'date-time', nullable: true },
+            news: { type: 'string', enum: ['each', 'daily', 'off'] }
+        })
+    }
+};
+paths['/operator/news/seen'] = {
+    post: {
+        summary: 'Mark what’s new as seen',
+        description: 'For you only: what comes after now shows as new.',
+        tags,
+        responses: ok('`{ operator }`', { operator: operatorObject })
+    }
+};
+paths['/operator/me'] = {
+    patch: {
+        summary: 'Choose how you hear about what’s new',
+        description:
+            'Body `{ news }`: `each` (an email as it happens; news within half a minute goes in one), `daily` (one email a day, only when something happened) or `off`. Emails start from now.',
+        tags,
+        requestBody: {
+            content: {
+                'application/json': {
+                    schema: {
+                        type: 'object',
+                        properties: { news: { type: 'string', enum: ['each', 'daily', 'off'] } }
+                    }
+                }
+            }
+        },
+        responses: {
+            ...ok('`{ operator }`', { operator: operatorObject }),
+            '400': { description: 'news is not each, daily or off' }
+        }
     }
 };
 

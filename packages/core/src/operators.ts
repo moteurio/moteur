@@ -37,7 +37,15 @@ export type Operator = {
     lastLoginAt?: string;
     /** Recovery codes not used yet. */
     recoveryCodesLeft: number;
+    /** How they hear about new accounts, projects and workspaces (see ./serverNews.ts). */
+    news: OperatorNewsMode;
+    /** When they last looked at what's new on the Operator screen. */
+    newsSeenAt?: string;
 };
+
+/** Each new thing by email as it happens, one email a day when something happened, or none. */
+export type OperatorNewsMode = 'each' | 'daily' | 'off';
+export const OPERATOR_NEWS_MODES: readonly OperatorNewsMode[] = ['each', 'daily', 'off'];
 
 type StoredOperator = {
     id: string;
@@ -55,6 +63,11 @@ type StoredOperator = {
     createdAt: string;
     createdBy?: string;
     lastLoginAt?: string;
+    /**
+     * Server news: their choice (none: each), when they last looked, and up to when it was
+     * emailed (none: since they were added).
+     */
+    news?: { mode?: OperatorNewsMode; seenAt?: string; sentUntil?: string };
 };
 
 type OperatorsFile = { operators: StoredOperator[] };
@@ -155,7 +168,9 @@ function view(o: StoredOperator): Operator {
         createdAt: o.createdAt,
         ...(o.createdBy ? { createdBy: o.createdBy } : {}),
         ...(o.lastLoginAt ? { lastLoginAt: o.lastLoginAt } : {}),
-        recoveryCodesLeft: o.recoveryCodes?.length ?? 0
+        recoveryCodesLeft: o.recoveryCodes?.length ?? 0,
+        news: o.news?.mode ?? 'each',
+        ...(o.news?.seenAt ? { newsSeenAt: o.news.seenAt } : {})
     };
 }
 
@@ -246,6 +261,63 @@ export function removeOperator(id: string): void {
             throw new OperatorAuthError('The server needs at least one operator', 409);
         }
         list.splice(i, 1);
+    });
+}
+
+// ---- server news ------------------------------------------------------------------------------
+
+/**
+ * Sets how an operator hears about new accounts, projects and workspaces. Emails start from now:
+ * nothing from before the change is sent.
+ */
+export function setOperatorNews(id: string, mode: OperatorNewsMode): Operator {
+    if (!OPERATOR_NEWS_MODES.includes(mode))
+        throw new OperatorAuthError('News is each, daily or off', 400);
+    return view(
+        change(list => {
+            const o = list.find(x => x.id === id);
+            if (!o) throw new OperatorAuthError('No such operator', 404);
+            o.news = { ...o.news, mode, sentUntil: new Date().toISOString() };
+            return o;
+        })
+    );
+}
+
+/** The operator looked at what's new: the Operator screen shows what comes after this. */
+export function markOperatorNewsSeen(id: string, at = new Date()): Operator {
+    return view(
+        change(list => {
+            const o = list.find(x => x.id === id);
+            if (!o) throw new OperatorAuthError('No such operator', 404);
+            o.news = { ...o.news, seenAt: at.toISOString() };
+            return o;
+        })
+    );
+}
+
+/** Who hears about server news by email: enrolled operators who haven't turned it off. */
+export function newsReaders(): {
+    id: string;
+    email: string;
+    mode: Exclude<OperatorNewsMode, 'off'>;
+    /** News after this was not emailed to them yet. */
+    sentUntil: string;
+}[] {
+    return read()
+        .operators.filter(o => o.passwordHash && o.totp && o.news?.mode !== 'off')
+        .map(o => ({
+            id: o.id,
+            email: o.email,
+            mode: o.news?.mode === 'daily' ? 'daily' : 'each',
+            sentUntil: o.news?.sentUntil ?? o.createdAt
+        }));
+}
+
+/** Server news up to `at` was emailed to this operator. */
+export function markOperatorNewsSent(id: string, at: string): void {
+    change(list => {
+        const o = list.find(x => x.id === id);
+        if (o) o.news = { ...o.news, sentUntil: at };
     });
 }
 

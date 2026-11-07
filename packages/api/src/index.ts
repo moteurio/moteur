@@ -62,6 +62,7 @@ import webhooksAssetsRouter from './webhooks/assets.js';
 import { storageConfig, validateStorageConfig } from '@moteurio/core';
 import { schedulerEngine, startSnapshotScheduler, stopSnapshotScheduler } from '@moteurio/core';
 import { startUsageAlerts, stopUsageAlerts } from '@moteurio/core/usageAlerts.js';
+import { startServerNews, stopServerNews } from '@moteurio/core/serverNews.js';
 import { startDemoSweeper, stopDemoSweeper } from '@moteurio/core/demoCopies.js';
 import { globalErrorHandler } from './middlewares/errorHandler.js';
 import { registerSocketEventBridge } from './bootstrap/socketEventBridge.js';
@@ -369,6 +370,8 @@ httpServer.listen(PORT, async () => {
     startSnapshotScheduler(60_000);
     // Billing and Admin hear when a monthly allowance reaches 80%, then all of it.
     startUsageAlerts();
+    // Operators hear about new accounts, projects and workspaces, as they chose.
+    startServerNews();
     // Demo copies left 30 days without a change go to the trash.
     startDemoSweeper();
     // Images uploaded just before a restart still need their resized copies.
@@ -412,6 +415,7 @@ async function gracefulShutdown(signal: string): Promise<void> {
     stopWebhookWorker();
     stopSnapshotScheduler();
     stopUsageAlerts();
+    stopServerNews();
     stopDemoSweeper();
     await new Promise<void>(resolve => {
         httpServer.close(() => resolve());

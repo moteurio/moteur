@@ -1,0 +1,14 @@
+Subject: La journée sur Moteur : 3 comptes, 1 projet, 1 espace de travail
+
+Les dernières 24 heures
+
+• Nouveau compte : Louise Tremblay (louise@agence.example) avec un code par courriel (venu·e de /for/agencies)
+• Nouvel espace de travail : Agence Nord, par Louise Tremblay
+• Nouveau projet : Journal de Montréal, par Louise Tremblay, dans Agence Nord
+• Nouveau compte : Marc Gagnon (marc@client.example), invité·e par Louise Tremblay dans Journal de Montréal
+• Nouveau compte : sam@studio.example avec GitHub
+
+Ouvrir l’écran Opérateur :
+https://studio.example.com/operator
+
+Vous recevez ces courriels parce que vous êtes opérateur de ce serveur Moteur. Sur l’écran Opérateur, choisissez de les recevoir un à un, en résumé quotidien ou plus du tout.

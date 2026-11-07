@@ -76,6 +76,8 @@ export interface SignupRecord {
     /** `utm_*` from the visit, without the prefix. */
     campaign?: Record<string, string>;
     locale?: string;
+    /** `invite`: who invited them, and to which project or workspace. */
+    invite?: { by: string; projectId?: string; workspaceId?: string };
 }
 
 /** An agent acting for a person. */

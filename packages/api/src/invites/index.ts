@@ -140,7 +140,16 @@ router.post('/:token/register', async (req: Request, res: Response) => {
             ...(password && { passwordHash: await hashPassword(password) }),
             roles: [],
             projects: [],
-            signup: { at: new Date().toISOString(), method: 'invite' },
+            signup: {
+                at: new Date().toISOString(),
+                method: 'invite',
+                invite: {
+                    by: invite.invitedBy,
+                    ...(isWorkspaceInvite(invite)
+                        ? { workspaceId: invite.workspaceId }
+                        : { projectId: invite.projectId })
+                }
+            },
             // Invited to a team: the welcome screens have nothing to ask.
             onboarding: { intent: 'team', finishedAt: new Date().toISOString() }
         });

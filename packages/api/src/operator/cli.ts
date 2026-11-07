@@ -6,6 +6,7 @@
  *   moteur-operators add you@example.com [--name "Your Name"]   prints their one-time link
  *   moteur-operators reset you@example.com                      new link; sign-in starts again
  *   moteur-operators remove you@example.com
+ *   moteur-operators news you@example.com each|daily|off           how they hear what's new
  *
  * Reads the same settings as the API (DATA_ROOT, OPERATORS_FILE, JWT_SECRET or OPERATOR_SECRET,
  * STUDIO_URL for the link). Run it where the API's data is, as the user the API runs as.
@@ -15,7 +16,10 @@ import {
     listOperators,
     OperatorAuthError,
     removeOperator,
-    resetOperator
+    resetOperator,
+    setOperatorNews,
+    OPERATOR_NEWS_MODES,
+    type OperatorNewsMode
 } from '@moteurio/core/operators.js';
 import { storageConfig } from '@moteurio/core/config/storageConfig.js';
 
@@ -52,6 +56,8 @@ const HELP = `moteur-operators: the people who run this server (not users).
   add <email> [--name <name>]  add one; prints their one-time link (24 hours)
   reset <email>                their sign-in starts again; prints a new link
   remove <email>               their sessions end at once
+  news <email> each|daily|off  how they hear about new accounts, projects and workspaces:
+                               an email each time (default), a daily summary, or none
 
 Operators file: ${storageConfig.operatorsFile}`;
 
@@ -65,7 +71,7 @@ try {
                     ? `signed in ${o.lastLoginAt ?? 'never'}`
                     : 'link not used yet';
                 console.log(
-                    `${o.email}  ${o.name}  (${state}, ${o.recoveryCodesLeft} recovery codes)`
+                    `${o.email}  ${o.name}  (${state}, ${o.recoveryCodesLeft} recovery codes, news: ${o.news})`
                 );
             }
             break;
@@ -98,6 +104,24 @@ try {
             const o = find(target);
             removeOperator(o.id);
             console.log(`Removed ${o.email}.`);
+            break;
+        }
+        case 'news': {
+            const o = find(target);
+            const mode = rest[0] as OperatorNewsMode;
+            if (!OPERATOR_NEWS_MODES.includes(mode))
+                throw new OperatorAuthError(
+                    `How? moteur-operators news ${o.email} ${OPERATOR_NEWS_MODES.join('|')}`,
+                    400
+                );
+            setOperatorNews(o.id, mode);
+            console.log(
+                mode === 'off'
+                    ? `${o.email} gets no news by email.`
+                    : mode === 'daily'
+                      ? `${o.email} gets a daily summary, when something happened.`
+                      : `${o.email} gets an email for each new account, project and workspace.`
+            );
             break;
         }
         default:

@@ -200,6 +200,54 @@ export const operator = group('operator', [
         done: () => 'Removed.'
     },
     {
+        name: 'news',
+        summary: 'New accounts, projects and workspaces (90 days), newest first',
+        args: [
+            {
+                name: 'since',
+                description: 'Only what came after this time (ISO)',
+                in: 'query'
+            }
+        ],
+        http: 'GET /operator/news',
+        pick: 'items',
+        table: [
+            { key: 'at', header: 'when' },
+            { key: 'kind', header: 'what' },
+            {
+                key: 'id',
+                header: 'who or which',
+                format: (_v, r) =>
+                    String(r.label ?? r.name ?? r.email ?? '') +
+                    (r.by ? ` (by ${r.by as string})` : '')
+            }
+        ],
+        readOnly: true
+    },
+    {
+        name: 'news-seen',
+        summary: 'Mark what’s new as seen (for you)',
+        http: 'POST /operator/news/seen',
+        done: () => 'Seen. What comes next shows as new.'
+    },
+    {
+        name: 'news-email',
+        summary: 'How you hear about new accounts, projects and workspaces by email',
+        args: [
+            {
+                name: 'news',
+                description:
+                    'each (as it happens), daily (a summary when something happened) or off',
+                choices: ['each', 'daily', 'off'],
+                required: true,
+                positional: 0,
+                in: 'body'
+            }
+        ],
+        http: 'PATCH /operator/me',
+        done: r => `News by email: ${(r as { operator: { news: string } }).operator.news}.`
+    },
+    {
         name: 'summary',
         summary: 'The whole server at a glance',
         http: 'GET /operator/summary',

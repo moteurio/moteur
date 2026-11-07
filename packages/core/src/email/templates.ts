@@ -84,6 +84,17 @@ export interface EmailData {
         url?: string;
         unsubscribeUrl?: string;
     };
+    /**
+     * To an operator: new accounts, projects and workspaces on the server, as each happens or
+     * in a daily summary (`daily`). `more` counts what didn't fit.
+     */
+    'server-news': {
+        daily: boolean;
+        items: ServerNewsLine[];
+        more: number;
+        /** The Operator screen. */
+        url?: string;
+    };
     review: {
         type: 'review_requested' | 'approved' | 'rejected';
         /** Who asked (requested) or who decided (approved, rejected). */
@@ -119,6 +130,22 @@ export interface EmailData {
     test: { from: string; server: string; at: string; signedBy?: string };
 }
 
+/** One new thing on the server, as the server news email tells it (see ../serverNews.ts). */
+export type ServerNewsLine =
+    | {
+          kind: 'account';
+          email: string;
+          name?: string;
+          method: 'email' | 'provider' | 'invite' | 'added';
+          provider?: string;
+          invitedBy?: string;
+          invitedTo?: string;
+          from?: string;
+      }
+    | { kind: 'project'; label: string; by: string; workspace?: string; personal?: boolean }
+    | { kind: 'workspace'; name: string; by: string }
+    | { kind: 'account-deleted'; email: string };
+
 export type EmailKind = keyof EmailData;
 export const EMAIL_KINDS = [
     'signin',
@@ -131,6 +158,7 @@ export const EMAIL_KINDS = [
     'invite',
     'review',
     'usage-alert',
+    'server-news',
     'form-notice',
     'form-message',
     'form-confirm',
@@ -1369,6 +1397,155 @@ const usageAlert: Template<'usage-alert'> = (d, { locale }) => {
     };
 };
 
+const PROVIDERS: Record<string, string> = {
+    github: 'GitHub',
+    google: 'Google',
+    microsoft: 'Microsoft',
+    oidc: 'OpenID Connect'
+};
+
+/** How many of each kind, as a phrase: "2 accounts, 1 project". */
+function newsCounts(lines: ServerNewsLine[], more: number, fr: boolean): string {
+    const n = { account: 0, project: 0, workspace: 0, 'account-deleted': 0 };
+    for (const l of lines) n[l.kind]++;
+    const words = {
+        account: fr ? ['compte', 'comptes'] : ['account', 'accounts'],
+        project: fr ? ['projet', 'projets'] : ['project', 'projects'],
+        workspace: fr ? ['espace de travail', 'espaces de travail'] : ['workspace', 'workspaces'],
+        'account-deleted': fr
+            ? ['compte supprimé', 'comptes supprimés']
+            : ['account deleted', 'accounts deleted']
+    } as const;
+    const parts = (Object.keys(n) as (keyof typeof n)[])
+        .filter(k => n[k])
+        .map(k => `${n[k]} ${words[k][n[k] > 1 ? 1 : 0]}`);
+    if (more) parts.push(fr ? `${more} de plus` : `${more} more`);
+    return parts.join(', ');
+}
+
+/** One line of news: what it is in bold, then who and how. */
+function newsLine(l: ServerNewsLine, fr: boolean): Rich {
+    switch (l.kind) {
+        case 'account': {
+            const who = l.name ? [strong(l.name), ` (${l.email})`] : [strong(l.email)];
+            const provider = l.provider ? (PROVIDERS[l.provider] ?? l.provider) : undefined;
+            const how =
+                l.method === 'invite'
+                    ? fr
+                        ? `, invité·e${l.invitedBy ? ` par ${l.invitedBy}` : ''}${l.invitedTo ? ` dans ${l.invitedTo}` : ''}`
+                        : `, invited${l.invitedBy ? ` by ${l.invitedBy}` : ''}${l.invitedTo ? ` to ${l.invitedTo}` : ''}`
+                    : l.method === 'provider'
+                      ? fr
+                          ? ` avec ${provider ?? 'un fournisseur'}`
+                          : ` with ${provider ?? 'a sign-in provider'}`
+                      : l.method === 'added'
+                        ? fr
+                            ? `, ajouté·e par ${l.invitedBy ?? 'le serveur'}`
+                            : `, added by ${l.invitedBy ?? 'the server'}`
+                        : fr
+                          ? ' avec un code par courriel'
+                          : ' with an email code';
+            const from = l.from ? (fr ? ` (venu·e de ${l.from})` : ` (came from ${l.from})`) : '';
+            return [fr ? `Nouveau compte${N}: ` : 'New account: ', ...who, how, from];
+        }
+        case 'project': {
+            const where = l.personal
+                ? fr
+                    ? ', dans son propre espace'
+                    : ', in their own workspace'
+                : l.workspace
+                  ? fr
+                      ? `, dans ${l.workspace}`
+                      : `, in ${l.workspace}`
+                  : '';
+            return fr
+                ? [`Nouveau projet${N}: `, strong(l.label), `, par ${l.by}${where}`]
+                : ['New project: ', strong(l.label), `, by ${l.by}${where}`];
+        }
+        case 'workspace':
+            return fr
+                ? [`Nouvel espace de travail${N}: `, strong(l.name), `, par ${l.by}`]
+                : ['New workspace: ', strong(l.name), `, by ${l.by}`];
+        case 'account-deleted':
+            return fr
+                ? [strong(l.email), ' a supprimé son compte']
+                : [strong(l.email), ' deleted their account'];
+    }
+}
+
+/** A single item's subject: "New account: Louise Tremblay". */
+function newsSubject(l: ServerNewsLine, fr: boolean): string {
+    switch (l.kind) {
+        case 'account':
+            return fr
+                ? `Nouveau compte${N}: ${l.name ?? l.email}`
+                : `New account: ${l.name ?? l.email}`;
+        case 'project':
+            return fr ? `Nouveau projet${N}: ${l.label}` : `New project: ${l.label}`;
+        case 'workspace':
+            return fr ? `Nouvel espace de travail${N}: ${l.name}` : `New workspace: ${l.name}`;
+        case 'account-deleted':
+            return fr ? `Compte supprimé${N}: ${l.email}` : `Account deleted: ${l.email}`;
+    }
+}
+
+const serverNews: Template<'server-news'> = (d, { locale, product: P }) => {
+    const fr = locale === 'fr';
+    const counts = newsCounts(d.items, d.more, fr);
+    const one = !d.daily && d.items.length === 1 && !d.more;
+    const subject = one
+        ? newsSubject(d.items[0], fr)
+        : d.daily
+          ? fr
+              ? `La journée sur ${P}${N}: ${counts}`
+              : `The day on ${P}: ${counts}`
+          : fr
+            ? `Du nouveau sur ${P}${N}: ${counts}`
+            : `New on ${P}: ${counts}`;
+    return {
+        subject,
+        preheader: one ? (fr ? `Sur votre serveur ${P}.` : `On your ${P} server.`) : `${counts}.`,
+        blocks: [
+            {
+                t: 'h',
+                text: d.daily
+                    ? fr
+                        ? 'Les dernières 24 heures'
+                        : 'The last 24 hours'
+                    : fr
+                      ? `Du nouveau sur ${P}`
+                      : `New on ${P}`
+            },
+            { t: 'list', items: d.items.map(l => newsLine(l, fr)) },
+            ...(d.more
+                ? [
+                      {
+                          t: 'note' as const,
+                          text: fr
+                              ? `Et ${d.more} de plus sur l’écran Opérateur.`
+                              : `And ${d.more} more on the Operator screen.`
+                      }
+                  ]
+                : []),
+            ...(d.url
+                ? [
+                      {
+                          t: 'button' as const,
+                          label: fr ? 'Ouvrir l’écran Opérateur' : 'Open the Operator screen',
+                          href: d.url,
+                          fallback: fr
+                              ? `Si le bouton ne fonctionne pas, ouvrez cette adresse${N}:`
+                              : 'If the button doesn’t work, open this address:'
+                      }
+                  ]
+                : [])
+        ],
+        why: fr
+            ? `Vous recevez ces courriels parce que vous êtes opérateur de ce serveur ${P}. Sur l’écran Opérateur, choisissez de les recevoir un à un, en résumé quotidien ou plus du tout.`
+            : `You get these emails because you are an operator of this ${P} server. On the Operator screen, choose to get them one by one, as a daily summary, or not at all.`
+    };
+};
+
 export const TEMPLATES: { [K in EmailKind]: Template<K> } = {
     signin,
     signup,
@@ -1380,6 +1557,7 @@ export const TEMPLATES: { [K in EmailKind]: Template<K> } = {
     invite,
     review,
     'usage-alert': usageAlert,
+    'server-news': serverNews,
     'form-notice': formNotice,
     'form-message': formMessage,
     'form-confirm': formConfirm,
@@ -1387,7 +1565,7 @@ export const TEMPLATES: { [K in EmailKind]: Template<K> } = {
 };
 
 /** Who a kind is for: sign-in mail is never something to unsubscribe from. */
-export const NOTIFICATION_KINDS: EmailKind[] = ['review', 'usage-alert'];
+export const NOTIFICATION_KINDS: EmailKind[] = ['review', 'usage-alert', 'server-news'];
 
 /**
  * A project's own mail, to its site's visitors: in the project's design, under its name, logo and
@@ -1456,6 +1634,41 @@ export function samples(locale: EmailLocale): { [K in EmailKind]: EmailData[K] }
             url: `${studio}/projects/journal/setup/billing`,
             unsubscribeUrl:
                 'https://api.example.com/auth/email/unsubscribe?u=user%3A42&t=usage&s=Kp3m8Wc1y0NnU5dS'
+        },
+        'server-news': {
+            daily: true,
+            items: [
+                {
+                    kind: 'account',
+                    email: 'louise@agence.example',
+                    name: 'Louise Tremblay',
+                    method: 'email',
+                    from: '/for/agencies'
+                },
+                { kind: 'workspace', name: 'Agence Nord', by: 'Louise Tremblay' },
+                {
+                    kind: 'project',
+                    label: 'Journal de Montréal',
+                    by: 'Louise Tremblay',
+                    workspace: 'Agence Nord'
+                },
+                {
+                    kind: 'account',
+                    email: 'marc@client.example',
+                    name: 'Marc Gagnon',
+                    method: 'invite',
+                    invitedBy: 'Louise Tremblay',
+                    invitedTo: 'Journal de Montréal'
+                },
+                {
+                    kind: 'account',
+                    email: 'sam@studio.example',
+                    method: 'provider',
+                    provider: 'github'
+                }
+            ],
+            more: 0,
+            url: `${studio}/operator`
         },
         'form-notice': {
             project: 'Journal de Montréal',

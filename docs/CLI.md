@@ -132,6 +132,32 @@ Remove an operator; their sessions end at once Asks first (or `--yes`).
 
 Calls `DELETE /operator/operators/{id}`.
 
+### `moteur operator news`
+
+New accounts, projects and workspaces (90 days), newest first
+
+| Option             |                                      |
+| ------------------ | ------------------------------------ |
+| `--since <string>` | Only what came after this time (ISO) |
+
+Calls `GET /operator/news`.
+
+### `moteur operator news-seen`
+
+Mark what’s new as seen (for you)
+
+Calls `POST /operator/news/seen`.
+
+### `moteur operator news-email <news>`
+
+How you hear about new accounts, projects and workspaces by email
+
+| Option                      |                                                                                   |
+| --------------------------- | --------------------------------------------------------------------------------- |
+| `--news <each\|daily\|off>` | each (as it happens), daily (a summary when something happened) or off (required) |
+
+Calls `PATCH /operator/me`.
+
 ### `moteur operator summary`
 
 The whole server at a glance

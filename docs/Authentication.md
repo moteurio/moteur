@@ -392,7 +392,15 @@ The first operator starts on the server, where the API's data is (nobody can cre
 moteur-operators add you@example.com --name "Your Name"   # ships with @moteurio/api
 ```
 
-It prints a **one-time link** (24 hours; `STUDIO_URL` makes it a full address): `<studio>/operator/enroll/<token>`. There they add Moteur to their authenticator app (QR code, or the key typed in), confirm with a code, choose a password (12 characters or more) and keep their recovery codes. After that, operators add, reset (lost phone: sessions end, new link) and remove each other in the Studio (**Operator › Operators**), with `moteur operator add-operator`, or with `moteur-operators` on the server (`list`, `add`, `reset`, `remove`). The last operator who can sign in can't be removed.
+It prints a **one-time link** (24 hours; `STUDIO_URL` makes it a full address): `<studio>/operator/enroll/<token>`. There they add Moteur to their authenticator app (QR code, or the key typed in), confirm with a code, choose a password (12 characters or more) and keep their recovery codes. After that, operators add, reset (lost phone: sessions end, new link) and remove each other in the Studio (**Operator › Operators**), with `moteur operator add-operator`, or with `moteur-operators` on the server (`list`, `add`, `reset`, `remove`, `news`). The last operator who can sign in can't be removed.
+
+### Hearing what's new
+
+Each operator hears about new accounts (how they came, who invited them), new projects (who made them, in which workspace), new team workspaces and accounts their owners deleted. Copies of the demo, the demo project and personal workspaces are not news; data copied into place (seeds) never is.
+
+Each chooses how, by email: **each** one as it happens (the default; what comes within half a minute goes in one email), a **daily** summary (only when something happened), or **off**. In the Studio (**Operator › Overview**), with `moteur operator news-email daily`, `PATCH /operator/me` (`{ "news": "daily" }`), or `moteur-operators news you@example.com daily` on the server. Emails start from the choice: nothing from before it is sent. Nothing goes while the server can't send mail; it goes once it can.
+
+What's new is kept 90 days: `GET /operator/news` (newest first, `?since=` for what came after a time) and `moteur operator news`. `POST /operator/news/seen` (`moteur operator news-seen`) marks it seen for you, so the Overview shows only what came since you last looked.
 
 ### In the Studio and the CLI
 
