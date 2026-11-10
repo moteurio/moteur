@@ -15,21 +15,34 @@ function getUsersFilePath(): string {
 }
 
 /**
- * In-memory cache of users. Invalidated on write in this process.
- * Concurrency: users.json is written atomically (temp file + rename).
- * Multiple processes (e.g. API + CLI) should not write concurrently to the same file;
- * prefer a single writer or move to a proper database for multi-instance deployments.
+ * In-memory cache of users. It is dropped on every write in this process, and reloaded when the
+ * file changes on disk, so an account added or changed by another process (the CLI's create-user
+ * or reset-password on a running server) is seen at once and is not overwritten by the next write
+ * here. users.json is written atomically (temp file + rename), which gives each version its own
+ * inode and modification time.
  */
 let cachedUsers: User[] | null = null;
+let cachedVersion = '';
+
+function fileVersion(file: string): string | null {
+    try {
+        const stat = fs.statSync(file);
+        return `${file}:${stat.ino}:${stat.mtimeMs}:${stat.size}`;
+    } catch {
+        return null;
+    }
+}
 
 export function getCachedUsers(): User[] {
-    if (!cachedUsers) {
-        const usersFile = getUsersFilePath();
-        if (!fs.existsSync(usersFile)) {
-            return [];
-        }
-        const data = fs.readFileSync(usersFile, 'utf-8');
-        cachedUsers = JSON.parse(data);
+    const usersFile = getUsersFilePath();
+    const version = fileVersion(usersFile);
+    if (version === null) {
+        cachedUsers = null;
+        return [];
+    }
+    if (!cachedUsers || version !== cachedVersion) {
+        cachedUsers = JSON.parse(fs.readFileSync(usersFile, 'utf-8'));
+        cachedVersion = version;
     }
     return cachedUsers ?? [];
 }
