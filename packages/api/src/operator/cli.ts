@@ -7,6 +7,10 @@
  *   moteur-operators reset you@example.com                      issues a new link and restarts sign-in setup
  *   moteur-operators remove you@example.com
  *   moteur-operators news you@example.com each|daily|off           how the operator is emailed about news
+ *   moteur-operators create-user you@example.com --name "Your Name" [--password …]   a user account
+ *
+ * create-user makes the first account on a new server, before anyone can sign in. After that, use
+ * `moteur operator create-user`, which goes through the API and works from any machine.
  *
  * Reads the same settings as the API (DATA_ROOT, OPERATORS_FILE, JWT_SECRET or OPERATOR_SECRET,
  * STUDIO_URL for the link). Run it on the machine that holds the API's data, as the user the API runs as.
@@ -22,6 +26,9 @@ import {
     type OperatorNewsMode
 } from '@moteurio/core/operators.js';
 import { storageConfig } from '@moteurio/core/config/storageConfig.js';
+import { createUser, getUserByEmail } from '@moteurio/core/users.js';
+import { hashPassword, passwordProblem } from '@moteurio/core/auth.js';
+import { randomUUID } from 'node:crypto';
 
 // Load the API's .env file when run from the directory that contains it.
 try {
@@ -58,6 +65,11 @@ const HELP = `moteur-operators: the people who run this server (not users).
   remove <email>               their sessions end at once
   news <email> each|daily|off  how they hear about new accounts, projects and workspaces:
                                an email each time (default), a daily summary, or none
+
+  create-user <email> --name <name> [--password <password>]
+                               a user account, for the first one on a new server; without
+                               a password they sign in with an email code. Afterwards, use
+                               moteur operator create-user from any machine.
 
 Operators file: ${storageConfig.operatorsFile}`;
 
@@ -121,6 +133,36 @@ try {
                     : mode === 'daily'
                       ? `${o.email} gets a daily summary, when something happened.`
                       : `${o.email} gets an email for each new account, project and workspace.`
+            );
+            break;
+        }
+        case 'create-user': {
+            if (!target)
+                throw new OperatorAuthError(
+                    'Which email? moteur-operators create-user you@example.com --name "Your Name"',
+                    400
+                );
+            const email = target.trim();
+            const name = flag('name')?.trim();
+            const password = flag('password') ?? '';
+            if (!name) throw new OperatorAuthError('A name is required: --name "Your Name"', 400);
+            const weak = password ? passwordProblem(password) : null;
+            if (weak) throw new OperatorAuthError(weak, 400);
+            if (getUserByEmail(email))
+                throw new OperatorAuthError(`There is already an account for ${email}.`, 409);
+            const user = await createUser({
+                id: `user:${randomUUID()}`,
+                email,
+                name,
+                ...(password && { passwordHash: await hashPassword(password) }),
+                roles: [],
+                projects: [],
+                isActive: true
+            });
+            console.log(
+                password
+                    ? `Created ${user.email}. They can sign in with their password.`
+                    : `Created ${user.email}. They sign in with a code sent by email.`
             );
             break;
         }
