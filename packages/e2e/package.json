@@ -1,0 +1,17 @@
+{
+    "name": "@moteurio/e2e",
+    "version": "2026.11.3",
+    "private": true,
+    "description": "End-to-end tests: the golden path against a real, built Moteur server",
+    "type": "module",
+    "scripts": {
+        "lint": "eslint . --ext .ts",
+        "lint:fix": "eslint . --ext .ts --fix",
+        "test:e2e": "vitest run"
+    },
+    "devDependencies": {
+        "@moteurio/client": "workspace:*",
+        "@moteurio/core": "workspace:*",
+        "vitest": "^5.0.4"
+    }
+}

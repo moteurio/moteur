@@ -39,3 +39,8 @@ jobs:
 
             - name: Test
               run: pnpm -r test
+
+            # Starts the built API on a temporary data folder and runs the golden path through
+            # @moteurio/client: sign in, project, model, entry, publish, delivery, Git history.
+            - name: End-to-end
+              run: pnpm test:e2e

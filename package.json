@@ -8,7 +8,7 @@
     "scripts": {
         "build": "pnpm -r build && tsc -b",
         "build:watch": "pnpm -r build && tsc -b --watch",
-        "check:all": "pnpm lint && pnpm build && pnpm test",
+        "check:all": "pnpm lint && pnpm build && pnpm test && pnpm test:e2e",
         "clean": "rimraf dist && rimraf --glob \"packages/*/dist\" \"packages/*/tsconfig.tsbuildinfo\"",
         "cli": "node node_modules/@moteurio/cli/dist/index.js",
         "cli:dev": "pnpm --filter @moteurio/cli run build && node packages/cli/dist/index.js",
@@ -17,6 +17,7 @@
         "server": "node dist/src/api.js",
         "server:dev": "tsx --tsconfig tsconfig.server-dev.json packages/api/src/index.ts",
         "test": "pnpm -r run test",
+        "test:e2e": "pnpm --filter @moteurio/e2e run test:e2e",
         "test:watch": "pnpm -r run test -- --watch",
         "test:ui": "vitest --ui",
         "lint": "pnpm -r lint && eslint . --ext .ts",
