@@ -15,20 +15,17 @@ export function projectLayoutsApi(client: MoteurClient) {
                         : (data as { layouts: Record<string, unknown>[] })
                 );
         },
-        get(projectId: string, layoutId: string): Promise<{ layout: Record<string, unknown> }> {
+        get(projectId: string, layoutId: string): Promise<Record<string, unknown>> {
             return client.get(`${base(projectId)}/${encodeURIComponent(layoutId)}`);
         },
-        create(
-            projectId: string,
-            body: Record<string, unknown>
-        ): Promise<{ layout: Record<string, unknown> }> {
+        create(projectId: string, body: Record<string, unknown>): Promise<Record<string, unknown>> {
             return client.post(base(projectId), body);
         },
         update(
             projectId: string,
             layoutId: string,
             body: Record<string, unknown>
-        ): Promise<{ layout: Record<string, unknown> }> {
+        ): Promise<Record<string, unknown>> {
             return client.patch(`${base(projectId)}/${encodeURIComponent(layoutId)}`, body);
         },
         delete(projectId: string, layoutId: string): Promise<void> {

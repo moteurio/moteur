@@ -93,6 +93,8 @@ describe('golden path', () => {
         expect(apiKey).toBeTruthy();
 
         const site = createMoteurPublicClient({ baseURL: target.baseURL, projectId, apiKey });
+        const channels = await site.channels.list();
+        expect(channels.map(c => c.id)).toContain(channelId);
         const entries = await site.channel(channelId).entries.list(modelId);
         expect(entries.map(e => e.id)).toContain(entryId);
         const delivered = await site.channel(channelId).entries.get(modelId, entryId);

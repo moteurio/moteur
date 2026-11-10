@@ -1,3 +1,4 @@
+import type { WebhookDelivery } from '@moteurio/types';
 import type { MoteurClient } from '../client.js';
 
 const base = (projectId: string) => `/projects/${encodeURIComponent(projectId)}/webhooks`;
@@ -15,26 +16,24 @@ export function projectWebhooksApi(client: MoteurClient) {
                         : (data as { webhooks: Record<string, unknown>[] })
                 );
         },
-        get(projectId: string, webhookId: string): Promise<{ webhook: Record<string, unknown> }> {
+        get(projectId: string, webhookId: string): Promise<Record<string, unknown>> {
             return client.get(`${base(projectId)}/${encodeURIComponent(webhookId)}`);
         },
-        create(
-            projectId: string,
-            body: Record<string, unknown>
-        ): Promise<{ webhook: Record<string, unknown> }> {
+        create(projectId: string, body: Record<string, unknown>): Promise<Record<string, unknown>> {
             return client.post(base(projectId), body);
         },
         update(
             projectId: string,
             webhookId: string,
             body: Record<string, unknown>
-        ): Promise<{ webhook: Record<string, unknown> }> {
+        ): Promise<Record<string, unknown>> {
             return client.patch(`${base(projectId)}/${encodeURIComponent(webhookId)}`, body);
         },
         delete(projectId: string, webhookId: string): Promise<void> {
             return client.delete(`${base(projectId)}/${encodeURIComponent(webhookId)}`);
         },
-        test(projectId: string, webhookId: string): Promise<{ ok: boolean; status?: number }> {
+        /** Sends a test event and resolves with the delivery record once the first attempt has finished. */
+        test(projectId: string, webhookId: string): Promise<WebhookDelivery> {
             return client.post(`${base(projectId)}/${encodeURIComponent(webhookId)}/test`);
         }
     };
