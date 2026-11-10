@@ -222,7 +222,10 @@ function tokenForSession(user: User, session: AuthSession, ttlSeconds?: number):
     return token;
 }
 
-/** Generate a short-lived session token (e.g. for web Atelier). TTL in seconds; max 8 hours. */
+/**
+ * Generates a short-lived session token, used for example by the MCP endpoint. The TTL is in
+ * seconds and is clamped between 1 minute and 8 hours.
+ */
 export function generateSessionToken(
     user: User,
     ttlSeconds: number,
