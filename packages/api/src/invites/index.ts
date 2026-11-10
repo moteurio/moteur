@@ -24,7 +24,7 @@ const router: Router = Router();
 
 const GONE = { error: 'This invite has expired, was withdrawn, or was already used.' };
 
-/** `email` is lowercased; stored addresses may not be. */
+/** Finds an account by email. `email` must be lowercase; stored addresses may have mixed case, so the fallback compares case-insensitively. */
 function findAccount(email: string) {
     reloadUsers();
     return getUserByEmail(email) ?? listUsers().find(u => u.email.toLowerCase() === email);
@@ -39,7 +39,7 @@ router.get('/:token', async (req: Request, res: Response) => {
         const account = findAccount(invite.email);
         const known = {
             hasAccount: !!account,
-            // An account made with an email code has none: that person signs in by email.
+            // An account created with an email code has no password, and its owner signs in by email.
             hasPassword: !!account?.passwordHash
         };
         if (isWorkspaceInvite(invite)) {
@@ -71,7 +71,7 @@ router.get('/:token', async (req: Request, res: Response) => {
     }
 });
 
-/** Signed in with the invited address: join the project. */
+/** Accepts the invite for a user signed in with the invited address, adding them to the project or workspace. */
 router.post('/:token/accept', requireAuth, async (req: Request, res: Response) => {
     const { token } = req.params as Record<string, string>;
     const invite = findInviteByToken(token);
@@ -87,7 +87,7 @@ router.post('/:token/accept', requireAuth, async (req: Request, res: Response) =
         if (isWorkspaceInvite(invite)) {
             const workspace = getWorkspace(invite.workspaceId);
             if (!workspace) return void res.status(404).json(GONE);
-            // An existing member keeps the place they have.
+            // An existing member keeps their current membership.
             if (!workspace.members[user.id])
                 await addWorkspaceMember(workspace.id, user.id, invite.member);
             consumeInvite(invite.id);
@@ -95,7 +95,7 @@ router.post('/:token/accept', requireAuth, async (req: Request, res: Response) =
         }
         const project = await getProjectById(invite.projectId);
         if (!project) return void res.status(404).json(GONE);
-        // An existing member keeps the roles they have.
+        // An existing member keeps their current roles.
         if (!project.users?.includes(user.id)) {
             await addProjectMember(invite.projectId, user, invite.roles);
         }
@@ -106,7 +106,7 @@ router.post('/:token/accept', requireAuth, async (req: Request, res: Response) =
     }
 });
 
-/** No account yet: create one with the invited address (the link proves it) and join. */
+/** Creates an account for the invited address, which the invite link proves the user owns, and joins the project or workspace. */
 router.post('/:token/register', async (req: Request, res: Response) => {
     const { token } = req.params as Record<string, string>;
     const invite = findInviteByToken(token);
@@ -117,7 +117,7 @@ router.post('/:token/register', async (req: Request, res: Response) => {
     if (!name || name.length > 120) {
         return void res.status(400).json({ error: 'A name is required', code: 'name' });
     }
-    // No password: the account is like one made with an email code (one can be added later).
+    // Without a password the account behaves like one created with an email code. A password can be added later.
     const weak = password ? passwordProblem(password) : null;
     if (weak) return void res.status(400).json({ error: weak, code: 'password' });
     if (findAccount(invite.email)) {
@@ -150,21 +150,21 @@ router.post('/:token/register', async (req: Request, res: Response) => {
                         : { projectId: invite.projectId })
                 }
             },
-            // Invited to a team: the welcome screens have nothing to ask.
+            // Invited users joined a team, so there is no onboarding question left to ask.
             onboarding: { intent: 'team', finishedAt: new Date().toISOString() }
         });
         if (isWorkspaceInvite(invite))
             await addWorkspaceMember(workspace!.id, user.id, invite.member);
         else await addProjectMember(invite.projectId, user, invite.roles);
         consumeInvite(invite.id);
-        // The welcome email, about the project they joined (a team's has no project to tell of);
-        // never holds up the answer.
+        // Send the welcome email about the joined project. A workspace invite has no project to mention.
+        // Do not wait for it, so a slow email cannot delay the response.
         void runOnboardingForNewUser(
             user,
             isWorkspaceInvite(invite)
                 ? undefined
                 : { projectId: invite.projectId, invitedBy: invite.invitedBy, roles: invite.roles },
-            // The invitation page's look, for the welcome only; never stored.
+            // The look of the invitation page. Used for the welcome email only and never stored.
             { look: pageLook(body.look) }
         );
         const loginAt = await recordUserLogin(user.id);

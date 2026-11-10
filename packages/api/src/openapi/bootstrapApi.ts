@@ -1,5 +1,5 @@
 /**
- * Shared bootstrap: plugin registration, OpenAPI path channel, merged spec.
+ * Shared bootstrap: plugin registration, the OpenAPI path channel and the merged spec.
  * Used by the HTTP server and by `scripts/export-openapi.ts`.
  */
 import type { OpenAPIV3 } from 'openapi-types';
@@ -307,7 +307,7 @@ export async function bootstrapApi(options?: {
     };
 }
 
-/** OpenAPI document only (e.g. export tooling). Runs full plugin bootstrap. */
+/** Returns only the OpenAPI document, for example for export tooling. Runs the full plugin bootstrap. */
 export async function buildMergedOpenApiDocument(): Promise<OpenAPIV3.Document> {
     const { mergedApiSpecs } = await bootstrapApi();
     return mergedApiSpecs;

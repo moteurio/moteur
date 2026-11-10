@@ -13,8 +13,8 @@ export function requestClassifier(req: Request, res: Response, next: NextFunctio
     req.apiRequestType = null;
     req.apiRequestProjectId = undefined;
 
-    // Images sites show (originals and sizes, and the other files stored with them): counted as
-    // the project's image traffic. A malformed name is left to the route to refuse.
+    // Images that sites display (originals, resized copies and other files stored with them) count
+    // as the project's image traffic. A malformed project id is left for the route to reject.
     const image =
         req.method === 'GET' || req.method === 'HEAD'
             ? path.match(/\/static\/(?:resize|assets)\/([^/]+)\//)
@@ -24,25 +24,25 @@ export function requestClassifier(req: Request, res: Response, next: NextFunctio
             req.apiRequestProjectId = decodeURIComponent(image[1]);
             req.apiRequestType = 'image';
         } catch {
-            // Not a project id.
+            // The path segment is not a valid encoded project id.
         }
         next();
         return;
     }
-    // Studio-global routes (usage, seed, asset migration)
+    // Server-wide admin client routes (usage, seed, asset migration)
     if (path.includes('/studio/')) {
         req.apiRequestType = 'studio';
         next();
         return;
     }
 
-    // Public API: what sites call. Channel reads and page outputs (API key or JWT), form
-    // submissions, and what plugins give sites under /play/ (a poll's votes).
+    // Public API, called by sites: channel reads and page outputs (API key or JWT), form
+    // submissions, and plugin endpoints for sites under /play/ (for example a poll's votes).
     const projectsMatch =
         path.match(
             /\/projects\/([^/]+)\/(?:channels|sitemap\.xml|sitemap\.json|navigation|urls|breadcrumb|resolve)(?:\/|$)/
         ) ??
-        // Reading the redirects is what a site does; changing them is the Studio's work.
+        // Sites read redirects with GET. Changing redirects is an admin operation and is not public.
         (req.method === 'GET' ? path.match(/\/projects\/([^/]+)\/redirects\/?$/) : null) ??
         path.match(/\/projects\/([^/]+)\/forms\/[^/]+\/submit\/?$/) ??
         path.match(/\/projects\/([^/]+)\/play\//);

@@ -36,7 +36,7 @@ function toDto(invite: ProjectInvite) {
     };
 }
 
-/** Send the link if the server can; says why not otherwise. Never throws. */
+/** Emails the invite link if the server can, and otherwise reports why not. Never throws. */
 async function deliver(
     req: Request,
     invite: ProjectInvite,
@@ -59,7 +59,7 @@ async function deliver(
     const inviter = req.account?.name || req.account?.email || 'Someone';
     const project = req.project?.label || invite.projectId;
     const site = req.project?.siteUrl?.trim();
-    // Their language if they have an account, else the one the inviter asks for, else theirs.
+    // Use the invitee's language if they have an account, otherwise the language the inviter asked for, otherwise the inviter's.
     const known = getUserByEmail(invite.email);
     const locale =
         readerOf(known).locale ??
@@ -122,7 +122,7 @@ router.post('/:projectId/invites', requireProjectAdmin, async (req: Request, res
     const roles = Array.isArray(body.roles)
         ? body.roles.filter((r): r is string => typeof r === 'string')
         : [];
-    // As for members (users.ts): Developer and Billing are given only by someone who has them.
+    // As for members (see users.ts), only someone who already has the Developer or Billing role can grant it.
     const withheld = (['developer', 'billing'] as const).find(
         role => roles.includes(role) && !hasRole(req.user, role)
     );

@@ -28,8 +28,8 @@ router.patch('/:entryId', requireProjectAccess, async (req: Request, res: Respon
     const projectLocales = proj
         ? ([proj.defaultLocale, ...(proj.supportedLocales ?? [])].filter(Boolean) as string[])
         : undefined;
-    // Validate the entry as it will be saved: fields left out of a partial update keep their
-    // stored value, so required fields don't have to be resent.
+    // Validate the entry as it will be saved. Fields left out of a partial update keep their
+    // stored value, so required fields do not have to be sent again.
     let merged;
     let version: string;
     try {
@@ -46,7 +46,7 @@ router.patch('/:entryId', requireProjectAccess, async (req: Request, res: Respon
     } catch (err: unknown) {
         return void sendApiError(res, req, err);
     }
-    // Until an entry is live, required fields may be empty; review and publishing check them.
+    // Required fields may be empty until the entry is live. Review and publishing check them.
     const validation = await validateEntry(projectId, merged, modelSchema, {
         projectLocales: projectLocales?.length ? projectLocales : undefined,
         allowHtmlIframe: proj?.allowHtmlIframe === true,
@@ -57,7 +57,7 @@ router.patch('/:entryId', requireProjectAccess, async (req: Request, res: Respon
     if (!validation.valid) {
         return void res.status(400).json({
             valid: false,
-            // What stops the save; a draft's empty required fields are only warnings.
+            // Only errors block the save. Empty required fields on a draft are warnings.
             errors: validation.issues
                 .filter((issue: any) => issue.type === 'error')
                 .map((issue: any) => ({

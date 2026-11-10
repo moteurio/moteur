@@ -1,7 +1,6 @@
 import type { OpenAPIV3 } from 'openapi-types';
 
 const validMethods = ['get', 'post', 'put', 'patch', 'delete', 'options', 'head', 'trace'] as const;
-//type HttpMethod = typeof validMethods[number];
 
 export function mergePathSpecs(
     ...pathObjects: Record<string, OpenAPIV3.PathItemObject>[]

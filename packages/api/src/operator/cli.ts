@@ -1,15 +1,15 @@
 #!/usr/bin/env node
 /**
- * Operators, from the server itself: the only way to add the first one.
+ * Command line for managing operators, run on the server itself. It is the only way to add the first operator.
  *
  *   moteur-operators list
- *   moteur-operators add you@example.com [--name "Your Name"]   prints their one-time link
- *   moteur-operators reset you@example.com                      new link; sign-in starts again
+ *   moteur-operators add you@example.com [--name "Your Name"]   prints the operator's one-time link
+ *   moteur-operators reset you@example.com                      issues a new link and restarts sign-in setup
  *   moteur-operators remove you@example.com
- *   moteur-operators news you@example.com each|daily|off           how they hear what's new
+ *   moteur-operators news you@example.com each|daily|off           how the operator is emailed about news
  *
  * Reads the same settings as the API (DATA_ROOT, OPERATORS_FILE, JWT_SECRET or OPERATOR_SECRET,
- * STUDIO_URL for the link). Run it where the API's data is, as the user the API runs as.
+ * STUDIO_URL for the link). Run it on the machine that holds the API's data, as the user the API runs as.
  */
 import {
     addOperator,
@@ -23,11 +23,11 @@ import {
 } from '@moteurio/core/operators.js';
 import { storageConfig } from '@moteurio/core/config/storageConfig.js';
 
-// The API's .env, when run from where it lives.
+// Load the API's .env file when run from the directory that contains it.
 try {
     process.loadEnvFile();
 } catch {
-    // No .env here: the environment has the settings.
+    // There is no .env file, so the settings come from the environment.
 }
 
 const [command, target, ...rest] = process.argv.slice(2);

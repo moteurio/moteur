@@ -54,14 +54,14 @@ import emailRouter, { emailPaths } from './email.js';
 import { serverInfo, serverPaths } from './server.js';
 
 /**
- * The operator's view of the whole server: every project, every account, every plugin, and the
- * operators themselves. Operators are not accounts: see @moteurio/core/operators.
+ * Operator routes covering the whole server: every project, account and plugin, and the
+ * operators themselves. Operators are not user accounts; see @moteurio/core/operators.
  */
 const router: Router = Router();
 router.use(requireOperator);
 
 const params = (req: Request) => req.params as Record<string, string>;
-/** Who changes are recorded as: the engine, named after the operator (requireOperator). */
+/** The actor that changes are recorded under: the engine, named after the operator (set by requireOperator). */
 const operator = (req: Request) => req.user as User;
 
 function createdAt(p: ProjectSchema): string | undefined {
@@ -80,7 +80,7 @@ function projectRow(p: ProjectSchema, period: string) {
         members: (p.users ?? []).length,
         defaultLocale: p.defaultLocale,
         supportedLocales: p.supportedLocales ?? [],
-        /** Allowlist of project plugins; null: every plugin the server runs. */
+        /** Allowlist of project plugins. Null means every plugin the server runs. */
         plugins: p.plugins ?? null,
         month: {
             publicRequests: totals?.publicRequests ?? 0,
@@ -101,7 +101,7 @@ function userRow(u: User, projectIds: Set<string>) {
         lastLoginAt: u.lastLoginAt,
         twoFactor: Boolean(u.twoFactor),
         passkeys: u.passkeys?.length ?? 0,
-        // Every project they are in: added one by one, or given by a workspace of theirs.
+        // Every project the user belongs to, whether added individually or through a workspace.
         projects: getProjectIdsForUser(u.id).filter(id => projectIds.has(id)),
         workspaces: workspacesOf(u.id).map(w => ({
             id: w.id,
@@ -123,11 +123,11 @@ function pluginRow(e: PluginEntry, choices: Record<string, boolean>, projects: P
         ...e,
         contributions,
         capabilities: capabilitiesFromContributions(contributions, e.capabilities as never),
-        /** The operator's saved choice; null: follows the host's list. */
+        /** The operator's saved choice. Null means the host's list decides. */
         choice: e.kind === 'core' ? null : (choices[e.id] ?? null),
         runsNextStart: next,
         restartNeeded: next !== e.running,
-        /** Projects it applies to (project plugins can be narrowed per project). */
+        /** The number of projects the plugin applies to. Project plugins can be limited to specific projects. */
         projects: projectScoped
             ? projects.filter(p => !p.plugins || p.plugins.includes(e.id)).length
             : projects.length
@@ -211,7 +211,7 @@ router.get('/projects', (req: Request, res: Response) => {
     }
 });
 
-/** Body `{ plugins }`: the project plugins it may use (string ids), or null for all of them. */
+/** Sets the project's plugin allowlist. Body: `{ plugins }`, a list of plugin ids, or null to allow all plugins. */
 router.patch('/projects/:projectId', async (req: Request, res: Response) => {
     const { projectId } = params(req);
     const body = (req.body ?? {}) as { plugins?: unknown };
@@ -241,7 +241,7 @@ router.patch('/projects/:projectId', async (req: Request, res: Response) => {
     }
 });
 
-/** Every workspace on the server: its owners, how many people and projects. */
+/** Lists every workspace on the server with its owners and its number of members and projects. */
 router.get('/workspaces', (req: Request, res: Response) => {
     try {
         const counts = new Map<string, number>();
@@ -265,7 +265,7 @@ router.get('/workspaces', (req: Request, res: Response) => {
     }
 });
 
-/** Deleted projects still in the trash, newest first. */
+/** Lists deleted projects that are still in the trash, newest first. */
 router.get('/projects/trash', (req: Request, res: Response) => {
     try {
         res.json({ projects: listTrashedProjects() });
@@ -274,7 +274,7 @@ router.get('/projects/trash', (req: Request, res: Response) => {
     }
 });
 
-/** A deleted project's copy, removed from the trash for good. */
+/** Permanently removes a deleted project's copy from the trash. */
 router.delete('/projects/trash/:folder', (req: Request, res: Response) => {
     try {
         purgeTrashedProject(params(req).folder!);
@@ -284,7 +284,7 @@ router.delete('/projects/trash/:folder', (req: Request, res: Response) => {
     }
 });
 
-/** A project deleted for good at once, without the trash: its id is free again. */
+/** Permanently deletes a project immediately, bypassing the trash. Its id becomes available again. */
 router.delete('/projects/:projectId', async (req: Request, res: Response) => {
     try {
         await purgeProject(operator(req), params(req).projectId!);
@@ -304,7 +304,7 @@ router.get('/users', (req: Request, res: Response) => {
     }
 });
 
-/** For someone who lost both phone and recovery codes: two-step sign-in off, sessions ended. */
+/** Turns off two-step sign-in and ends all sessions, for a user who lost both their phone and their recovery codes. */
 router.post('/users/:userId/two-factor/reset', async (req: Request, res: Response) => {
     const { userId } = params(req);
     try {
@@ -317,7 +317,7 @@ router.post('/users/:userId/two-factor/reset', async (req: Request, res: Respons
     }
 });
 
-/** Body: any of `name`, `email`, `isActive`, `roles` (the account's own, not a project's). */
+/** Updates an account. Body: any of `name`, `email`, `isActive` and `roles` (the account's roles, not project roles). */
 router.patch('/users/:userId', async (req: Request, res: Response) => {
     const { userId } = params(req);
     const op = operator(req);
@@ -360,7 +360,7 @@ router.get('/operators', (req: Request, res: Response) => {
     res.json({ operators: listOperators(), you: req.operator?.id });
 });
 
-/** Body `{ email, name? }`: a new operator, and the token of their one-time link (24 hours). */
+/** Adds an operator. Body: `{ email, name? }`. Returns the token for the operator's one-time setup link, valid for 24 hours. */
 router.post('/operators', (req: Request, res: Response) => {
     const body = (req.body ?? {}) as { email?: unknown; name?: unknown };
     try {
@@ -378,7 +378,7 @@ router.post('/operators', (req: Request, res: Response) => {
     }
 });
 
-/** Their password, authenticator and sessions are gone; a new one-time link starts them again. */
+/** Resets an operator: removes their password, authenticator and sessions, and returns a new one-time setup link token. */
 router.post('/operators/:id/reset', (req: Request, res: Response) => {
     try {
         const { operator, token } = resetOperator(params(req).id);
@@ -403,7 +403,7 @@ router.delete('/operators/:id', (req: Request, res: Response) => {
 
 const NEWS_MAX = 200;
 
-/** New accounts, projects and workspaces (90 days), newest first, and when you last looked. */
+/** Lists new accounts, projects and workspaces from the last 90 days, newest first, along with when the operator last viewed them. */
 router.get('/news', (req: Request, res: Response) => {
     try {
         const since = typeof req.query.since === 'string' ? req.query.since : undefined;
@@ -420,7 +420,7 @@ router.get('/news', (req: Request, res: Response) => {
     }
 });
 
-/** You looked: what's new after now shows as new. */
+/** Marks the news as seen. Only items created after this moment count as new. */
 router.post('/news/seen', (req: Request, res: Response) => {
     try {
         res.json({ operator: markOperatorNewsSeen(req.operator!.id) });
@@ -429,7 +429,7 @@ router.post('/news/seen', (req: Request, res: Response) => {
     }
 });
 
-/** Body `{ news }`: each, daily or off: how you hear about what's new, by email. */
+/** Sets how the operator is emailed about news. Body: `{ news }`, one of `each`, `daily` or `off`. */
 router.patch('/me', (req: Request, res: Response) => {
     const news = (req.body ?? {}).news as OperatorNewsMode;
     if (!OPERATOR_NEWS_MODES.includes(news))
@@ -451,7 +451,7 @@ router.get('/plugins', (req: Request, res: Response) => {
     }
 });
 
-/** Body `{ on }`: true or false, or null to follow the host's list again. Applies at the next start. */
+/** Switches a plugin on or off. Body: `{ on }`, true or false, or null to follow the host's list again. Takes effect at the next start. */
 router.patch('/plugins/:pluginId', (req: Request, res: Response) => {
     const { pluginId } = params(req);
     const on = (req.body ?? {}).on;
@@ -475,7 +475,7 @@ router.patch('/plugins/:pluginId', (req: Request, res: Response) => {
 
 // ---- server settings -------------------------------------------------------------------------
 
-/** What the server runs with: version, sign-in, AI, MCP, email, and which variables are set. */
+/** Returns the server's configuration: version, sign-in, AI, MCP, email, and which environment variables are set. */
 router.get('/server', (req: Request, res: Response) => {
     try {
         res.json(serverInfo());
@@ -484,7 +484,7 @@ router.get('/server', (req: Request, res: Response) => {
     }
 });
 
-/** What the operator saved, and what the environment gives (a saved setting wins). */
+/** Returns the settings the operator saved and those set by the environment. A saved setting takes precedence. */
 const settingsBody = () => ({ settings: readServerSettings(), env: envServerSettings() });
 
 router.get('/settings', (req: Request, res: Response) => {
@@ -495,7 +495,7 @@ router.get('/settings', (req: Request, res: Response) => {
     }
 });
 
-/** Body: any of `termsUrl`, `privacyUrl`: an https address, or null to clear it. */
+/** Updates server settings. Body: any of `termsUrl` and `privacyUrl`, each an https address or null to clear it. */
 router.patch('/settings', (req: Request, res: Response) => {
     const body = (req.body ?? {}) as Record<string, unknown>;
     const patch: ServerSettingsPatch = {};
@@ -534,7 +534,7 @@ router.get('/schemas/:kind', (req: Request, res: Response) => {
     res.json({ items: listServerSchemas(kind) });
 });
 
-/** Adds a server-wide block or structure, or changes a shipped one. `:name` is the part after `core/`. */
+/** Adds a server-wide block or structure, or overrides a built-in one. `:name` is the part after `core/`. */
 router.put('/schemas/:kind/:name', (req: Request, res: Response) => {
     const kind = schemaKind(req);
     if (!kind) return void res.status(404).json({ error: 'Kinds are blocks and structures' });
@@ -549,7 +549,7 @@ router.put('/schemas/:kind/:name', (req: Request, res: Response) => {
     }
 });
 
-/** Removes the server file; a shipped one comes back as it ships. */
+/** Deletes the server's schema file. A built-in schema reverts to its shipped version. */
 router.delete('/schemas/:kind/:name', (req: Request, res: Response) => {
     const kind = schemaKind(req);
     if (!kind) return void res.status(404).json({ error: 'Kinds are blocks and structures' });
@@ -1078,7 +1078,7 @@ paths['/operator/me'] = {
 
 Object.assign(paths, emailPaths, serverPaths);
 
-/** Every operator route takes an operator token (operatorAuth), never a user's. */
+/** Every operator route requires an operator token (operatorAuth), never a user token. */
 export const openapi: Record<string, OpenAPIV3.PathItemObject> = Object.fromEntries(
     Object.entries(paths).map(([path, item]) => [
         path,

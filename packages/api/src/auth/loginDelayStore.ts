@@ -53,7 +53,7 @@ export function getLoginFailureEntry(normalizedEmail: string): LoginFailureEntry
     return store.get(normalizedEmail);
 }
 
-/** Increment failure count in one synchronous update (safe on the Node event loop). Returns new count. */
+/** Increments the failure count in one synchronous update, which is safe on the Node event loop. Returns the new count. */
 export function recordLoginFailure(normalizedEmail: string): number {
     const now = Date.now();
     const cur = store.get(normalizedEmail);

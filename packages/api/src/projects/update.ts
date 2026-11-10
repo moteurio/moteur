@@ -18,20 +18,20 @@ router.patch('/:projectId', requireProjectAdmin, async (req: Request, res: Respo
     const { projectId } = req.params as Record<string, string>;
     const patch = { ...(req.body ?? {}) } as Partial<ProjectSchema>;
     delete patch.memberRoles;
-    // Keys belong to developers (the API-key routes), not to any admin's project patch.
+    // API keys are managed by developers through the API-key routes, so an admin's project patch cannot change them.
     delete patch.apiKeys;
-    // The id is the project's folder and every address: it can't change here.
+    // The id names the project's folder and appears in every address, so it cannot be changed here.
     if (patch.id !== undefined && patch.id !== projectId)
         return void res.status(400).json({ error: 'A project’s id can’t be changed.' });
-    // Media settings keep their secrets when sent back as *** and are checked: their own path.
+    // Media settings are validated separately, and secrets sent back as *** keep their stored values.
     const { assetConfig, videoProviders } = patch;
     delete patch.assetConfig;
     delete patch.videoProviders;
-    // Members come and go through invites and the members routes, never a project patch.
+    // Members are added and removed through invites and the members routes, never through a project patch.
     delete patch.users;
-    // A project changes workspace only when it is moved (a handover), never in a patch.
+    // A project changes workspace only when it is moved through the move route, never through a patch.
     delete patch.workspaceId;
-    // The project's own mail is checked on its own path (PATCH /projects/:projectId/email).
+    // The project's email settings are validated on their own route (PATCH /projects/:projectId/email).
     delete patch.email;
     const refusal = gitRemoteRefusal(patch.git);
     if (refusal) return void res.status(400).json({ error: refusal });

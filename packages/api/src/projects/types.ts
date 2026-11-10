@@ -7,7 +7,7 @@ import { sendApiError } from '../utils/apiError.js';
 
 const router: Router = Router({ mergeParams: true });
 
-/** The project's content as TypeScript types, for a site reading it (`moteur types`). */
+/** Returns the project's content as TypeScript types for sites that read it (`moteur types`). */
 router.get('/', requireProjectAccess, async (req: Request, res: Response) => {
     const { projectId } = req.params as Record<string, string>;
     try {

@@ -34,7 +34,7 @@ const router: Router = Router({ mergeParams: true });
 
 const HISTORY_MONTHS = 6;
 
-/** This month's requests, image traffic, AI credits, seats and storage for a project, with the months before. */
+/** Returns this month's requests, image traffic, AI credits, seats and storage for a project, along with the previous months. */
 export async function projectUsage(projectId: string) {
     const store = getMeteringStore();
     const period = currentPeriod();
@@ -109,7 +109,7 @@ router.get('/:projectId/usage', requireProjectAccess, async (req: Request, res: 
     }
 });
 
-/** What the project's plan allows; any member may read it (the Studio hides what can't be used). */
+/** Returns what the project's plan allows. Any member may read it, so clients can hide features the plan does not include. */
 router.get('/:projectId/limits', requireProjectAccess, (req: Request, res: Response) => {
     const { projectId } = req.params as Record<string, string>;
     return void res.json({

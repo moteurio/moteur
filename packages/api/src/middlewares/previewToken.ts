@@ -12,8 +12,8 @@ function readPreviewToken(req: Request): string {
 }
 
 /**
- * When a valid preview token is present, sets `req.previewAuth` and optional scope fields.
- * Invalid token when explicitly sent → 401. Missing token → next().
+ * When a valid preview token is present, sets `req.previewAuth` and the optional scope fields.
+ * An invalid token that was explicitly sent results in a 401. A missing token calls next().
  */
 export function previewTokenAuth(req: Request, res: Response, next: NextFunction): void {
     const raw = readPreviewToken(req);

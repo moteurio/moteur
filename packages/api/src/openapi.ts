@@ -696,7 +696,6 @@ const baseSchemas: OpenAPIV3.ComponentsObject['schemas'] = {
     }
 };
 
-// You can dynamically generate this if needed
 export const baseSpec: OpenAPIV3.Document = {
     openapi: '3.0.0',
     info: {

@@ -1,4 +1,4 @@
-/** OAuth consent is a server-enforced ceiling over the account's existing project roles. */
+/** The access a user grants through OAuth consent. The server enforces it as an upper bound on top of the account's project roles. */
 import { URL } from 'node:url';
 import { API_COMMANDS, type CommandSpec, type ServerOptions } from '@moteurio/mcp';
 import type { MoteurAdminClient } from '@moteurio/client';
@@ -10,7 +10,7 @@ export interface McpAccessPolicy {
     allowCreateProjects: boolean;
 }
 export interface McpConnection {
-    /** Reloaded before each API request, including account membership, edits and revocation. */
+    /** Returns the current policy. It is reloaded before each API request so changes to account membership, the grant and revocation take effect immediately. */
     current(): McpAccessPolicy;
     created(projectId: string): Promise<void>;
 }
@@ -70,7 +70,7 @@ export function permitsCommand(policy: McpAccessPolicy, command: CommandSpec): b
     if (name === 'projects create')
         return policy.level === 'developer' && policy.allowCreateProjects;
     if (GLOBAL_READS.has(name)) return command.readOnly === true;
-    // Unknown global commands cannot bypass the selected projects.
+    // Commands that take no project argument and are not on the global allowlist are refused, so they cannot bypass the selected projects.
     if (!command.args?.some(a => a.name === 'project')) return false;
     if (command.group === 'billing' && !command.readOnly) return false;
     if (policy.level === 'developer') return true;
@@ -117,8 +117,10 @@ const INSPECT_PATH =
 const GLOBAL_GET =
     /^\/(?:auth\/me|auth\/providers|openapi\.json|studio\/field-types|moteur\/blocks|ai\/status)$|^\/blueprints\/(?:projects|models|structures|templates)(?:\/|$)/;
 
-/** Check actual outgoing requests as well as tool discovery. This covers custom/multi-call tools
- * and the client's high-level helpers, and refuses URL overrides that could leak credentials.
+/**
+ * Checks every outgoing request in addition to filtering tool discovery. This covers tools that
+ * make several calls, custom tools and the client's high-level helpers, and it refuses URL
+ * overrides that could leak credentials.
  */
 export function restrictClient(client: MoteurAdminClient, connection: McpConnection): void {
     client._raw.defaults.maxRedirects = 0;
@@ -166,7 +168,7 @@ export function restrictClient(client: MoteurAdminClient, connection: McpConnect
         }
         const ai = /^\/ai\/(?:settings|helpers)\/([^/]+)$/.exec(path);
         if (ai && method === 'GET' && selected(policy, decodeURIComponent(ai[1]))) return config;
-        // Project-bound AI actions carry their project in the JSON body.
+        // Project-bound AI actions send their project id in the JSON body, so the path does not identify the project.
         if (
             /^\/ai\/(?:write|translate\/field|analyse\/image|generate-image|generate-audio|generate-3d|save-generated-model|generate\/entry)$/.test(
                 path

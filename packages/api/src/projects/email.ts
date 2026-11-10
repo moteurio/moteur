@@ -12,9 +12,9 @@ import { requireProjectAccess } from '../middlewares/auth.js';
 import { sendApiError } from '../utils/apiError.js';
 
 /**
- * A project's own mail to its site's visitors (form confirmations and form emails): who it comes
- * from and how it looks. Every member can see it and preview it; admins, builders, developers
- * and content leads change it.
+ * Email settings for the mail a project sends to its site's visitors (form confirmations and form
+ * emails): the sender and the look. Every member can view and preview the settings; only admins,
+ * builders, developers and content leads can change them.
  */
 const router: Router = Router({ mergeParams: true });
 

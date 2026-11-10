@@ -19,7 +19,7 @@ export function registerSocketEventBridge(app: Express): void {
         try {
             emitFn(io);
         } catch {
-            // never break on emit failure
+            // A failed emit must not break the code that raised the event.
         }
     };
 

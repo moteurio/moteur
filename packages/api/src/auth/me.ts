@@ -22,8 +22,8 @@ router.get('/me', requireAuth, (req: Request, res: Response) => {
 });
 
 /**
- * The workspaces someone is in, and their place in each: enough to show a switcher, and to work
- * out their roles in a workspace's projects (`asOwnWorkspace`).
+ * Lists the workspaces a user belongs to with their role in each. This is enough to render a
+ * workspace switcher and to work out the user's roles in a workspace's projects (`asOwnWorkspace`).
  */
 function workspacesBrief(userId: string) {
     return workspacesOf(userId).map(w => {
@@ -39,7 +39,7 @@ function workspacesBrief(userId: string) {
     });
 }
 
-/** Body `{ name }`: what you're called, everywhere in the Studio and its emails. */
+/** Updates the user's display name, which is also used in emails. Body: `{ name }`. */
 router.patch('/me', requireAuth, async (req: Request, res: Response) => {
     const raw = (req.body ?? {}).name;
     const name = typeof raw === 'string' ? raw.trim().replace(/\s+/g, ' ') : '';

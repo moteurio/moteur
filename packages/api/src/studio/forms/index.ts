@@ -49,7 +49,7 @@ router.get('/', requireProjectAccess, async (req: Request, res: Response) => {
     }
 });
 
-// The actions plugins add (a sheet, a CRM…), with the settings each asks of a form.
+// Lists the form actions that plugins add (for example a spreadsheet or a CRM), with the settings each action needs on a form.
 router.get('/actions', requireProjectAccess, (_req: Request, res: Response) => {
     res.json({ actions: listFormActions() });
 });
@@ -66,13 +66,13 @@ router.get('/:formId', requireProjectAccess, async (req: Request, res: Response)
     }
 });
 
-// Sites on any domain send their forms here: no cookies or credentials, so any origin may.
+// Sites on any domain submit their forms here. No cookies or credentials are involved, so any origin may call these routes.
 const anySite = cors({ origin: '*', methods: ['GET', 'POST', 'OPTIONS'], credentials: false });
 router.options('/:formId/submit', anySite);
 router.options('/:formId/token', anySite);
 
-// A site asks for a token when it shows the form, and sends it back as `_token`: an answer sent
-// sooner than the form's minimum time after is kept as spam.
+// A site requests a token when it shows the form and sends it back as `_token`. A submission sent
+// sooner than the form's minimum time after the token was issued is stored as spam.
 router.get(
     '/:formId/token',
     anySite,
@@ -93,7 +93,7 @@ router.get(
     }
 );
 
-// Public form submit (no auth)
+// Public form submission (no authentication).
 router.post(
     '/:formId/submit',
     anySite,
@@ -111,7 +111,7 @@ router.post(
                 res.status(404).json({ error: 'Form not found' });
                 return;
             }
-            // A demo copy serves no site: its forms take no answers from one.
+            // A demo copy does not serve a site, so its forms do not accept submissions from one.
             if (isDemoCopy(await getProjectById(projectId))) {
                 res.status(403).json({
                     error: 'This is a demo copy: its forms take no answers from a site.',

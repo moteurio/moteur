@@ -11,8 +11,8 @@ import { sendApiError } from '../utils/apiError.js';
 import { personalSession, recentPerson } from './providerSignIn.js';
 
 /**
- * The signed-in person's own account: the email they sign in with, a copy of what the server
- * keeps about them, and deleting it. Only in their own session, never an agent's.
+ * The signed-in user's own account: changing the sign-in email, exporting the data the server
+ * keeps about them, and deleting the account. Only available in the user's own session, never to an agent.
  */
 const router: Router = Router();
 
@@ -49,7 +49,7 @@ router.post('/me/email', requireAuth, verificationRateLimiter, async (req, res) 
 
 router.post('/me/email/verify', requireAuth, verificationRateLimiter, async (req, res) => {
     try {
-        // Taken before the change: it ends every session, this one included.
+        // Read the session before the change, because changing the email ends every session including this one.
         const previous = personalSession(req);
         if (!previous) return notPersonal(res);
         const body = req.body ?? {};

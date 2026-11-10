@@ -10,12 +10,12 @@ import { isGitHubEnabled, isGoogleEnabled } from '../utils/authProviders.js';
 import { pluginEntries } from '../plugins/pluginCatalog.js';
 
 /**
- * What this server runs with, for its operators: its version, how people sign in, AI, MCP, email,
- * and which of the environment variables the engine reads are set. Never a value: only whether
- * each is set, so nothing secret leaves the server.
+ * Describes how this server is configured, for its operators: its version, sign-in methods, AI, MCP,
+ * email, and which of the environment variables the engine reads are set. It reports only whether
+ * each variable is set, never its value, so no secret leaves the server.
  */
 
-/** The variables the engine reads, grouped as docs/Configuration.md describes them. */
+/** The environment variables the engine reads, grouped as in docs/Configuration.md. */
 export const ENV_GROUPS: Record<string, readonly string[]> = {
     addresses: [
         'STUDIO_URL',
@@ -111,7 +111,7 @@ export const ENV_GROUPS: Record<string, readonly string[]> = {
 
 const startedAt = new Date().toISOString();
 
-/** The engine's version, from the API package beside this file (src or dist). */
+/** Reads the engine's version from the API package next to this file, whether running from src or dist. */
 function engineVersion(): string | null {
     try {
         const here = path.dirname(fileURLToPath(import.meta.url));
@@ -127,7 +127,7 @@ function engineVersion(): string | null {
 const isSet = (name: string) => (process.env[name] ?? '').trim() !== '';
 const off = (name: string) => (process.env[name] ?? '').trim().toLowerCase() === 'off';
 
-/** Running plugins in a category: the engine's own, and the host's that started. */
+/** Lists the running plugins in a category: the engine's own plugins and the host plugins that started. */
 function runningIn(category: string): { id: string; label: string }[] {
     const own = Object.entries(pluginRegistry.all())
         .filter(([, m]) => m.categories?.includes(category as never))
@@ -153,7 +153,7 @@ export function serverInfo() {
             providers: { github: isGitHubEnabled(), google: isGoogleEnabled() }
         },
         ai: {
-            /** MOTEUR_AI_PROVIDER: the provider text help uses, when one is named. */
+            /** MOTEUR_AI_PROVIDER: the provider used for text assistance, when one is configured. */
             provider: (process.env.MOTEUR_AI_PROVIDER ?? '').trim() || null,
             plugins: runningIn('ai'),
             monthlyCredits: credits || '1000',

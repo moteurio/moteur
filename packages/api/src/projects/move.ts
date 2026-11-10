@@ -8,7 +8,7 @@ import { sendApiError } from '../utils/apiError.js';
 
 const router: Router = Router();
 
-/** Body `{ workspaceId }`: the project goes to that workspace (a handover). */
+/** Moves the project to another workspace, handing it over. Body: `{ workspaceId }`. */
 router.post('/:projectId/move', requireProjectAccess, async (req: Request, res: Response) => {
     const { projectId } = req.params as Record<string, string>;
     const workspaceId = (req.body ?? {}).workspaceId;

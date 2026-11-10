@@ -47,7 +47,7 @@ router.post('/login', loginRateLimiter, async (req: Request, res: Response) => {
         }
         const result = await loginUser(normalizedUsername, password);
         clearLoginFailures(normalizedUsername);
-        // Two-step sign-in: no session yet, a ticket for POST /auth/two-factor/verify.
+        // With two-step sign-in no session exists yet. Return a ticket for POST /auth/two-factor/verify.
         if ('twoFactor' in result)
             return void res.json({ twoFactor: true, ticket: result.twoFactor.ticket });
         return void res.json(result);
@@ -55,7 +55,7 @@ router.post('/login', loginRateLimiter, async (req: Request, res: Response) => {
         const msg = getMessage(err).toLowerCase();
         if (msg.includes('invalid credentials') && normalizedUsername) {
             const failureCount = recordLoginFailure(normalizedUsername);
-            // From the second wrong password on, the next try waits: say how long.
+            // From the second wrong password on, the next attempt is delayed. Tell the client how long to wait.
             if (failureCount >= 2) {
                 const retryAfter = nextRetryAfterSeconds(failureCount);
                 res.setHeader('Retry-After', String(retryAfter));

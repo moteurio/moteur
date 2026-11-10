@@ -2,7 +2,7 @@ import type { Entry } from '@moteurio/types/Model.js';
 import type { EntryResolver } from '@moteurio/core/referenceResolution.js';
 import { boundedSetting } from '@moteurio/core/utils/workBudget.js';
 
-/** One shared budget across every root and recursive reference in a delivery request. */
+/** A single read budget shared by every root entry and recursive reference in one delivery request. */
 export class EntryReadBudget {
     private references = 0;
     private bytes = 0;
@@ -37,7 +37,7 @@ export class EntryReadBudget {
             this.cache.set(key, pending);
         }
         const entry = await pending;
-        // Charge repeated inlining too: a shared cache must not allow response amplification.
+        // Charge for repeated inlining as well, because a shared cache must not let a response be amplified.
         if (entry) this.include(entry);
         return entry;
     };

@@ -6,9 +6,10 @@ import { requireProjectAccess } from '../../middlewares/auth.js';
 import { errorFields, getMessage, sendApiError } from '../../utils/apiError.js';
 
 /**
- * A decision that didn't go through: its own status when it has one (an entry changed since it
- * was sent is 409 REVIEW_STALE, not a server error), else what its message says; anything else
- * is a failure, logged with the request.
+ * Sends the response for a review decision that failed. If the error carries its own status, that status is used
+ * (for example 409 REVIEW_STALE when the entry changed after it was submitted, which is not a server error).
+ * Otherwise the status is inferred from the message, and anything unrecognised is a server failure that is
+ * logged with the request.
  */
 function reviewError(res: Response, req: Request, err: unknown): void {
     const own =

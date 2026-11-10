@@ -45,7 +45,7 @@ router.get(
             return void res.status(400).json({ error: 'Missing path parameters' });
         }
         try {
-            // Reading the current entry checks the model exists and the user may read it.
+            // Reading the current entry confirms that the model exists and the user may read it.
             if (!(await getEntry(req.user!, projectId, modelId, entryId))) {
                 return void res.status(404).json({ error: 'Entry not found' });
             }
@@ -74,9 +74,9 @@ router.post(
             if (!snapshot) {
                 return void res.status(404).json({ error: 'Revision not found' });
             }
-            // The old version is checked against today's model, leniently like any draft: an
-            // empty required field is for review and publishing to catch, a value the model no
-            // longer accepts is not.
+            // Validate the revision against the current model, as leniently as a draft. An empty
+            // required field is left for review and publishing to catch, but a value the model
+            // does not accept is an error.
             const modelSchema = await getModelSchema(req.user!, projectId, modelId);
             const proj = await getProjectById(projectId);
             const projectLocales = proj

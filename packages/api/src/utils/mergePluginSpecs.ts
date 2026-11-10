@@ -10,7 +10,7 @@ export async function mergePluginSpecs(
         paths: { ...baseSpec.paths }
     };
 
-    // Load all plugins for the project
+    // Load all plugins enabled for the project.
     const plugins = await loadPluginsForProject(projectPluginIds);
 
     for (const plugin of plugins) {

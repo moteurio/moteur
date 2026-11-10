@@ -16,11 +16,11 @@ import { sendApiError, getMessage } from '../utils/apiError.js';
 function createKindRouter(kind: BlueprintKind): Router {
     const router = Router({ mergeParams: true });
 
-    /** List all blueprints of this kind (anyone signed in: they start projects and models) */
+    /** Lists all blueprints of this kind. Any signed-in user may list them, because users start projects and models from blueprints. */
     router.get('/', requireAuthOrOperator, (req: Request, res: Response) => {
         try {
             const blueprints = listBlueprints(kind);
-            // Project blueprints carry whole bundles: a list says what each holds instead.
+            // Project blueprints contain whole bundles, so the list returns a summary of what each one holds.
             return void res.json({
                 blueprints: kind === 'project' ? blueprints.map(summarizeBlueprint) : blueprints
             });
@@ -29,7 +29,7 @@ function createKindRouter(kind: BlueprintKind): Router {
         }
     });
 
-    /** Get one blueprint by id */
+    /** Returns one blueprint by id. */
     router.get('/:blueprintId', requireAuthOrOperator, (req: Request, res: Response) => {
         try {
             const blueprint = getBlueprint(
@@ -46,7 +46,7 @@ function createKindRouter(kind: BlueprintKind): Router {
         }
     });
 
-    /** Create or replace a blueprint */
+    /** Creates or replaces a blueprint. */
     router.post('/', requireOperator, (req: Request, res: Response) => {
         try {
             const body = req.body as BlueprintSchema;
@@ -60,7 +60,7 @@ function createKindRouter(kind: BlueprintKind): Router {
         }
     });
 
-    /** Update a blueprint (partial) */
+    /** Partially updates a blueprint. */
     router.patch('/:blueprintId', requireOperator, (req: Request, res: Response) => {
         try {
             const { blueprintId } = req.params as Record<string, string>;
@@ -75,7 +75,7 @@ function createKindRouter(kind: BlueprintKind): Router {
         }
     });
 
-    /** Delete a blueprint */
+    /** Deletes a blueprint. */
     router.delete('/:blueprintId', requireOperator, (req: Request, res: Response) => {
         try {
             deleteBlueprint(kind, (req.params as Record<string, string>).blueprintId, req.user);

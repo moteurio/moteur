@@ -49,7 +49,7 @@ export const authSpecs = {
         ...accountSpec,
         ...passkeysSpec,
         ...emailPreferencesSpec,
-        // GET from me.ts, DELETE from account.ts.
+        // GET /me is defined in me.ts and DELETE /me in account.ts.
         '/auth/me': { ...meSpec['/auth/me'], ...accountSpec['/auth/me'] }
     },
     schemas: {

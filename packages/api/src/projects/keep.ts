@@ -7,7 +7,7 @@ import { sendApiError } from '../utils/apiError.js';
 
 const router: Router = Router();
 
-/** A demo copy becomes the person's own project, counted on their plan. */
+/** Converts a demo copy into the user's own project, which then counts against their plan. */
 router.post('/:projectId/keep', requireProjectAdmin, async (req: Request, res: Response) => {
     const { projectId } = req.params as Record<string, string>;
     try {

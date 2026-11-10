@@ -12,7 +12,7 @@ import { sendApiError } from '../../utils/apiError.js';
 
 const router: Router = Router({ mergeParams: true });
 
-/** Project members: summary only (no prompts/responses). */
+/** Lists audit rows for project members. Each row is a summary without the prompt or response. */
 router.get('/', requireProjectAccess, async (req: Request, res: Response) => {
     const { projectId } = req.params as Record<string, string>;
     const asked = Math.floor(Number(req.query.limit));
@@ -27,7 +27,7 @@ router.get('/', requireProjectAccess, async (req: Request, res: Response) => {
 });
 
 /**
- * One audit row. The project's admins see the full prompt and response; other members a summary.
+ * Returns one audit row. Project admins see the full prompt and response; other members see a summary.
  */
 router.get('/:eventId', requireProjectAccess, async (req: Request, res: Response) => {
     const { projectId, eventId } = req.params as Record<string, string>;

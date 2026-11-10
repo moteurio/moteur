@@ -10,8 +10,8 @@ import type {
 } from '@moteurio/types/Plugin.js';
 
 /**
- * Every plugin this server knows of, as loaded at start, and the operator's saved on/off choices.
- * Plugins load once, at start: a choice applies at the next restart.
+ * Registry of every plugin the server knows about, as loaded at startup, together with the operator's
+ * saved on/off choices. Plugins load only at startup, so a choice takes effect at the next restart.
  */
 
 export type PluginEntry = {
@@ -26,15 +26,15 @@ export type PluginEntry = {
     contributions?: PluginContributions;
     requires?: string[];
     studio?: PluginStudioHints;
-    /** `core`: part of the engine, always on. `host`: chosen by the host. */
+    /** `core`: part of the engine and always on. `host`: chosen by the host. */
     kind: 'core' | 'host';
-    /** Import specifier the host gave. */
+    /** The import specifier supplied by the host. */
     spec?: string;
-    /** Running since this start. */
+    /** Whether the plugin has been running since the server started. */
     running: boolean;
-    /** The host's own list (MOTEUR_ENABLED_PLUGINS) lets it run. */
+    /** Whether the host's own list (MOTEUR_ENABLED_PLUGINS) allows the plugin to run. */
     hostAllows: boolean;
-    /** Could not be imported. */
+    /** The error message if the plugin could not be imported. */
     error?: string;
 };
 
@@ -54,7 +54,7 @@ function choicesFile(): string {
     return path.join(storageConfig.dataRoot, 'data', 'operator', 'plugins.json');
 }
 
-/** The operator's choices: `true` on, `false` off; a plugin left out follows the host's list. */
+/** Reads the operator's choices: `true` switches a plugin on and `false` switches it off. A plugin without a choice follows the host's list. */
 export function readPluginChoices(): PluginChoices {
     try {
         const raw = JSON.parse(fs.readFileSync(choicesFile(), 'utf8')) as { choices?: unknown };
@@ -86,7 +86,7 @@ export function savePluginChoice(id: string, on: boolean | null, by: string): Pl
     return choices;
 }
 
-/** Whether a host plugin runs after the next start. */
+/** Returns whether the plugin will run after the next start. */
 export function runsNextStart(entry: PluginEntry, choices: PluginChoices): boolean {
     if (entry.kind === 'core') return true;
     if (entry.error) return false;

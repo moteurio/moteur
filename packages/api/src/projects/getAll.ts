@@ -8,7 +8,7 @@ import type { OpenAPIV3 } from 'openapi-types';
 const router: Router = Router();
 
 router.get('/', requireAuth, (req: Request, res: Response) => {
-    // `?workspace=ws_…`: only that workspace's (those of them the caller is in).
+    // `?workspace=ws_…` limits the list to that workspace's projects, and only those the caller belongs to.
     const workspace = typeof req.query.workspace === 'string' ? req.query.workspace : undefined;
     const projects = listProjects(req.user!).filter(p => !workspace || p.workspaceId === workspace);
     res.json({ projects: projects.map(p => redactProjectSecrets(p)) });

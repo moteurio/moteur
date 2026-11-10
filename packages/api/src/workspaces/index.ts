@@ -1,6 +1,7 @@
 /**
- * Workspaces: the teams that own projects (see `Workspace` in @moteurio/types). Everyone signed in
- * sees the workspaces they are a member of; someone outside one is told it doesn't exist.
+ * Workspaces: the teams that own projects (see `Workspace` in @moteurio/types). A signed-in user
+ * sees only the workspaces they are a member of. For a workspace they are not in, the API responds
+ * as if it does not exist.
  */
 import type { Request, Response } from 'express';
 import { Router } from 'express';
@@ -46,7 +47,7 @@ const NOT_FOUND = (id: string) => ({
     code: 'WORKSPACE_NOT_FOUND'
 });
 
-/** The workspace, when the caller is in it; else a 404 is sent and undefined returned. */
+/** Returns the workspace if the caller is a member. Otherwise sends a 404 and returns undefined. */
 function theirs(req: Request, res: Response): Workspace | undefined {
     const { workspaceId } = req.params as Record<string, string>;
     const workspace = getWorkspace(workspaceId);
@@ -57,7 +58,7 @@ function theirs(req: Request, res: Response): Workspace | undefined {
     return workspace;
 }
 
-/** Owners and admins only; else a 403 is sent and false returned. */
+/** Allows only owners and admins. Otherwise sends a 403 and returns false. */
 function manages(req: Request, res: Response, workspace: Workspace): boolean {
     try {
         assertManagesWorkspace(workspace, req.user!.id);
@@ -201,7 +202,7 @@ function inviteDto(invite: WorkspaceInvite) {
     };
 }
 
-/** Send the link if the server can; says why not otherwise. Never throws. */
+/** Emails the invite link if the server can, and otherwise reports why not. Never throws. */
 async function deliver(
     req: Request,
     workspace: Workspace,
@@ -278,7 +279,7 @@ router.post('/:workspaceId/invites', async (req: Request, res: Response) => {
     try {
         assertTakesPeople(workspace);
         const member = cleanMemberInput(memberInput(body));
-        // Only owners invite owners.
+        // Only owners may invite other owners.
         assertManagesWorkspace(workspace, req.user!.id, member.role);
         const note = cleanInviteNote(body.note);
         const email = normalizeInviteEmail(body.email);

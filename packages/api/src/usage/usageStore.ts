@@ -1,7 +1,7 @@
 /**
- * API request counts in two buckets: studio (operator/back-office) and public (API key /
- * channels, per project). Kept by the engine's metering, per calendar month (UTC), so they
- * survive restarts once the server uses the file store (see `src/index.ts`).
+ * API request counts in two buckets: admin client (operator and back-office requests) and public
+ * (API key and channel requests, per project). The engine's metering keeps them per calendar month
+ * (UTC), so they survive restarts once the server uses the file store (see `src/index.ts`).
  */
 import {
     currentPeriod,
@@ -13,23 +13,23 @@ import {
 export type RequestType = 'studio' | 'public';
 
 export interface UsageCounts {
-    /** `YYYY-MM` (UTC) the counts are for. */
+    /** The `YYYY-MM` (UTC) period the counts cover. */
     period: string;
     studio: { total: number; windowStart: number };
     public: { byProject: Record<string, { total: number; windowStart: number }> };
 }
 
-/** Record one studio-scoped API request (global counter, not per-project). */
+/** Records one admin client API request. This is a global counter, not per project. */
 export function recordStudioRequest(): void {
     recordRequest('studio');
 }
 
-/** Record one public API request for a project. */
+/** Records one public API request for a project. */
 export function recordPublicRequest(projectId: string): void {
     recordRequest('public', projectId);
 }
 
-/** This month's counts (for dashboards or billing). */
+/** Returns this month's counts, for dashboards or billing. */
 export function getUsageCounts(period = currentPeriod()): UsageCounts {
     const totals = getMeteringStore().requestTotals(period);
     const windowStart = Date.parse(periodBounds(period).start);

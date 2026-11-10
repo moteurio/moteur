@@ -37,11 +37,11 @@ function sessionOf(req: Request) {
     const session = requireAuthSession(payload.sid, req.user!.id, req.user!.authVersion ?? 0);
     return { payload, session: !req.user!.agent && session.kind === 'person' ? session : null };
 }
-/** The person's own session behind this request: never an agent's, nor a token made from it. */
+/** Returns the user's own session behind this request, or null for an agent or a token derived from an agent. */
 export function personalSession(req: Request): AuthSession | null {
     return sessionOf(req).session;
 }
-/** A personal session signed in within the last 10 minutes: for changing how someone signs in. */
+/** Returns the personal session if it signed in within the last 10 minutes. Changing sign-in methods requires this. */
 export function recentPerson(req: Request): AuthSession | null {
     const { payload, session } = sessionOf(req);
     const recent =

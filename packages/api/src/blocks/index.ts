@@ -1,7 +1,7 @@
 import type { Request, Response } from 'express';
 /**
- * The server-wide block registry, at `{API_BASE_PATH}/moteur/blocks` (blocks of one project are
- * under /projects/:projectId/blocks). GET: JWT. POST: operator.
+ * The server-wide block registry, served at `{API_BASE_PATH}/moteur/blocks`. Blocks of a single project
+ * are under /projects/:projectId/blocks. GET requires a JWT and POST requires an operator.
  */
 import express, { Router } from 'express';
 import { createBlock, listBlocks } from '@moteurio/core/blocks.js';

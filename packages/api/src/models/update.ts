@@ -19,7 +19,7 @@ router.patch('/:modelId', requireBuilder, async (req: Request, res: Response) =>
     }
 
     try {
-        // A PATCH may send only what changes (e.g. just `studio`): validate the merged model.
+        // A PATCH may send only the changed properties (for example just `studio`), so validate the current model merged with the body.
         const current = await getModelSchema(req.user!, projectId, modelId);
         const validation = validateModel({ ...current, ...req.body });
         if (!validation.valid) {

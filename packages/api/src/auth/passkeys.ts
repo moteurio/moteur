@@ -17,8 +17,8 @@ import { getMessage, sendApiError } from '../utils/apiError.js';
 import { recentPerson } from './providerSignIn.js';
 
 /**
- * Passkeys: adding, listing, renaming and removing them on the account page, and signing in with
- * one. Adding and removing need a sign-in from the last 10 minutes, as other sign-in methods do.
+ * Passkeys: adding, listing, renaming and removing them, and signing in with one.
+ * Adding and removing require a sign-in from the last 10 minutes, like other sign-in methods.
  */
 const router: Router = Router();
 
@@ -34,7 +34,7 @@ const credential = <T>(value: unknown): T => {
     return value as T;
 };
 
-/** Only the person, in a personal session: never an agent, never a token made for one. */
+/** Allows only a user in a personal session. Agents and tokens issued to agents are refused. */
 function personOnly(req: Request, res: Response): boolean {
     if (!req.user?.agent) return true;
     res.status(403).json({ error: 'A personal session is required' });
@@ -51,7 +51,7 @@ function recentOnly(req: Request, res: Response): ReturnType<typeof recentPerson
     return session;
 }
 
-/** A passkey the server doesn't know: the browser can be told to forget it. */
+/** Sends a sign-in error. For a passkey the server does not know, the response includes `credentialId` and `rpId` so the browser can be told to forget it. */
 function sendSignInError(req: Request, res: Response, err: unknown): void {
     const { code, credentialId, rpId } = err as Record<string, unknown>;
     if (code === 'PASSKEY_UNKNOWN')
@@ -152,7 +152,7 @@ router.delete('/passkeys/:passkeyId', requireAuth, async (req, res) => {
 
 export default router;
 
-// ---------------------------------------------------------------------------------------------
+// OpenAPI documentation helpers and schemas.
 
 const json = (description: string, schema: OpenAPIV3.SchemaObject): OpenAPIV3.ResponseObject => ({
     description,

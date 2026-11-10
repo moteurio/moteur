@@ -76,19 +76,19 @@ router.get(
     }
 );
 
-// Every submission of the form as a file: CSV for spreadsheets, or JSON.
+// Exports every submission of the form as a file, either CSV for spreadsheets or JSON.
 router.get('/export', requireProjectAccess, async (req: Request, res: Response) => {
     const { projectId, formId } = req.params as Record<string, string>;
     const format = req.query.format === 'json' ? 'json' : 'csv';
     try {
-        // Checks the form exists and the person may see it.
+        // Confirm that the form exists and the user may see it.
         await querySubmissions(req.user!, projectId, formId, { limit: 1 });
         const out = await UserDataStore.exportCollection(projectId, formId, format);
         const name = `${formId}-submissions.${format}`;
         res.setHeader('Content-Disposition', `attachment; filename="${name}"`);
         if (out.format === 'csv') {
             res.setHeader('Content-Type', 'text/csv; charset=utf-8');
-            // A byte-order mark so spreadsheet apps read accents correctly.
+            // Prepend a byte-order mark so spreadsheet apps read accented characters correctly.
             return void res.send(`\uFEFF${out.data}`);
         }
         return void res.json(out.data);
@@ -98,7 +98,7 @@ router.get('/export', requireProjectAccess, async (req: Request, res: Response) 
     }
 });
 
-// Mark read or unread, spam or not spam.
+// Marks a submission as read or unread, and as spam or not spam.
 router.patch(
     '/:submissionId',
     requireProjectAccess,

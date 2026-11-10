@@ -2,7 +2,7 @@ import type { OpenAPIV3 } from 'openapi-types';
 
 const TRUE = new Set(['1', 'true', 'yes']);
 
-/** A boolean query flag: `?resolveUrl=true`, `=1` and `=yes` turn it on; anything else is off. */
+/** Reads a boolean query flag. `?resolveUrl=true`, `=1` and `=yes` turn it on; any other value is off. */
 export function queryFlag(value: unknown): boolean {
     const raw = Array.isArray(value) ? value[0] : value;
     return typeof raw === 'string' && TRUE.has(raw.trim().toLowerCase());

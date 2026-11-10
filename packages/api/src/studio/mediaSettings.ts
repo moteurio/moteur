@@ -41,7 +41,7 @@ router.post('/move-storage', requireContentLead, async (req: Request, res: Respo
     }
 });
 
-// Videos to where new ones go (the project's host, or this server), in the background.
+// Moves existing videos in the background to wherever new videos are stored (the project's video host or this server).
 router.post('/move-videos', requireContentLead, async (req: Request, res: Response) => {
     const { projectId } = req.params as Record<string, string>;
     try {
@@ -51,7 +51,7 @@ router.post('/move-videos', requireContentLead, async (req: Request, res: Respon
     }
 });
 
-// Forget a video host's keys (only once no video is there).
+// Removes a video host's stored keys. Only allowed when no video is stored at that host.
 router.delete('/video-hosts/:host', requireContentLead, async (req: Request, res: Response) => {
     const { projectId, host } = req.params as Record<string, string>;
     try {

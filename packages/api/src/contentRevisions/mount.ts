@@ -12,15 +12,15 @@ export type ContentRevisionMountOptions = {
     responseKey: string;
     gitPath: (projectId: string, id: string) => string;
     assertExists: (req: Request) => Promise<void>;
-    /** Saves the resource as it was in `revisionId` as a new revision (unless it is the same). */
+    /** Saves the resource as it was in `revisionId` as a new revision, unless it is identical to the current one. */
     restore?: (
         req: Request,
         id: string,
         revisionId: string
     ) => Promise<{ restored: unknown; changed: boolean }>;
-    /** What a restore keeps and whether it goes live, for the API docs. */
+    /** Describes in the API docs what a restore keeps and whether the restored content goes live. */
     restoreDescription?: string;
-    /** Restoring changes how the site is built (layouts): builders only, like changing it. */
+    /** Restricts restore to builders. Restoring changes how the site is built (layouts), so it needs the same role as editing. */
     restoreBuilderOnly?: boolean;
 };
 

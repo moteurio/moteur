@@ -36,7 +36,7 @@ function resolveBlockTypeKey(projectId: string, slugParam: string): string | und
     const param = decodeURIComponent(slugParam).trim();
     if (!param) return undefined;
     const all = listBlocks(projectId);
-    // Without a slash: the project's own block (`hero`); with one, the server's (`core/hero`).
+    // A slug without a slash names the project's own block (`hero`); a slug with a slash names a server-wide block (`core/hero`).
     return all[param] ? param : undefined;
 }
 

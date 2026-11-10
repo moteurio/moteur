@@ -6,8 +6,8 @@ function ipKey(req: Request): string {
 }
 
 /**
- * The refusal when a limit is reached: `{ error, code: 'rate_limited', retryAfter }`, with
- * `retryAfter` the whole seconds until the window resets, as the `Retry-After` header says.
+ * The response sent when a limit is reached: `{ error, code: 'rate_limited', retryAfter }`.
+ * `retryAfter` is the number of whole seconds until the window resets, matching the `Retry-After` header.
  */
 export function limitReached(error: string): Pick<Options, 'handler'> {
     return {
@@ -31,7 +31,7 @@ const STUDIO_WINDOW_MS = 15 * 60 * 1000; // 15 minutes
 
 function getStudioMax(): number {
     const v = (process.env.API_RATE_LIMIT_STUDIO_MAX ?? '').trim();
-    if (v === '' || v === '0') return 10000; // effectively no limit
+    if (v === '' || v === '0') return 10000; // Effectively no limit.
     const n = parseInt(v, 10);
     return Number.isFinite(n) && n > 0 ? n : 10000;
 }
@@ -65,7 +65,7 @@ export const loginRateLimiter = rateLimit({
     ...limitReached('Too many login attempts. Please try again later.')
 });
 
-/** Browser-bound provider proofs have their own budget, independent of password attempts. */
+/** Limits browser-bound provider proofs separately from password attempts. */
 export const verificationRateLimiter = rateLimit({
     windowMs: LOGIN_WINDOW_MS,
     max: Math.max(1, Math.min(1000, Number(process.env.API_RATE_LIMIT_VERIFICATION_MAX) || 60)),
@@ -76,10 +76,10 @@ export const verificationRateLimiter = rateLimit({
 });
 
 /**
- * Rate limiter for the Studio's routes (`/studio/*`, and what members do under `/projects`).
- * Key: IP. Default: high limit; set API_RATE_LIMIT_STUDIO_MAX to enforce. What sites ask for
- * (reads, images) is left out: one site server is one IP for every visitor, and fairShare
- * already keeps each project to its share.
+ * Rate limiter for admin client routes (`/studio/*`, and member actions under `/projects`).
+ * Key: IP. Default: a high limit; set API_RATE_LIMIT_STUDIO_MAX to enforce a lower one.
+ * Requests from sites (reads, images) are excluded: a site server presents one IP for all of its
+ * visitors, and fairShare already limits each project to its share.
  */
 export const studioRateLimiter = rateLimit({
     windowMs: STUDIO_WINDOW_MS,
@@ -113,8 +113,8 @@ export const formsSubmitRateLimiter = rateLimit({
 });
 
 /**
- * Rate limiter for form tokens (asked for each time a site shows a form). Per form, four times
- * the submissions allowed: most visitors who see a form don't send it.
+ * Rate limiter for form tokens, which a site requests each time it shows a form. The limit is per form
+ * and four times the submission limit, because most visitors who see a form do not submit it.
  */
 export const formsTokenRateLimiter = rateLimit({
     windowMs: FORMS_WINDOW_MS,
