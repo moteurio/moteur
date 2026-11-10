@@ -4,7 +4,10 @@ import type { OpenAPIV3 } from 'openapi-types';
 import type { ProjectSchema } from '@moteurio/types/Project.js';
 import type { User } from '@moteurio/types/User.js';
 import { capabilitiesFromContributions, mergeContributions } from '@moteurio/types/Plugin.js';
+import { randomUUID } from 'node:crypto';
 import {
+    addProjectMember,
+    getProjectById,
     getProjectIdsForUser,
     loadProjects,
     updateProject,
@@ -12,7 +15,16 @@ import {
     purgeProject,
     purgeTrashedProject
 } from '@moteurio/core/projects.js';
-import { getUserById, listUsers, reloadUsers, updateUserAsOperator } from '@moteurio/core/users.js';
+import {
+    createUser,
+    getUserByEmail,
+    getUserById,
+    listUsers,
+    reloadUsers,
+    setUserPasswordHash,
+    updateUserAsOperator
+} from '@moteurio/core/users.js';
+import { hashPassword, passwordProblem } from '@moteurio/core/auth.js';
 import { creditBalance, currentPeriod, getMeteringStore } from '@moteurio/core/metering.js';
 import { pluginRegistry } from '@moteurio/core/registry/PluginRegistry.js';
 import {
@@ -344,6 +356,77 @@ router.patch('/users/:userId', async (req: Request, res: Response) => {
         if (/already in use|cannot be empty/i.test(message)) {
             return void res.status(409).json({ error: message });
         }
+        sendApiError(res, req, err);
+    }
+});
+
+/**
+ * Creates an account. Body: `email` and `name` (required), `password` (optional: without one, the
+ * person signs in with an email code), and `projectId` with optional `roles` to add them to a
+ * project.
+ */
+router.post('/users', async (req: Request, res: Response) => {
+    const body = (req.body ?? {}) as Record<string, unknown>;
+    const email = typeof body.email === 'string' ? body.email.trim() : '';
+    const name = typeof body.name === 'string' ? body.name.trim() : '';
+    const password = typeof body.password === 'string' ? body.password : '';
+    const projectId = typeof body.projectId === 'string' ? body.projectId.trim() : '';
+    const roles =
+        Array.isArray(body.roles) && body.roles.every(r => typeof r === 'string')
+            ? (body.roles as string[])
+            : [];
+    if (!/^[^\s@]+@[^\s@]+$/.test(email))
+        return void res.status(400).json({ error: 'A valid email is required', code: 'email' });
+    if (!name || name.length > 120)
+        return void res.status(400).json({ error: 'A name is required', code: 'name' });
+    const weak = password ? passwordProblem(password) : null;
+    if (weak) return void res.status(400).json({ error: weak, code: 'password' });
+    if (getUserByEmail(email))
+        return void res
+            .status(409)
+            .json({ error: 'There is already an account with this email', code: 'account_exists' });
+    try {
+        if (projectId && !(await getProjectById(projectId)))
+            return void res.status(404).json({ error: `Project "${projectId}" not found` });
+        const user = await createUser(
+            {
+                id: `user:${randomUUID()}`,
+                email,
+                name,
+                ...(password && { passwordHash: await hashPassword(password) }),
+                roles: [],
+                projects: [],
+                isActive: true
+            },
+            operator(req)
+        );
+        if (projectId) await addProjectMember(projectId, user, roles);
+        console.log(`[operators] ${operator(req).email} created the account ${email}`);
+        const created = getUserById(user.id) ?? user;
+        res.status(201).json({ user: userRow(created, new Set(loadProjects().map(p => p.id))) });
+    } catch (err) {
+        sendApiError(res, req, err);
+    }
+});
+
+/** Sets an account's password and ends all of its sessions. Body: `{ password }`. */
+router.put('/users/:userId/password', async (req: Request, res: Response) => {
+    const { userId } = params(req);
+    const password = typeof req.body?.password === 'string' ? req.body.password : '';
+    if (!password)
+        return void res.status(400).json({ error: 'A password is required', code: 'password' });
+    const weak = passwordProblem(password);
+    if (weak) return void res.status(400).json({ error: weak, code: 'password' });
+    if (!getUserById(userId)) return void res.status(404).json({ error: 'User not found' });
+    try {
+        const updated = await setUserPasswordHash(
+            userId,
+            await hashPassword(password),
+            operator(req)
+        );
+        console.log(`[operators] ${operator(req).email} set the password of ${updated.email}`);
+        res.json({ user: userRow(updated, new Set(loadProjects().map(p => p.id))) });
+    } catch (err) {
         sendApiError(res, req, err);
     }
 });
@@ -796,6 +879,41 @@ const paths: Record<string, OpenAPIV3.PathItemObject> = {
                 'Name, email, account roles, active or not, last sign-in, projects. Operators only.',
             tags,
             responses: ok('`{ users }`', { users: { type: 'array', items: userRowSchema } })
+        },
+        post: {
+            summary: 'Create an account',
+            description:
+                'Body: `email`, `name`, and optionally `password` (without one, the person signs in with an email code), `projectId` and `roles` to add them to a project.',
+            tags,
+            responses: {
+                '201': {
+                    description: '`{ user }`',
+                    content: {
+                        'application/json': {
+                            schema: { type: 'object', properties: { user: userRowSchema } }
+                        }
+                    }
+                },
+                '400': { description: 'Missing email or name, or weak password' },
+                '404': { description: 'No such project' },
+                '409': { description: 'Email already in use' }
+            }
+        }
+    },
+    '/operator/users/{userId}/password': {
+        put: {
+            summary: 'Set an account’s password',
+            description:
+                'Body `{ password }`, checked against the same rule as sign-up. Every session of the account ends.',
+            tags,
+            parameters: [
+                { name: 'userId', in: 'path', required: true, schema: { type: 'string' } }
+            ],
+            responses: {
+                ...ok('`{ user }`', { user: userRowSchema }),
+                '400': { description: 'Missing or weak password' },
+                '404': { description: 'No such account' }
+            }
         }
     },
     '/operator/users/{userId}/two-factor/reset': {

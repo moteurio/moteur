@@ -155,6 +155,12 @@ On the link, `GET {basePath}/invites/:token` describes the invite: the project, 
 
 **People per plan.** Moteur doesn't limit how many people a project has. A host plugin can, with `ctx.setPeopleLimit(projectId => max | null)` in its `init` (a billing plugin does, by plan). Members and pending invites both take a seat. Inviting, accepting, registering from an invite, or adding users in a project update all answer **402** `{ code: "plan_limit", limit: "people", max }` when that would go over. A project already over its limit (after a downgrade) keeps its people. It just can't add more. `GET /projects/:projectId/usage` reports `people: { members, invited, max }`. The other plan limits (files, monthly API requests, projects per person) are in [REST API › Plan limits](REST%20API.md#plan-limits).
 
+### Accounts made by an operator
+
+An operator can create an account directly with `POST /operator/users` (`{ "email", "name", "password"?, "projectId"?, "roles"? }`), or `moteur operator create-user` from any machine. Without a password the person signs in with an email code. `PUT /operator/users/:userId/password` (`moteur operator set-password`) sets an account's password and ends every session of that account. Both check passwords against the same rule as sign-up.
+
+A new server has no account and no operator yet. Its first account is made on the server's machine with `moteur-operators create-user you@example.com --name "Your Name" --password "…"`, which ships with `@moteurio/api` and writes to the server's data folder. A running API sees the new account at once.
+
 ### Environment variables (JWT and OAuth)
 
 | Variable                    | Description                                                                                          |

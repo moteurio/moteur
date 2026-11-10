@@ -117,7 +117,7 @@ router.post('/:token/register', async (req: Request, res: Response) => {
     if (!name || name.length > 120) {
         return void res.status(400).json({ error: 'A name is required', code: 'name' });
     }
-    // Without a password the account behaves like one created with an email code. A password can be added later.
+    // Without a password the account behaves like one created with an email code. An operator can set one later.
     const weak = password ? passwordProblem(password) : null;
     if (weak) return void res.status(400).json({ error: weak, code: 'password' });
     if (findAccount(invite.email)) {

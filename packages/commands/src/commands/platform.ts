@@ -300,6 +300,39 @@ export const operator = group('operator', [
         http: 'PATCH /operator/users/{id}'
     },
     {
+        name: 'create-user',
+        summary: 'Create an account, with a password or for email-code sign-in',
+        args: [
+            { name: 'email', description: 'Their email', required: true, in: 'body' },
+            { name: 'name', description: 'Their name', required: true, in: 'body' },
+            {
+                name: 'password',
+                description: 'Their password (leave out to sign in with an email code)',
+                in: 'body'
+            },
+            {
+                name: 'project',
+                description: 'Add them to this project',
+                in: 'body',
+                key: 'projectId'
+            },
+            { name: 'roles', type: 'list', description: 'Their roles in that project', in: 'body' }
+        ],
+        http: 'POST /operator/users',
+        done: result => `Created ${(result as { user?: { email?: string } }).user?.email}.`
+    },
+    {
+        name: 'set-password',
+        summary: 'Set an account’s password and end its sessions',
+        args: [
+            id('User'),
+            { name: 'password', description: 'The new password', required: true, in: 'body' }
+        ],
+        http: 'PUT /operator/users/{id}/password',
+        destructive: true,
+        done: () => 'The password is set, and their sessions have ended.'
+    },
+    {
         name: 'projects',
         summary: 'Every project on the server',
         http: 'GET /operator/projects',

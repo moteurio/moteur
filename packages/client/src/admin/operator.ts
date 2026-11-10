@@ -41,6 +41,25 @@ export function operatorApi(client: MoteurClient) {
                 body: Record<string, unknown>
             ): Promise<{ user: Record<string, unknown> }> {
                 return client.patch(`/operator/users/${encodeURIComponent(userId)}`, body);
+            },
+            /** Creates an account. Without a password, the person signs in with an email code. */
+            create(body: {
+                email: string;
+                name: string;
+                password?: string;
+                projectId?: string;
+                roles?: string[];
+            }): Promise<{ user: Record<string, unknown> }> {
+                return client.post('/operator/users', body);
+            },
+            /** Sets an account's password and ends all of its sessions. */
+            setPassword(
+                userId: string,
+                password: string
+            ): Promise<{ user: Record<string, unknown> }> {
+                return client.put(`/operator/users/${encodeURIComponent(userId)}/password`, {
+                    password
+                });
             }
         },
         plugins: {
