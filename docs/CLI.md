@@ -26,28 +26,6 @@ With the password left empty, a sign-in code comes by email. At the code prompt,
 
 Forget the sign-in
 
-### `moteur auth create-user`
-
-Create an account straight in a local server’s files (no API)
-
-Runs where the server’s data is (DATA_ROOT / AUTH_USERS_FILE). To add someone through the API, use moteur invites send. Operators are not users: add them with moteur-operators on the server.
-
-| Option                |                          |
-| --------------------- | ------------------------ |
-| `--email <string>`    | Their email              |
-| `--password <string>` | Their password           |
-| `--name <string>`     | Their name               |
-| `--project <string>`  | Add them to this project |
-
-### `moteur auth reset-password`
-
-Set a password straight in a local server’s files (no API)
-
-| Option                |                  |
-| --------------------- | ---------------- |
-| `--user <string>`     | Email or user id |
-| `--password <string>` | The new password |
-
 ### `moteur auth whoami`
 
 Who you are signed in as, and where
@@ -199,6 +177,31 @@ Change an account (JSON, or active and roles)
 | `--data <string>` | The JSON body, inline             |
 
 Calls `PATCH /operator/users/{id}`.
+
+### `moteur operator create-user`
+
+Create an account, with a password or for email-code sign-in
+
+| Option                |                                                          |
+| --------------------- | -------------------------------------------------------- |
+| `--email <string>`    | Their email (required)                                   |
+| `--name <string>`     | Their name (required)                                    |
+| `--password <string>` | Their password (leave out to sign in with an email code) |
+| `--project <string>`  | Add them to this project                                 |
+| `--roles <list>`      | Their roles in that project                              |
+
+Calls `POST /operator/users`.
+
+### `moteur operator set-password <id>`
+
+Set an account’s password and end its sessions Asks first (or `--yes`).
+
+| Option                |                             |
+| --------------------- | --------------------------- |
+| `--id <string>`       | User id (required)          |
+| `--password <string>` | The new password (required) |
+
+Calls `PUT /operator/users/{id}/password`.
 
 ### `moteur operator projects`
 

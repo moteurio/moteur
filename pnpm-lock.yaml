@@ -191,9 +191,6 @@ importers:
             '@moteurio/commands':
                 specifier: workspace:*
                 version: link:../commands
-            '@moteurio/core':
-                specifier: workspace:*
-                version: link:../core
             '@moteurio/types':
                 specifier: workspace:*
                 version: link:../types
@@ -203,9 +200,6 @@ importers:
             cli-table3:
                 specifier: ^0.6.5
                 version: 0.6.5
-            dotenv:
-                specifier: ^18.0.8
-                version: 18.0.8
         devDependencies:
             '@types/node':
                 specifier: ^26.6.5

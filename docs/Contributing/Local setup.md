@@ -35,7 +35,7 @@ pnpm server:dev                      # the API from source, on http://localhost:
 
 Open `http://localhost:3000/docs` for the interactive API reference. Sign in as `louise@moteur-journal.test` with password `secret`: she is an admin of the demo project.
 
-To start from an empty folder instead, create your own account with `pnpm cli -- auth create-user`.
+To start from an empty folder instead, create your own account with `node packages/api/dist/operator/cli.js create-user you@example.com --name "Your Name" --password "a long password"` after `pnpm build`.
 
 ## Where the data goes
 

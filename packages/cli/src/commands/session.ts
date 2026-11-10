@@ -15,7 +15,6 @@ import {
     saveOperatorSession,
     UsageError
 } from '@moteurio/commands';
-import { createUserCommand, resetPasswordCommand } from './local.js';
 import { doctorChecks } from './doctor.js';
 
 async function ask(message: string, secret = false): Promise<string> {
@@ -407,36 +406,6 @@ export const session = group('auth', [
             return null;
         },
         done: () => 'Signed out.'
-    },
-    {
-        name: 'create-user',
-        summary: 'Create an account straight in a local server’s files (no API)',
-        description:
-            'Runs where the server’s data is (DATA_ROOT / AUTH_USERS_FILE). To add someone through the API, use moteur invites send. Operators are not users: add them with moteur-operators on the server.',
-        args: [
-            { name: 'email', description: 'Their email', in: 'none' },
-            { name: 'password', description: 'Their password', in: 'none' },
-            { name: 'name', description: 'Their name', in: 'none' },
-            { name: 'project', description: 'Add them to this project', in: 'none' }
-        ],
-        offline: true,
-        run: async ctx => {
-            await createUserCommand(ctx.args);
-            return '';
-        }
-    },
-    {
-        name: 'reset-password',
-        summary: 'Set a password straight in a local server’s files (no API)',
-        args: [
-            { name: 'user', description: 'Email or user id', in: 'none' },
-            { name: 'password', description: 'The new password', in: 'none' }
-        ],
-        offline: true,
-        run: async ctx => {
-            await resetPasswordCommand(ctx.args);
-            return '';
-        }
     }
 ]);
 
