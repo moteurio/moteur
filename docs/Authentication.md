@@ -345,6 +345,7 @@ A workspace is the team that owns projects: an agency, a studio, or one person. 
 - Each member of a workspace has one role there. **Owner** runs the workspace and is Admin, Billing and Developer in every project of it. **Admin** manages its members and is Admin and Developer in every project. **Billing** is Billing in every project. **Member** starts projects in it. With `access: "all"`, a member is in every project, with the workspace's `projectRoles` (Writer when none). With `access: "chosen"` (the default), they are only in the projects they were added to.
 - A client is not a member of the workspace. They are a guest of their own project (its `users`), and never see the team's other projects.
 - A project's own roles for someone (`memberRoles`) take precedence over what the workspace gives a Member or Billing person. Owners and Admins keep their workspace roles in every project, whatever the project says.
+- Someone's own workspace (`personal`) is only theirs: nobody else is invited or added to it (**409** `PERSONAL_WORKSPACE`). To work with others, start a team workspace and move projects there. A project in it can still have guests.
 - A workspace always has an owner. Only owners make, change or remove owners. A workspace is deleted only by an owner, and only once it has no projects.
 - `POST /projects` takes `workspaceId`: the workspace must be one where the person is an owner, admin or member, else **403** (**404** when they are not in it). Without one, the project goes in their own workspace. That workspace is made with their first project, and so is the demo copy made at sign-up. A project patch never changes `workspaceId`.
 - `requireProjectAccess` lets in a project's members and the workspace members it gives that project to, and `GET /projects` lists the same (`?workspace=ws_…` narrows it to one workspace). `GET /projects/:projectId/users` lists both: each row has `workspaceRole` when the person is in the project's workspace, and `viaWorkspace: true` when only the workspace puts them there. Those people are taken out in the workspace, not in the project.
@@ -355,21 +356,21 @@ A workspace is the team that owns projects: an agency, a studio, or one person. 
 
 Everyone signed in sees the workspaces they are a member of. A workspace someone is not in answers **404** (`WORKSPACE_NOT_FOUND`), as if it didn't exist.
 
-| Route                                           | Who                             | What                                                                                        |
-| ----------------------------------------------- | ------------------------------- | ------------------------------------------------------------------------------------------- |
-| `GET /workspaces`                               | anyone                          | Your workspaces, with your `role` (and `access`, as a Member), how many people and projects |
-| `POST /workspaces`                              | anyone                          | Start one, `{ name }`. You are its owner                                                    |
-| `GET /workspaces/:id`                           | members                         | The workspace and its `people`                                                              |
-| `PATCH /workspaces/:id`                         | owners, admins                  | Rename it, `{ name }`                                                                       |
-| `DELETE /workspaces/:id`                        | owners                          | Once it has no projects (**409** `WORKSPACE_NOT_EMPTY`). Its pending invites are withdrawn  |
-| `PATCH /workspaces/:id/members/:userId`         | owners, admins                  | `{ role, access?, projectRoles? }`. Only owners make, change or demote owners               |
-| `DELETE /workspaces/:id/members/:userId`        | owners, admins, or yourself     | Takes them out of it and its projects. Never the last owner (**409** `LAST_OWNER`)          |
-| `GET /workspaces/:id/invites`                   | owners, admins                  | Pending invites                                                                             |
-| `POST /workspaces/:id/invites`                  | owners, admins                  | `{ email, role, access?, projectRoles?, note? }`. Only owners invite owners                 |
-| `POST /workspaces/:id/invites/:inviteId/resend` | owners, admins                  | A new link and expiry                                                                       |
-| `DELETE /workspaces/:id/invites/:inviteId`      | owners, admins                  | Withdraw it                                                                                 |
-| `POST /projects/:projectId/move`                | owners, admins of its workspace | `{ workspaceId }`: hand the project over to another workspace where you may start projects  |
-| `GET /operator/workspaces`                      | operators                       | Every workspace, its owners, people and projects                                            |
+| Route                                           | Who                             | What                                                                                                                                    |
+| ----------------------------------------------- | ------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| `GET /workspaces`                               | anyone                          | Your workspaces, with your `role` (and `access`, as a Member), how many people and projects                                             |
+| `POST /workspaces`                              | anyone                          | Start one, `{ name }`. You are its owner                                                                                                |
+| `GET /workspaces/:id`                           | members                         | The workspace and its `people`                                                                                                          |
+| `PATCH /workspaces/:id`                         | owners, admins                  | Rename it, `{ name }`                                                                                                                   |
+| `DELETE /workspaces/:id`                        | owners                          | Once it has no projects (**409** `WORKSPACE_NOT_EMPTY`). Its pending invites are withdrawn                                              |
+| `PATCH /workspaces/:id/members/:userId`         | owners, admins                  | `{ role, access?, projectRoles? }`. Only owners make, change or demote owners                                                           |
+| `DELETE /workspaces/:id/members/:userId`        | owners, admins, or yourself     | Takes them out of it and its projects. Never the last owner (**409** `LAST_OWNER`)                                                      |
+| `GET /workspaces/:id/invites`                   | owners, admins                  | Pending invites                                                                                                                         |
+| `POST /workspaces/:id/invites`                  | owners, admins                  | `{ email, role, access?, projectRoles?, note? }`. Only owners invite owners. Never to your own workspace (**409** `PERSONAL_WORKSPACE`) |
+| `POST /workspaces/:id/invites/:inviteId/resend` | owners, admins                  | A new link and expiry                                                                                                                   |
+| `DELETE /workspaces/:id/invites/:inviteId`      | owners, admins                  | Withdraw it                                                                                                                             |
+| `POST /projects/:projectId/move`                | owners, admins of its workspace | `{ workspaceId }`: hand the project over to another workspace where you may start projects                                              |
+| `GET /operator/workspaces`                      | operators                       | Every workspace, its owners, people and projects                                                                                        |
 
 A workspace invite works like a project invite (see [Email](Email.md)): the same link, `/invite/<token>`, valid for the same time. The email names the workspace and the place offered in its team. `GET /invites/:token` answers `workspace` and `member` in place of `project` and `roles`. Accepting it (or `/register`, for an address with no account) makes the person a member with that place; someone already a member keeps theirs. Workspace members aren't counted against a project's people limit.
 

@@ -18,7 +18,7 @@ vi.mock('../../src/middlewares/auth.js', async () => {
     return { requireAuth: signedIn, requireProjectAccess: signedIn };
 });
 
-const { reloadUsers } = await import('@moteurio/core/users.js');
+const { reloadUsers, getUserById } = await import('@moteurio/core/users.js');
 const { reloadWorkspaces, getWorkspace } = await import('@moteurio/core/workspaces.js');
 const { createProject, getProjectIdsForUser } = await import('@moteurio/core/projects.js');
 const { gitIdle } = await import('@moteurio/core/git/gitService.js');
@@ -124,6 +124,26 @@ describe('/workspaces', () => {
                     .send({ email: 'ada@agency.test', role: 'admin' })
             ).status
         ).toBe(409);
+    });
+
+    it('invites nobody into someone’s own workspace', async () => {
+        await createProject(getUserById('owen')!, {
+            id: 'blog',
+            label: 'Blog',
+            defaultLocale: 'en'
+        });
+        const own = (await request(app).get('/workspaces').set(as('owen'))).body.workspaces.find(
+            (w: { personal: boolean }) => w.personal
+        );
+        const sent = await request(app)
+            .post(`/workspaces/${own.id}/invites`)
+            .set(as('owen'))
+            .send({ email: 'ada@agency.test', role: 'admin' });
+        expect(sent.status).toBe(409);
+        expect(sent.body.code).toBe('PERSONAL_WORKSPACE');
+        expect(
+            (await request(app).get(`/workspaces/${own.id}/invites`).set(as('owen'))).body
+        ).toEqual({ invites: [] });
     });
 
     it('lets only owners invite owners, and only managers see invites', async () => {

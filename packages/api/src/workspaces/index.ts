@@ -8,6 +8,7 @@ import type { OpenAPIV3 } from 'openapi-types';
 import { WORKSPACE_ROLES, type Workspace } from '@moteurio/types/Workspace.js';
 import {
     assertManagesWorkspace,
+    assertTakesPeople,
     cleanMemberInput,
     createWorkspace,
     deleteWorkspace,
@@ -275,6 +276,7 @@ router.post('/:workspaceId/invites', async (req: Request, res: Response) => {
     if (typeof body.email !== 'string' || !body.email.trim())
         return void res.status(400).json({ error: 'email is required' });
     try {
+        assertTakesPeople(workspace);
         const member = cleanMemberInput(memberInput(body));
         // Only owners invite owners.
         assertManagesWorkspace(workspace, req.user!.id, member.role);
@@ -551,7 +553,10 @@ export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
                 '400': { description: 'Missing or invalid email, role or note' },
                 '403': { description: 'Not allowed to invite with this role' },
                 '404': notFound,
-                '409': { description: 'Already a member' }
+                '409': {
+                    description:
+                        'Already a member, or your own workspace, which takes nobody else (`PERSONAL_WORKSPACE`)'
+                }
             }
         }
     },

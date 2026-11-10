@@ -138,6 +138,23 @@ describe('workspaces, stored', () => {
         ).toEqual(['blog', 'shop']);
     });
 
+    it('keeps someone’s own workspace theirs alone', async () => {
+        await projects.createProject(me('theo'), {
+            id: 'blog',
+            label: 'Blog',
+            defaultLocale: 'en'
+        });
+        const own = workspaces.personalWorkspaceOf('theo')!;
+        await expect(
+            workspaces.addWorkspaceMember(own.id, 'ada', { role: 'admin' })
+        ).rejects.toMatchObject({ status: 409, code: 'PERSONAL_WORKSPACE' });
+        expect(Object.keys(workspaces.getWorkspace(own.id)!.members)).toEqual(['theo']);
+        // A team workspace takes people.
+        const team = await workspaces.createWorkspace(me('theo'), 'Team');
+        await workspaces.addWorkspaceMember(team.id, 'ada', { role: 'admin' });
+        expect(workspaces.getWorkspace(team.id)!.members.ada?.role).toBe('admin');
+    });
+
     it('puts a project in the workspace asked for, if they may start one there', async () => {
         const ws = await workspaces.createWorkspace(me('owen'), 'Agency');
         await workspaces.addWorkspaceMember(ws.id, 'ada', { role: 'billing' });

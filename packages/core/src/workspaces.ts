@@ -115,6 +115,19 @@ function made(user: Pick<User, 'id'>, name: string, personal: boolean): Workspac
     };
 }
 
+/**
+ * Someone's own workspace is only theirs: nobody else joins it. To work with others, they start a
+ * team workspace and move projects there; a project's guests stay guests of that project.
+ */
+export function assertTakesPeople(workspace: Workspace, userId?: string): void {
+    if (workspace.personal && workspace.personal.userId !== userId)
+        throw fail(
+            'Your own workspace is only yours: start a team workspace to work with others.',
+            409,
+            'PERSONAL_WORKSPACE'
+        );
+}
+
 /** A new workspace, with its maker as its owner. */
 export async function createWorkspace(user: User, name: string): Promise<Workspace> {
     if (!user?.id || !user.isActive) throw fail('Sign in to start a workspace.', 401);
@@ -234,6 +247,7 @@ export async function addWorkspaceMember(
 ): Promise<Workspace> {
     const workspace = await change(data => {
         const ws = mustGet(data, workspaceId);
+        assertTakesPeople(ws, userId);
         const joinedAt = ws.members[userId]?.joinedAt ?? new Date().toISOString();
         if (ws.members[userId]?.role === 'owner' && input.role !== 'owner' && owners(ws).length < 2)
             throw fail('A workspace always has an owner.', 409, 'LAST_OWNER');
