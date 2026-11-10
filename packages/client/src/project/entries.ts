@@ -1,5 +1,5 @@
 import type { MoteurClient } from '../client.js';
-import type { Entry } from '@moteurio/types';
+import type { Entry, Review } from '@moteurio/types';
 
 /** A field and a list of locales, for example `{ field: 'title', locales: ['fr', 'en'] }`. */
 export type FieldLocales = { field: string; locales: string[] };
@@ -95,11 +95,7 @@ export function entriesApi(client: MoteurClient) {
                 Object.keys(params).length ? params : undefined
             );
         },
-        create(
-            projectId: string,
-            modelId: string,
-            body: Record<string, unknown>
-        ): Promise<{ entry: Entry }> {
+        create(projectId: string, modelId: string, body: Record<string, unknown>): Promise<Entry> {
             return client.post(
                 `/projects/${encodeURIComponent(projectId)}/models/${encodeURIComponent(modelId)}/entries`,
                 body
@@ -111,7 +107,7 @@ export function entriesApi(client: MoteurClient) {
             entryId: string,
             body: Record<string, unknown>,
             options?: { version?: string }
-        ): Promise<{ entry: Entry }> {
+        ): Promise<Entry> {
             if (options?.version)
                 return client.request({
                     method: 'PATCH',
@@ -134,17 +130,13 @@ export function entriesApi(client: MoteurClient) {
             modelId: string,
             entryId: string,
             status: string
-        ): Promise<{ entry: Record<string, unknown> }> {
+        ): Promise<Entry> {
             return client.patch(
                 `/projects/${encodeURIComponent(projectId)}/models/${encodeURIComponent(modelId)}/entries/${encodeURIComponent(entryId)}/status`,
                 { status }
             );
         },
-        submitReview(
-            projectId: string,
-            modelId: string,
-            entryId: string
-        ): Promise<{ entry: Record<string, unknown> }> {
+        submitReview(projectId: string, modelId: string, entryId: string): Promise<Review> {
             return client.post(
                 `/projects/${encodeURIComponent(projectId)}/models/${encodeURIComponent(modelId)}/entries/${encodeURIComponent(entryId)}/submit-review`
             );

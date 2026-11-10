@@ -34,13 +34,13 @@ export function projectsApi(client: MoteurClient) {
         get(projectId: string): Promise<{ project: ProjectSchema }> {
             return client.get(`/projects/${encodeURIComponent(projectId)}`);
         },
-        create(body: Record<string, unknown>): Promise<{ project: ProjectSchema }> {
+        /** Creates a project and returns it. `fromBlueprint` reports the outcome when the body names a blueprint. */
+        create(
+            body: Record<string, unknown>
+        ): Promise<ProjectSchema & { fromBlueprint?: Record<string, unknown> }> {
             return client.post('/projects', body);
         },
-        update(
-            projectId: string,
-            body: Record<string, unknown>
-        ): Promise<{ project: ProjectSchema }> {
+        update(projectId: string, body: Record<string, unknown>): Promise<ProjectSchema> {
             return client.patch(`/projects/${encodeURIComponent(projectId)}`, body);
         },
         delete(projectId: string): Promise<void> {

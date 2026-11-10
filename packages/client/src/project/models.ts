@@ -11,14 +11,15 @@ export function modelsApi(client: MoteurClient) {
                 `/projects/${encodeURIComponent(projectId)}/models/${encodeURIComponent(modelId)}`
             );
         },
-        create(projectId: string, body: Record<string, unknown>): Promise<{ model: ModelSchema }> {
+        /** Creates a model and returns it. */
+        create(projectId: string, body: Record<string, unknown>): Promise<ModelSchema> {
             return client.post(`/projects/${encodeURIComponent(projectId)}/models`, body);
         },
         update(
             projectId: string,
             modelId: string,
             body: Record<string, unknown>
-        ): Promise<{ model: ModelSchema }> {
+        ): Promise<ModelSchema & { urlPatternWarnings?: string[] }> {
             return client.patch(
                 `/projects/${encodeURIComponent(projectId)}/models/${encodeURIComponent(modelId)}`,
                 body

@@ -91,7 +91,7 @@ const { pages } = await p.pages.list();
 const { page } = await p.pages.getBySlug('about');
 
 // Channel definitions (shape of a future public channel—not the same as public channel reads)
-const { channels } = await p.channels.list();
+const channels = await p.channels.list();
 await p.channels.create({
     label: 'Website',
     resources: [
