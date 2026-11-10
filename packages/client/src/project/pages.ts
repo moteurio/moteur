@@ -1,14 +1,14 @@
-/** Project pages API (`/projects/:id/pages`). For the published navigation tree use the public client’s `site.navigation`. */
+/** Project pages API (`/projects/:id/pages`). For the published navigation tree, use the public client's `site.navigation`. */
 import type { MoteurClient } from '../client.js';
 
 const base = (projectId: string) => `/projects/${encodeURIComponent(projectId)}/pages`;
 
 type Page = Record<string, unknown>;
 
-/** The API answers with the page itself; callers get it as `{ page }`. */
+/** Wraps a page in `{ page }`, because the API responds with the page itself. */
 const wrap = (p: Promise<Page>): Promise<{ page: Page }> => p.then(page => ({ page }));
 
-/** One place an entry or a page points at a page. */
+/** A reference from an entry or page to a page. */
 export type PageReferrer = {
     from: { kind: 'entry' | 'page'; id: string; modelId?: string; label?: string };
     path: string;
@@ -27,7 +27,7 @@ export function projectPagesApi(client: MoteurClient) {
         get(projectId: string, pageId: string): Promise<{ page: Page }> {
             return wrap(client.get(`${base(projectId)}/${encodeURIComponent(pageId)}`));
         },
-        /** With a locale, the slug in that language; without, a slug in any language. */
+        /** Gets a page by slug. With a `locale`, the slug is matched in that locale; without one, it is matched in any locale. */
         getBySlug(projectId: string, slug: string, locale?: string): Promise<{ page: Page }> {
             return wrap(
                 client.get(
@@ -46,13 +46,13 @@ export function projectPagesApi(client: MoteurClient) {
         ): Promise<{ page: Page }> {
             return wrap(client.patch(`${base(projectId)}/${encodeURIComponent(pageId)}`, body));
         },
-        /** Moves pages in the tree: each gets a parent (null for the top) and a position. */
+        /** Moves pages within the tree. Each move sets a page's parent (null for the top level) and its position. */
         reorder(projectId: string, moves: PageMove[]): Promise<{ pages: Page[] }> {
             return client
                 .post<Page[]>(`${base(projectId)}/reorder`, moves)
                 .then(pages => ({ pages }));
         },
-        /** What links to the page or relates to it: entries and other pages, at any depth. */
+        /** Lists the entries and pages that link or relate to the page, at any depth. */
         referrers(projectId: string, pageId: string): Promise<{ referrers: PageReferrer[] }> {
             return client.get(`${base(projectId)}/${encodeURIComponent(pageId)}/referrers`);
         },

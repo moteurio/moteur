@@ -1,14 +1,15 @@
-/** A permanent (301) or temporary (302) move from one address to another. */
+/** The HTTP status of a redirect: 301 for a permanent move, 302 for a temporary one. */
 export type RedirectStatus = 301 | 302;
 
+/** A redirect from one URL path to another address. */
 export interface Redirect {
     id: string;
-    /** The old path, starting with "/" (no query or fragment). */
+    /** The path to redirect from. It starts with "/" and has no query string or fragment. */
     from: string;
-    /** A path on the site, or a full http(s) URL. */
+    /** The destination: a path on the site, or a full http(s) URL. */
     to: string;
     status: RedirectStatus;
-    /** Made by Moteur when a live page or entry changed address. */
+    /** True when Moteur created the redirect automatically because the URL of a published page or entry changed. */
     auto?: boolean;
     note?: string;
     createdAt: string;

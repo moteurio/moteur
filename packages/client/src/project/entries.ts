@@ -1,38 +1,39 @@
 import type { MoteurClient } from '../client.js';
 import type { Entry } from '@moteurio/types';
 
-/** A field and languages, e.g. `{ field: 'title', locales: ['fr', 'en'] }`. */
+/** A field and a list of locales, for example `{ field: 'title', locales: ['fr', 'en'] }`. */
 export type FieldLocales = { field: string; locales: string[] };
 
 export type EntryListParams = {
-    /** Comma-separated statuses, e.g. `draft,in_review`. */
+    /** Comma-separated statuses to include, for example `draft,in_review`. */
     status?: string;
-    /** Page size; 0 returns only the total and counts. */
+    /** Page size. With 0, only the total and counts are returned. */
     limit?: number;
     offset?: number | string;
     /**
-     * `id`, `createdAt`, `updatedAt`, `publishedAt` or `data.<field>` (a field's text);
-     * prefix `-` for descending.
+     * Sort key: `id`, `createdAt`, `updatedAt`, `publishedAt` or `data.<field>` (the field's
+     * text). Prefix it with `-` for descending order.
      */
     sort?: string;
-    /** Language to read a localized field in for a `data.<field>` sort. */
+    /** Locale used to read a localized field when sorting by `data.<field>`. */
     sortLocale?: string;
-    /** Words to find in the id and short text fields (case and accents ignored). */
+    /** Search text, matched against the ID and short text fields. Case and accents are ignored. */
     q?: string;
     /**
-     * Field or virtual key → values (any of them matches). Virtual keys: `$workflow` (status,
-     * plus `edits` for unpublished changes), `$editor`, `$creator`.
+     * Filters keyed by field or virtual key. An entry matches a key when it has any of its values.
+     * Virtual keys: `$workflow` (the status, plus `edits` for unpublished changes), `$editor` and
+     * `$creator`.
      */
     filters?: Record<string, string[]>;
-    /** Entries missing at least one of these languages in the field. */
+    /** Returns only entries where the field has no value in at least one of the listed locales. */
     missing?: FieldLocales;
-    /** Rows grouped by this key, groups in `order` first. */
+    /** Groups the results by this key. Groups listed in `order` come first. */
     group?: { key: string; order?: string[] };
-    /** Keys to count matching entries for, per value (each ignoring its own filter). */
+    /** Keys to return counts for, with one count per value. Each key's count ignores the filter on that same key. */
     facets?: string[];
-    /** Count matching entries missing each language (ignoring `missing`). */
+    /** Counts the matching entries that have no value in each locale. This ignores the `missing` filter. */
     missingCounts?: FieldLocales;
-    /** Data fields to return, for list rows. */
+    /** Data fields to include in each returned entry, which keeps list rows small. */
     fields?: string[];
 };
 
@@ -45,7 +46,7 @@ export type EntryListResult = {
 
 const fieldLocales = (v: FieldLocales) => `${v.field}:${v.locales.join(',')}`;
 
-/** Query-string parameters for GET …/entries. */
+/** Builds the query-string parameters for `GET …/entries`. */
 export function entryListQuery(params: EntryListParams = {}): Record<string, string | number> {
     const q: Record<string, string | number> = {};
     if (params.status) q.status = params.status;

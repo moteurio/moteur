@@ -1,8 +1,8 @@
 /**
  * Credential resolution for Moteur API access.
- * Environment variables (MOTEUR_TOKEN, MOTEUR_API_URL) take precedence and are
- * used exclusively by web Atelier sessions; when present, config files are never touched.
- * Safe to load in browser: no Node globals or modules at top level.
+ * Environment variables (MOTEUR_TOKEN, MOTEUR_API_URL) take precedence. When they are present,
+ * config files are never read.
+ * Safe to load in a browser: it uses no Node globals or modules at the top level.
  */
 import { DEFAULT_API_URL } from './types.js';
 
@@ -31,7 +31,7 @@ function isNode(): boolean {
     return typeof process !== 'undefined' && typeof process.env === 'object';
 }
 
-/** Config file path; only computed in Node, using string concat to avoid importing path in browser. */
+/** Returns the config file path. It is computed only in Node, and uses string concatenation so that the `path` module is not imported in a browser. */
 function getConfigFilePath(): string {
     if (!isNode()) return '';
     const env = process!.env!;
@@ -93,12 +93,12 @@ export async function readConfigFile(): Promise<MoteurCredentials> {
             return parseConfigFile(raw);
         }
     } catch {
-        // ignore
+        // A missing or unreadable config file falls back to the defaults.
     }
     return DEFAULT_CREDENTIALS;
 }
 
-/** Get env var from process.env (Node) or import.meta.env (Vite/browser). */
+/** Reads an environment variable from `process.env` (Node) or `import.meta.env` (Vite in a browser). */
 function getEnv(name: string): string | undefined {
     if (isNode()) {
         const v = process.env[name];
@@ -115,10 +115,10 @@ function getEnv(name: string): string | undefined {
 }
 
 /**
- * Resolve credentials for API access.
- * Precedence: `MOTEUR_TOKEN` → `MOTEUR_API_KEY` (+ URL + project) → config file.
- * When credentials come from environment variables, config files are not read.
- * In the browser, uses `import.meta.env` (Vite: `VITE_MOTEUR_*`) when `process.env` is unavailable.
+ * Resolves credentials for API access, in this order of precedence: `MOTEUR_TOKEN`, then
+ * `MOTEUR_API_KEY` (with the URL and project), then the config file.
+ * When credentials come from environment variables, the config file is not read.
+ * In a browser, it reads `import.meta.env` (Vite: `VITE_MOTEUR_*`) when `process.env` is unavailable.
  */
 export async function resolveCredentials(): Promise<MoteurCredentials> {
     const token = getEnv('MOTEUR_TOKEN') ?? getEnv('VITE_MOTEUR_TOKEN');
@@ -143,7 +143,7 @@ export async function resolveCredentials(): Promise<MoteurCredentials> {
     }
 
     if (apiKey) {
-        // The key says its project (GET /keys/me); the API is api.moteur.io unless said.
+        // The project is not needed here because the API reports the key's project (GET /keys/me). The API URL defaults to api.moteur.io.
         return {
             apiKey,
             apiUrl: apiUrl || DEFAULT_API_URL,

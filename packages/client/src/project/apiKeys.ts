@@ -12,7 +12,7 @@ export type ProjectApiKeyMeta = {
     allowedHosts: string[];
     allowedChannelIds?: string[];
     allowSiteWideReads?: boolean;
-    /** When a request last came with this key (up to a minute behind). Omitted = never used. */
+    /** ISO 8601 timestamp of the last request made with this key. It can lag by up to a minute. Omitted when the key has never been used. */
     lastUsedAt?: string;
 };
 

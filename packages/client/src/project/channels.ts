@@ -1,4 +1,4 @@
-/** Channel definition CRUD under `/projects/:id/channels` (JWT for writes; list/get also work with API key). */
+/** Channel definition CRUD under `/projects/:id/channels`. Writes require a JWT; listing and getting also work with an API key. */
 import type { MoteurClient } from '../client.js';
 
 const base = (projectId: string) => `/projects/${encodeURIComponent(projectId)}/channels`;

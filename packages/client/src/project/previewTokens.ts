@@ -1,8 +1,9 @@
 import type { MoteurClient } from '../client.js';
 
 export type PreviewTokenCreateBody = {
+    /** Lifetime of the token in seconds. */
     ttlSeconds?: number;
-    /** With `entryId`: the entry's model (required with it). */
+    /** Model of the entry. Required together with `entryId`. */
     modelId?: string;
     entryId?: string;
     pageId?: string;
@@ -16,7 +17,7 @@ export type PreviewTokenCreateResponse = {
     expiresAt: string;
     rawToken: string;
     message: string;
-    /** With `entryId`: the entry's model (required with it). */
+    /** Model of the entry. Required together with `entryId`. */
     modelId?: string;
     entryId?: string;
     pageId?: string;

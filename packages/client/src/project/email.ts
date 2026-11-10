@@ -3,32 +3,32 @@ import type { MoteurClient } from '../client.js';
 
 const base = (projectId: string) => `/projects/${encodeURIComponent(projectId)}/email`;
 
-/** A project's own mail to its site's visitors (form confirmations and form emails). */
+/** The email settings of a project, which govern the emails it sends to its site's visitors (form confirmations and form notifications). */
 export type ProjectEmail = {
-    /** What the project stored. */
+    /** The settings stored on the project. */
     settings: ProjectEmailSettings;
-    /** What the emails use, defaults filled in. */
+    /** The settings emails actually use, with defaults filled in. */
     effective: {
         senderName: string;
-        /** The From header as it goes out: `"Café Olimpico" <mail@server.example>`. */
+        /** The From header as sent, for example `"Café Olimpico" <mail@server.example>`. */
         from: string;
         fromAddress: string;
         replyTo?: string;
         accent?: string;
         footer?: string;
         siteUrl?: string;
-        /** The logo's URL, or the image itself (`data:`). */
+        /** The logo's URL, or the image itself as a `data:` URI. */
         logo?: { src: string; width: number };
     };
-    /** Domains the server lets projects send From; empty: only its own address. */
+    /** Domains that projects may use in the From address. When empty, only the server's own address is allowed. */
     sendingDomains: string[];
-    /** The "Sent with …" line the server adds at the foot, or null. */
+    /** The "Sent with …" line that the server adds to the footer, or null when there is none. */
     credit: string | null;
-    /** Whether the caller may change them (project admins). */
+    /** True when the caller can change the settings (project admins). */
     canEdit: boolean;
 };
 
-/** A change: any setting, null (or '') to clear one. */
+/** A settings change. Any setting can be included, and null (or an empty string) clears it. */
 export type ProjectEmailUpdate = {
     [K in keyof ProjectEmailSettings]?: ProjectEmailSettings[K] | null;
 };
@@ -49,11 +49,11 @@ export function projectEmailApi(client: MoteurClient) {
         get(projectId: string): Promise<ProjectEmail> {
             return client.get(base(projectId));
         },
-        /** Project admins only. */
+        /** Updates the settings. Requires a project admin. */
         update(projectId: string, body: ProjectEmailUpdate): Promise<ProjectEmail> {
             return client.patch(base(projectId), body);
         },
-        /** A form email with sample answers; `settings` shows unsaved changes, never keeps them. */
+        /** Renders a form email with sample answers. `settings` previews unsaved changes without saving them. */
         preview(
             projectId: string,
             body: {

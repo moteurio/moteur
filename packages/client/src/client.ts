@@ -14,7 +14,7 @@ function requestUrlHint(err: { config?: { baseURL?: string; url?: string } }): s
     return joined ? `Request: ${joined}` : '';
 }
 
-/** Build a readable message from an axios error (JSON `{ error }`, HTML/text bodies, network failures). */
+/** Builds a readable message from an axios error: a JSON `{ error }` body, an HTML or text body, or a network failure. */
 function messageFromAxiosError(err: unknown): string {
     if (!axios.isAxiosError(err)) {
         if (err instanceof Error && err.message.trim()) return err.message;
@@ -46,7 +46,7 @@ function messageFromAxiosError(err: unknown): string {
         return httpLine ? `${withDetails} (${httpLine})` : withDetails;
     }
 
-    // Response with no body / unparsed body — still report status (common with wrong base path or proxies).
+    // The response has no body or an unparsable body. Report the status anyway, since this commonly happens with a wrong base path or a proxy.
     if (res && httpLine) {
         const axiosMsg = err.message?.trim();
         const extra =
@@ -56,7 +56,7 @@ function messageFromAxiosError(err: unknown): string {
         return `Empty or unreadable response body (${httpLine})${extra}`;
     }
 
-    // No HTTP response: refused connection, DNS, timeout, etc.
+    // No HTTP response was received, for example because of a refused connection, a DNS failure or a timeout.
     const code = err.code ? `${err.code}` : '';
     const axiosMsg = err.message?.trim() || 'Network request failed';
     const urlHint = requestUrlHint(err);
@@ -68,13 +68,13 @@ function messageFromAxiosError(err: unknown): string {
     return parts.join('. ');
 }
 
-/** Thrown when the API returns a non-2xx response (after axios). Check `status` and `response`. */
+/** Thrown when the API returns a non-2xx response. Inspect `status` and `response` for details. */
 export class MoteurApiError extends Error {
     readonly status?: number;
     readonly response?: unknown;
-    /** The JSON body the API answered with, if any. */
+    /** The JSON body of the response, when there is one. */
     readonly data?: Record<string, unknown>;
-    /** A machine-readable reason from the body (`code`, else a snake_case `error`), e.g. `insufficient_credits`. */
+    /** Machine-readable error code taken from the response body: its `code`, or its `error` when that is snake_case. For example `insufficient_credits`. */
     readonly code?: string;
 
     constructor(message: string, options?: { status?: number; response?: unknown }) {
@@ -93,7 +93,7 @@ export class MoteurApiError extends Error {
         Object.setPrototypeOf(this, new.target.prototype);
     }
 
-    /** Seconds the server asked to wait (429 `Retry-After`), if it said. */
+    /** Seconds the server asked the client to wait, from the `Retry-After` header of a 429 response. Undefined when the header is absent. */
     get retryAfter(): number | undefined {
         const headers = (this.response as { headers?: Record<string, unknown> } | undefined)
             ?.headers;
@@ -141,7 +141,7 @@ export function createRequestClient(config: MoteurClientConfigWithPreview): Axio
             try {
                 config.onError?.(error);
             } catch {
-                // A listener must not change what the caller gets.
+                // An error listener must not change the error the caller receives.
             }
             return Promise.reject(error);
         }
@@ -185,7 +185,7 @@ export function createMoteurClientInternal(config: MoteurClientConfig) {
         delete<T = unknown>(url: string): Promise<T> {
             return request.delete(url).then(r => r.data as T);
         },
-        /** Low-level axios instance (e.g. multipart upload). Not covered by semver as strictly as high-level methods. */
+        /** Low-level axios instance, for cases such as multipart uploads. It is held to a looser stability guarantee than the high-level methods. */
         _raw: request
     };
 }

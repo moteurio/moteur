@@ -1,6 +1,6 @@
 import type { MoteurClient } from '../../client.js';
 
-/** Copy blueprint seeds into the deployment (server route documented in OpenAPI). */
+/** Copies blueprint seeds into the deployment. The server route is documented in the OpenAPI document. */
 export function deploymentSeedApi(client: MoteurClient) {
     return {
         run(options?: { force?: boolean }): Promise<{ copied: string[]; skipped: string[] }> {

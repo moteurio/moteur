@@ -22,7 +22,7 @@ export const templateSchemaFields: Record<string, Field> = {
 export interface TemplateSchema {
     id: string;
     projectId: string;
-    /** Its name: one, or one per language (`{ en, fr }`). */
+    /** Display name: a single string, or a map from locale code to string such as `{ en, fr }`. */
     label: Localizable;
     description?: string;
     fields: Record<string, Field>;

@@ -1,25 +1,27 @@
 /**
- * Responsive images from Moteur assets, without network calls: an asset (or a media field's
- * value read with `resolveAssets=1`) turned into `src`, `srcset`, `width`, `height` and `alt`
- * for an `<img>`. Addresses come from the server (`resizeUrl`, `cropUrl`); these only add the
- * width and format. See docs/Images.md.
+ * Helpers that build responsive image attributes from Moteur assets without making network
+ * calls. They turn an asset, or a media field value read with `resolveAssets=1`, into the `src`,
+ * `srcset`, `width`, `height` and `alt` attributes of an `<img>`. The base URLs come from the
+ * server (`resizeUrl`, `cropUrl`); these helpers only append the width and format. See
+ * docs/Images.md.
  */
 
 /**
- * The widths the server makes (core `RESIZE_WIDTHS`): another width gets the next one up, and
- * nothing is made wider than the original.
+ * The image widths in pixels that the server can generate (core `RESIZE_WIDTHS`). A requested
+ * width that is not in the list is rounded up to the next one, and no image is generated wider than
+ * the original.
  */
 export const IMAGE_WIDTHS = [160, 320, 480, 640, 800, 1024, 1280, 1600, 2048, 2560] as const;
 
-/** The shapes the server crops to (core `RESIZE_RATIOS`), around the picture's focal point. */
+/** The aspect ratios that the server can crop to (core `RESIZE_RATIOS`), centred on the image's focal point. */
 export const IMAGE_RATIOS = ['1:1', '4:3', '3:2', '16:9', '21:9', '3:4', '2:3', '9:16'] as const;
 export type ImageRatio = (typeof IMAGE_RATIOS)[number];
 export type ImageFormat = 'webp' | 'avif' | 'jpg' | 'png';
 
-/** Text in one string, or one per language. */
+/** Text as a single string, or a map from locale code to string. */
 type LocalText = string | Record<string, string> | null | undefined;
 
-/** What these helpers read from an asset. */
+/** The asset properties that these helpers read. */
 export type ImageAsset = {
     url?: string;
     resizeUrl?: string;
@@ -29,7 +31,7 @@ export type ImageAsset = {
     alt?: LocalText;
 };
 
-/** A media field's value read with `resolveAssets=1`: the field's texts, the asset, its crop. */
+/** A media field value read with `resolveAssets=1`. It holds the field's own texts, the resolved asset and the field's crop. */
 export type ResolvedImage = {
     assetId?: string;
     alt?: LocalText;
@@ -42,9 +44,9 @@ export type ResolvedImage = {
 export type ImageSource = ImageAsset | ResolvedImage | null | undefined;
 
 export type ImageOptions = {
-    /** Crop to this shape (overrides the field's own crop). */
+    /** Aspect ratio to crop to. It overrides the field's own crop. */
     ratio?: ImageRatio;
-    /** `webp` unless set. */
+    /** Output format. Defaults to `webp`. */
     format?: ImageFormat;
 };
 
@@ -56,7 +58,7 @@ const ratioValue = (ratio: string) => {
     return w > 0 && h > 0 ? w / h : undefined;
 };
 
-/** The asset, the address to add a width to, and the shape it comes in. */
+/** Resolves the source into its asset, the base URL that a width is appended to, and the aspect ratio of the crop. */
 function read(source: ImageSource, options: ImageOptions = {}) {
     if (!source) return {};
     const asset = isResolved(source) ? (source._resolved ?? undefined) : source;
@@ -73,9 +75,10 @@ function read(source: ImageSource, options: ImageOptions = {}) {
 }
 
 /**
- * The picture at a width (rounded up by the server to one of `IMAGE_WIDTHS`), cropped to the
- * field's shape when it asks for one. Without `resizeUrl` (not an image, or an older server):
- * the file as uploaded.
+ * Returns the URL of the image at the given width, which the server rounds up to one of
+ * `IMAGE_WIDTHS`. The image is cropped to the field's aspect ratio when the field has one. When
+ * the asset has no `resizeUrl` (it is not an image, or the server does not provide one), returns
+ * the URL of the file as uploaded.
  */
 export function imageUrl(
     source: ImageSource,
@@ -88,8 +91,9 @@ export function imageUrl(
 }
 
 /**
- * `srcset` for the widths the server makes, up to the original's: `…&w=320 320w, …`. Each
- * descriptor is the width actually served (never wider than the original).
+ * Returns a `srcset` value for the widths the server generates, up to the original width, for
+ * example `…&w=320 320w, …`. Each width descriptor is the width actually served, which is never
+ * wider than the original.
  */
 export function imageSrcset(
     source: ImageSource,
@@ -108,7 +112,7 @@ export function imageSrcset(
     return out.join(', ');
 }
 
-/** One language of a text: the one asked for, else the default, else any. */
+/** Returns the text in the requested locale, else in the default locale, else in any available locale. */
 function textIn(value: LocalText, locale?: string, defaultLocale?: string): string {
     if (!value) return '';
     if (typeof value === 'string') return value;
@@ -124,24 +128,25 @@ export type ImageAttributes = {
     src?: string;
     srcset?: string;
     sizes?: string;
-    /** The picture's shape, so the page doesn't jump while it loads. */
+    /** The image's intrinsic dimensions, which let the browser reserve space so the page does not shift while the image loads. */
     width?: number;
     height?: number;
     alt: string;
 };
 
 /**
- * Everything an `<img>` needs: `<img {...imageAttributes(entry.data.cover, { sizes: '50vw' })}>`.
- * `alt` is the field's own text if it has one, else the asset's, in `locale`; empty when there
- * is none (a decorative picture), never missing.
+ * Returns all the attributes an `<img>` needs, for example
+ * `<img {...imageAttributes(entry.data.cover, { sizes: '50vw' })}>`.
+ * `alt` is the field's own text if it has one, otherwise the asset's, in `locale`. It is an empty
+ * string when neither exists (a decorative image), so the attribute is always present.
  */
 export function imageAttributes(
     source: ImageSource,
     options: ImageOptions & {
-        /** How wide the picture shows, as in `<img sizes>`: `100vw` unless set. */
+        /** The `sizes` attribute value, describing how wide the image is displayed. Defaults to `100vw`. */
         sizes?: string;
         widths?: readonly number[];
-        /** The width for `src`, for browsers without `srcset` (1024 unless set). */
+        /** Width in pixels used for `src`, for browsers that do not support `srcset`. Defaults to 1024. */
         fallbackWidth?: number;
         locale?: string;
         defaultLocale?: string;
@@ -163,8 +168,9 @@ export function imageAttributes(
 }
 
 /**
- * The focal point as CSS `object-position` ("30% 70%"), for crops made in the page (CSS
- * `object-fit: cover`) to keep what the server's crops keep.
+ * Returns the focal point as a CSS `object-position` value such as "30% 70%". Use it on images
+ * cropped in the page with CSS `object-fit: cover`, so that they keep the same area in view as the
+ * server's crops. Defaults to "50% 50%".
  */
 export function focalPosition(source: ImageSource): string {
     const { asset } = read(source);

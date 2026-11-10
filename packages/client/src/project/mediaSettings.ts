@@ -7,19 +7,20 @@ const base = (projectId: string) => `/projects/${encodeURIComponent(projectId)}/
 
 type AssetConfig = NonNullable<ProjectSchema['assetConfig']>;
 
-/** A project's media settings, secrets shown as `***`, with what the server offers. */
+/** A project's media settings, with secrets shown as `***`, and the options the server offers. */
 export type MediaSettings = {
     assetConfig: AssetConfig;
     videoProviders?: VideoProvidersConfig;
-    /** Storages this server can use, e.g. `local`, `s3`. */
+    /** Storage adapters this server supports, for example `local` or `s3`. */
     storages: string[];
-    /** Video hosts this server can send videos to. */
+    /** Video hosts this server can upload videos to. */
     videoHosts: string[];
-    /** Files kept on the project's storage: to change storage, they are moved. */
+    /** Number of files on the project's storage. Changing storage moves these files. */
     storedFiles: number;
     /**
-     * Where the videos are: per host (`mux`…) or `local` (this server), how many, and how many
-     * have a copy here (those can move). Videos in the bin aren't counted.
+     * Video counts by location: a host such as `mux`, or `local` for this server. `count` is the
+     * number of videos there, and `withCopy` is how many of them also have a copy on this server
+     * (only those can be moved). Videos in the bin are not counted.
      */
     videos: Record<string, { count: number; withCopy: number }>;
     defaults: {
@@ -48,20 +49,21 @@ export function projectMediaSettingsApi(client: MoteurClient) {
         ): Promise<Pick<MediaSettings, 'assetConfig' | 'videoProviders'>> {
             return client.patch(base(projectId), body);
         },
-        /** Writes, reads back and deletes a small file with these settings, before saving them. */
+        /** Tests the storage settings before they are saved, by writing, reading back and deleting a small file. */
         checkStorage(
             projectId: string,
             body: StorageSettings
         ): Promise<{ ok: boolean; error?: string }> {
             return client.post(`${base(projectId)}/check-storage`, body);
         },
-        /** Copies every file to this storage, then switches to it. */
+        /** Copies every file to the given storage, then switches the project to it. */
         moveStorage(projectId: string, body: StorageSettings): Promise<{ moved: number }> {
             return client.post(`${base(projectId)}/move-storage`, body);
         },
         /**
-         * Moves the videos to where new ones go (the project's host, or this server), in the
-         * background. `removeFromOld`: delete each at its old host once ready at the new one.
+         * Moves the videos, in the background, to the location where new videos are stored (the
+         * project's video host, or this server). With `removeFromOld`, each video is deleted from
+         * its old host once it is ready at the new one.
          */
         moveVideos(
             projectId: string,
@@ -69,7 +71,7 @@ export function projectMediaSettingsApi(client: MoteurClient) {
         ): Promise<{ to: string; moving: number; staying: number }> {
             return client.post(`${base(projectId)}/move-videos`, body);
         },
-        /** Forgets a video host's keys (refused while videos are there, or for the host in use). */
+        /** Removes a video host's stored credentials. Refused while videos are still on that host, or while it is the active host. */
         forgetVideoHost(
             projectId: string,
             host: string

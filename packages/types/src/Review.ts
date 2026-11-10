@@ -5,9 +5,9 @@ export type ReviewResourceType = 'entry' | 'page';
 export interface Review {
     id: string;
     projectId: string;
-    /** @deprecated use resourceType + templateId/pageId for pages */
+    /** @deprecated Use `resourceType` with `templateId` or `pageId` for pages. */
     modelId?: string;
-    /** @deprecated use resourceType + templateId/pageId for pages */
+    /** @deprecated Use `resourceType` with `templateId` or `pageId` for pages. */
     entryId?: string;
     resourceType?: ReviewResourceType;
     templateId?: string;
@@ -21,9 +21,9 @@ export interface Review {
     rejectionCommentId?: string;
     createdAt: string;
     resolvedAt?: string;
-    /** What was sent for review, as a fingerprint of its content: approval needs it unchanged. */
+    /** Fingerprint of the content that was submitted for review. The approval is valid only while the content still matches it. */
     submittedVersion?: string;
-    /** When publishing used this approval: one approval publishes once. */
+    /** ISO 8601 timestamp of when a publish consumed this approval. An approval can be used for one publish only. */
     usedAt?: string;
 }
 

@@ -1,66 +1,68 @@
 /**
- * A workspace: the team that owns projects (an agency, a studio, one person). Every project
- * belongs to exactly one (`ProjectSchema.workspaceId`). Its members are the team; a client is
- * not a member but a guest of their own project (`ProjectSchema.users`), so they never see the
- * team's other projects.
+ * A workspace is the team that owns projects (an agency, a studio or a single person). Every
+ * project belongs to exactly one workspace (`ProjectSchema.workspaceId`). The workspace members
+ * are the team. A client is not a workspace member but a guest on their own project
+ * (`ProjectSchema.users`), so they cannot see the team's other projects.
  *
- * What each workspace role brings:
- * - Owner runs the workspace (its name, its owners, deleting it) and is Admin, Billing and
- *   Developer in every project of it.
- * - Admin manages the members and is Admin and Developer in every project of it.
- * - Billing pays for it: Billing in every project of it, nothing more.
- * - Member starts projects in it. With `access: 'all'` they are in every project, with
- *   `projectRoles` (Writer when none); with `access: 'chosen'`, only in projects they were
- *   added to, as any project member.
+ * Roles granted by each workspace role:
+ * - Owner manages the workspace (its name, its owners, deleting it) and has the Admin, Billing and
+ *   Developer roles in every project of the workspace.
+ * - Admin manages the members and has the Admin and Developer roles in every project of the
+ *   workspace.
+ * - Billing manages payment and has only the Billing role in every project of the workspace.
+ * - Member can create projects in the workspace. With `access: 'all'` the member is in every
+ *   project with the roles in `projectRoles` (Writer when empty). With `access: 'chosen'` the
+ *   member is only in projects they were added to, like any other project member.
  *
- * A project's own roles for someone (`ProjectSchema.memberRoles`) win over what the workspace
- * gives a Member or Billing person. Owners and Admins keep their workspace roles in every
- * project whatever the project says: nobody is locked out of their own team's work.
+ * Roles set on a project (`ProjectSchema.memberRoles`) take precedence over the roles the workspace
+ * grants a Member or Billing user. Owners and Admins keep their workspace roles in every project
+ * regardless of the project's roles, so nobody is locked out of their own team's projects.
  */
 import type { RoleSlug } from './platformRoles.js';
 
 export const WORKSPACE_ROLES = ['owner', 'admin', 'billing', 'member'] as const;
 export type WorkspaceRole = (typeof WORKSPACE_ROLES)[number];
 
-/** Which of the workspace's projects a Member is in: every one, or those they were added to. */
+/** Which of the workspace's projects a Member can access: every project (`all`) or only those they were added to (`chosen`). */
 export type WorkspaceAccess = 'all' | 'chosen';
 
 export interface WorkspaceMember {
     role: WorkspaceRole;
-    /** Members only (owners, admins and billing see every project). */
+    /** Applies to Members only. Owners, Admins and Billing users always have access to every project. */
     access?: WorkspaceAccess;
-    /** A Member's roles in every project, with `access: 'all'`. Writer when none. */
+    /** The Member's roles in every project when `access` is `all`. Defaults to Writer when empty. */
     projectRoles?: string[];
     joinedAt: string;
 }
 
 export interface Workspace {
-    /** `ws_` and letters and digits. */
+    /** Workspace ID: the prefix `ws_` followed by letters and digits. */
     id: string;
     name: string;
-    /** Someone's own workspace, made with their first project. Only they are in it at first. */
+    /** Set on a user's personal workspace, which is created with their first project. Initially only that user is a member. */
     personal?: { userId: string };
     createdAt: string;
     createdBy: string;
-    /** By user id. Always at least one owner. */
+    /** Members keyed by user ID. A workspace always has at least one owner. */
     members: Record<string, WorkspaceMember>;
 }
 
-/** The roles a workspace role gives in every project of the workspace. */
+/** The project roles each workspace role grants in every project of the workspace. */
 const ROLES_FROM_WORKSPACE: Record<Exclude<WorkspaceRole, 'member'>, readonly RoleSlug[]> = {
     owner: ['admin', 'billing', 'developer'],
     admin: ['admin', 'developer'],
     billing: ['billing']
 };
 
-/** Whether this role sees every project of the workspace, whatever the project says. */
+/** True when the workspace role (Owner or Admin) has access to every project of the workspace regardless of the project's own roles. */
 export function runsWorkspace(role: WorkspaceRole | undefined): boolean {
     return role === 'owner' || role === 'admin';
 }
 
 /**
- * The roles a person has in every project of this workspace because they are in it; null when
- * the workspace gives them no project (not a member, or a Member with `access: 'chosen'`).
+ * Returns the roles a user has in every project of the workspace through their membership.
+ * Returns null when the workspace grants no project access (the user is not a member, or is a
+ * Member with `access: 'chosen'`).
  */
 export function workspaceProjectRoles(
     workspace: Pick<Workspace, 'members'> | null | undefined,
@@ -75,7 +77,7 @@ export function workspaceProjectRoles(
     return [...(ROLES_FROM_WORKSPACE[member.role] ?? [])];
 }
 
-/** Whether this person may start a project in the workspace (Billing pays, it doesn't build). */
+/** True when the user can create a project in the workspace. Billing users cannot, because the Billing role covers payment only. */
 export function canStartProjectIn(
     workspace: Pick<Workspace, 'members'> | null | undefined,
     userId: string
@@ -84,27 +86,28 @@ export function canStartProjectIn(
     return role === 'owner' || role === 'admin' || role === 'member';
 }
 
-/** A workspace as `GET /workspaces` lists it: with your place in it, and how big it is. */
+/** A workspace as listed by `GET /workspaces`, with the calling user's role and the workspace's member and project counts. */
 export interface WorkspaceSummary {
     id: string;
     name: string;
     personal: boolean;
     createdAt: string;
-    /** Your role in it. */
+    /** The calling user's role in the workspace. */
     role: WorkspaceRole;
-    /** Yours, as a Member. */
+    /** The calling user's access level. Present when they are a Member. */
     access?: WorkspaceAccess;
-    /** Yours in every project, as a Member with `access: 'all'`. */
+    /** The calling user's roles in every project. Present when they are a Member with `access: 'all'`. */
     projectRoles?: string[];
-    /** How many people are in it. */
+    /** Number of members in the workspace. */
     members: number;
-    /** How many projects it has. */
+    /** Number of projects in the workspace. */
     projects: number;
 }
 
 /**
- * Your place in a workspace as `workspaceProjectRoles` reads it, from what `GET /workspaces` says
- * of you: to work out your roles in its projects without the whole workspace.
+ * Builds a minimal workspace object, containing only the calling user's membership, from a
+ * `GET /workspaces` summary. Pass the result to `workspaceProjectRoles` to compute the user's
+ * project roles without loading the full workspace.
  */
 export function asOwnWorkspace(
     summary: Pick<WorkspaceSummary, 'role' | 'access' | 'projectRoles'> | null | undefined,
@@ -123,7 +126,7 @@ export function asOwnWorkspace(
     };
 }
 
-/** Someone in a workspace, as `GET /workspaces/:id` shows them. */
+/** A workspace member as returned in `people` by `GET /workspaces/:id`. */
 export interface WorkspacePerson {
     id: string;
     name?: string;
@@ -135,7 +138,7 @@ export interface WorkspacePerson {
     joinedAt: string;
 }
 
-/** A workspace and its people (`GET /workspaces/:id`). */
+/** A workspace with its members, as returned by `GET /workspaces/:id`. */
 export interface WorkspaceDetail extends WorkspaceSummary {
     people: WorkspacePerson[];
 }
@@ -153,11 +156,11 @@ export interface WorkspaceInviteRow {
     expiresAt: string;
 }
 
-/** The place someone is given in a workspace (members, invites). */
+/** The role and project access given to a user in a workspace, used for members and invites. */
 export interface WorkspacePlace {
     role: WorkspaceRole;
-    /** Members: every project, or only those they are added to (default). */
+    /** Applies to Members: access to every project, or only to projects they are added to (default). */
     access?: WorkspaceAccess;
-    /** Members with `access: 'all'`: their roles in every project (Writer when none). */
+    /** For Members with `access: 'all'`: their roles in every project. Defaults to Writer when empty. */
     projectRoles?: string[];
 }

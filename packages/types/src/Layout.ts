@@ -2,14 +2,14 @@ import type { Audit } from './Audit.js';
 import { Block } from './Block.js';
 
 export interface Layout {
-    id: string; // Unique layout ID (used as filename)
-    label: string; // Human-friendly name
-    description?: string; // Optional description
-    project?: string; // Project ID (optional but useful)
-    blocks: Block[]; // Array of content blocks
+    id: string; // Unique layout ID, also used as the filename
+    label: string; // Display name
+    description?: string; // Description of the layout
+    project?: string; // ID of the project that owns the layout
+    blocks: Block[]; // Content blocks in the layout
     meta?: {
         audit?: Audit;
     };
-    locales?: string[]; // Optional supported locales
-    conditions?: Record<string, any>; // Optional visibility rules
+    locales?: string[]; // Locales the layout supports
+    conditions?: Record<string, any>; // Rules that decide when the layout is visible
 }

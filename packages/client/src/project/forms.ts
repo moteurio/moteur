@@ -8,7 +8,7 @@ export function projectFormsApi(client: MoteurClient) {
         list(projectId: string): Promise<{ forms: Record<string, unknown>[] }> {
             return client.get(base(projectId));
         },
-        /** The actions plugins add to forms, and the settings each asks for. */
+        /** Lists the form actions that plugins add, with the settings each action takes. */
         actions(projectId: string): Promise<{
             actions: {
                 type: string;

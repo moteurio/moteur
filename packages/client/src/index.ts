@@ -1,6 +1,7 @@
 /**
- * Package entry: `createMoteurAdminClient` (JWT / full API) and `createMoteurPublicClient` (API key, read-only).
- * Layout: see ../ARCHITECTURE.md
+ * Package entry point. It exports `createMoteurAdminClient` (JWT authentication, full API) and
+ * `createMoteurPublicClient` (API key authentication, read-only).
+ * For the source layout, see ../ARCHITECTURE.md.
  */
 export type {
     MoteurClientConfig,

@@ -15,16 +15,16 @@ import type {
 
 type ProjectRef = { id: string; name: string };
 
-/** What deleting an account would do: projects deleted with it, left, or in the way. */
+/** The effects of deleting an account: projects that would be deleted with it, projects the user would leave, and projects that block the deletion. */
 export type AccountDeletion = {
     deletes: ProjectRef[];
     leaves: ProjectRef[];
     blocked: ProjectRef[];
-    /** The same for workspaces: `blocked` holds those where they are the only owner. */
+    /** The same breakdown for workspaces. `blocked` lists the workspaces where the user is the only owner. */
     workspaces: { deletes: ProjectRef[]; leaves: ProjectRef[]; blocked: ProjectRef[] };
 };
 
-/** Everything the server keeps about the signed-in person (`GET /auth/me/export`). */
+/** All the data the server stores about the signed-in user, as returned by `GET /auth/me/export`. */
 export type AccountExport = {
     exportedAt: string;
     account: Record<string, unknown>;
@@ -42,15 +42,15 @@ export type AccountExport = {
     activity: Record<string, unknown>[];
 };
 
-/** A workspace you are in, as `me()` lists it. */
+/** A workspace the signed-in user belongs to, as listed by `me()`. */
 export type MyWorkspace = {
     id: string;
     name: string;
     personal: boolean;
     role: WorkspaceRole;
-    /** A Member's: every project of the workspace, or those they're added to. */
+    /** The user's access level. Present for Members: every project of the workspace, or only those they were added to. */
     access?: WorkspaceAccess;
-    /** A Member with access to every project: their roles there. */
+    /** The user's roles in every project. Present for Members with access to every project. */
     projectRoles?: string[];
 };
 
@@ -59,19 +59,19 @@ export function authApi(client: MoteurClient) {
         login(username: string, password: string): Promise<LoginResult> {
             return client.post<LoginResult>('/auth/login', { username, password });
         },
-        /** The second step of signing in: the ticket `login` gave, and a code (or a recovery code). */
+        /** Completes sign-in with two-factor authentication. Takes the ticket returned by `login` and an authentication code or a recovery code. */
         verifyTwoFactor(
             ticket: string,
             code: string
         ): Promise<SignedIn & { usedRecovery: boolean }> {
             return client.post('/auth/two-factor/verify', { ticket, code });
         },
-        /** The signed-in person's two-step sign-in. */
+        /** Manages two-factor authentication for the signed-in user. */
         twoFactor: {
             status(): Promise<{ enabled: boolean; recoveryCodesLeft?: number }> {
                 return client.get('/auth/two-factor');
             },
-            /** A secret to scan (`qr` is an SVG); it turns on with `enable` and a first code. */
+            /** Starts two-factor setup by returning a secret to scan (`qr` is an SVG). Two-factor authentication is turned on by calling `enable` with a first valid code. */
             setup(): Promise<{ secret: string; otpauth: string; qr: string }> {
                 return client.post('/auth/two-factor/setup');
             },
@@ -86,36 +86,40 @@ export function authApi(client: MoteurClient) {
             }
         },
         /**
-         * Passkeys. Signing in: `options` for `navigator.credentials.get()`, then `verify` with the
-         * browser's answer (`PublicKeyCredential.toJSON()`, or `@simplewebauthn/browser`'s). No
-         * two-step code follows a passkey. The rest is the signed-in person's own: adding and
-         * removing need a sign-in from the last 10 minutes (else 403 `REAUTH_REQUIRED`).
+         * Passkey sign-in and management. To sign in, call `signInOptions` to get the options for
+         * `navigator.credentials.get()`, then call `signIn` with the browser's response
+         * (`PublicKeyCredential.toJSON()`, or the equivalent from `@simplewebauthn/browser`). A
+         * passkey sign-in does not require a two-factor code afterwards. The remaining methods
+         * manage the signed-in user's own passkeys. Adding and removing a passkey require a sign-in
+         * within the last 10 minutes, otherwise the API responds with 403 `REAUTH_REQUIRED`.
          */
         passkeys: {
             /**
-             * Start signing in. Nothing: any passkey for this server (and the browser's autofill,
-             * `mediation: 'conditional'`). `email`: only that account's. `ticket`: the two-step
-             * ticket after a password or an email code, a passkey standing in for the app code.
-             * A challenge lasts five minutes; ask again after that.
+             * Starts a passkey sign-in. With no input, any passkey registered on this server is
+             * accepted, including through the browser's autofill (`mediation: 'conditional'`).
+             * With `email`, only that account's passkeys are accepted. With `ticket`, the
+             * two-factor ticket issued after a password or email code, a passkey is accepted in
+             * place of the authenticator app code. A challenge is valid for five minutes, after
+             * which a new one must be requested.
              */
             signInOptions(
                 input: { email?: string; ticket?: string } = {}
             ): Promise<{ options: PasskeyRequestOptionsJSON }> {
                 return client.post('/auth/passkeys/sign-in/options', input);
             },
-            /** The browser's signed answer: a session. */
+            /** Completes the sign-in with the browser's signed response and returns a session. */
             signIn(response: PasskeyAuthenticationJSON): Promise<SignedIn> {
                 return client.post('/auth/passkeys/sign-in/verify', { response });
             },
-            /** The person's passkeys, and whether this server offers them. */
+            /** Lists the user's passkeys, and reports whether this server supports passkeys. */
             list(): Promise<{ available: boolean; passkeys: PasskeySummary[] }> {
                 return client.get('/auth/passkeys');
             },
-            /** Start adding one: `options` for `navigator.credentials.create()`. */
+            /** Starts registering a passkey by returning the options for `navigator.credentials.create()`. */
             registrationOptions(): Promise<{ options: PasskeyCreationOptionsJSON }> {
                 return client.post('/auth/passkeys/register/options');
             },
-            /** Finish adding it with the browser's answer; `name` defaults to where it lives. */
+            /** Completes registration with the browser's response. `name` defaults to a description of where the passkey is stored. */
             register(
                 response: PasskeyRegistrationJSON,
                 name?: string
@@ -128,12 +132,12 @@ export function authApi(client: MoteurClient) {
             rename(passkeyId: string, name: string): Promise<{ passkey: PasskeySummary }> {
                 return client.patch(`/auth/passkeys/${encodeURIComponent(passkeyId)}`, { name });
             },
-            /** Remove one. Other sessions end: keep the replacement `token` it answers. */
+            /** Removes a passkey. This ends the user's other sessions, so use the replacement `token` in the response from now on. */
             remove(passkeyId: string): Promise<{ token: string }> {
                 return client.delete(`/auth/passkeys/${encodeURIComponent(passkeyId)}`);
             }
         },
-        /** You, with the projects you are in and the workspaces you are a member of. */
+        /** Returns the signed-in user with their projects and the workspaces they belong to. */
         me(): Promise<{ user: User & { workspaces: MyWorkspace[] } }> {
             return client.get('/auth/me');
         },
@@ -141,8 +145,9 @@ export function authApi(client: MoteurClient) {
             return client.post<{ token: string }>('/auth/refresh');
         },
         /**
-         * Whether this server takes new accounts, can send codes by email, offers passkeys, and
-         * where its Terms and Privacy policy are (`legal`: a key is absent when the server has none).
+         * Reports whether the server accepts new accounts (`open`), can send codes by email,
+         * supports passkeys, and where its Terms and Privacy policy are. A key in `legal` is
+         * absent when the server has no such document.
          */
         signup(): Promise<{
             open: boolean;
@@ -153,10 +158,11 @@ export function authApi(client: MoteurClient) {
             return client.get('/auth/signup');
         },
         /**
-         * Email a six-digit code: to sign in if the address has an account, to sign up if not (on
-         * an open server). Answers the same either way. `from`, `goal` and `campaign` say what
-         * brought them, and stay on a new account. `look`: the look of the page asking; the
-         * email is set in it, and it isn't kept.
+         * Emails a six-digit code. The code signs the user in if the address has an account, and
+         * signs them up if it does not (on an open server). The response is the same in both
+         * cases. `from`, `goal` and `campaign` record what led the user here and are stored on a
+         * new account. `look` is the theme of the page making the request; the email is rendered
+         * in that theme, and the value is not stored.
          */
         emailCode(input: {
             email: string;
@@ -169,20 +175,21 @@ export function authApi(client: MoteurClient) {
             return client.post('/auth/email/code', input);
         },
         /**
-         * Trade the code, or the email link's `token`, for a session (`isNew` for a new account),
-         * or a two-step ticket.
+         * Exchanges the emailed code, or the `token` from the email link, for a session. The
+         * response has `isNew` set for a newly created account. When the account has two-factor
+         * authentication, it returns a two-factor ticket instead.
          */
         verifyEmailCode(input: {
             email: string;
             code?: string;
             token?: string;
             name?: string;
-            /** The page's look: a new account's welcome email is set in it; not kept. */
+            /** Theme of the page making the request. The welcome email for a new account is rendered in it. The value is not stored. */
             look?: 'discotheque' | 'folio';
         }): Promise<{ token: string; isNew: boolean } | { twoFactor: true; ticket: string }> {
             return client.post('/auth/email/verify', input);
         },
-        /** Say what you came for and what to call you, or that the welcome screens are done. */
+        /** Records the user's stated purpose and name, or that they have finished onboarding. */
         onboarding(patch: {
             intent?: OnboardingIntent;
             name?: string;
@@ -191,8 +198,8 @@ export function authApi(client: MoteurClient) {
             return client.patch('/auth/me/onboarding', patch);
         },
         /**
-         * Your look, language and notification emails: the server's emails follow them. null
-         * clears `look` or `locale`.
+         * Updates the user's theme, language and notification email preferences, which the server's
+         * emails follow. Passing null for `look` or `locale` clears it.
          */
         preferences(patch: {
             look?: 'discotheque' | 'folio' | null;
@@ -201,42 +208,43 @@ export function authApi(client: MoteurClient) {
         }): Promise<{ preferences: NonNullable<User['preferences']> }> {
             return client.patch('/auth/me/preferences', patch);
         },
-        /** Your copy of the demo project, made the first time you ask. */
+        /** Returns the user's copy of the demo project. The copy is created the first time this is called. */
         demo(): Promise<{ projectId: string }> {
             return client.post('/auth/me/demo');
         },
         /**
-         * Email a code to a new sign-in address (a sign-in in the last 10 minutes, else 403
-         * `REAUTH_REQUIRED`). `confirmEmailChange` with that code makes the change.
+         * Emails a code to the new sign-in address. Requires a sign-in within the last 10 minutes,
+         * otherwise the API responds with 403 `REAUTH_REQUIRED`. Call `confirmEmailChange` with the
+         * code to complete the change.
          */
         changeEmail(email: string, locale?: string): Promise<{ sent: true }> {
             return client.post('/auth/me/email', { email, ...(locale && { locale }) });
         },
         /**
-         * The new address and its code: it becomes the sign-in email. Other sessions end; use the
-         * answer's `token` from now on (call `setAuth` with it).
+         * Confirms the new address with its code, and makes it the sign-in email. This ends the
+         * user's other sessions, so call `setAuth` with the `token` in the response.
          */
         confirmEmailChange(email: string, code: string): Promise<{ token: string; user: User }> {
             return client.post('/auth/me/email/verify', { email, code });
         },
-        /** What the server keeps about you, as the file `GET /auth/me/export` downloads. */
+        /** Returns all the data the server stores about the user, as downloaded by `GET /auth/me/export`. */
         exportAccount(): Promise<AccountExport> {
             return client.get('/auth/me/export');
         },
-        /** What deleting your account would do to each of your projects. */
+        /** Returns what deleting the account would do to each of the user's projects and workspaces. */
         accountDeletion(): Promise<AccountDeletion> {
             return client.get('/auth/me/deletion');
         },
         /**
-         * Delete your account, your sign-in email typed back as `email` (a sign-in in the last 10
-         * minutes). Refused (409 `SOLE_ADMIN`, with `projects`) while `accountDeletion().blocked`
-         * isn't empty, and (409 `SOLE_OWNER`, with `workspaces`) while its `workspaces.blocked`
-         * isn't.
+         * Deletes the account. `email` must repeat the user's sign-in email, and the user must have
+         * signed in within the last 10 minutes. The request is refused with 409 `SOLE_ADMIN` (with
+         * `projects`) while `accountDeletion().blocked` is not empty, and with 409 `SOLE_OWNER`
+         * (with `workspaces`) while `accountDeletion().workspaces.blocked` is not empty.
          */
         deleteAccount(email: string): Promise<void> {
             return client.request({ method: 'DELETE', url: '/auth/me', data: { email } });
         },
-        /** OAuth providers the server can sign in with; send people to `/auth/{id}?next=…`. */
+        /** Lists the OAuth providers the server supports. Send users to `/auth/{id}?next=…` to sign in with one. */
         providers(): Promise<{ providers: { id: string; label: string }[] }> {
             return client.get('/auth/providers');
         }

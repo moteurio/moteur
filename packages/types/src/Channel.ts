@@ -3,19 +3,20 @@ import type { EntryStatus } from './Model.js';
 export type ChannelResource = {
     resourceType: 'model' | 'page' | 'layout' | 'form' | 'menu';
     /**
-     * modelId or 'models'; 'pages' or a templateId; layout id or 'layouts'; form id or 'forms';
-     * menu handle or 'menus'. The plural means every one of that kind.
+     * What the channel delivers. Depending on `resourceType`: a model ID, a template ID or
+     * `pages`, a layout ID, a form ID, or a menu handle. The plural keywords `models`, `pages`,
+     * `layouts`, `forms` and `menus` select every resource of that kind.
      */
     resourceId: string;
-    fields?: string[]; // list of field names to include; null/empty = all fields
+    fields?: string[]; // Names of the fields to include. Null or empty includes all fields
     filters?: {
         status?: EntryStatus | EntryStatus[];
         locale?: string;
     };
-    resolve?: 0 | 1 | 2; // reference resolution depth; default: 0
+    resolve?: 0 | 1 | 2; // Depth to which references are resolved. Defaults to 0
 };
 
-/** Present on `GET .../channels/:id` — relative paths (prepend API base). */
+/** Links included in the response of `GET .../channels/:id`. The paths are relative; prepend the API base URL. */
 export interface ChannelPublicLinks {
     openApiJson: string;
 }
@@ -28,6 +29,6 @@ export interface Channel {
     resources: ChannelResource[];
     createdAt: string;
     updatedAt: string;
-    /** Auto-generated public API doc URLs (read single-channel GET only). */
+    /** Generated URLs of the channel's public API documentation. Included only when reading a single channel. */
     publicApi?: ChannelPublicLinks;
 }

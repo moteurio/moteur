@@ -4,10 +4,10 @@ export interface Audit {
     createdBy?: string;
     updatedBy?: string;
     revision?: number;
-    /** Revision number at the time of last publish. undefined = never published. */
+    /** Revision number at the time of the last publish. Undefined when the item has never been published. */
     publishedRevision?: number;
-    /** Git commit hash of the published version. Used by the public API to serve frozen content. */
+    /** Git commit hash of the published version. The public API uses it to serve the published content. */
     publishedCommit?: string;
-    /** ISO date string when the entry was last published. */
+    /** ISO 8601 timestamp of when the item was last published. */
     publishedAt?: string;
 }

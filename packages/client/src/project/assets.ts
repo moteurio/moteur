@@ -1,6 +1,6 @@
 import type { MoteurClient } from '../client.js';
 
-/** Where an asset is used. `title` is as stored: text, or text per language. */
+/** A place where an asset is used. `title` is returned as stored: a string, or a map from locale code to string. */
 export type AssetUsage = {
     kind: 'entry' | 'page';
     modelId?: string;
@@ -12,14 +12,14 @@ export type AssetUsage = {
     path: string;
 };
 
-/** One page of the library (see `assets.page`). */
+/** One page of the media library (see `assets.page`). */
 export type AssetPage = {
     assets: Record<string, unknown>[];
-    /** Files matching the filters, on every page. */
+    /** Total number of assets matching the filters, across all pages. */
     total: number;
     offset: number;
     limit: number;
-    /** With `facets`: files of each kind (and `unused`), and the folders in use. */
+    /** Included when `facets` is requested: the number of assets of each kind (including `unused`), and the folders in use. */
     facets?: { total: number; kinds: Record<string, number>; folders: string[] };
 };
 
@@ -27,7 +27,7 @@ const base = (projectId: string) => `/projects/${encodeURIComponent(projectId)}/
 
 export function projectAssetsApi(client: MoteurClient) {
     return {
-        /** List assets; API returns an array directly (not { assets: [] }). */
+        /** Lists assets. The API returns an array directly, not an object with an `assets` property. */
         list(
             projectId: string,
             params?: { type?: string; folder?: string; search?: string; hash?: string }
@@ -38,8 +38,9 @@ export function projectAssetsApi(client: MoteurClient) {
             );
         },
         /**
-         * One page of the library, newest first, without files in the bin: by `type` (or
-         * `unused`), `folder` (`''` for none) and `search` (accents ignored). `limit` is 1–500.
+         * Returns one page of the media library, newest first, excluding assets in the bin. Filter
+         * by `type` (or `unused`), by `folder` (`''` for assets with no folder) and by `search`
+         * (accents are ignored). `limit` must be between 1 and 500.
          */
         page(
             projectId: string,
@@ -60,7 +61,7 @@ export function projectAssetsApi(client: MoteurClient) {
         get(projectId: string, id: string): Promise<Record<string, unknown>> {
             return client.get(`${base(projectId)}/${encodeURIComponent(id)}`);
         },
-        /** Adds a file from a public HTTPS address (the server downloads it). */
+        /** Adds a file from a public HTTPS URL. The server downloads it. */
         import(
             projectId: string,
             body: {
@@ -75,8 +76,8 @@ export function projectAssetsApi(client: MoteurClient) {
             return client.post(`${base(projectId)}/import`, body);
         },
         upload(projectId: string, formData: FormData): Promise<Record<string, unknown>> {
-            // The instance defaults to JSON, and axios turns FormData into JSON for a JSON
-            // request: say multipart, and axios (or the browser) adds the boundary.
+            // The client sends JSON by default, and axios would serialize FormData as JSON.
+            // Setting the multipart content type lets axios (or the browser) add the boundary.
             return client._raw
                 .post(base(projectId), formData, {
                     headers: { 'Content-Type': 'multipart/form-data' }
@@ -90,7 +91,7 @@ export function projectAssetsApi(client: MoteurClient) {
         ): Promise<Record<string, unknown>> {
             return client.patch(`${base(projectId)}/${encodeURIComponent(id)}`, body);
         },
-        /** A new file for the asset, keeping its id (same kind of file only). */
+        /** Replaces the asset's file and keeps its ID. The new file must be the same kind of file as the old one. */
         replace(
             projectId: string,
             id: string,
@@ -102,37 +103,38 @@ export function projectAssetsApi(client: MoteurClient) {
                 })
                 .then(r => r.data as Record<string, unknown>);
         },
-        /** Asks a video's host now where it stands (the server also asks on its own). */
+        /** Polls the video host immediately for the video's status. The server also polls on its own schedule. */
         checkVideo(projectId: string, id: string): Promise<Record<string, unknown>> {
             return client.post(`${base(projectId)}/${encodeURIComponent(id)}/video/check`);
         },
-        /** Sends a video its host refused once more, from the copy kept on the server. */
+        /** Retries uploading a video that the host rejected, using the copy stored on the server. */
         retryVideo(projectId: string, id: string): Promise<Record<string, unknown>> {
             return client.post(`${base(projectId)}/${encodeURIComponent(id)}/video/retry`);
         },
-        /** Moves the asset to the bin; `restore` brings it back. */
+        /** Moves the asset to the bin. Use `restore` to bring it back. */
         delete(projectId: string, id: string): Promise<void> {
             return client.delete(`${base(projectId)}/${encodeURIComponent(id)}`);
         },
-        /** Assets in the bin, most recently deleted first. */
+        /** Lists the assets in the bin, most recently deleted first. */
         bin(projectId: string): Promise<Record<string, unknown>[]> {
             return client.get(`${base(projectId)}/bin`);
         },
-        /** Takes an asset out of the bin. */
+        /** Restores an asset from the bin. */
         restore(projectId: string, id: string): Promise<Record<string, unknown>> {
             return client.post(`${base(projectId)}/${encodeURIComponent(id)}/restore`);
         },
-        /** Deletes an asset in the bin for good, files included (admins). */
+        /** Permanently deletes an asset in the bin, including its files. Requires an admin. */
         deleteForever(projectId: string, id: string): Promise<void> {
             return client.delete(`${base(projectId)}/bin/${encodeURIComponent(id)}`);
         },
-        /** Deletes everything in the bin for good (admins). */
+        /** Permanently deletes everything in the bin. Requires an admin. */
         emptyBin(projectId: string): Promise<{ deleted: number }> {
             return client.delete(`${base(projectId)}/bin`);
         },
         /**
-         * Remakes images' sizes (all of them without `assetIds`; admins). Answers when done with
-         * `{ processed, errors }`, or at once with `{ queued }` when `background` is set.
+         * Regenerates image variants, for all images when `assetIds` is omitted. Requires an admin.
+         * Resolves with `{ processed, errors }` when finished, or immediately with `{ queued }`
+         * when `background` is set.
          */
         regenerate(
             projectId: string,
@@ -141,11 +143,11 @@ export function projectAssetsApi(client: MoteurClient) {
         ): Promise<{ processed?: number; errors?: number; queued?: number }> {
             return client.post(`${base(projectId)}/regenerate`, { assetIds, ...options });
         },
-        /** How many entry and page fields use each asset; unused assets are left out. */
+        /** Returns the number of entry and page fields that use each asset. Unused assets are omitted. */
         usageCounts(projectId: string): Promise<{ counts: Record<string, number> }> {
             return client.get(`${base(projectId)}/usage`);
         },
-        /** Every entry and page field using the asset. */
+        /** Lists every entry and page field that uses the asset. */
         usage(projectId: string, id: string): Promise<{ usages: AssetUsage[] }> {
             return client.get(`${base(projectId)}/${encodeURIComponent(id)}/usage`);
         },
@@ -153,9 +155,10 @@ export function projectAssetsApi(client: MoteurClient) {
             return client.post(`${base(projectId)}/${encodeURIComponent(id)}/move`, { folder });
         },
         /**
-         * Several assets at once, in one save (all or nothing, at most 500): to the bin, out of
-         * it, to a folder (`''` for none), or each its own changes (title, alt, caption, credit,
-         * folder…). Answers with the assets as they are now.
+         * Applies one change to several assets in a single all-or-nothing save, for at most 500
+         * assets. The change is one of: move to the bin, restore from the bin, move to a folder
+         * (`''` for no folder), or per-asset updates (title, alt, caption, credit, folder and
+         * so on). Resolves with the updated assets.
          */
         batch(
             projectId: string,

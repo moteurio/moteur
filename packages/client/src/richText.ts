@@ -1,6 +1,6 @@
 /**
- * Rich text (`core/rich-text`, stored as DAST) as HTML, without network calls:
- * `richTextHtml(entry.data.body)`. The same HTML Studio's editor shows.
+ * Converts rich text (`core/rich-text`, stored as DAST) to HTML without making network calls, for
+ * example `richTextHtml(entry.data.body)`.
  */
 
 export type DastMark = 'strong' | 'emphasis' | 'underline' | 'strikethrough' | 'code' | 'highlight';
@@ -33,11 +33,11 @@ const MARK_TAG: Record<DastMark, string> = {
 const escapeHtml = (s: string) =>
     s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
-/** A link's address, unless it would run code (`javascript:`, `data:`…): then none. */
+/** Returns the link URL, or undefined when its scheme could run code (for example `javascript:` or `data:`). Only http, https, mailto and tel schemes and scheme-less URLs are allowed. */
 function safeUrl(url: string | undefined): string | undefined {
     const u = url?.trim();
     if (!u) return undefined;
-    // Browsers ignore tabs, newlines and control characters in a scheme (`java\tscript:`).
+    // Browsers ignore tabs, newlines and control characters inside a URL scheme (for example `java\tscript:`), so strip them before checking the scheme.
     // eslint-disable-next-line no-control-regex
     const bare = u.replace(/[\u0000-\u0020\u007f]/g, '');
     const scheme = /^([a-z][a-z0-9+.-]*):/i.exec(bare)?.[1]?.toLowerCase();
@@ -82,9 +82,10 @@ function render(node: DastNode): string {
 }
 
 /**
- * A rich-text value as HTML: the field's value as delivered (`{ dast }`, in one language), or
- * the DAST document itself. Text is escaped, and links that would run code are dropped. Empty
- * for anything else (a value still in every language, read without `locale`).
+ * Converts a rich-text value to HTML. The value is either the field as delivered by the API
+ * (`{ dast }`, for a single locale) or the DAST document itself. Text is escaped, and links that
+ * could run code are dropped. Returns an empty string for any other value, such as a field that
+ * still holds all locales because it was read without `locale`.
  */
 export function richTextHtml(value: unknown): string {
     const doc = (value as { dast?: unknown } | null)?.dast ?? value;

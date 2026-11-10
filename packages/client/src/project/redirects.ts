@@ -5,7 +5,7 @@ const base = (projectId: string) => `/projects/${encodeURIComponent(projectId)}/
 
 export type RedirectInput = { from: string; to: string; status?: RedirectStatus; note?: string };
 
-/** Old addresses and where they go. Moteur adds one itself when a live page or entry moves. */
+/** Redirects from old paths to their destinations. Moteur also creates a redirect automatically when a published page or entry moves to a new URL. */
 export function projectRedirectsApi(client: MoteurClient) {
     return {
         list(projectId: string): Promise<Redirect[]> {

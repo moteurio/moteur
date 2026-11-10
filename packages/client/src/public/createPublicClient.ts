@@ -12,33 +12,38 @@ export type MoteurPublicClient<
     D extends LocaleMode = 'all'
 > = {
     readonly baseURL: string;
-    /** The project: known once the key has been asked (`whoami()`), or when given. */
+    /** The project ID. It is known after `whoami()` has resolved, or immediately when `projectId` was given in the config. */
     readonly projectId: string;
-    /** What the key is: its project and channels. Asked once. */
+    /** Returns information about the API key: its project and channels. The API is asked once and the result is reused. */
     whoami(): Promise<KeyInfo>;
-    /** The language answers come in, when the client was made for one (`locale()`). */
+    /** The locale of returned values. Set only when the client was created with `locale()`. */
     language?: S['locale'];
     channels: {
         list(): ReturnType<ReturnType<typeof publicChannelsReadApi>['list']>;
         get(channelId: string): ReturnType<ReturnType<typeof publicChannelsReadApi>['get']>;
     };
-    /** What a channel delivers: pages, entries, menus, forms, layouts. Without an id, the key's. */
+    /** Returns read access to a channel's pages, entries, menus, forms and layouts. Without an ID, it uses the key's default channel. */
     channel(channelId?: string): PublicChannel<S, D>;
-    /** The same client, answering in one language: every value in it, typed as such. */
+    /** Returns a client that returns every value in a single locale, and is typed accordingly. */
     locale(locale: S['locale']): MoteurPublicClient<S, 'one'>;
     site: ReturnType<typeof publicSiteOutputsApi>;
-    /** Show a form in the visitor's language, and send what they wrote. */
+    /** Fetches forms in the visitor's locale and submits visitor answers. */
     forms: ReturnType<typeof publicFormsApi>;
-    /** Clone this client with a preview token (draft / latest view on channel reads). */
+    /** Returns a copy of this client that sends a preview token, so channel reads return the latest draft content. */
     withPreview(previewToken: string): MoteurPublicClient<S, D>;
 };
 
 /**
- * Read-only SDK for a **project API key** (`x-api-key`): `createMoteurPublicClient({ apiKey })`.
- * The key says its project and channel (asked once, on the first read). Use `channel()` for the
- * key's channel, `channel(id)` for another; `forms` to show and send forms; `site` for sitemap / navigation tree / urls / breadcrumb, in any language, and to resolve a path or list redirects.
+ * Creates a read-only SDK client that authenticates with a **project API key** (`x-api-key`):
+ * `createMoteurPublicClient({ apiKey })`.
+ * The client looks up the key's project and channel once, on the first read.
+ * - `channel()` reads the key's default channel, and `channel(id)` reads another channel.
+ * - `forms` fetches and submits forms.
+ * - `site` provides the sitemap, navigation tree, URLs and breadcrumb in any locale, resolves
+ *   paths, and lists redirects.
  *
- * Give it the project's schema (`moteur types` writes `MoteurSchema`) and its answers are typed:
+ * Pass the project's schema (`moteur types` generates `MoteurSchema`) as the type argument to get
+ * typed results:
  * `createMoteurPublicClient<MoteurSchema>(…).locale('fr').channel('site').pages.list()`.
  */
 export function createMoteurPublicClient<S extends SchemaShape = UntypedSchema>(
@@ -47,7 +52,7 @@ export function createMoteurPublicClient<S extends SchemaShape = UntypedSchema>(
     return build<S, 'all'>(config);
 }
 
-/** Stands for what the key says until it has said it: its project, its channel. */
+/** Placeholder for the project or channel ID until it has been looked up from the key. */
 const FROM_KEY = '~key~';
 
 function build<S extends SchemaShape, D extends LocaleMode>(
@@ -71,7 +76,7 @@ function build<S extends SchemaShape, D extends LocaleMode>(
         previewToken: config.previewToken
     });
 
-    // Asked once for the client and the clients made from it (locale, preview).
+    // The key lookup runs once and is shared with the clients derived from this one (`locale`, `withPreview`).
     const memo = shared ?? {};
     let projectId = knownProject;
     const whoami = (): Promise<KeyInfo> => {
@@ -96,7 +101,7 @@ function build<S extends SchemaShape, D extends LocaleMode>(
             hint: 'Or set `channel` when making the client.'
         });
     };
-    // URLs are written with FROM_KEY for what isn't known yet, and filled in before they go out.
+    // Request URLs use FROM_KEY for IDs that are not known yet. This interceptor replaces it with the real IDs before the request is sent.
     client._raw.interceptors.request.use(async req => {
         const url = req.url ?? '';
         if (!url.includes(FROM_KEY)) return req;

@@ -1,25 +1,25 @@
-// types/Plugin.ts
-
 import type { User } from './User.js';
 
 export type PluginSource = 'local' | 'npm' | 'builtin' | 'opensource' | 'private';
 export type PluginScope = 'global' | 'project';
 
 /**
- * Catalog hint on the manifest (not the operator API's `PluginEntry.kind`, which is only `core` | `host`).
- * - `core`: engine built-in plugins registered from `@moteurio/core`.
- * - `optional`: normal host-loaded packages (most `@moteurio/plugin-*`).
- * - `project`: legacy alias; prefer **`scope: 'project'`** for per-project allowlists.
+ * Catalog category on the manifest. It is separate from the operator API's `PluginEntry.kind`,
+ * which is only `core` or `host`.
+ * - `core`: built-in engine plugins registered from `@moteurio/core`.
+ * - `optional`: regular packages loaded by the host (most `@moteurio/plugin-*`).
+ * - `project`: alias for plugins gated per project. Prefer `scope: 'project'`.
  */
 export type PluginKind = 'core' | 'optional' | 'project';
 
 /**
- * Subsystem vs adapter/pack. Default `integration` when omitted.
- * Distinct from engine `PluginEntry.kind === 'core'` (always-on builtins).
+ * Whether a plugin is a platform subsystem (`platform`) or an adapter or content pack
+ * (`integration`). Defaults to `integration` when omitted. This is separate from the engine's
+ * `PluginEntry.kind === 'core'`, which marks always-on built-in plugins.
  */
 export type PluginRole = 'platform' | 'integration';
 
-/** Domain tags for catalogs, docs, and operator filters. */
+/** Domain tags used by catalogs, documentation and operator filters. */
 export type PluginCategory =
     | 'auth'
     | 'webhook'
@@ -39,13 +39,13 @@ export type PlanLimitKind =
 
 /**
  * @deprecated Use `contributes` (`api`, `auth`) instead.
- * Declared capabilities for docs and operator UI (optional).
+ * Optional capabilities a plugin declares for documentation and operator UIs.
  */
 export type PluginCapability = 'routes' | 'openapi' | 'auth-provider';
 
 /**
- * Machine-readable surfaces a plugin touches. Authors may declare a subset;
- * the host merges that with what `init()` / module hooks actually register.
+ * Machine-readable list of the parts of the system a plugin extends. Authors can declare a subset;
+ * the host merges it with what the plugin's `init()` and module hooks actually register.
  */
 export interface PluginContributions {
     api?: {
@@ -60,7 +60,7 @@ export interface PluginContributions {
         structures?: string[];
         blueprints?: string[];
         fields?: string[];
-        /** Shipped model templates (SDK planned; blueprints today). */
+        /** Model templates the plugin ships. Currently these are provided as blueprints. */
         models?: string[];
         layouts?: string[];
         templates?: string[];
@@ -79,23 +79,23 @@ export interface PluginContributions {
         people?: boolean;
         storageBytes?: boolean;
         apiRequests?: boolean;
-        /** Sets where the fair use notice on public requests starts (never a limit). */
+        /** Sets the request volume at which the fair-use notice on public requests starts. It never enforces a limit. */
         requestFairUse?: boolean;
         imageTraffic?: boolean;
-        /** Sets where the fair use notice on image traffic starts (never a limit). */
+        /** Sets the traffic volume at which the fair-use notice on image traffic starts. It never enforces a limit. */
         imageTrafficFairUse?: boolean;
         formSubmissions?: boolean;
         projectsPerUser?: boolean;
         counts?: PlanLimitKind[];
     };
     events?: { subscribes?: string[] };
-    /** Form actions, field checks, spam checks and holds the plugin adds. */
+    /** Form actions, field checks, spam checks and holds that the plugin adds. */
     forms?: { actions?: string[]; fields?: string[]; screens?: string[]; holds?: string[] };
     server?: { attach?: boolean };
     platform?: { onlinePresence?: boolean };
     storage?: { projectKeys?: string[] };
     studio?: PluginStudioHints;
-    /** Optional npm package with site/delivery renderers (web components). */
+    /** Optional npm package with renderers (web components) for sites and content delivery. */
     frontend?: PluginFrontendHints;
     studioUi?: {
         fieldEditors?: string[];
@@ -104,7 +104,7 @@ export interface PluginContributions {
         operatorRoutes?: string[];
     };
     metering?: { mutatesCredits?: boolean };
-    /** From `registerCommand` / `registerMcpTool`. */
+    /** Commands registered through `registerCommand` and `registerMcpTool`. */
     commands?: { cli?: string[]; mcp?: string[] };
     mcp?: { tools?: string[] };
     media?: {
@@ -117,32 +117,33 @@ export interface PluginContributions {
     integrations?: { projectConfigSchema?: string };
     radar?: { checks?: string[] };
     schedules?: { jobKinds?: string[] };
-    /** Planned validation registry */
+    /** Validation hooks. Reserved for a validation registry that is not implemented yet. */
     validation?: { hooks?: string[] };
 }
 
 /**
- * Declarative Studio companion hints (no React on the API).
- * Companions are separate packages composed at Studio build time; see docs/Plugin architecture.md.
+ * Declarative hints for a companion admin UI package. The API holds only these hints and no UI
+ * code. Companions are separate packages that the admin client includes at build time; see
+ * docs/Plugin architecture.md.
  */
 export interface PluginStudioHints {
-    /** Studio UI package name, e.g. `@moteurio/studio-plugin-qr` (often shipped from moteur-plugins-extra). */
+    /** Name of the companion admin UI package, for example `@moteurio/studio-plugin-qr`. */
     companionPackage?: string;
-    /** Field type ids this plugin registers on the API (Studio may ship editors). */
+    /** IDs of the field types this plugin registers on the API. A companion UI package can provide editors for them. */
     fieldTypes?: string[];
-    /** Block type ids this plugin registers on the API. */
+    /** IDs of the block types this plugin registers on the API. */
     blockTypes?: string[];
-    /** Project-scoped Studio routes (nav is build-time + runtime gated). */
+    /** Project-scoped routes that the companion UI adds. Navigation entries for them are gated at build time and at runtime. */
     projectRoutes?: {
         path: string;
-        /** i18n key in Studio catalogues. */
+        /** Translation key of the route's label in the admin client's message catalogues. */
         labelKey?: string;
         roles?: string[];
     }[];
     operatorRoutes?: { path: string; labelKey?: string }[];
 }
 
-/** Declarative frontend/delivery companion hints (opt-in npm packages for sites). */
+/** Declarative hints for an optional npm package that provides site rendering code. */
 export interface PluginFrontendHints {
     companionPackage?: string;
     blocks?: string[];
@@ -150,79 +151,81 @@ export interface PluginFrontendHints {
 }
 
 /**
- * Minimal description of a plugin, used in the global registry
+ * Minimal description of a plugin, as stored in the global registry.
  */
 export interface PluginManifest {
-    id: string; // Unique plugin ID (e.g., 'hello-world')
-    label: string; // Human-readable name
-    description?: string; // Optional short description
+    id: string; // Unique plugin ID (for example 'hello-world')
+    label: string; // Display name
+    description?: string; // Short description
     icon?: string; // Emoji or icon class
-    version?: string; // Semver (if known)
-    source: PluginSource; // Where it's loaded from
+    version?: string; // Semantic version, when known
+    source: PluginSource; // Where the plugin is loaded from
     /**
-     * `global`: not gated by `project.plugins` (still requires host load + operator choice).
+     * `global`: not gated by `project.plugins`, but the host must still load it and the operator
+     * must enable it.
      * `project`: also gated by `project.plugins` when that list is set.
      */
     scope?: PluginScope;
-    /** Manifest catalog hint; see `PluginKind`. Per-project gating uses `scope`, not `kind`. */
+    /** Catalog category; see `PluginKind`. Per-project gating uses `scope`, not `kind`. */
     kind?: PluginKind;
-    /** Subsystem (`platform`) vs adapter/pack (`integration`). Default integration. */
+    /** `platform` for a subsystem, `integration` for an adapter or pack. Defaults to `integration`. */
     role?: PluginRole;
-    /** Domain tags for catalogs and operator filters. */
+    /** Domain tags used by catalogs and operator filters. */
     categories?: PluginCategory[];
-    /** Declared contributions; the host merges these with runtime-derived facts. */
+    /** Declared contributions. The host merges them with the contributions it derives at runtime. */
     contributes?: PluginContributions;
-    /** Other plugin ids that should be loaded first (host warns if missing). */
+    /** IDs of plugins that must be loaded first. The host logs a warning when one is missing. */
     requires?: string[];
-    basePath?: string; // Base path for local plugins (e.g., './plugins/hello-world')
+    basePath?: string; // Base path of a local plugin (for example './plugins/hello-world')
     /**
      * @deprecated Use `contributes.api` / `contributes.auth` instead.
      */
     capabilities?: PluginCapability[];
-    /** Optional Studio extension metadata (companion npm package, field/block types). */
+    /** Optional metadata for a companion admin UI: its npm package and the field and block types it supports. */
     studio?: PluginStudioHints;
 }
 
 /**
- * Per-project plugin descriptor, used in project config
+ * Descriptor of a plugin enabled for one project, used in the project config.
  */
 export interface PluginDescriptor {
     id: string;
     source: PluginSource;
-    path?: string; // For local plugins only
-    packageName?: string; // For npm plugins only
+    path?: string; // Set for local plugins only
+    packageName?: string; // Set for npm plugins only
 }
 
 /**
- * Loaded plugin instance (after dynamic loading)
+ * A plugin instance after it has been loaded dynamically.
  */
 export interface PluginModule {
     name: string;
     dataPath: string;
 
     manifest?: PluginManifest;
-    api?: any; // Optional developer API extension
-    openapi?: any; // Optional OpenAPI spec
+    api?: any; // Extension of the developer API
+    openapi?: any; // OpenAPI spec
     routes?: {
         //router: import('express').Router;
         spec: any /* Record<string, import('openapi-types').OpenAPIV3.PathItemObject>*/;
     };
-    storage?: any; // Optional StorageAdapter export
-    tests?: any; // Optional test exports
+    storage?: any; // StorageAdapter export
+    tests?: any; // Test exports
 }
 
-/**
- * Context passed by the API when calling a plugin's getRoutes().
- * Plugins that register routes receive auth middlewares so they can protect routes without depending on the API package.
- */
 type RequestHandler = (...args: any[]) => any;
 
+/**
+ * Context the API passes to a plugin's `getRoutes()`. Plugins that register routes receive the
+ * authentication middleware through it, so they can protect their routes without depending on the
+ * API package.
+ */
 export interface PluginRouteContext {
     requireAuth: RequestHandler;
     requireProjectAccess: RequestHandler;
-    /** An operator signed in on /operator/auth (password and authenticator); user tokens never pass. */
+    /** Middleware that requires an operator session from `/operator/auth` (password and authenticator). User tokens are always rejected. */
     requireOperator: RequestHandler;
-    /** Optional; provided by the API for auth provider plugins (e.g. run onboarding after OAuth). */
+    /** Callbacks the API provides to auth provider plugins, for example to run onboarding after an OAuth sign-up. */
     authCallbacks?: {
         runOnboardingForNewUser(user: User): Promise<void>;
     };
@@ -238,8 +241,8 @@ export interface AuthProviderContribution {
     id: string;
     label: string;
     /**
-     * Whether this provider is actually usable in the current runtime config.
-     * Plugins should compute this from their own environment requirements.
+     * Whether the provider can be used with the current runtime configuration. Plugins should
+     * compute this from their own environment requirements.
      */
     enabled: boolean;
     loginPath?: string;
@@ -262,7 +265,9 @@ function orBool(a?: boolean, b?: boolean): boolean | undefined {
 }
 
 /**
- * Deep-merge declared and derived contributions. Arrays are unioned; booleans are OR'd.
+ * Deep-merges declared and derived contributions. Arrays are combined without duplicates and
+ * booleans are combined with OR. Where a value is single (the active video provider, the search
+ * backend, studio hints, the project config schema), the derived value wins over the declared one.
  */
 export function mergeContributions(
     declared?: PluginContributions | null,
@@ -438,7 +443,7 @@ export function mergeContributions(
     return out;
 }
 
-/** Legacy `capabilities` mirror so older operator clients still see something familiar. */
+/** Builds the deprecated `capabilities` list from `contributes`, for clients that still read it. */
 export function capabilitiesFromContributions(
     contributes?: PluginContributions | null,
     fallback?: PluginCapability[]

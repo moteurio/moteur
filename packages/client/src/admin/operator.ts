@@ -2,12 +2,12 @@ import type { MoteurClient } from '../client.js';
 
 type SchemaKind = 'blocks' | 'structures';
 
-/** Saved by an operator, or given by the environment (`MOTEUR_TERMS_URL`, `MOTEUR_PRIVACY_URL`). */
+/** Server settings, either saved by an operator or provided by the environment (`MOTEUR_TERMS_URL`, `MOTEUR_PRIVACY_URL`). */
 export type ServerSettings = { termsUrl?: string; privacyUrl?: string };
 
 /**
- * The operator's view of the whole server: every project, every account, every plugin,
- * and the server-wide blocks and structures. Requires an account with the `admin` role.
+ * Server-wide administration for operators: every project, account and plugin, plus the
+ * server-wide blocks and structures. Requires an account with the `admin` role.
  */
 export function operatorApi(client: MoteurClient) {
     return {
@@ -54,12 +54,12 @@ export function operatorApi(client: MoteurClient) {
                 return client.patch(`/operator/plugins/${encodeURIComponent(pluginId)}`, { on });
             }
         },
-        /** Settings for the whole server: where the Terms and the Privacy policy are. */
+        /** Server-wide settings: the URLs of the Terms and the Privacy policy. */
         settings: {
             get(): Promise<{ settings: ServerSettings; env: ServerSettings }> {
                 return client.get('/operator/settings');
             },
-            /** A string sets one (an https address); null clears it, so the environment's applies. */
+            /** A string sets a URL (an https address). Null clears it, so the value from the environment applies. */
             update(patch: {
                 termsUrl?: string | null;
                 privacyUrl?: string | null;
@@ -82,16 +82,16 @@ export function operatorApi(client: MoteurClient) {
                 return client.delete(`/operator/schemas/${kind}/${encodeURIComponent(name)}`);
             }
         },
-        /** Who the server's email comes from, how it looks, and whether receivers will trust it. */
+        /** The server's email sender and appearance settings, and checks of whether receiving servers will trust its email. */
         email: {
             get(): Promise<Record<string, unknown>> {
                 return client.get('/operator/email');
             },
-            /** Any settings; null puts one back to its default. */
+            /** Updates any of the settings. Passing null resets a setting to its default. */
             update(settings: Record<string, unknown>): Promise<Record<string, unknown>> {
                 return client.patch('/operator/email', settings);
             },
-            /** SMTP, SPF, DMARC, DKIM and MX; with `to`, a test email too. */
+            /** Checks the SMTP, SPF, DMARC, DKIM and MX configuration. With `to`, it also sends a test email. */
             check(body: { to?: string; selectors?: string[] } = {}): Promise<{
                 checks: { id: string; status: string; message: string; found?: string }[];
                 sent?: { to: string; messageId: string };

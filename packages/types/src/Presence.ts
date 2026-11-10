@@ -1,4 +1,4 @@
-/** Per-socket preference. Effective room mode is `exclusive` only if every connected peer uses `exclusive`. */
+/** A per-socket preference. The effective room mode is `exclusive` only when every connected peer uses `exclusive`. */
 export type CollaborationMode = 'shared' | 'exclusive';
 
 export interface Presence {
@@ -16,12 +16,12 @@ export interface Presence {
     // Detail
     entryId?: string;
     fieldPath?: string;
-    /** Optional UI scope (e.g. open modal id) so collaborators see what you’re doing. */
+    /** Optional UI scope, such as the ID of an open modal, so that collaborators can see what the user is doing. */
     overlayId?: string;
     typing?: boolean;
     textPreview?: string;
     cursor?: { x: number; y: number };
-    /** Client click timestamp (ms); cleared on the next update without `pointerPulse`. Ephemeral UI hint for followers. */
+    /** Timestamp in milliseconds of the user's last click. Cleared by the next update that omits `pointerPulse`. A short-lived hint for users following this user. */
     pointerPulse?: number;
 
     // Metadata
@@ -33,16 +33,16 @@ export interface PresenceUpdate {
     entryId?: string;
     fieldPath?: string;
     collaborationMode?: CollaborationMode;
-    /** Clear with empty string; omit key to leave previous value. */
+    /** Send an empty string to clear it. Omit the key to keep the previous value. */
     overlayId?: string;
     typing?: boolean;
     textPreview?: string;
     cursor?: {
-        x: number; // percentage [0–100]
+        x: number; // Percentage from 0 to 100
         y: number;
     };
-    /** Set on join from the user profile; not accepted from untrusted client payloads in the API layer. */
+    /** Set when the user joins, from their profile. The API layer ignores it in client payloads. */
     avatarUrl?: string;
-    /** Click / primary-button down: monotonic-ish ms (e.g. `Date.now()`); throttled on client. */
+    /** Timestamp in milliseconds (for example `Date.now()`) of a primary-button press. Clients throttle how often they send it. */
     pointerPulse?: number;
 }

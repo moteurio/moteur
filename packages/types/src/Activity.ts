@@ -10,14 +10,14 @@ export type ActivityResourceType =
     | 'blueprint'
     | 'schedule'
     | 'form'
-    /** Content repository Git operations (commits, push failures). */
+    /** Git operations on the content repository, such as commits and push failures. */
     | 'git';
 
 export type ActivityAction =
     | 'created'
     | 'updated'
     | 'deleted'
-    /** Taken out of the bin (back as a draft). */
+    /** Restored from the bin. The item returns as a draft. */
     | 'restored'
     | 'published'
     | 'unpublished'
@@ -27,11 +27,11 @@ export type ActivityAction =
     | 'approved'
     | 'rejected'
     | 'schedule_failed'
-    /** A new commit was created for the content repo (see `after.commit`). */
+    /** A commit was created in the content repository (see `after.commit`). */
     | 'git_committed'
-    /** Commit failed after save (see `after.error`, `after.paths`). */
+    /** Creating the commit failed after a save (see `after.error` and `after.paths`). */
     | 'git_commit_failed'
-    /** Push to remote failed or was skipped (see `after`). */
+    /** Pushing to the remote failed or was skipped (see `after`). */
     | 'git_push_failed';
 
 export interface ActivityEvent {
@@ -42,17 +42,17 @@ export interface ActivityEvent {
     action: ActivityAction;
     userId: string;
     userName: string;
-    /** The agent that acted for the person (`userName` then reads "Louise via Claude"). */
+    /** The agent that acted on behalf of the user. When set, `userName` reads "<name> via <agent>". */
     agent?: string;
     fieldPath?: string;
     before?: unknown;
     after?: unknown;
-    timestamp: string; // ISO
+    timestamp: string; // ISO 8601
 }
 
-/** Paginated activity log: events newest first, plus optional cursor for next page. */
+/** One page of the activity log: events ordered newest first, plus an optional cursor for the next page. */
 export interface ActivityLogPage {
     events: ActivityEvent[];
-    /** ISO timestamp of the oldest event in this page; use as `before` query param for the next page. */
+    /** ISO 8601 timestamp of the oldest event in this page. Pass it as the `before` query parameter to fetch the next page. */
     nextBefore?: string;
 }

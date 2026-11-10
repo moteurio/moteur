@@ -5,118 +5,126 @@ import { Field } from './Field.js';
 
 export type LocalePrefix = 'others' | 'all' | 'none';
 
-/** A project as asked for: its workspace is the maker's own when it names none. */
+/** A project to create. When `workspaceId` is omitted, the project is created in the creator's personal workspace. */
 export type NewProject = Omit<ProjectSchema, 'workspaceId'> & { workspaceId?: string };
 
 export interface ProjectSchema {
-    id: string; // Unique project ID (same as folder name)
+    id: string; // Unique project ID (same as the folder name)
     /**
-     * A copy of the server's demo, made to show someone around: it serves no site (no API keys,
-     * no form submissions from sites), is never its person's free project (a host may give it a
-     * plan to try everything on, `project.demoCopied`), and goes to the trash after 30 days
-     * without a change, until its person keeps it (POST /projects/:id/keep).
+     * Set on a copy of the server's demo project, which exists to give a user a tour. A demo copy
+     * serves no site (it has no API keys and accepts no form submissions from sites) and does not
+     * count as the user's free project (a host can assign it a plan through the
+     * `project.demoCopied` event). It is moved to the trash after 30 days without changes unless
+     * the user keeps it with `POST /projects/:id/keep`.
      */
     demo?: { from: string; copiedAt: string };
     /**
-     * The workspace this project belongs to (`Workspace`): the team that runs and pays for it.
-     * Set when the project is made; moving it to another workspace is a handover.
+     * ID of the workspace (`Workspace`) that owns this project: the team that manages and pays for
+     * it. Set when the project is created. Moving the project to another workspace transfers
+     * ownership.
      */
     workspaceId: string;
-    label: string; // Human-readable name
+    label: string; // Display name
     description?: string; // Optional description
-    defaultLocale: string; // Default language for fallbacks
-    supportedLocales?: string[]; // Other supported locales
+    defaultLocale: string; // Default locale, used as the fallback for missing translations
+    supportedLocales?: string[]; // Locales supported in addition to the default locale
 
     /** When true, the project is active and available for use. New projects are created with isActive: true. */
     isActive?: boolean;
 
     /**
-     * The project's own members, by user id: whoever was added to it (a client is one, as a
-     * guest of this project only). Members of its workspace may be in it without being listed
-     * here (see `Workspace`).
+     * IDs of the users added to this project directly, including guests such as a client who can
+     * access only this project. Members of the project's workspace can have access without being
+     * listed here (see `Workspace`).
      */
     users?: string[];
 
     /**
-     * Roles per member on this project, by user id. A member listed here has these roles in this
-     * project instead of what their workspace or account gives them (a workspace Owner or Admin
-     * keeps theirs too); others keep those. Written through
-     * `PATCH /projects/:projectId/users/:userId`, not through a project update.
+     * Roles per user on this project, keyed by user ID. A user listed here has these roles in this
+     * project instead of the roles their workspace or account would give them. A workspace Owner or
+     * Admin keeps their workspace roles as well. Users not listed keep their workspace or account
+     * roles. Set with `PATCH /projects/:projectId/users/:userId`, not through a project update.
      */
     memberRoles?: Record<string, string[]>;
 
     /**
-     * Plugin IDs enabled for this project (optional plugins only).
-     * When unset, all server-enabled optional plugins apply. When set, only listed IDs run for this project.
-     * Enable at server level via MOTEUR_OPTIONAL_PLUGINS; enable/disable per-project here.
+     * IDs of the optional plugins enabled for this project.
+     * When unset, all optional plugins enabled on the server apply. When set, only the listed
+     * plugins run for this project. Optional plugins are enabled on the server through
+     * MOTEUR_OPTIONAL_PLUGINS.
      */
     plugins?: string[];
 
-    namespaces?: string[]; // List of namespaces for this project
+    namespaces?: string[]; // Namespaces defined for this project
 
     workflow?: {
-        enabled: boolean; // default false
-        mode: 'auto_publish'; // reviewer approves → auto-publishes
-        requireReview: boolean; // if true, authors cannot publish without approval; admins can always bypass
+        enabled: boolean; // Defaults to false
+        mode: 'auto_publish'; // Approving a review publishes the content automatically
+        requireReview: boolean; // When true, authors cannot publish without an approved review. Users with the Content lead role (including admins) can publish without one.
     };
 
-    /** Base URL for the site (e.g. https://example.com). Used for sitemap <loc>; if absent, sitemap uses path-only URLs. */
+    /** Base URL of the site (for example `https://example.com`). Used for sitemap `<loc>` values. When absent, the sitemap uses path-only URLs. */
     siteUrl?: string;
 
     /**
-     * How the project's own mail to its site's visitors reads: form confirmations and form
-     * emails go out under the project's name, logo and colour, not the server's. Written through
-     * `PATCH /projects/:projectId/email`, not through a project update.
+     * Branding for emails the project sends to its site's visitors, such as form confirmations
+     * and form notifications. They use the project's sender name, logo and accent colour instead
+     * of the server's. Set with `PATCH /projects/:projectId/email`, not through a project update.
      */
     email?: ProjectEmailSettings;
 
     /**
-     * Where Studio's Preview opens a draft: the address of the site's preview route, which renders
-     * pages as they are now (e.g. https://example.com/preview). The page's path and a short-lived
-     * `?preview=` token are added. Default: `siteUrl`, for a site that renders on request.
+     * URL of the site's preview route, which renders pages in their current draft state (for
+     * example `https://example.com/preview`). Admin clients open drafts there, appending the
+     * page's path and a short-lived `?preview=` token. Defaults to `siteUrl`, which suits a site
+     * that renders on request.
      */
     previewUrl?: string;
 
     /**
-     * How a page's address shows its language. `others` (the default): the default language has
-     * no prefix and the others do (/about, /fr/a-propos). `all`: every language has one (/en/about).
-     * `none`: no prefix, languages differ by their slugs alone (/about, /a-propos).
+     * Controls whether page URLs include a locale prefix. `others` (default): only non-default
+     * locales have a prefix (`/about`, `/fr/a-propos`). `all`: every locale has a prefix
+     * (`/en/about`). `none`: no locale has a prefix and locales are distinguished by their slugs
+     * alone (`/about`, `/a-propos`).
      */
     localePrefix?: LocalePrefix;
 
     /**
-     * When true, core/html fields may include iframe tags (subject to field allowedTags). Default: off.
+     * When true, core/html fields may include iframe tags (subject to the field's `allowedTags`).
+     * Defaults to false.
      */
     allowHtmlIframe?: boolean;
 
     /**
-     * When true, core/html fields may include embed/object/param tags (subject to field allowedTags). Default: off.
+     * When true, core/html fields may include embed, object and param tags (subject to the
+     * field's `allowedTags`). Defaults to false.
      */
     allowHtmlEmbed?: boolean;
 
     /**
-     * Public API keys for this project. Raw secrets are never stored; only hash and prefix per entry.
+     * Public API keys for this project. Raw secrets are never stored; each entry holds only a hash
+     * and a prefix.
      */
     apiKeys?: ProjectApiKeyEntry[];
 
-    /** Media/assets: upload limits, variants, storage adapter. When enabled is false, uploads and media features are disabled for this project. */
+    /** Media settings: upload limits, image variants and storage adapter. When `enabled` is false, uploads and media features are disabled for this project. */
     assetConfig?: {
-        enabled?: boolean; // default true when assetConfig present
+        enabled?: boolean; // Defaults to true when assetConfig is present
         variants: VariantDefinition[];
-        maxUploadSizeMb?: number; // default 50
-        allowedTypes?: AssetType[]; // default: all types
+        maxUploadSizeMb?: number; // Maximum upload size in megabytes. Defaults to 50
+        allowedTypes?: AssetType[]; // Accepted asset types. Defaults to all types
         adapter?: 'local' | 's3' | 'r2' | 'minio' | 'cloudinary';
         adapterConfig?: Record<string, any>;
     };
 
-    /** Third-party integrations (credentials redacted in public project payloads). */
+    /** Third-party integrations. Credentials are redacted in public project payloads. */
     integrations?: {
         shopify?: {
             /** Store hostname, e.g. `mybrand.myshopify.com`. */
             shop: string;
-            /** Admin API access token (Custom app or OAuth). */
+            /** Admin API access token, from a custom app or OAuth. */
             accessToken?: string;
-            /** Entry model used when syncing products from Shopify. */
+            /** ID of the entry model that products synced from Shopify are stored in. */
             productModelId?: string;
         };
     };
@@ -125,51 +133,52 @@ export interface ProjectSchema {
         audit?: Audit;
     };
 
-    /** Git feature config. When enabled is false, git operations (push/pull/sync) are disabled for this project. */
+    /** Git settings. When `enabled` is false, Git operations (push, pull, sync) are disabled for this project. */
     git?: {
-        enabled?: boolean; // default true when git config present
-        /** Remote URL. When set at creation, the project is created by cloning this repo instead of init. */
+        enabled?: boolean; // Defaults to true when the git config is present
+        /** Remote repository URL. When set at creation, the project is created by cloning this repository instead of initializing a new one. */
         remoteUrl?: string;
     };
 
-    /** AI-related project settings. When enabled is false, all AI features (writing, image gen, analysis, translation) are disabled for this project. */
+    /** AI settings. When `enabled` is false, all AI features (writing, image generation, analysis, translation) are disabled for this project. */
     ai?: {
-        enabled?: boolean; // default true when ai config present
+        enabled?: boolean; // Defaults to true when the ai config is present
         /**
-         * Helpers people may ask for in the Studio. Each is off unless set to true here, so a
-         * project without AI settings shows none.
+         * AI helpers that users can request. A helper is available only when set to true here, so
+         * a project without AI settings offers none.
          */
         helpers?: Partial<Record<AiHelper, boolean>>;
-        /** Roles that may ask for helpers. Default: admin and writer. A translator may always ask for a translation. */
+        /** Roles allowed to request helpers. Defaults to `DEFAULT_AI_ROLES` (admin and writer). A translator can always request a translation. */
         roles?: string[];
-        /** Show “with help” in history and review to everyone (default: admins and reviewers). */
+        /** When true, AI-assisted changes are marked as such in history and review for all users. By default only admins and reviewers see the marker. */
         provenanceForAll?: boolean;
-        /** When true, run image analysis (alt/caption) automatically after each image upload. Default: false. */
+        /** When true, image analysis (alt text and caption) runs automatically after each image upload. Defaults to false. */
         autoAnalyseImages?: boolean;
-        /** Image generation provider: openai (DALL-E), google (Gemini), fal, replicate, or null if not set. */
+        /** Image generation provider (`openai` for DALL-E, `google` for Gemini, `fal` or `replicate`), or null when not set. */
         imageProvider?: 'openai' | 'google' | 'fal' | 'replicate' | null;
-        /** Text-to-speech / audio generation provider, or null if not set. */
+        /** Text-to-speech and audio generation provider, or null when not set. */
         audioProvider?: 'elevenlabs' | 'fal' | null;
-        /** Text-to-3D model generation provider, or null if not set. */
+        /** Text-to-3D model generation provider, or null when not set. */
         model3dProvider?: 'meshy' | 'fal' | null;
-        /** When true, the licensing acknowledgement for generated images has been shown and accepted. */
+        /** True once a user has seen and accepted the licensing notice for generated images. */
         imageGenerationAcknowledged?: boolean;
     };
 
-    /** Presence (real-time who's editing, form state). When enabled is false, presence socket and related features are disabled for this project. */
+    /** Presence settings (real-time editor presence and form state). When `enabled` is false, the presence socket and related features are disabled for this project. */
     presence?: {
-        enabled?: boolean; // default true when presence config present
-        /** Default collaboration mode in Studio when the user has no session override. */
+        enabled?: boolean; // Defaults to true when the presence config is present
+        /** Collaboration mode that admin clients use when the user has not chosen one for their session. */
         collaborationModeDefault?: 'shared' | 'exclusive';
     };
 
-    /** Per-project video provider config (Mux, Vimeo, Cloudflare Stream, YouTube). When set, video uploads use this project's credentials. */
+    /** Video provider settings for this project (Mux, Vimeo, Cloudflare Stream, YouTube). When set, video uploads use this project's credentials. */
     videoProviders?: VideoProvidersConfig;
 
     /**
-     * Content menu features to show in the admin sidebar. When a key is false, that item is hidden.
-     * Omitted or undefined means show the item. Dependencies: models off → entries/taxonomy/settings hidden;
-     * pages off → pages and templates hidden; forms off → forms, submissions, and user-data entries hidden.
+     * Content areas that admin clients show in their navigation. A key set to false hides that
+     * area; an omitted key shows it. Some areas depend on others: with `models` off, entries,
+     * taxonomy and settings are hidden; with `pages` off, pages and templates are hidden; with
+     * `forms` off, forms, submissions and user-data entries are hidden.
      */
     contentFeatures?: {
         pages?: boolean;
@@ -186,55 +195,57 @@ export interface ProjectSchema {
     };
 }
 
-/** A project's own mail: who it comes from, and how it looks. Every key is optional. */
+/** Sender and appearance settings for a project's outgoing email. Every key is optional. */
 export interface ProjectEmailSettings {
-    /** The name inboxes show. Default: the project's name. */
+    /** Sender name shown in recipients' inboxes. Defaults to the project's name. */
     senderName?: string;
-    /** Where replies go: the project's contact address. Default: none (the From address). */
+    /** Address that replies are sent to, usually the project's contact address. When unset, replies go to the From address. */
     replyTo?: string;
-    /** A From address on a domain the server's operator allows; else the server's address. */
+    /** From address. It must be on a domain the server operator allows; otherwise the server's address is used. */
     fromAddress?: string;
-    /** An image from the project's media (PNG, JPEG or GIF, 100 KB at most), sent inside each email. */
+    /** ID of an asset in the project's media (PNG, JPEG or GIF, at most 100 KB) that is embedded in each email as the logo. */
     logoAssetId?: string;
-    /** An https image, when the logo is not in the project's media. */
+    /** HTTPS URL of the logo image, for when the logo is not in the project's media. */
     logoUrl?: string;
-    /** The logo's width in pixels, 24 to 300. Default 120. */
+    /** Logo width in pixels, from 24 to 300. Defaults to 120. */
     logoWidth?: number;
-    /** `#RRGGBB` for buttons and links; white text on it must read at 4.5:1. */
+    /** Colour for buttons and links, as `#RRGGBB`. White text on this colour must have a contrast ratio of at least 4.5:1. */
     accent?: string;
-    /** The business's postal address or legal line, at the foot of every email. */
+    /** Postal address or legal line shown in the footer of every email. */
     footer?: string;
-    /** The site to link to at the foot. Default: the project's `siteUrl`. */
+    /** Site URL linked in the footer. Defaults to the project's `siteUrl`. */
     siteUrl?: string;
 }
 
-/** Stored metadata for one project API key (secret is hash-only). */
+/** Stored metadata for one project API key. Only a hash of the secret is stored. */
 export interface ProjectApiKeyEntry {
     id: string;
     hash: string;
     prefix: string;
     createdAt: string;
     label?: string;
-    /** ISO date-time after which the key is refused. Omitted = never expires. */
+    /** ISO 8601 timestamp after which the key is rejected. When omitted, the key never expires. */
     expiresAt?: string;
     /**
-     * When non-empty, x-api-key requests must send Origin or Referer whose hostname matches
-     * one entry (exact or single leading *. wildcard). Empty or omitted = no host restriction.
+     * When non-empty, requests authenticated with `x-api-key` must send an Origin or Referer
+     * header whose hostname matches one entry (exactly, or through a single leading `*.`
+     * wildcard). When empty or omitted, there is no host restriction.
      */
     allowedHosts?: string[];
     /**
-     * When set, this key may only read these channel IDs.
-     * Omit the field for full access to all channels.
+     * When set, the key can read only these channel IDs. When omitted, the key can read all
+     * channels.
      */
     allowedChannelIds?: string[];
     /**
-     * When `allowedChannelIds` is set, controls access to sitemap, navigation, urls, breadcrumb, radar.
-     * Defaults to false (channel-only) unless explicitly true.
+     * Applies when `allowedChannelIds` is set. When true, the key can also read the sitemap,
+     * navigation, urls, breadcrumb and radar endpoints. Defaults to false, which restricts the key
+     * to its channels.
      */
     allowSiteWideReads?: boolean;
 }
 
-/** Video provider config. Can be per-project (project.videoProviders) or instance-level fallback. */
+/** Video provider settings. Used per project (`project.videoProviders`) or as the instance-level fallback. */
 export interface VideoProvidersConfig {
     active?: VideoProviderId;
     keepLocalCopy?: boolean;
@@ -302,7 +313,7 @@ export const projectSchemaFields: Record<string, Field> = {
     }
 };
 
-/** Studio helpers a project can turn on one by one. */
+/** AI helpers that a project can enable individually. */
 export type AiHelper = 'write' | 'translate' | 'alt' | 'notes' | 'images' | 'audio' | 'model3d';
 export const AI_HELPERS: AiHelper[] = [
     'write',

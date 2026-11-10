@@ -1,40 +1,40 @@
 import type { FieldMeta } from './Field.js';
 
-/** Locale-keyed strings for i18n (e.g. { en: 'Submit', fr: 'Envoyer' }). */
+/** Strings keyed by locale code, for example `{ en: 'Submit', fr: 'Envoyer' }`. */
 export type MultilingualString = Record<string, string>;
 
-/** Text a visitor reads: one text, or one per language. */
+/** Text shown to a site visitor: a single string, or a map from locale code to string. */
 export type FormText = string | MultilingualString;
 
-/** What a visitor may be told when an answer doesn't fit, by issue code. */
+/** Custom messages shown to the visitor when an answer is rejected, keyed by issue code. */
 export type FormFieldMessages = Partial<Record<FormIssueCode, FormText>>;
 
-/** A choice of a select field: its stored value and what the visitor reads. */
+/** An option of a select field: either the stored value alone, or the stored value with the label shown to the visitor. */
 export type FormChoice = string | { value: string; label?: FormText };
 
-/** A form's field: a field whose words can be one per language. */
+/** A form field. It is like a model field, but its visitor-facing text can be given per locale. */
 export interface FormField {
     id?: string;
-    /** A field type, as in models: core/text, core/email, core/select… */
+    /** Field type, as in models, for example `core/text`, `core/email` or `core/select`. */
     type: string;
     label: FormText;
     description?: FormText;
-    /** A hint shown under the field. */
+    /** Hint shown below the field. */
     help?: FormText;
     placeholder?: FormText;
-    /** Your own words for an answer that doesn't fit, by issue code. */
+    /** Custom messages for rejected answers, keyed by issue code. */
     messages?: FormFieldMessages;
     meta?: FieldMeta;
-    /** required, maxLength, min, max, choices… as in models. */
+    /** Field options such as `required`, `maxLength`, `min`, `max` and `choices`, as in models. */
     options?: Record<string, any>;
     [key: string]: any;
 }
 
-/** Why the server refused an answer. */
+/** The reason the server rejected an answer. */
 export type FormIssueCode =
     'required' | 'invalid' | 'too_long' | 'too_short' | 'too_small' | 'too_large' | 'choice';
 
-/** One answer the server refused, by field id, worded in the visitor's language. */
+/** A rejected answer, identified by field ID, with a message in the visitor's language. */
 export interface FormIssue {
     field: string;
     code: FormIssueCode;
@@ -44,26 +44,27 @@ export interface FormIssue {
 export type FormCaptchaProvider = 'turnstile' | 'hcaptcha' | 'recaptcha';
 
 /**
- * A captcha the server checks. The secret key is never in the form: it's kept in the project's
- * secrets file, and the form only says whether one is set.
+ * A captcha that the server verifies. The secret key is not stored in the form. It is kept in the
+ * project's secrets file, and the form only reports whether one is set.
  */
 export interface FormCaptcha {
     provider: FormCaptchaProvider;
     siteKey: string;
-    /** reCAPTCHA v3: answers scoring below this are kept as spam (default 0.5). */
+    /** reCAPTCHA v3 only. Submissions scoring below this value are stored as spam. Defaults to 0.5. */
     minScore?: number;
-    /** Read only: a secret key is stored. */
+    /** Read-only. True when a secret key is stored for this captcha. */
     secretSet?: boolean;
 }
 
 /**
- * Bots fill a form in the instant they load it. A site asks for a token when it shows the form,
- * and an answer sent sooner than `minSeconds` after is kept as spam.
+ * Spam check based on how fast the form is submitted, since bots tend to submit immediately. The
+ * site requests a token when it shows the form. A submission sent less than `minSeconds` after
+ * the token was issued is stored as spam.
  */
 export interface FormTimeTrap {
-    /** Default 3. */
+    /** Minimum number of seconds between showing and submitting the form. Defaults to 3. */
     minSeconds?: number;
-    /** Answers without a token are spam too (only when every site sends one). */
+    /** When true, submissions without a token are also treated as spam. Enable it only when every site that submits to the form sends a token. */
     required?: boolean;
 }
 
@@ -72,7 +73,7 @@ export type FormStatus = 'active' | 'inactive' | 'archived';
 export type FormActionCreateEntry = {
     type: 'createEntry';
     modelId: string;
-    /** formFieldId → modelFieldId; default 1:1 when key not present */
+    /** Maps form field IDs to model field IDs. A field with no mapping is copied to the model field with the same ID. */
     fieldMap?: Record<string, string>;
 };
 
@@ -87,7 +88,7 @@ export type FormActionWebhook = {
     type: 'webhook';
 };
 
-/** An action a plugin adds (`sheets:append`), with this form's settings for it. */
+/** An action added by a plugin (for example `sheets:append`), with this form's settings for it. */
 export type FormActionPlugin = {
     type: `${string}:${string}`;
     config?: Record<string, unknown>;
@@ -97,9 +98,9 @@ export type FormAction =
     FormActionCreateEntry | FormActionEmail | FormActionWebhook | FormActionPlugin;
 
 export interface FormNotifications {
-    /** Email(s) to notify when a submission arrives */
+    /** Addresses to notify when a submission arrives. */
     onSubmit?: { to: string[]; subject?: string };
-    /** Confirmation email to submitter; fieldRef = form field id holding email */
+    /** Confirmation email sent to the submitter. `fieldRef` is the ID of the form field that holds the submitter's email address. */
     confirmationEmail?: {
         fieldRef: string;
         subject?: string;
@@ -119,7 +120,7 @@ export interface FormSchema {
     honeypot?: boolean;
     captcha?: FormCaptcha;
     timeTrap?: FormTimeTrap;
-    /** @deprecated Use `captcha`; read as a reCAPTCHA captcha, its secret moved out on save. */
+    /** @deprecated Use `captcha`. Treated as a reCAPTCHA captcha, and its secret key is moved out of the form when the form is saved. */
     recaptcha?: { siteKey: string; secretKey?: string };
     actions?: FormAction[];
     notifications?: FormNotifications;
@@ -132,11 +133,11 @@ export interface FormSubmissionMeta {
     ip?: string;
     userAgent?: string;
     locale?: string;
-    /** The page the form was sent from. */
+    /** The page the form was submitted from. */
     page?: string;
-    /** Where the visitor came from before that page. */
+    /** The page the visitor came from before reaching the form's page. */
     referrer?: string;
-    /** The campaign, from the page's utm_* parameters. */
+    /** Campaign data taken from the page's `utm_*` parameters. */
     campaign?: {
         source?: string;
         medium?: string;
@@ -146,22 +147,22 @@ export interface FormSubmissionMeta {
     };
     honeypotTriggered?: boolean;
     recaptchaScore?: number;
-    /** Why it was kept as spam on arrival. */
+    /** Why the submission was classified as spam when it arrived. */
     spamReason?: FormSpamReason;
-    /** Seconds between the form being shown and sent, when the site sent a token. */
+    /** Seconds between the form being shown and submitted. Set only when the site sent a time-trap token. */
     fillSeconds?: number;
-    /** The captcha provider couldn't be reached: kept, but not checked. */
+    /** True when the captcha provider could not be reached. The submission is kept without a captcha check. */
     captchaUnchecked?: boolean;
-    /** The plugin check that judged it spam, and what it said. */
+    /** The plugin check that classified the submission as spam, and the note it returned. */
     screenedBy?: string;
     screenNote?: string;
-    /** The plugin holding its actions (double opt-in…), while `held`. */
+    /** The plugin holding the submission's actions (for example a double opt-in), while the status is `held`. */
     heldBy?: string;
 }
 
 export type FormSpamReason = 'honeypot' | 'too_fast' | 'no_token' | 'captcha_score' | 'screen';
 
-/** `held`: kept, its actions waiting for a plugin to release it (a confirmed email…). */
+/** Submission status. `held` means the submission is stored and its actions wait for a plugin to release it, for example after email confirmation. */
 export type FormSubmissionStatus = 'received' | 'processed' | 'spam' | 'held';
 
 export interface FormActionResult {
@@ -169,7 +170,7 @@ export interface FormActionResult {
     status: 'success' | 'failed';
     error?: string;
     entryId?: string;
-    /** What a plugin's action says it did: "Row 42 added to Leads". */
+    /** Description of what a plugin action did, for example "Row 42 added to Leads". */
     detail?: string;
 }
 
@@ -181,11 +182,11 @@ export interface FormSubmission {
     metadata: FormSubmissionMeta;
     actionResults: FormActionResult[];
     status: FormSubmissionStatus;
-    /** When someone in the Studio first opened it; absent while unread. */
+    /** ISO 8601 timestamp of when a user first opened the submission. Absent while it is unread. */
     readAt?: string;
     readBy?: string;
-    /** Set while marked spam by hand: what "not spam" puts back. */
+    /** Set while the submission is manually marked as spam. Marking it as not spam restores this status. */
     statusBeforeSpam?: FormSubmissionStatus;
-    /** When it became spam: spam is deleted 30 days after. */
+    /** ISO 8601 timestamp of when the submission became spam. Spam is deleted 30 days later. */
     spamAt?: string;
 }

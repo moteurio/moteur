@@ -1,4 +1,4 @@
-// All event types Moteur can fire
+/** All event types that can trigger a webhook. */
 export type WebhookEvent =
     | 'entry.created'
     | 'entry.updated'
@@ -29,17 +29,22 @@ export type WebhookEvent =
     | 'radar.violation.resolved'
     | 'import.completed';
 
-// A filter narrows which events actually trigger delivery
-// e.g. only fire when modelId === 'article'
+/**
+ * Comparison operator for a webhook filter: equals, not equals, in a list, or not in a list.
+ */
 export type WebhookFilterOperator = 'eq' | 'ne' | 'in' | 'nin';
 
+/**
+ * A filter that narrows which events trigger delivery, for example firing only when
+ * `modelId` equals `article`.
+ */
 export type WebhookFilter = {
     field: 'modelId' | 'status' | 'locale' | 'environment' | 'source';
     operator: WebhookFilterOperator;
     value: string | string[];
 };
 
-/** What live on the site changed: what a deploy hook listens to unless told otherwise. */
+/** Events that change what is live on the site. A deploy hook listens to these by default. */
 export const DEPLOY_EVENTS: WebhookEvent[] = [
     'entry.published',
     'entry.unpublished',
@@ -54,68 +59,70 @@ export const DEPLOY_EVENTS: WebhookEvent[] = [
     'redirects.updated'
 ];
 
-// The registered webhook endpoint
+/** A registered webhook endpoint. */
 export type Webhook = {
     id: string;
     projectId: string;
-    name: string; // "Vercel deploy", "Slack notify"
+    name: string; // Display name, for example "Vercel deploy" or "Slack notify"
     /**
-     * `deploy`: a host's build hook (Vercel, Netlify, Cloudflare Pages…). Changes within
-     * `batchSeconds` of the first one start a single build. Default: `webhook`, one call per event.
+     * `deploy`: a hosting provider's build hook (Vercel, Netlify, Cloudflare Pages and similar).
+     * Changes that occur within `batchSeconds` of the first one trigger a single build.
+     * `webhook` (the default) makes one call per event.
      */
     kind?: 'webhook' | 'deploy';
-    /** For a deploy hook: how long to wait for more changes before calling it (0–600, default 30). */
+    /** Deploy hooks only. Seconds to wait for further changes before calling the hook, from 0 to 600. Defaults to 30. */
     batchSeconds?: number;
-    url: string; // target HTTPS endpoint
-    secret: string; // used to sign payloads — stored encrypted
-    events: WebhookEvent[]; // which events to listen for; [] = all
-    filters: WebhookFilter[]; // additional filters; [] = no filtering
-    headers: Record<string, string>; // custom headers to include in every request
-    enabled: boolean; // soft disable without deleting
+    url: string; // Target HTTPS endpoint
+    secret: string; // Used to sign payloads. Stored encrypted
+    events: WebhookEvent[]; // Events that trigger the webhook. An empty array means all events
+    filters: WebhookFilter[]; // Additional filters. An empty array means no filtering
+    headers: Record<string, string>; // Custom headers sent with every request
+    enabled: boolean; // When false, the webhook is disabled without being deleted
     createdAt: string;
     updatedAt: string;
     createdBy: string;
 };
 
-// One delivery attempt record
+/** Delivery state of a webhook call. */
 export type WebhookDeliveryStatus = 'pending' | 'success' | 'failed' | 'retrying';
 
+/** The record of one webhook delivery, including its retry state. */
 export type WebhookDelivery = {
     id: string;
     webhookId: string;
     projectId: string;
 
-    // What was sent
+    // The request sent
     event: WebhookEvent;
-    payload: WebhookPayload; // the full payload that was (or will be) sent
+    payload: WebhookPayload; // The full payload that was sent or will be sent
 
     // Outcome of the most recent attempt
     status: WebhookDeliveryStatus;
-    responseStatus?: number; // HTTP status from the consumer
-    responseBody?: string; // first 1000 chars of response body
+    responseStatus?: number; // HTTP status returned by the receiving endpoint
+    responseBody?: string; // First 1000 characters of the response body
     durationMs?: number;
 
     // Retry state
-    attemptCount: number; // starts at 1
-    nextRetryAt?: string; // ISO 8601 — null when no further retries planned
+    attemptCount: number; // Starts at 1
+    nextRetryAt?: string; // ISO 8601 timestamp. Null when no further retries are planned
     lastAttemptAt?: string;
 
-    createdAt: string; // when the delivery was first enqueued
+    createdAt: string; // When the delivery was first queued
 };
 
-// The payload envelope sent to the consumer
+/** The payload envelope sent to the receiving endpoint. */
 export type WebhookPayload = {
-    id: string; // unique delivery ID — same as WebhookDelivery.id
+    id: string; // Unique delivery ID, equal to `WebhookDelivery.id`
     event: WebhookEvent;
     timestamp: string; // ISO 8601 UTC
     projectId: string;
-    environment?: string; // which environment triggered the event
+    environment?: string; // Environment that triggered the event
     source: 'studio' | 'api' | 'scheduler';
     data: WebhookPayloadData;
-    test?: boolean; // true for test ping payloads
+    test?: boolean; // True for test ping payloads
 };
 
-// Per-event data shapes
+/** The event-specific data in a payload, by event type. */
 export type WebhookPayloadData =
     | EntryPayloadData
     | AssetPayloadData
@@ -143,7 +150,7 @@ export type RadarPayloadData = {
     violation: import('./Radar.js').RadarViolation;
 };
 
-// Re-export for consumers that need both
+// Re-exported so consumers can import webhook and Radar types from one module.
 export type { RadarViolation } from './Radar.js';
 
 export type SchedulePayloadData = {
