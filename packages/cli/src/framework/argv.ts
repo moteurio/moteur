@@ -1,6 +1,6 @@
 /**
- * The words after `moteur`: positionals, `--key value`, `--key=value`, `--no-key`, and the
- * short flags -y (yes), -h (help), -q (quiet).
+ * Parses the arguments after `moteur` into positionals and options. It accepts `--key value`,
+ * `--key=value`, `--no-key`, and the short flags -y (yes), -h (help) and -q (quiet).
  */
 export interface ParsedArgv {
     words: string[];
@@ -9,7 +9,7 @@ export interface ParsedArgv {
 
 const SHORT: Record<string, string> = { y: 'yes', h: 'help', q: 'quiet', p: 'project' };
 
-/** Flags that never take a value, so `--json list` doesn't read `list` as its value. */
+/** Flags that never take a value, so that `--json list` does not treat `list` as the value of `--json`. */
 export const BOOLEAN_FLAGS = new Set([
     'json',
     'quiet',
@@ -27,7 +27,7 @@ export function parseArgv(argv: string[], booleans: Set<string> = BOOLEAN_FLAGS)
     const flags: ParsedArgv['flags'] = {};
     const set = (key: string, value: string | boolean) => {
         const prev = flags[key];
-        // Repeated flags collect: --filter a --filter b.
+        // Collect repeated flags into a list, as in `--filter a --filter b`.
         if (prev !== undefined && typeof prev !== 'boolean' && typeof value === 'string') {
             flags[key] = Array.isArray(prev) ? [...prev, value] : [prev, value];
         } else flags[key] = value;
@@ -61,7 +61,7 @@ export function parseArgv(argv: string[], booleans: Set<string> = BOOLEAN_FLAGS)
     return { words, flags };
 }
 
-/** `readingTime` and `reading_time` are read as `reading-time`. */
+/** Normalizes `readingTime` and `reading_time` to `reading-time`. */
 export const kebab = (s: string): string =>
     s
         .replace(/([a-z0-9])([A-Z])/g, '$1-$2')

@@ -1,4 +1,4 @@
-/** Who you are, the server around the projects, and the escape hatch for everything else. */
+/** Commands for the current user, for server-level settings outside any project, and `moteur api` for calling any endpoint directly. */
 import { group, id, project, type ArgSpec, type CommandSpec } from '../spec.js';
 import { localized } from '../format.js';
 import { fillPath, UsageError } from '../execute.js';
@@ -779,7 +779,7 @@ export const status = group('status', [
     }
 ]);
 
-/** `moteur api GET /projects/demo/models`: any call, signed in. */
+/** Makes any authenticated API call, as in `moteur api GET /projects/demo/models`. */
 export const api = group('api', [
     {
         name: '',

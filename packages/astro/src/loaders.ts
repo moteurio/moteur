@@ -1,5 +1,6 @@
 /**
- * Astro content loaders: a channel's pages and entries as Astro collections, read once at build.
+ * Astro content loaders that expose a channel's pages and entries as Astro collections. The
+ * content is read once at build time.
  *
  *     // src/content.config.ts
  *     const site = createMoteur<MoteurSchema>({ … }).channel('site');
@@ -8,7 +9,7 @@
  *         rivals: defineCollection({ loader: moteurEntries(site, 'rival') })
  *     };
  *
- * Every page and entry comes in one language, typed by the file `moteur types` wrote.
+ * Every page and entry is loaded in a single language and typed by the file that `moteur types` generated.
  */
 import type { Loader, LoaderContext } from 'astro/loaders';
 import { z } from 'astro/zod';
@@ -22,21 +23,21 @@ import type {
 } from '@moteurio/client';
 
 export type MoteurLoaderOptions<S extends SchemaShape> = {
-    /** Which languages to load (default: every language of the project). */
+    /** The languages to load. Defaults to every language of the project. */
     locales?: S['locale'][];
     /**
-     * Where `moteur types` wrote the project's types, from the project's root (default
-     * `src/moteur`). `false` when there are none: entries are then typed loosely.
+     * The path of the file that `moteur types` generated, relative to the project root. Defaults to
+     * `src/moteur`. Set it to `false` if there is none, and entries are then typed loosely.
      */
     types?: string | false;
-    /** Pictures come with their files and sizes (default true). */
+    /** Includes each picture's files and sizes in the loaded data. Defaults to true. */
     resolveAssets?: boolean;
 };
 
-// Data is checked by Moteur and typed by the generated types, not by a second schema here.
+// Moteur validates the data and the generated types describe it, so no second schema is needed here.
 const schema = z.record(z.string(), z.any());
 
-/** The import Astro's generated `.astro/loaders/<collection>.ts` uses for the project's types. */
+/** Returns the import path to the project's types that Astro's generated `.astro/loaders/<collection>.ts` uses. */
 function typesFrom(types: string | false | undefined): string | null {
     if (types === false) return null;
     const file = (types ?? 'src/moteur').replace(/^\.\//, '').replace(/\.ts$/, '');
@@ -44,8 +45,8 @@ function typesFrom(types: string | false | undefined): string | null {
 }
 
 /**
- * A channel's languages, asked once for all the collections a build loads. Kept a minute, so
- * `astro dev` sees a language added in Studio on its next reload.
+ * Caches a channel's languages so that one request serves all the collections a build loads. The
+ * cache lasts one minute, so `astro dev` picks up a language added in the CMS on its next reload.
  */
 const channelLocales = new WeakMap<object, { at: number; locales: Promise<string[]> }>();
 
@@ -57,13 +58,13 @@ async function localesOf<S extends SchemaShape, D extends LocaleMode>(
     const kept = channelLocales.get(channel);
     if (kept && Date.now() - kept.at < 60_000) return kept.locales;
     const locales = channel.schema().then(s => s.locales);
-    // A failed read is asked again next time, not kept.
+    // Do not cache a failed request, so the next call asks again.
     locales.catch(() => channelLocales.delete(channel));
     channelLocales.set(channel, { at: Date.now(), locales });
     return locales;
 }
 
-/** What failed, said once and clearly: the build stops there. */
+/** Creates the error that stops the build, stating which request failed. */
 function failed(what: string, err: unknown): Error {
     const message = err instanceof Error ? err.message : String(err);
     return new Error(`Moteur: could not read ${what}: ${message}`);
@@ -76,17 +77,18 @@ function put(ctx: LoaderContext, id: string, data: Record<string, unknown>) {
 }
 
 /**
- * The language an item came in: the one asked for, or the default when it isn't in that one
- * (`languages`). An API that doesn't say is taken at its word.
+ * Returns the language an item was delivered in. The API falls back to the default language when
+ * an item does not exist in the requested one, and says so in the item's `locale`. If the API
+ * gives no `locale`, the requested language is assumed.
  */
 const deliveredIn = (item: object, asked?: string): string | undefined =>
     (item as { locale?: string }).locale ?? asked;
 
 /**
- * Every page of the channel, once per language it is in, by its address:
- * `getEntry('pages', '/fr/tarifs')`. Each has `path`, `paths` (its languages, for `hreflang`),
- * `locale`, and its fields in that language, links to other pages already turned into addresses.
- * A page not in a language has no copy in it.
+ * Loads every page of the channel once per language it exists in, keyed by its URL path, as in
+ * `getEntry('pages', '/fr/tarifs')`. Each page has `path`, `paths` (the paths of its translations,
+ * for `hreflang`), `locale`, and its fields in that language, with links to other pages already
+ * converted to URL paths. A page has no copy in a language it does not exist in.
  */
 export function moteurPages<S extends SchemaShape, D extends LocaleMode>(
     channel: PublicChannel<S, D>,
@@ -115,7 +117,7 @@ export function moteurPages<S extends SchemaShape, D extends LocaleMode>(
                     })) as DeliveredPage[];
                 for (const page of list) {
                     if (!page.path || page.type === ('folder' as string)) continue;
-                    // Not in this language (it came in the default one): no page for it here.
+                    // The page was delivered in the default language because it has no translation in this one, so skip it.
                     if (deliveredIn(page, locale) !== locale) continue;
                     if (ctx.store.has(page.path)) {
                         ctx.logger.warn(`Two pages at ${page.path}: kept the first.`);
@@ -131,9 +133,9 @@ export function moteurPages<S extends SchemaShape, D extends LocaleMode>(
 }
 
 /**
- * Every entry of a model, in each language it is in. With one language an entry's id is its own
- * (`sanity`); with several, the language comes first (`fr/sanity`). Each has `locale`, and
- * `resolvedUrl` when a collection page gives entries an address.
+ * Loads every entry of a model in each language it exists in. With one language, an entry's id is
+ * its own (`sanity`). With several languages, the id is prefixed with the language (`fr/sanity`).
+ * Each entry has `locale`, and `resolvedUrl` when a collection page gives entries a URL.
  */
 export function moteurEntries<S extends SchemaShape, D extends LocaleMode, K extends ModelId<S>>(
     channel: PublicChannel<S, D>,

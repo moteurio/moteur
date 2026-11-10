@@ -85,7 +85,7 @@ export async function buildJournal(opts: JournalOptions): Promise<ValidationRepo
     present();
     log(`content: ${entries.reduce((n, [, l]) => n + l.length, 0)} entries, ${steps} actions`);
 
-    // createProjectBlock writes block definitions without committing them.
+    // createProjectBlock writes block definitions without committing them, so commit them here.
     const { projectDir } = await import('@moteurio/core/utils/pathUtils.js');
     const { addAndCommit } = await import('@moteurio/core/git/index.js');
     await addAndCommit(

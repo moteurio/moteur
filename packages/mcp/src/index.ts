@@ -1,4 +1,4 @@
-/** `moteur-mcp`: the MCP server over stdio, for Claude and other MCP clients. */
+/** `moteur-mcp` runs the MCP server over stdio for Claude and other MCP clients. */
 import { createRequire } from 'module';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { API_COMMANDS } from '@moteurio/commands';

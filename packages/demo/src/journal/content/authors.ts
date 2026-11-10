@@ -151,7 +151,7 @@ export const authors: SourceEntry[] = [
         joined: '1977-08-20',
         languages: ['fr', 'en', 'binary']
     }),
-    // New voices
+    // Authors who appear in the additional articles.
     author({
         id: 'louise',
         name: 'Louise Gagnon',

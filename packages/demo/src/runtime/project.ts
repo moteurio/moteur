@@ -12,7 +12,7 @@ import { settle } from './workflow.js';
 
 export type Log = (line: string) => void;
 
-/** Move an existing project out of the way (kept under projects/.trash, never deleted). */
+/** Moves an existing project aside. It is kept under projects/.trash and never deleted. */
 export function setAside(dataRoot: string, projectId: string): string | null {
     const projects = path.join(dataRoot, 'data', 'projects');
     const dir = path.join(projects, projectId);
@@ -28,8 +28,8 @@ export function setAside(dataRoot: string, projectId: string): string | null {
 }
 
 /**
- * Make sure every persona exists as a user. Existing users (same id) are left as they are,
- * except that they gain access to the project. With a password, new users can sign in.
+ * Ensures that every persona exists as a user. Existing users with the same id are left as they
+ * are, except that they are given access to the project. New users can sign in when a password is given.
  */
 export async function ensurePersonas(personas: Persona[], password?: string): Promise<void> {
     const { listUsers, createUser, reloadUsers } = await import('@moteurio/core/users.js');
@@ -64,8 +64,8 @@ export async function createProjectFor(
     };
     const reserved = validateProject(withUsers).issues.some(i => i.code === 'PROJECT_RESERVED_ID');
     if (reserved) {
-        // Reserved ids (e.g. "demo", the template copied for new users) can't be created
-        // through createProject; do what it does, minus the id check.
+        // createProject cannot create a reserved id such as "demo", the template that is copied
+        // for new users, so repeat what it does without the id check.
         const { projectDir } = await import('@moteurio/core/utils/pathUtils.js');
         const { initRepo, addAllAndCommit } = await import('@moteurio/core/git/index.js');
         const { putProjectJson } = await import('@moteurio/core/utils/projectStorage.js');
@@ -133,9 +133,9 @@ export type ValidationReport = {
 };
 
 /**
- * Validate every entry file of every model, the same way the API validates a save. Files are
- * read one by one (keyed by folder name), so an unreadable file is reported instead of
- * stopping the whole check, and entries with any status are included.
+ * Validates every entry file of every model in the same way the API validates a save. Files are
+ * read one by one, keyed by folder name, so an unreadable file is reported instead of stopping the
+ * whole check. Entries of any status are included.
  */
 export async function validateEntries(projectId: string): Promise<ValidationReport> {
     const { validateEntry } = await import('@moteurio/core/validators/validateEntry.js');

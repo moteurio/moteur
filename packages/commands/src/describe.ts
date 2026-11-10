@@ -1,6 +1,7 @@
 /**
- * A project's shape in one answer: its languages, how content goes live, who you are in it, and
- * each model's fields in a line. For agents (and people) about to read or write content.
+ * Summarizes a project in one answer: its languages, how content is published, the caller's role
+ * in it, and one line per model field. It is meant for agents and people who are about to read or
+ * write content.
  */
 import { asOwnWorkspace, rolesInProject } from '@moteurio/types';
 import type { MyWorkspace } from '@moteurio/client';
@@ -38,7 +39,7 @@ const text = (v: unknown): string | undefined => {
     return undefined;
 };
 
-/** How values of a type are written, when it isn't obvious from the name. */
+/** Describes how values of a field type are written, for types where the name alone does not say. */
 const VALUES: Record<string, string> = {
     'core/rich-text': 'rich text (DAST JSON)',
     'core/block-list': 'blocks: [{ type, data }]',
@@ -50,7 +51,7 @@ const VALUES: Record<string, string> = {
     'core/relations': 'entry ids'
 };
 
-/** `text, per language, required, max 140` for one field. */
+/** Describes one field in a line, for example `text, per language, required, max 140 characters`. */
 export function describeField(f: Field): string {
     const o = f.options ?? {};
     const parts = [VALUES[f.type] ?? f.type.replace(/^core\//, '')];
@@ -74,7 +75,7 @@ export function describeProject(
     models: Model[],
     me: { id: string; name?: string; roles?: string[]; workspaces?: MyWorkspace[] }
 ) {
-    // Your roles there may come from your place in its workspace.
+    // The caller's roles in the project can come from their role in the project's workspace.
     const workspace = asOwnWorkspace(
         me.workspaces?.find(w => w.id === project.workspaceId),
         me.id

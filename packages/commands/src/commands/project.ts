@@ -1,4 +1,4 @@
-/** Projects, and who and what can reach them: people, invites, keys, channels, webhooks, branches. */
+/** Commands for projects and for what can access them: members, invites, API keys, channels, webhooks and branches. */
 import fs from 'fs';
 import path from 'path';
 import { group, id, project, type ArgSpec } from '../spec.js';
@@ -753,7 +753,7 @@ export const branches = group('branches', [
     }
 ]);
 
-/** Each declaration of a generated types file, by name. */
+/** Splits a generated types file into its exported declarations, keyed by name. */
 function declarations(text: string): Map<string, string> {
     const out = new Map<string, string>();
     const parts = text.split(/^(?=export )/m);
@@ -764,7 +764,7 @@ function declarations(text: string): Map<string, string> {
     return out;
 }
 
-/** What changed between the types on file and the project's: `+ Added`, `- Removed`, `~ Changed`. */
+/** Compares the types on file with the project's current types. Each line is prefixed with `+` for added, `-` for removed or `~` for changed. */
 export function typesDiff(onFile: string, current: string): string[] {
     const before = declarations(onFile);
     const after = declarations(current);
@@ -777,7 +777,7 @@ export function typesDiff(onFile: string, current: string): string[] {
     return lines;
 }
 
-/** The content as TypeScript types: `moteur types --out src/moteur.ts`. */
+/** Generates TypeScript types for the project's content, as in `moteur types --out src/moteur.ts`. */
 export const types = group('types', [
     {
         name: '',
@@ -807,7 +807,7 @@ export const types = group('types', [
         ],
         run: async ctx => {
             const client = await ctx.client();
-            // With a project key: its channel's types, unless another is named.
+            // With a project key, use the key's channel unless --channel names another.
             let channel = ctx.args.channel ? String(ctx.args.channel) : undefined;
             if (!channel && (await onProjectKey())) {
                 const key = await client.get<{ channel?: string; channels: string[] }>('/keys/me');
@@ -829,11 +829,11 @@ export const types = group('types', [
             if (ctx.args.check && !out) throw new Error('--check needs --out: the file to check.');
             if (!out) return text;
             if (!ctx.local) throw new Error('Files can’t be written here: leave out out.');
-            // The header says how to make the file again: with this file.
+            // Put the actual --out path in the file's header, so the header shows the command that regenerates it.
             const again = `--out ${/\s/.test(out) ? JSON.stringify(out) : out}`;
             const written = text.replace('--out <file>', again);
             if (ctx.args.check) {
-                // Line endings are the checkout's (git may turn LF into CRLF), not a difference.
+                // Ignore line-ending differences, because git may convert LF to CRLF on checkout.
                 const lf = (s: string) => s.replace(/\r\n/g, '\n');
                 const onFile = fs.existsSync(out) ? lf(fs.readFileSync(out, 'utf8')) : '';
                 if (onFile === lf(written)) return `${out} is up to date.`;
@@ -859,7 +859,7 @@ export const types = group('types', [
 
 const importArg: ArgSpec = { ...id('Import'), positional: 0 };
 
-/** What an import did, in a line. */
+/** Summarizes the result of an import in one line. */
 function importLine(r: unknown): string {
     const job = r as {
         id: string;
@@ -887,7 +887,7 @@ function importLine(r: unknown): string {
     }
 }
 
-/** Bundles: many things saved at once, all or nothing (`moteur imports run site.json`). */
+/** Bundle imports, which save many items at once, all or nothing, as in `moteur imports run site.json`. */
 export const imports = group('imports', [
     {
         name: 'run',
@@ -966,7 +966,7 @@ export const imports = group('imports', [
     }
 ]);
 
-/** The project as a bundle (`moteur export --out site.json`), to import elsewhere. */
+/** Exports the project as a bundle that can be imported elsewhere, as in `moteur export --out site.json`. */
 export const exportBundle = group('export', [
     {
         name: '',

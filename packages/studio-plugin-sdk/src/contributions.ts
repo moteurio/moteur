@@ -2,7 +2,7 @@ import type { PluginContributions } from '@moteurio/types/Plugin.js';
 import { mergeContributions } from '@moteurio/types/Plugin.js';
 import type { StudioPluginManifest } from './manifest.js';
 
-/** Records what a Studio companion registers during `register()`. */
+/** Collects what a Studio plugin registers during its `register()` call. */
 export class StudioContributionCollector {
     private fieldEditors: string[] = [];
     private blockPreviews: string[] = [];

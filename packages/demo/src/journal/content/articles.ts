@@ -6,7 +6,7 @@ import { issueArticles } from './articles-issues.js';
 import { specialArticles, webArticles } from './articles-web.js';
 import { ISSUES } from './issues.js';
 
-/** What the original thirteen articles gain beyond their text: covers, tags, history. */
+/** The data of the thirteen archive articles beyond their text: covers, tags and history. */
 const ARCHIVE_EXTRAS: Record<
     string,
     { data?: Record<string, unknown>; entry?: Omit<SourceEntry, 'id' | 'data'> }

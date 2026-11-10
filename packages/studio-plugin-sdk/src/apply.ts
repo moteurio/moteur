@@ -7,7 +7,7 @@ export function defineStudioPlugin(plugin: StudioPluginModule): StudioPluginModu
     return plugin;
 }
 
-/** Register every built-in Studio plugin module against the host adapter. */
+/** Registers every given Studio plugin module with the host adapter and records the contributions each one makes. */
 export function applyStudioPlugins(modules: StudioPluginModule[], host: StudioHostAdapter): void {
     for (const mod of modules) {
         const collector = new StudioContributionCollector();

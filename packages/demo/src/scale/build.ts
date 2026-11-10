@@ -7,11 +7,11 @@ import { dast } from '../runtime/dast.js';
 import { createProjectFor, ensurePersonas, installSchemas, type Log } from '../runtime/project.js';
 
 /**
- * A bulk project for performance work: `count` published articles in one model, a fifth of
- * them edited after publishing (so their public version lives in an older commit).
+ * Builds a bulk project for performance work. It has `count` published articles in one model, and a
+ * fifth of them are edited after publishing, so their public version is in an older commit.
  *
- * Entries are written straight to disk in two commits rather than through the entry service:
- * the point is volume, not history.
+ * Entries are written directly to disk in two commits instead of through the entry service,
+ * because the goal is volume and not history.
  */
 export const SCALE_ID = 'scale';
 

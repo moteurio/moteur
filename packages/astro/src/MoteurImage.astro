@@ -1,22 +1,23 @@
 ---
 /**
- * A Moteur picture at every size the page may need, with nothing to compute:
+ * Renders a Moteur image as a responsive `<picture>` with every size the page may need. No sizes
+ * have to be computed by the caller.
  *
  *     import MoteurImage from '@moteurio/astro/MoteurImage.astro';
  *     <MoteurImage image={page.fields.cover} sizes="(min-width: 60rem) 50vw, 100vw" />
  *
- * Writes a `<picture>`: AVIF first, then WebP in the `<img>`, each with a `srcset` (never wider
- * than the original). The field's crop is kept, and the focal point is the `object-position`,
- * so CSS `object-fit: cover` crops around it too. `alt` is the field's text, else the asset's,
- * in the page's language; empty when there is none.
+ * The `<picture>` lists AVIF first and uses WebP in the `<img>`, each with a `srcset` that is never
+ * wider than the original. The field's crop is kept, and the focal point is set as the
+ * `object-position`, so CSS `object-fit: cover` also crops around it. `alt` is the field's text,
+ * or the asset's text if the field has none, in the page's language. It is empty when neither exists.
  *
- * Where the files come from (`from`):
- * - `site`, the default on pages built ahead: the build downloads each picture once (with its
- *   crop) and Astro writes every size into the site. Visitors never reach Moteur, and the next
- *   build reuses Astro's cache. Needs the `moteur()` integration, or Moteur's host in
- *   `image.domains`; without it, the picture comes from Moteur and the build says so.
- * - `moteur`, the default on pages rendered on request (like `/preview`): every size is
- *   Moteur's, made on its first request and cached for good.
+ * The `from` option sets where the files come from:
+ * - `site` is the default for pages that are built ahead of time. The build downloads each
+ *   picture once, with its crop, and Astro writes every size into the site. Visitors never contact
+ *   Moteur, and the next build reuses Astro's cache. This requires the `moteur()` integration or
+ *   Moteur's host in `image.domains`. Without either, the picture is served by Moteur and the build logs a warning.
+ * - `moteur` is the default for pages rendered on request, such as `/preview`. Moteur generates
+ *   each size on its first request and caches it permanently.
  */
 import type { HTMLAttributes } from 'astro/types';
 import { getImage } from 'astro:assets';
@@ -33,21 +34,21 @@ import {
 import { originalOf, warnNotAllowed } from '@moteurio/astro/integration';
 
 interface Props extends Omit<HTMLAttributes<'img'>, 'src' | 'srcset' | 'width' | 'height'> {
-  /** A media field's value (read with `resolveAssets`, as the loaders do), or an asset. */
+  /** A media field's value, read with `resolveAssets` as the loaders do, or an asset. */
   image: ImageSource;
-  /** How wide the picture shows, as in `<img sizes>` (default `100vw`). */
+  /** The width at which the picture is displayed, as in `<img sizes>`. Defaults to `100vw`. */
   sizes?: string;
-  /** Crop to this shape, around the focal point (default: the field's own crop, if any). */
+  /** Crops the picture to this aspect ratio around the focal point. Defaults to the field's own crop, if it has one. */
   ratio?: ImageRatio;
-  /** The widths to offer (default: every width the server makes). */
+  /** The widths to offer. Defaults to every width the server generates. */
   widths?: readonly number[];
-  /** Formats from best to most supported; the last one is the `<img>` (default avif, webp). */
+  /** The formats in order from best to most widely supported. The last one is used for the `<img>`. Defaults to avif and webp. */
   formats?: ImageFormat[];
-  /** The picture the page opens on: loaded first, not lazily. */
+  /** Marks the image the page shows first, so it is loaded immediately instead of lazily. */
   priority?: boolean;
-  /** The language of `alt` when it has several (default: the page's, `Astro.currentLocale`). */
+  /** The language of `alt` when the text exists in several languages. Defaults to the page's language, `Astro.currentLocale`. */
   locale?: string;
-  /** Where the files come from: written into the site at build, or Moteur's (see above). */
+  /** Where the files come from: written into the site at build time, or served by Moteur (see above). */
   from?: 'site' | 'moteur';
 }
 
@@ -81,8 +82,8 @@ let sources = formats.slice(0, -1).map((format) => ({
 }));
 
 if (from === 'site' && img.src && img.width && img.height) {
-  // One download per picture at full size: the file as uploaded, or Moteur's crop of it,
-  // lossless, so the build's encoding is the only one.
+  // Download each picture once at full size, either as uploaded or as Moteur's crop of it.
+  // The download is lossless, so the build's encoding is the only lossy step.
   const { width, height } = img;
   const original =
     ratio || (image as { cropUrl?: string }).cropUrl
@@ -103,7 +104,7 @@ if (from === 'site' && img.src && img.width && img.height) {
         ),
       )
     : [];
-  // Astro hands back the address unchanged when its host isn't allowed: Moteur's sizes, then.
+  // Astro returns the URL unchanged when the host is not allowed, so fall back to Moteur's own sizes.
   if (built.length && built[0].src !== original) {
     const last = built[built.length - 1];
     img.src = last.src;

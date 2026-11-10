@@ -1,11 +1,11 @@
 /**
- * Documents for the demo's media library, generated without external tools. (The library
- * accepts images, mp4/mov video and PDF/DOCX documents; audio and SVG uploads aren't allowed.)
+ * Generates the documents for the demo's media library without external tools. The library accepts
+ * images, mp4 and mov video, and PDF and DOCX documents. It does not accept audio or SVG uploads.
  */
 
 /**
- * A small, valid PDF with text pages (Helvetica, WinAnsi encoding, so French accents work).
- * Each page is a title plus paragraphs, wrapped at ~90 characters.
+ * Builds a small, valid PDF with text pages. It uses Helvetica with WinAnsi encoding so that
+ * French accents render. Each page is a title followed by paragraphs wrapped at about 90 characters.
  */
 export function pdf(pages: Array<{ title: string; paragraphs: string[] }>): Buffer {
     const objects: string[] = [];

@@ -12,7 +12,7 @@ function calVerUtc(d = new Date()) {
     return `${y}.${m}.${day}`;
 }
 
-/** npm semver same-day republish: `2026.3.28-2`, not `2026.3.28.2` (see VERSIONING.md). */
+/** Converts a same-day republish version to a valid semver prerelease: `2026.3.28.2` becomes `2026.3.28-2` (see VERSIONING.md). */
 function normalizeReleaseVersion(input) {
     const micro = /^(\d{4}\.\d{1,2}\.\d{1,2})\.(\d+)$/.exec(input);
     if (micro) return `${micro[1]}-${micro[2]}`;

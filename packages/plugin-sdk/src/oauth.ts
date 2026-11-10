@@ -2,13 +2,13 @@ import { createHash, createHmac, randomBytes, timingSafeEqual } from 'crypto';
 import { URL, URLSearchParams } from 'url';
 
 /**
- * The round trip of an OAuth sign-in, shared by auth provider plugins:
- * `beginOAuth` before sending someone to the provider, `completeOAuth` when they come back,
- * then `redirectAfterLogin` (or `redirectLoginFailed`) to the app in `AUTH_REDIRECT_AFTER_LOGIN`.
+ * The OAuth sign-in flow shared by auth provider plugins. Call `beginOAuth` before redirecting the
+ * user to the provider and `completeOAuth` when the user returns. Then call `redirectAfterLogin`,
+ * or `redirectLoginFailed` on failure, to send the user to the app set in `AUTH_REDIRECT_AFTER_LOGIN`.
  *
  * `state` is signed with a key derived from `JWT_SECRET` and tied to a short-lived cookie, so a
- * callback only completes in the browser that started it. The token travels in the URL fragment,
- * which browsers never send to servers or in a Referer.
+ * callback only completes in the browser that started the flow. The token is passed in the URL
+ * fragment, which browsers do not send to servers or include in a Referer header.
  */
 
 type OAuthRequest = {
@@ -75,9 +75,10 @@ function httpUrl(value: string): URL | null {
 }
 
 /**
- * A provider's settings from `AUTH_<PROVIDER>_CLIENT_ID`, `_CLIENT_SECRET` and `_REDIRECT_URI`, or why
- * it can't be offered: `off` when turned off with `AUTH_<PROVIDER>_ENABLED=false` or left unset,
- * otherwise what is wrong with the settings.
+ * Reads a provider's settings from `AUTH_<PROVIDER>_CLIENT_ID`, `_CLIENT_SECRET` and
+ * `_REDIRECT_URI`. If the provider cannot be offered, it returns the reason instead: `off` when the
+ * provider is disabled with `AUTH_<PROVIDER>_ENABLED=false` or is not configured at all, and
+ * otherwise a description of what is wrong with the settings.
  */
 export function readOAuthConfig(
     provider: string
@@ -120,7 +121,7 @@ export function readOAuthConfig(
 
 const warned = new Set<string>();
 
-/** The provider's settings when it can be offered, else null; a misconfiguration is logged once. */
+/** Returns the provider's settings when it can be offered, otherwise null. A misconfiguration is logged once. */
 export function oauthConfig(provider: string): OAuthConfig | null {
     const read = readOAuthConfig(provider);
     if ('config' in read) return read.config;
@@ -131,14 +132,14 @@ export function oauthConfig(provider: string): OAuthConfig | null {
     return null;
 }
 
-/** A path inside the app to land on after signing in; anything else (other sites, `//host`) is dropped. */
+/** Returns the given path if it is a path inside the app to go to after signing in. Anything else, such as another site or `//host`, is replaced with an empty string. */
 export function safeNext(next: unknown): string {
     if (typeof next !== 'string' || next.length > 2048) return '';
     if (!next.startsWith('/') || next.startsWith('//') || next.includes('\\')) return '';
     return next;
 }
 
-/** Before redirecting to the provider: the `state` to send, with `?next=` from the request kept inside. */
+/** Starts the flow before redirecting to the provider. It returns the `state` to send, which contains the request's `?next=` value. */
 export function beginOAuth(req: OAuthRequest, res: OAuthResponse, provider: string): string {
     const nonce = randomBytes(18).toString('base64url');
     const body = Buffer.from(
@@ -155,21 +156,21 @@ export function beginOAuth(req: OAuthRequest, res: OAuthResponse, provider: stri
 }
 
 /**
- * PKCE: the verifier is a keyed hash of the browser's nonce, so it never travels in a URL, and a
- * code taken from one sign-in can't be redeemed in another browser's.
+ * Derives the PKCE code verifier. The verifier is a keyed hash of the browser's nonce, so it never
+ * appears in a URL, and an authorization code taken from one sign-in cannot be redeemed from another browser.
  */
 function verifierFor(nonce: string): string {
     return createHmac('sha256', stateKey()).update(`pkce:${nonce}`).digest('base64url');
 }
 
-/** The `code_challenge` (method S256) to send with this `state` to the provider. */
+/** Returns the PKCE `code_challenge` (method S256) to send to the provider along with this `state`. */
 export function oauthChallenge(state: string): string {
     const body = state.split('.')[0] ?? '';
     const { n } = JSON.parse(Buffer.from(body, 'base64url').toString('utf8')) as { n: string };
     return createHash('sha256').update(verifierFor(n)).digest('base64url');
 }
 
-/** On the callback: where to go next, or null when `state` is missing, forged, stale or from another browser. */
+/** Handles the callback. It returns where to go next, or null when `state` is missing, forged, expired or belongs to another browser. */
 export function completeOAuth(
     req: OAuthRequest,
     res: OAuthResponse,
@@ -197,7 +198,7 @@ export function completeOAuth(
     return {
         next: safeNext(payload.next),
         ...(payload.link === true ? { link: true as const } : {}),
-        // The `code_verifier` for the token request.
+        // The `code_verifier` to send in the token request.
         verifier: verifierFor(nonce)
     };
 }
@@ -210,12 +211,12 @@ function appUrl(params: Record<string, string>): string {
     return `${base.split('#')[0]}#${query.toString()}`;
 }
 
-/** Back to the app, signed in: `#token=…&next=…`. */
+/** Redirects to the app with the session token in the URL fragment: `#token=…&next=…`. */
 export function redirectAfterLogin(res: OAuthResponse, token: string, next = ''): void {
     res.redirect(appUrl({ token, next }));
 }
 
-/** Keep pending identity proofs bound to the browser that completed OAuth. */
+/** Redirects to the app after a provider sign-in. A pending identity proof is bound to the browser that completed OAuth through a cookie. */
 export function redirectProviderSignIn(
     req: OAuthRequest,
     res: OAuthResponse,
@@ -226,7 +227,7 @@ export function redirectProviderSignIn(
     next = ''
 ): void {
     if ('token' in result) return redirectAfterLogin(res, result.token, next);
-    // Two-step sign-in: the app asks for a code, then trades it with the ticket for a session.
+    // With two-step sign-in, the app asks for a code and then exchanges it, together with the ticket, for a session.
     if ('twoFactor' in result)
         return void res.redirect(appUrl({ two_factor: result.twoFactor.ticket, next }));
     const secure = isHttps(req);
@@ -238,7 +239,7 @@ export function redirectProviderSignIn(
     res.redirect(appUrl({ provider_ticket: result.pending.ticket, next }));
 }
 
-/** Back to the app with why it didn't work: `#error=…`. */
+/** Redirects to the app with the failure reason in the URL fragment: `#error=…`. */
 export function redirectLoginFailed(res: OAuthResponse, error: OAuthFailure): void {
     res.redirect(appUrl({ error }));
 }
@@ -250,7 +251,7 @@ export type OidcDiscovery = {
     issuer?: string;
 };
 
-/** Load OIDC metadata from `{issuer}/.well-known/openid-configuration`. */
+/** Loads the OIDC metadata from `{issuer}/.well-known/openid-configuration`. */
 export async function discoverOidcIssuer(issuer: string): Promise<OidcDiscovery> {
     const base = issuer.replace(/\/$/, '');
     const res = await fetch(`${base}/.well-known/openid-configuration`);
@@ -282,12 +283,12 @@ export async function discoverOidcIssuer(issuer: string): Promise<OidcDiscovery>
     };
 }
 
-/** Authorization-code grant at an OIDC/OAuth2 token endpoint. */
+/** Exchanges an authorization code for tokens at an OIDC or OAuth2 token endpoint. */
 export async function exchangeAuthorizationCode(
     tokenUrl: string,
     config: OAuthConfig,
     code: string,
-    /** `completeOAuth`'s verifier, when the sign-in sent `oauthChallenge(state)`. */
+    /** The verifier returned by `completeOAuth`, to include when the sign-in sent `oauthChallenge(state)`. */
     verifier?: string
 ): Promise<{ access_token: string; id_token?: string }> {
     const body = new URLSearchParams({
@@ -318,7 +319,7 @@ export async function exchangeAuthorizationCode(
     };
 }
 
-/** Userinfo GET with bearer token (OIDC). */
+/** Fetches the OIDC userinfo with a bearer token. */
 export async function fetchOidcUserInfo(
     userInfoUrl: string,
     accessToken: string
@@ -330,7 +331,7 @@ export async function fetchOidcUserInfo(
     return (await res.json()) as Record<string, unknown>;
 }
 
-/** Parse JWT payload without signature verification (use only after token endpoint trust). */
+/** Parses a JWT payload without verifying its signature. Use it only on a token received directly from the provider's token endpoint. */
 export function parseJwtPayload(idToken: string): Record<string, unknown> | null {
     const parts = idToken.split('.');
     if (parts.length < 2) return null;
@@ -344,7 +345,7 @@ export function parseJwtPayload(idToken: string): Record<string, unknown> | null
     }
 }
 
-/** Only an explicit verified-email claim proves ownership; usernames are not emails. */
+/** Returns the email only when the claims mark it as verified, because only an explicit verified-email claim proves ownership. Usernames are not treated as emails. */
 export function emailFromOidcClaims(claims: Record<string, unknown>): string | null {
     const email = claims.email;
     if (typeof email === 'string' && email.trim()) {

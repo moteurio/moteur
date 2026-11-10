@@ -450,7 +450,7 @@ function submissions(): Array<{
     return out;
 }
 
-/** Pages, navigation, forms and submissions, layout, channels and webhooks. */
+/** Creates the pages, navigation, forms, form submissions, layouts, channels and webhooks. */
 export async function buildSite(timeline: Timeline, ctx: SiteContext): Promise<void> {
     const pageIds = new Map<string, string>();
     const templateFields = new Map(templates.map(tp => [tp.id, tp.fields]));
@@ -576,7 +576,7 @@ export async function buildSite(timeline: Timeline, ctx: SiteContext): Promise<v
 
     timeline.at(127, 'channels', async () => {
         const { createChannel, listChannels } = await import('@moteurio/core/channels.js');
-        // A new project already has its "site" channel: look for the Journal's own.
+        // A new project already has a "site" channel, so check whether the Journal's own channel exists.
         if ((await listChannels(JOURNAL_ID)).some(c => c.id === 'public')) return;
         await createChannel(JOURNAL_ID, user(team.theo.id), {
             id: 'public',
@@ -606,7 +606,7 @@ export async function buildSite(timeline: Timeline, ctx: SiteContext): Promise<v
         } as never);
     });
 
-    // Webhooks last: once they exist, every change would try to deliver.
+    // Create webhooks last, because once they exist every change would try to deliver to them.
     timeline.atPresent(async () => {
         const { createWebhook, updateWebhook } =
             await import('@moteurio/core/webhooks/webhookService.js');

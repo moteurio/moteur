@@ -3,7 +3,7 @@ import { t } from '../../runtime/fields.js';
 import { who } from '../team.js';
 import { isoInDays } from '../../runtime/clock.js';
 
-/** Press releases, job openings, FAQ and site settings. */
+/** Press releases, job openings, the FAQ and the site settings. */
 
 const release = (
     id: string,

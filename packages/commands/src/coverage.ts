@@ -1,10 +1,10 @@
 /**
- * Which API operations have a command. The OpenAPI document is the list of everything the engine
- * (and its plugins) can do; every operation needs a command, or a reason in SKIPPED.
+ * Checks which API operations have a command. The OpenAPI document lists everything the engine and
+ * its plugins can do. Every operation needs a command or an entry in SKIPPED that explains why it has none.
  */
 import type { CommandSpec } from './spec.js';
 
-/** Operations without a command on purpose, with why. Same `METHOD /path` form as `http`. */
+/** Operations that intentionally have no command, with the reason. Keys use the same `METHOD /path` form as `http`. */
 export const SKIPPED: Record<string, string> = {
     'POST /operator/auth/login': 'moteur operator login (prompts, keeps the operator session)',
     'GET /operator/auth/enroll/{token}': 'an operator’s one-time link, opened in the Studio',
@@ -72,13 +72,13 @@ export const SKIPPED: Record<string, string> = {
         'what a frontend reads through a channel (moteur api)'
 };
 
-/** `/projects/{projectId}/models/{modelId}` and `/projects/{project}/models/{model}` alike. */
+/** Normalizes an operation so that parameter names do not matter. `/projects/{projectId}/models/{modelId}` and `/projects/{project}/models/{model}` produce the same result. */
 export const normalize = (op: string): string => {
     const [method, path] = op.split(' ');
     return `${method.toUpperCase()} ${path.replace(/\{[^}]+\}/g, '{x}').replace(/\/+$/, '')}`;
 };
 
-/** The operations a command covers: its `covers`, else its `http`. */
+/** Returns the operations a command covers, taken from `covers` or else from `http`. */
 export function operationsOf(command: CommandSpec): string[] {
     return (command.covers ?? (command.http ? [command.http] : [])).map(normalize);
 }
@@ -88,14 +88,14 @@ export interface Coverage {
     covered: string[];
     skipped: string[];
     missing: string[];
-    /** Commands calling something the document doesn't list (typos, removed routes). */
+    /** Commands that call an operation the document does not list, for example because of a typo or a removed route. */
     unknown: { command: string; op: string }[];
 }
 
 export type OpenApi = { paths?: Record<string, object | undefined> };
 const METHODS = ['get', 'post', 'put', 'patch', 'delete'];
 
-/** Every operation a document lists, normalized. */
+/** Lists every operation in a document, normalized. */
 const operations = (doc: OpenApi): string[] =>
     Object.entries(doc.paths ?? {}).flatMap(([path, item]) =>
         Object.keys(item ?? {})
@@ -122,8 +122,8 @@ export function coverage(commands: CommandSpec[], doc: OpenApi): Coverage {
 }
 
 /**
- * The commands a server can run: those whose calls its OpenAPI document lists (plugin routes
- * included). Commands that make no call (local settings) always stay.
+ * Returns the commands a server can run, which are those whose calls appear in its OpenAPI
+ * document, including plugin routes. Commands that make no API call, such as local settings, are always kept.
  */
 export function available(commands: CommandSpec[], doc: OpenApi): CommandSpec[] {
     const known = new Set(operations(doc));

@@ -1,8 +1,8 @@
 import type { Field } from '@moteurio/types/Field.js';
 
 /**
- * Field definition helpers, so schemas read as a list of fields instead of nested JSON.
- * Common flags go in `options`, like the Studio writes them.
+ * Field definition helpers, so that schemas read as a list of fields instead of nested JSON.
+ * Common flags go in `options`, as in a stored field definition.
  */
 type Common = {
     required?: boolean;
@@ -44,7 +44,7 @@ export const f = {
     icon: (label: string, o?: Common) => field('core/icon', label, o),
     id: (label: string, o?: Common) => field('core/id', label, o),
     json: (label: string, o?: Common) => field('core/json', label, o),
-    // core/tags requires a "source"; free-form tags have none, so name it.
+    // core/tags requires a "source". Free-form tags have no source list, so set it to 'free'.
     tags: (label: string, o?: Common) => field('core/tags', label, { source: 'free', ...o }),
     order: (label = 'Order', o?: Common) => field('core/order', label, o),
     status: (label: string, o?: Common) => field('core/status', label, o),
@@ -78,6 +78,6 @@ export const f = {
     geoArea: (label: string, o?: Common) => field('geo/area', label, o)
 };
 
-/** `{ fr, en }` shorthand for multilingual values in the sources. */
+/** A shorthand for multilingual values in the sources: `{ fr, en }`. */
 export const t = (fr: string, en?: string): Record<string, string> =>
     en === undefined ? { fr } : { fr, en };

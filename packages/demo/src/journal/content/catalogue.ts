@@ -3,7 +3,7 @@ import { t } from '../../runtime/fields.js';
 import { who } from '../team.js';
 import type { PaletteName } from '../../art/svg.js';
 
-/** Product lines (series) and the robots in them. */
+/** The product lines (series) and the robots in each one. */
 
 export type SeriesInfo = {
     id: string;
@@ -107,7 +107,7 @@ export const series: SourceEntry[] = SERIES.map((s, i) => ({
     id: s.id,
     daysAgo: 128,
     by: who('theo'),
-    // SIGNAL is announced but its page is still with the reviewer.
+    // SIGNAL is announced, but its page is still waiting for the reviewer.
     state: s.id === 'signal' ? 'in-review' : 'published',
     data: {
         number: s.number,
@@ -244,7 +244,7 @@ const robot = (r: RobotSrc, order: number): SourceEntry => ({
                 value: t(vfr, ven)
             }))
         }),
-        // core/table is stored wrapped ({ value: … }), unlike most fields.
+        // Unlike most fields, core/table is stored wrapped in an object: { value: … }.
         ...(r.measurements && {
             measurements: {
                 value: { columnTitles: r.measurements[0], rows: r.measurements.slice(1) }

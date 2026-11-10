@@ -32,7 +32,7 @@ export function getConfigPath(): string {
     return CONFIG_FILE;
 }
 
-/** True when credentials come from MOTEUR_TOKEN (a session handed in by the host). Config must not be read/written. */
+/** True when the credentials come from MOTEUR_TOKEN, a session supplied by the host. In that case the config file must not be read or written. */
 export async function isWebSessionMode(): Promise<boolean> {
     try {
         const creds = await resolveCredentials();
@@ -52,7 +52,7 @@ export async function loadConfig(): Promise<CliConfig> {
     };
 }
 
-/** Whether commands run with a project key (MOTEUR_API_KEY) rather than a sign-in. */
+/** True when commands run with a project key (MOTEUR_API_KEY) instead of a user sign-in. */
 export async function onProjectKey(): Promise<boolean> {
     const config = await loadConfig();
     return !config.token && Boolean(config.apiKey);
@@ -81,9 +81,9 @@ export async function clearConfig(): Promise<void> {
 
 const defaultBaseUrl = 'http://localhost:3000';
 
-// ---- the operator session --------------------------------------------------------------------
+// ---- Operator session ------------------------------------------------------------------------
 
-/** An operator's session (`moteur operator login`): apart from the person's, an hour long. */
+/** An operator's session from `moteur operator login`. It is stored separately from the user's session and lasts one hour. */
 export interface OperatorSessionFile {
     apiUrl: string;
     token: string;
@@ -117,12 +117,12 @@ export function saveOperatorSession(session: OperatorSessionFile | null): void {
         return;
     }
     ensureConfigDir();
-    // Only you may read it: it runs the whole server for an hour.
+    // Restrict the file to the current user, because the token grants operator access to the whole server for an hour.
     fs.writeFileSync(OPERATOR_FILE, JSON.stringify(session, null, 2), { mode: 0o600 });
     fs.chmodSync(OPERATOR_FILE, 0o600);
 }
 
-/** The client for operator commands, signed in as the operator. */
+/** Returns the API client for operator commands, authenticated with the operator session. */
 export async function getOperatorClientOrThrow(): Promise<MoteurAdminClient> {
     const session = readOperatorSession();
     if (!session) {
@@ -162,7 +162,7 @@ export async function getClientOrThrow(): Promise<MoteurAdminClient> {
     return getClient();
 }
 
-/** Resolve project ID: --project/--projectId → .moteur.json → config. */
+/** Resolves the project id from --project or --projectId, then .moteur.json, then the config file. */
 export async function getProjectId(args?: {
     project?: string;
     projectId?: string;

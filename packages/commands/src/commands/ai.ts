@@ -1,4 +1,4 @@
-/** AI help: optional, on request, and nothing is saved without a person (`--json` for scripts). */
+/** AI assistance commands. AI is optional and runs only on request, and nothing it produces is saved without a person's approval. `--json` is available for scripts. */
 import { group, id, project, type ArgSpec } from '../spec.js';
 
 const WRITING = [

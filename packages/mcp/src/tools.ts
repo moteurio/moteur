@@ -1,28 +1,28 @@
 /**
- * Declared commands as MCP tools: a name, a JSON schema from the arguments, and annotations from
- * what the command says about itself (reads only, can't be undone).
+ * Converts declared commands to MCP tools. Each tool has a name, a JSON schema built from the
+ * command's arguments, and annotations taken from the command's own flags, such as read-only or destructive.
  */
 import type { ArgSpec, CommandSpec } from '@moteurio/commands';
 
-/** Groups left out unless asked for: the server's operators, payments, and raw calls. */
+/** Groups that are left out unless requested: billing and raw API calls. */
 export const OPT_IN_GROUPS = ['billing', 'api'];
 
-/** Commands about this machine's sign-in or defaults, or handing out tokens: never tools. */
+/** Commands that change this machine's sign-in or defaults or hand out tokens. They are never offered as tools. */
 const LOCAL_ONLY = new Set(['projects use', 'auth refresh', 'auth agent-token']);
 
 export interface Selection {
-    /** Only these groups (default: all but OPT_IN_GROUPS). */
+    /** Restricts the tools to these groups. Defaults to all groups except OPT_IN_GROUPS. */
     groups?: string[];
-    /** Reading tools only. */
+    /** Offers only read-only tools. */
     readOnly?: boolean;
-    /** Include tools whose changes can't be undone (deleting, purging, merging…). */
+    /** Includes tools whose changes cannot be undone, such as deleting, purging or merging. */
     allowDestructive?: boolean;
 }
 
 export function selectCommands(all: CommandSpec[], s: Selection = {}): CommandSpec[] {
     return all.filter(c => {
         if (LOCAL_ONLY.has(`${c.group} ${c.name}`)) return false;
-        // Running the whole server takes an operator's own sign-in: never an agent's tool.
+        // Operator commands need the operator's own sign-in, so they are never offered to an agent.
         if (c.operator || c.group === 'operator') return false;
         if (s.groups ? !s.groups.includes(c.group) : OPT_IN_GROUPS.includes(c.group)) return false;
         if (s.readOnly && !c.readOnly) return false;
@@ -32,15 +32,16 @@ export function selectCommands(all: CommandSpec[], s: Selection = {}): CommandSp
 }
 
 /**
- * The command as a hosted server offers it: without arguments naming paths on the machine that
- * runs it (the server's disk is not the caller's). Asking for one is then an unknown option.
+ * Returns the command as a hosted server offers it, without the arguments that name paths on the
+ * machine running the server, because the server's disk is not the caller's. Passing such an
+ * argument is then reported as an unknown option.
  */
 export function withoutLocalArgs(c: CommandSpec): CommandSpec {
     if (!c.args?.some(a => a.local)) return c;
     return { ...c, args: c.args.filter(a => !a.local) };
 }
 
-/** `entries list` → `entries_list`; `media-settings get` → `media_settings_get`; `status` → `status`. */
+/** Builds the tool name from a command, for example `entries list` becomes `entries_list`, `media-settings get` becomes `media_settings_get` and `status` stays `status`. */
 export function toolName(c: CommandSpec): string {
     const name = c.name ? `${c.group}_${c.name}` : c.group === 'api' ? 'api_request' : c.group;
     return name.replace(/[^a-zA-Z0-9_]/g, '_');
@@ -65,7 +66,7 @@ function propertyOf(a: ArgSpec): JsonSchema {
     }
 }
 
-/** The tool's input: its arguments, plus `body` for commands that take JSON. */
+/** Builds the tool's input schema from the command's arguments, plus `body` for commands that take JSON. */
 export function inputSchema(c: CommandSpec): JsonSchema {
     const properties: Record<string, JsonSchema> = {};
     const required: string[] = [];
@@ -88,7 +89,7 @@ export function inputSchema(c: CommandSpec): JsonSchema {
     };
 }
 
-/** The MCP tool for a command. */
+/** Builds the MCP tool for a command. */
 export function toolOf(c: CommandSpec) {
     const method = c.http?.split(' ')[0];
     return {

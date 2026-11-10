@@ -1,4 +1,4 @@
-/** Getting content out: reviews, schedules, notes, notifications, and what happened. */
+/** Commands for publishing content: reviews, schedules, notes, notifications and the activity log. */
 import { group, id, project, type ArgSpec } from '../spec.js';
 import { localized } from '../format.js';
 
@@ -195,7 +195,7 @@ export const schedules = group('schedules', [
     }
 ]);
 
-/** What a note is about: `article/glace` (an entry), `page/home`, or another kind with --kind. */
+/** The subject of a note: `article/glace` for an entry, `page/home` for a page, or another kind set with --kind. */
 const about: ArgSpec[] = [
     {
         name: 'on',

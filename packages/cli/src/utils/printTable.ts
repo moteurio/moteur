@@ -2,8 +2,8 @@ import chalk from 'chalk';
 import Table from 'cli-table3';
 
 /**
- * Print an array of objects as a table. Used for list commands when not --json and not --quiet.
- * Uses cli-table3 + chalk for simple, fire-and-forget output.
+ * Prints an array of objects as a table. List commands use it when neither --json nor --quiet is
+ * set. It renders with cli-table3 and chalk.
  */
 export function printTable(
     columns: Array<{ key: string; header: string }>,
@@ -19,7 +19,7 @@ export function printTable(
             return String(v);
         })
     );
-    // No colour codes for NO_COLOR, --plain, or output that isn't a terminal.
+    // Skip colour codes when NO_COLOR or --plain is set, or when the output is not a terminal.
     const table = new Table({
         head: headerRow,
         ...(chalk.level === 0 ? { style: { head: [], border: [] } } : {})

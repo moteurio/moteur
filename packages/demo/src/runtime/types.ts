@@ -1,14 +1,14 @@
-/** Someone who works on a demo project. Becomes a user (and a git author). */
+/** A person who works on a demo project. Each persona becomes a user and a git author. */
 export type Persona = {
     id: string;
     name: string;
     email: string;
-    /** Platform roles: 'admin' and 'lead' publish without review, 'reviewer' approves, none = editor. */
+    /** Platform roles. 'admin' and 'lead' publish without review, 'reviewer' approves, and no role means editor. */
     roles: string[];
 };
 
 /**
- * Where an entry ends up after the build:
+ * The state an entry is in after the build:
  * - draft: created, never published
  * - published: live, no pending changes
  * - edited: live, with edits made after publishing (the public API serves the older version)
@@ -34,11 +34,11 @@ export type EntryState =
 export type SourceComment = {
     by: string;
     body: string;
-    /** Field the comment is attached to (dot path), e.g. "title" or "body". */
+    /** The field the comment is attached to, as a dot path such as "title" or "body". */
     field?: string;
     daysAgo?: number;
     replies?: Array<{ by: string; body: string }>;
-    /** Resolved by this persona. */
+    /** The persona who resolved the comment. */
     resolvedBy?: string;
 };
 
@@ -47,15 +47,15 @@ export type SourceEntry = {
     id: string;
     data: Record<string, unknown>;
     state?: EntryState;
-    /** Persona who creates (and edits) the entry. Defaults to the project's lead editor. */
+    /** The persona who creates and edits the entry. Defaults to the project's lead editor. */
     by?: string;
-    /** When it was created, in days before the build. */
+    /** When the entry was created, in days before the build. */
     daysAgo?: number;
-    /** Changes made after publishing (for edited / in-review / rejected / approved). */
+    /** The changes made after publishing, for the edited, in-review, rejected and approved states. */
     edits?: Array<{ by?: string; daysAgo?: number; data: Record<string, unknown> }>;
-    /** Who reviews (in-review / rejected / approved) and, for rejected, why. */
+    /** Who reviews the entry, for the in-review, rejected and approved states, and the reason when it is rejected. */
     review?: { reviewer?: string; note?: string };
     comments?: SourceComment[];
-    /** For scheduled states: days from now. */
+    /** For the scheduled states, the number of days from now. */
     scheduleInDays?: number;
 };

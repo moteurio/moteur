@@ -1,5 +1,5 @@
 /* global FormData, Blob */
-/** The media library and where its files live. */
+/** Commands for the media library and its storage. */
 import fs from 'fs';
 import path from 'path';
 import { group, id, project, type ArgSpec, type RunContext } from '../spec.js';
@@ -30,7 +30,7 @@ const TYPES: Record<string, string> = {
 const typeOf = (name: string) =>
     TYPES[path.extname(name).slice(1).toLowerCase()] ?? 'application/octet-stream';
 
-/** A file as a multipart form, with optional fields. */
+/** Builds a multipart form from file bytes and optional extra fields. */
 function formOf(bytes: Buffer, name: string, fields: Record<string, unknown>): FormData {
     const form = new FormData();
     form.append('file', new Blob([new Uint8Array(bytes)], { type: typeOf(name) }), name);
@@ -39,14 +39,14 @@ function formOf(bytes: Buffer, name: string, fields: Record<string, unknown>): F
     return form;
 }
 
-/** A file from this machine's disk. Never on a hosted server: its disk isn't the caller's. */
+/** Builds a multipart form from a file on this machine's disk. It is refused on a hosted server, because the server's disk is not the caller's. */
 function fileForm(ctx: RunContext, file: string, fields: Record<string, unknown> = {}): FormData {
     if (!ctx.local) throw new Error('Files on disk can’t be read here: give content or url.');
     if (!fs.existsSync(file) || !fs.statSync(file).isFile()) throw new Error(`No file at ${file}`);
     return formOf(fs.readFileSync(file), path.basename(file), fields);
 }
 
-/** A file given inline, in base64 (a `data:` URL works too). */
+/** Builds a multipart form from inline base64 content. A `data:` URL is also accepted. */
 function contentForm(
     content: string,
     name: string | undefined,
@@ -58,7 +58,7 @@ function contentForm(
     return formOf(Buffer.from(base64, 'base64'), path.basename(name), fields);
 }
 
-/** Where the new file comes from: this machine, inline content, or a public address. */
+/** The arguments that say where a new file comes from: a path on this machine, inline content, or a public URL. */
 const sourceArgs = (pathArg: ArgSpec): ArgSpec[] => [
     pathArg,
     {
@@ -79,7 +79,7 @@ function oneSource(ctx: RunContext, pathKey: string, keys: string[]): string {
     return given[0]!;
 }
 
-/** `--alt "…"` for one language (--lang) or as a plain text. */
+/** The text arguments of a file. `--alt "…"` applies to the language given by --lang, or is plain text if no language is given. */
 const textArgs: ArgSpec[] = [
     { name: 'alt', description: 'Alt text: what the picture shows', in: 'none' },
     { name: 'title', description: 'Title', in: 'none' },

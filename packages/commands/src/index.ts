@@ -1,6 +1,6 @@
 /**
- * Everything Moteur's API can do, as declared commands: shared by the `moteur` CLI and the MCP
- * server, so both offer the same things, named the same way, checked the same way.
+ * Declares every operation of Moteur's API as a command. The `moteur` CLI and the MCP server share
+ * these declarations, so both offer the same operations with the same names and the same argument checks.
  */
 import { Commands } from './execute.js';
 import type { CommandSpec } from './spec.js';
@@ -68,9 +68,9 @@ export {
 } from './config.js';
 
 /**
- * The routes only operators may call (the API's requireOperator). A command calling one runs with
- * the operator session (`moteur operator login`: password and authenticator code), not the
- * person's, and MCP never offers it.
+ * The routes that only operators may call (the API's requireOperator). A command that calls one
+ * runs with the operator session from `moteur operator login`, which needs a password and an
+ * authenticator code, instead of the user's session. MCP never offers these commands.
  */
 export const OPERATOR_ROUTES: RegExp[] = [
     /^\w+ \/operator\//,
@@ -87,7 +87,7 @@ export const OPERATOR_ROUTES: RegExp[] = [
 const callsOperatorRoute = (c: CommandSpec) =>
     (c.covers ?? (c.http ? [c.http] : [])).some(op => OPERATOR_ROUTES.some(r => r.test(op)));
 
-/** Every API command, in the order help lists them. */
+/** Every API command, in the order that help lists them. */
 export const API_COMMANDS = [
     ...auth,
     ...status,
@@ -133,5 +133,5 @@ export const API_COMMANDS = [
     ...api
 ].map(c => (callsOperatorRoute(c) ? { ...c, operator: true } : c));
 
-/** The API commands as a findable list. */
+/** The API commands as a list that can be looked up by name. */
 export const apiCommands = (): Commands => new Commands().add(API_COMMANDS);

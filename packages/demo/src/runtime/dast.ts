@@ -1,6 +1,6 @@
 /**
- * A small markup for writing rich text in the demo sources, converted to DAST (the stored
- * format of core/rich-text):
+ * A small markup for writing rich text in the demo sources. It is converted to DAST, which is
+ * the stored format of core/rich-text:
  *
  *   ## Heading            (# to ######)
  *   - item / 1. item      bulleted / numbered list
@@ -9,7 +9,7 @@
  *   ---                   thematic break
  *   **strong** *em* __underline__ ~~strike~~ `code` [label](url)
  *
- * Blank lines separate blocks. Anything else is a paragraph.
+ * Blank lines separate blocks, and any other text is a paragraph.
  */
 
 export type DastMark = 'strong' | 'emphasis' | 'underline' | 'strikethrough' | 'code';
@@ -131,12 +131,12 @@ function blocks(source: string): DastBlock[] {
     return out;
 }
 
-/** One DAST document from markup. */
+/** Converts markup to one DAST document. */
 export function dast(source: string): DastDocument {
     return { schema: 'dast', document: { type: 'root', children: blocks(source) } };
 }
 
-/** A multilingual rich-text value: `{ dast: { fr: …, en: … } }`. Locales left out stay missing. */
+/** Builds a multilingual rich-text value: `{ dast: { fr: …, en: … } }`. A locale that is left out stays missing. */
 export function richText(byLocale: Record<string, string | undefined>): {
     dast: Record<string, DastDocument>;
 } {

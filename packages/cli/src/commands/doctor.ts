@@ -14,7 +14,7 @@ export async function doctorChecks(args: Record<string, unknown>): Promise<Check
     const projectId = await getProjectId(args);
     const baseURL = (config.apiUrl ?? 'http://localhost:3000').replace(/\/+$/, '');
 
-    // 1. Config has a host
+    // 1. The config has a host.
     if (!config.apiUrl && !config.token && !config.apiKey) {
         results.push({
             name: 'Config',
@@ -25,7 +25,7 @@ export async function doctorChecks(args: Record<string, unknown>): Promise<Check
         results.push({ name: 'Config', ok: true });
     }
 
-    // 2. Host reachable
+    // 2. The host is reachable.
     try {
         const ctrl = new AbortController();
         const t = setTimeout(() => ctrl.abort(), 8000);
@@ -40,7 +40,7 @@ export async function doctorChecks(args: Record<string, unknown>): Promise<Check
         });
     }
 
-    // 3. Auth valid
+    // 3. The credentials are valid.
     if (!config.token && !config.apiKey) {
         results.push({
             name: 'Auth',
@@ -61,7 +61,7 @@ export async function doctorChecks(args: Record<string, unknown>): Promise<Check
         }
     }
 
-    // 4. Default project exists (if set)
+    // 4. The default project exists, if one is set.
     if (!projectId) {
         results.push({
             name: 'Default project',

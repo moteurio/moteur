@@ -5,8 +5,8 @@ import { who } from '../team.js';
 import { isoInDays } from '../../runtime/clock.js';
 
 /**
- * Events around the Journal. Dates are relative to the build, so the list always has past
- * events, something this week, and upcoming ones.
+ * Events around the Journal. Dates are relative to the build time, so the list always contains
+ * past events, an event this week and upcoming events.
  */
 export type EventInfo = {
     id: string;

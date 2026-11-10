@@ -2,7 +2,7 @@ import type { StudioHostConfig } from './types.js';
 
 let hostConfig: StudioHostConfig = { publicApiUrl: '' };
 
-/** Called once at Studio startup (private host or self-hosted build). */
+/** Configures the Studio host. Call it once at Studio startup, whether in a hosted or a self-hosted build. */
 export function configureStudioHost(config: StudioHostConfig): void {
     hostConfig = {
         publicApiUrl: config.publicApiUrl.replace(/\/$/, ''),

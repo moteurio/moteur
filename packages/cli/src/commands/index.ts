@@ -1,4 +1,4 @@
-/** The command line's commands: every API command, plus signing in, local accounts, and checks. */
+/** The CLI's commands: every API command, plus sign-in, local accounts and setup checks. */
 import { API_COMMANDS, Commands } from '@moteurio/commands';
 import { doctor, operatorSession, session } from './session.js';
 

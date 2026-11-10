@@ -1,6 +1,6 @@
 /**
- * The Moteur MCP server: every declared command as a tool (or, compact, three tools that find,
- * describe and run them), signed in the way the `moteur` CLI is.
+ * The Moteur MCP server. It exposes every declared command as a tool, or in compact mode as three
+ * tools that find, describe and run commands. It authenticates the same way the `moteur` CLI does.
  */
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprotocol/sdk/types.js';
@@ -29,30 +29,31 @@ import {
 import { agentClient, agentName } from './agent.js';
 
 export interface ServerOptions extends Selection {
-    /** Three tools (find, describe, run) instead of one per command. */
+    /** Offers three tools (find, describe, run) instead of one tool per command. */
     compact?: boolean;
-    /** The project when a call names none (default: MOTEUR_PROJECT, .moteur.json, config). */
+    /** The project to use when a call names none. Defaults to MOTEUR_PROJECT, then .moteur.json, then the config file. */
     project?: string;
-    /** Let changes go live without a person's approval (the project's own rules still apply). */
+    /** Lets changes go live without a person's approval. The project's own workflow rules still apply. */
     allowPublish?: boolean;
-    /** What changes are marked as made by (default: the MCP client's name, e.g. "Claude Code"). */
+    /** The name that changes are attributed to. Defaults to the MCP client's name, for example "Claude Code". */
     agentName?: string;
-    /** The person's client (default: the CLI's sign-in); the server acts as an agent for them. */
+    /** The user's client, defaulting to the CLI's sign-in. The server acts as an agent on the user's behalf. */
     client?: () => Promise<MoteurAdminClient>;
-    /** The session to call the API with (the hosted server, tests); default: as an agent, for the person. */
+    /** The session used to call the API, for the hosted server and tests. Defaults to an agent session for the user. */
     session?: (body: Record<string, unknown>) => Session;
     /**
-     * False when the server runs somewhere other than the person's machine (the hosted `/mcp`):
-     * arguments naming files on disk are not offered, and commands never touch the disk.
+     * False when the server runs somewhere other than the user's machine, such as the hosted
+     * `/mcp`. Arguments that name files on disk are then not offered, and commands never touch the disk.
      */
     local?: boolean;
-    /** The commands to offer (tests); default: every API command. */
+    /** The commands to offer, for tests. Defaults to every API command. */
     commands?: CommandSpec[];
-    /** Server-side authorization, checked again for every standard or compact tool execution. */
+    /** Server-side authorization, checked again on every tool execution in both standard and compact mode. */
     beforeRun?: (command: CommandSpec, args: Record<string, unknown>) => void | Promise<void>;
     /**
-     * The server's OpenAPI document, so tools whose routes it lacks (plugins it doesn't run) are
-     * left out. Default: its /openapi.json; `false` offers every tool.
+     * Returns the server's OpenAPI document. Tools whose routes are missing from it, such as those
+     * of plugins the server does not run, are left out. Defaults to the server's /openapi.json, and
+     * `false` offers every tool.
      */
     routes?: (() => Promise<OpenApi | undefined>) | false;
 }
@@ -74,7 +75,7 @@ type Result = {
 const text = (value: unknown): string =>
     typeof value === 'string' ? value : JSON.stringify(value ?? null, null, 2);
 
-/** A call's answer for the model: the API's JSON as text (and as structured content when it's an object). */
+/** Formats a call's result for the model as the API's JSON text, and also as structured content when the result is an object. */
 function ok(value: unknown): Result {
     const structured =
         value && typeof value === 'object' && !Array.isArray(value)
@@ -91,7 +92,7 @@ const fail = (message: string): Result => ({
     isError: true
 });
 
-/** Built-ins plus extra specs (plugin commands). Skips ids the catalog already has. */
+/** Returns the built-in commands plus extra specs from plugins. Specs whose group and name already exist in the catalog are skipped. */
 export function withPluginCommands(
     extra: Array<Pick<CommandSpec, 'group' | 'name'> & Partial<CommandSpec>>
 ): CommandSpec[] {
@@ -133,7 +134,7 @@ export function createServer(options: ServerOptions = {}): Server {
             ? undefined
             : (options.routes ??
               (async () => (await session({}).client()).get<OpenApi>('/openapi.json')));
-    /** The tools, once: those the server has routes for (all of them if it can't say). */
+    /** Resolves the tools once: those the server has routes for, or all of them if the server cannot say. */
     let tools: Promise<{ offered: CommandSpec[]; byTool: Map<string, CommandSpec> }> | undefined;
     const offer = () =>
         (tools ??= (async () => {
@@ -142,12 +143,12 @@ export function createServer(options: ServerOptions = {}): Server {
                 const doc = routes ? await routes() : undefined;
                 if (doc?.paths) offered = available(selected, doc);
             } catch {
-                // Not signed in yet, or an API without the document: offer them all.
+                // The user is not signed in yet, or the API has no OpenAPI document, so offer every tool.
             }
             return { offered, byTool: new Map(offered.map(c => [toolName(c), c])) };
         })());
 
-    /** Runs one command with a tool's arguments. */
+    /** Runs one command with the arguments of a tool call. */
     async function run(command: CommandSpec, input: Record<string, unknown>): Promise<Result> {
         try {
             const { body, ...rest } = input;
@@ -155,7 +156,7 @@ export function createServer(options: ServerOptions = {}): Server {
             await options.beforeRun?.(command, args);
             const result = await execute(command, args, {
                 ...session((body as Record<string, unknown>) ?? {}),
-                // A session given by the host can't make a hosted server local.
+                // A session supplied by the host cannot turn a hosted server into a local one.
                 ...(local ? {} : { local: false })
             });
             return ok(result ?? { done: true });

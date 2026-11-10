@@ -1,4 +1,4 @@
-/** Pages, and what the site is made of once published: addresses, sitemap, navigation. */
+/** Commands for pages and for the published site: URLs, sitemap and navigation. */
 import { group, id, project, type ArgSpec } from '../spec.js';
 import { crud, revisions } from '../kit.js';
 import { localized } from '../format.js';

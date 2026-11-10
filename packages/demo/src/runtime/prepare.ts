@@ -3,12 +3,11 @@ import type { BlockSchema } from '@moteurio/types/Block.js';
 import { dast } from './dast.js';
 
 /**
- * Convert values written in the demo sources to their stored form, guided by each field's
- * type:
- * - rich text written as markup strings becomes DAST;
- * - `{ art: 'key' }` becomes the uploaded asset (an image `src`, an `assetId`, …);
+ * Converts values written in the demo sources to their stored form, using each field's type:
+ * - rich text written as a markup string becomes DAST;
+ * - `{ art: 'key' }` becomes the uploaded asset, as an image `src`, an `assetId` or similar;
  * - blocks, lists and objects are converted recursively with their own schemas.
- * Values already in stored form pass through unchanged.
+ * Values that are already in stored form are left unchanged.
  */
 
 export type ArtRef = { art: string; alt?: unknown; caption?: unknown; credit?: unknown };

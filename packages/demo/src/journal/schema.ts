@@ -4,9 +4,9 @@ import type { TemplateSchema } from '@moteurio/types/Template.js';
 import { f } from '../runtime/fields.js';
 
 /**
- * Moteur Journal: the bilingual magazine of Moteur Industries S.A., a fictional robotics
- * company founded in a Montréal garage in 1968. Every core field type is used somewhere,
- * in a way an editor would recognise.
+ * The schema of the Moteur Journal, the bilingual magazine of Moteur Industries S.A., a fictional
+ * robotics company founded in a Montréal garage in 1968. Every core field type is used somewhere,
+ * in a way that an editor would recognise.
  */
 
 const ml = { multilingual: true };
@@ -63,8 +63,8 @@ export const models: ModelSchema[] = [
             seo: f.structure('SEO', 'core/seo'),
             order: f.order('Order in issue')
         },
-        // The article's form: the story first, the facts beside it. The accent colour is left
-        // out on purpose, so the Studio shows it under "Not in the form".
+        // The article form shows the story first and the facts beside it. The accent colour is
+        // deliberately left out of every section, to test a field that the form does not place.
         studio: {
             form: {
                 sections: [
@@ -260,8 +260,8 @@ export const models: ModelSchema[] = [
             description: f.richText('Description', ml),
             tags: f.tags('Tags')
         },
-        // Events read like a ticket: when and where up front; price and tickets only for the
-        // kinds of event that charge.
+        // The event form reads like a ticket, with the date and place first. Price and tickets
+        // appear only for the kinds of event that charge admission.
         studio: {
             form: {
                 sections: [
@@ -418,7 +418,7 @@ export const models: ModelSchema[] = [
 const listOf = (label: string, fields: Parameters<typeof f.object>[1], o = {}) =>
     f.list(label, f.object(label, fields), o);
 
-/** Blocks specific to the Journal (core blocks are added by core). */
+/** Blocks that are specific to the Journal. Core adds the core blocks itself. */
 export const blocks: BlockSchema[] = [
     {
         type: 'teletype',

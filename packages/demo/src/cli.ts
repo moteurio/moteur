@@ -1,5 +1,5 @@
 /**
- * Build Moteur's demo projects into a data root.
+ * Builds Moteur's demo projects into a data root.
  *
  *   pnpm demo:build                     build the Journal into ./data (refuses to overwrite)
  *   pnpm demo:build all --force         Journal + fixtures, setting existing ones aside
@@ -55,7 +55,7 @@ function report(name: string, r: ValidationReport, strict: boolean): boolean {
     return !strict;
 }
 
-/** Core warns on every commit when a project has no git remote; demo projects never do. */
+/** Silences the warning that core logs on every commit when a project has no git remote. Demo projects never have one. */
 function quietCoreNoise(): void {
     const warn = console.warn.bind(console);
     const log = console.log.bind(console);

@@ -1,8 +1,8 @@
 import type { Persona } from '../runtime/types.js';
 
 /**
- * The Journal's newsroom. Each becomes a Moteur user (and a git author) with the role that
- * fits their job, so the review workflow has real people on both sides.
+ * The Journal's newsroom. Each member becomes a Moteur user and a git author, with the role that
+ * fits their job, so the review workflow has real people on both the author and reviewer sides.
  */
 export const team = {
     louise: {
@@ -45,7 +45,7 @@ export const team = {
         id: 'journal-theo',
         name: 'Théo Nguyen',
         email: 'theo@moteur-journal.test',
-        // Photographer and layout artist: he shapes the blocks and models, a builder.
+        // He is the photographer and layout artist, and he designs the blocks and models, so he is a builder.
         roles: ['builder']
     }
 } satisfies Record<string, Persona>;
@@ -55,5 +55,5 @@ export const personas: Persona[] = Object.values(team);
 export const lead = team.louise;
 export const reviewer = team.celeste;
 
-/** Persona id for a team member key (sources refer to people by key). */
+/** Returns the persona id for a team member key. Sources refer to people by key. */
 export const who = (key: TeamMember) => team[key].id;

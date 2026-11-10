@@ -1,7 +1,7 @@
 import { printTable } from '../utils/printTable.js';
 import { pathOf, type CommandSpec } from '@moteurio/commands';
 
-/** What a command shows: JSON with --json, else its table, its sentence, or the result as JSON. */
+/** Prints a command's result: JSON with --json, otherwise the command's table or message, or else the result as JSON. */
 export function printResult(
     command: CommandSpec,
     result: unknown,
@@ -16,7 +16,7 @@ export function printResult(
         console.log(command.done(result, args));
         return;
     }
-    // --json gets the whole response (totals, facets); the table shows the list in it.
+    // With --json, print the whole response (including totals and facets). The table shows only the list in it.
     if (command.pick && result && typeof result === 'object' && !Array.isArray(result)) {
         result = (result as Record<string, unknown>)[command.pick] ?? result;
     }
@@ -52,7 +52,7 @@ export function printResult(
     console.log(JSON.stringify(result, null, 2));
 }
 
-/** `{ "core/paragraph": { … }, … }`: a map of records, shown as rows. */
+/** Detects an object that maps keys to records, such as `{ "core/paragraph": { … }, … }`, so it can be shown as rows. */
 function isRecordMap(value: unknown): boolean {
     if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
     const values = Object.values(value);

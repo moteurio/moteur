@@ -1,6 +1,6 @@
 /**
- * Accounts made straight in a local server’s files (users.json), for setting a server up before
- * anyone can sign in. Everything else goes through the API.
+ * Creates and updates accounts by writing directly to a local server's files (users.json). This
+ * lets you set up a server before anyone can sign in. All other operations go through the API.
  */
 import { randomUUID } from 'node:crypto';
 import { text, password as passwordPrompt, isCancel, cancel } from '@clack/prompts';
@@ -10,7 +10,7 @@ import { isWebSessionMode } from '@moteurio/commands';
 
 const MIN_PASSWORD_LEN = 8;
 
-/** The engine's password rule, so a password set here can also sign in through the API. */
+/** Applies the engine's password rule so that a password set here also works for signing in through the API. */
 async function passwordRefusal(password: string | undefined): Promise<string | null> {
     if (!password) return 'A password is required';
     const { passwordProblem } = await import('@moteurio/core/auth.js');
@@ -45,8 +45,9 @@ async function assignUserToProject(userId: string, projectId: string): Promise<v
 }
 
 /**
- * Create a user in local users.json (same storage as the API). Does not call the HTTP API.
- * Run from the repo/data root or set DATA_ROOT / AUTH_USERS_FILE so paths match the server.
+ * Creates a user in the local users.json, which is the same storage the API uses. It does not call
+ * the HTTP API. Run it from the repository or data root, or set DATA_ROOT or AUTH_USERS_FILE so
+ * the paths match the server's.
  */
 export async function createUserCommand(args: Record<string, unknown>): Promise<void> {
     if (await isWebSessionMode()) {
@@ -158,7 +159,8 @@ export async function createUserCommand(args: Record<string, unknown>): Promise<
 }
 
 /**
- * Reset password in local users.json (same storage as the API). No HTTP login required.
+ * Resets a user's password in the local users.json, which is the same storage the API uses. It
+ * does not require an HTTP login.
  */
 export async function resetPasswordCommand(args: Record<string, unknown>): Promise<void> {
     if (await isWebSessionMode()) {
