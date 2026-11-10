@@ -54,7 +54,7 @@ function urlPresenceIssues(url: unknown, path: string): ValidationIssue[] {
     ];
 }
 
-/** A link to a page names it by id; its address is the page's, so a typed URL beside it is ignored. */
+/** Validates a link to a page. It refers to the page by id and uses the page's address, so any URL typed beside it is ignored. */
 function pageIssues(value: Record<string, unknown>, path: string): ValidationIssue[] {
     if (typeof value.pageId !== 'string' || value.pageId.trim() === '') {
         return [

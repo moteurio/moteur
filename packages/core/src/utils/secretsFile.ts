@@ -4,9 +4,9 @@ import { writeFileAtomicSync } from './fileUtils.js';
 import path from 'path';
 
 /**
- * A project's secrets file: `.moteur/secrets.json`, gitignored, never in a snapshot, readable by
- * the server's user only. Each feature keeps its own section (`git`, `project`…); values in it are
- * encrypted by the caller.
+ * A project's secrets file, `.moteur/secrets.json`. It is gitignored, excluded from snapshots, and
+ * readable only by the user the server runs as. Each feature keeps its own section (`git`,
+ * `project`, and so on), and the caller encrypts the values in it.
  */
 const SECRETS_FILE = path.join('.moteur', 'secrets.json');
 
@@ -31,7 +31,7 @@ export function writeSecretsFile(projectDir: string, secrets: SecretsFile): void
     writeFileAtomicSync(file, JSON.stringify(secrets, null, 2), 0o600);
 }
 
-/** Change one section, leaving the others as they are. `undefined` removes it. */
+/** Changes one section and leaves the others as they are. An `undefined` value removes the section. */
 export function updateSecretsSection(projectDir: string, section: string, value: unknown): void {
     const secrets = readSecretsFile(projectDir);
     if (value === undefined) delete secrets[section];

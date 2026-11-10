@@ -1,6 +1,6 @@
 /**
  * A channel's schema, for whoever reads the channel: what its models, pages, blocks and
- * structures hold, without Studio's presentation or plugins' settings. `/types` and a site's
+ * structures hold, without editor presentation settings or plugin settings. `/types` and a site's
  * generated types are made from it, so a read-only key is enough for both.
  */
 import { createHash } from 'crypto';
@@ -29,7 +29,7 @@ import { modelListPrefix } from './utils/storageKeys.js';
 type Fields = Record<string, Field>;
 
 /**
- * Options that explain a value. Anything else (Studio's `ui`, `placeholder`, `labelField`,
+ * Options that explain a value. Anything else (editor-only options such as `ui`, `placeholder`, `labelField`,
  * plugins' settings) stays private, so a new option is never public by accident.
  */
 const PUBLIC_OPTIONS = new Set([
@@ -100,7 +100,7 @@ export function publicField(f: Field): PublicField {
     for (const [k, v] of Object.entries(f.options ?? {})) {
         if (PUBLIC_OPTIONS.has(k) && v !== undefined) options[k] = v;
     }
-    // Options holding fields of their own: cleaned the same way.
+    // Options that contain nested fields are filtered the same way.
     const o = f.options ?? {};
     if (o.items && typeof o.items === 'object') options.items = publicField(o.items as Field);
     else if (f.items && typeof f.items === 'object') options.items = publicField(f.items as Field);
@@ -168,7 +168,7 @@ export async function channelSchema(
     const project = await getProjectById(projectId);
     const defaultLocale = project?.defaultLocale || 'en';
 
-    // Models, with only the fields the channel gives.
+    // Include models with only the fields the channel delivers.
     const models: PublicSchema['models'] = {};
     let everyModel: ModelSchema[] | undefined;
     for (const r of channel.resources) {
@@ -196,7 +196,7 @@ export async function channelSchema(
         }
     }
 
-    // Templates of the pages it gives: every one, or those named.
+    // Include templates for the pages the channel delivers: all of them, or only those it names.
     const templates: PublicSchema['templates'] = {};
     const pageResources = channel.resources.filter(r => r.resourceType === 'page');
     if (pageResources.length) {
@@ -213,8 +213,8 @@ export async function channelSchema(
         }
     }
 
-    // The blocks and structures those use, and those they use in turn. Editorial blocks are
-    // Studio's only: delivery strips them, so they aren't described.
+    // Collect the blocks and structures these use, and those they use in turn. Editorial blocks are
+    // not part of delivery (delivery strips them), so they are not described.
     const blockRegistry: Record<string, BlockSchema> = listBlocks(projectId);
     const structureRegistry: Record<string, StructureSchema> = await listStructures(projectId);
     const publicBlocks = Object.values(blockRegistry).filter(b => !b.editorial);

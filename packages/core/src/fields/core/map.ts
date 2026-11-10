@@ -2,9 +2,10 @@ import fieldRegistry from '../../registry/FieldRegistry.js';
 import { validateMapField } from '../../validators/fields/core/validateMapField.js';
 
 /**
- * Keys to values, each of one field type: a translation per language, a label per plan, an
- * answer per question. Stored as an object (`{ "en": "Hello", "fr": "Bonjour" }`). `keys` lists
- * the keys it may have (and their order in the Studio); without it, any key.
+ * Maps keys to values, where every value has the same field type. Examples are a translation per
+ * language, a label per plan, or an answer per question. It is stored as an object
+ * (`{ "en": "Hello", "fr": "Bonjour" }`). `keys` lists the keys the map may have, in the order
+ * editors show them. Without `keys`, any key is allowed.
  */
 fieldRegistry.register({
     type: 'core/map',

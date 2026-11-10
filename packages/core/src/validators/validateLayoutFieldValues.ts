@@ -15,8 +15,8 @@ function slotIdForLayoutBlock(block: Layout['blocks'][number], index: number): s
 }
 
 /**
- * For each core/layout field, load the project Layout and validate slot data
- * against the corresponding block schema.
+ * Validates the slot data of every core/layout field. For each field it loads the project's Layout
+ * and checks the slot data against the corresponding block schema.
  */
 export async function validateLayoutFieldValues(
     projectId: string,

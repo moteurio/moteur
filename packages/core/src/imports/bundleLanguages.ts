@@ -1,18 +1,18 @@
 /**
- * A bundle written in some languages, made to fit a project's: what a project blueprint's
- * content goes through before it is imported into a new project.
+ * Adapts a bundle written in some languages to the languages of a project. A project blueprint's
+ * content goes through this before it is imported into a new project.
  *
- * - A value per language (`{ "en": …, "fr": … }`, at any depth: text, rich text, links, menu
- *   labels, form fields) gets one for each of the project's languages: that language's, else
- *   the bundle's first language's (to translate in the Studio). Languages the project doesn't
- *   have go.
- * - A page's address follows: its `slug` is the one for the project's default language, and
- *   `slugs` the others' it has.
- * - `languages` lists (a page or entry in some languages only) keep the project's, the bundle's
- *   first language standing for the project's default.
+ * - A per-language value (`{ "en": …, "fr": … }`, at any depth: text, rich text, links, menu
+ *   labels, form fields) gets one entry for each of the project's languages. It uses that
+ *   language's text if the bundle has it, otherwise the text of the bundle's first language, which
+ *   can be translated later. Languages the project does not have are dropped.
+ * - A page's `slug` becomes the slug for the project's default language, and `slugs` keeps the
+ *   slugs for the other languages the page has.
+ * - A `languages` list (a page or entry that exists in only some languages) keeps the languages
+ *   the project has. The bundle's first language stands for the project's default language.
  *
- * Schemas (structures, blocks, models, templates) are left as they are: their labels are the
- * Studio's, not the site's.
+ * Schemas (structures, blocks, models, templates) are left unchanged, because their labels are
+ * for editors and not part of the site's content.
  */
 import type { ImportBundle } from '@moteurio/types/Import.js';
 

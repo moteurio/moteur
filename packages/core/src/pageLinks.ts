@@ -12,17 +12,20 @@ import { perVersion } from './deliveryCache.js';
 import { fillTextLinks, pagesLinkedIn } from './textLinks.js';
 import { isPlainObject } from './validators/fieldValueUtils.js';
 
-/** A page a link or a relation can point at: one with content, not a folder. */
+/** A page that a link or relation can point at. Folders have no content, so they are excluded. */
 export type LinkablePage = StaticPage | CollectionPage;
 
 export type PageLinkOptions = {
-    /** Whether a page may be shown to this reader: delivery passes its status filter. */
+    /** Whether the page may be shown to this reader; delivery passes its status filter here. */
     isLive: (page: LinkablePage) => boolean;
-    /** One language: each address becomes the string in it. Without, one address per language. */
+    /**
+     * With a locale, each address is a single string in that language. Without one, each address
+     * maps locale to string.
+     */
     locale?: string;
 };
 
-/** A page relation as delivered: who it is, where it lives, and the fields the field asked for. */
+/** A page relation as delivered: its id, label, address and the fields the relation field requested. */
 export type PageSummary = {
     id: string;
     label: string;
@@ -30,7 +33,7 @@ export type PageSummary = {
     fields?: Record<string, unknown>;
 };
 
-/** Pages and their addresses, read once and shared by every link of a delivery. */
+/** Pages and their addresses, loaded once and shared by every link in a delivery. */
 export type PageLinkContext = {
     pages: Map<string, PageNode>;
     urls: (id: string) => Record<string, string>;
@@ -38,7 +41,7 @@ export type PageLinkContext = {
     /** The project's languages, default first. */
     locales: string[];
     schemas: FieldWalkSchemas;
-    /** By id: what a summary's fields are, to bring them down to one language. */
+    /** Templates by id, used to reduce a summary's fields to a single language. */
     templates?: Map<string, TemplateSchema>;
 };
 
@@ -46,7 +49,8 @@ export function pageLinkContext(
     projectId: string,
     options?: { published?: boolean }
 ): Promise<PageLinkContext> {
-    // The same for every read of the project until it changes: worked out once (deliveryCache.ts).
+    // Cache the context per project version, so it is built once until the project changes (see
+    // deliveryCache.ts).
     return perVersion(projectId, `pageLinks:${options?.published ? 'published' : 'latest'}`, () =>
         buildPageLinkContext(projectId, options)
     );
@@ -56,7 +60,7 @@ async function buildPageLinkContext(
     projectId: string,
     options?: { published?: boolean }
 ): Promise<PageLinkContext> {
-    // Links lead where the site's pages are: their published versions, outside a preview.
+    // Outside a preview, links point at the published versions of pages, which is what the site serves.
     const nodes = options?.published
         ? await publicPages(projectId, await listPages(projectId))
         : await listPages(projectId);
@@ -75,7 +79,8 @@ async function buildPageLinkContext(
                     defaultLocale: languages.defaultLocale,
                     prefix: languages.prefix
                 };
-                // Only the languages it is in: a link in another leads to the default's address.
+                // Only record languages the page exists in. A link in any other language falls back
+                // to the default language's address.
                 if (inLanguage(page, lang)) found[locale] = resolveNodePrefix(id, pages, lang);
             }
             cache.set(id, found);
@@ -173,7 +178,7 @@ export async function resolvePageLinks(
             const { url: _stale, missing: _m, ...link } = value as Record<string, unknown>;
             const page = liveTarget(link.pageId, ctx, options);
             if (!page) return { ...link, missing: true };
-            // A place on the page (`anchor: "mac"`) follows its address in every language.
+            // Append the anchor (`anchor: "mac"`) to the page address in every language.
             const hash = anchorOf(link.anchor);
             const url = addressOf(page.id, ctx, options.locale);
             return {

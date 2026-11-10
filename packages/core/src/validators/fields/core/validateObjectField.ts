@@ -32,8 +32,8 @@ export function validateObjectField(
             Record<string, Field> | undefined) ??
         {};
 
-    // Accept the wrapped form { value: { …fields } }, unless "value" is one of the object's
-    // own fields (e.g. a { label, value } pair), which must not be mistaken for the wrapper.
+    // Accept the wrapped form { value: { …fields } }, unless "value" is one of the object's own
+    // fields (for example a { label, value } pair). In that case it is a field, not the wrapper.
     const wrapped = 'value' in v && isPlainObject(v.value) && !('value' in childFields);
     const inner = (wrapped ? v.value : v) as Record<string, unknown>;
 

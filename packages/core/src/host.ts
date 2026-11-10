@@ -13,7 +13,7 @@ export { getModelSchema } from './models.js';
 export { createEntry, getEntryForProject, updateEntry } from './entries.js';
 export { default as fieldRegistry } from './registry/FieldRegistry.js';
 
-// Forms and what visitors sent (no user checks: the plugin checks who may)
+// Forms and visitor submissions (no user checks; the plugin must check permissions itself)
 export { getFormForProject, listFormsForProject } from './forms.js';
 export {
     eraseSubmission,
@@ -52,9 +52,9 @@ export { getModelTemplate, listModelTemplates } from './plugins/modelTemplates.j
 export { listGitProviders } from './plugins/gitHooks.js';
 export { listPluginOutboundWebhookEvents } from './plugins/outboundEvents.js';
 
-// Safety: a URL from outside must be public HTTPS before it is fetched
+// Safety: a URL from an untrusted source must be public HTTPS before it is fetched
 export { assertPublicHttpsUrl } from './webhooks/webhookService.js';
 
-// AI: credits and the audit log the Studio reads (Setup › AI)
+// AI: credits and the audit log shown in admin clients
 export { creditBalance, grantCredits, spendCredits } from './metering.js';
 export { appendAiAuditEvent, type AiAuditAppendInput } from './aiAuditLogger.js';

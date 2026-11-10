@@ -1,9 +1,10 @@
 /**
- * HTML to a rich-text (DAST) document, for imports: a bundle may give a rich-text field
- * `{ "html": "<p>…</p>" }`. It keeps what DAST holds (paragraphs, headings, lists, quotes, code,
- * rules, line breaks; bold, italic, underline, struck, code and highlighted words; links) and
- * says what it left out (pictures, tables, embeds, forms). A link whose address is a page's
- * becomes a link to that page (textLinks.ts), so it follows it.
+ * Converts HTML to a rich-text (DAST) document for imports. A bundle may give a rich-text field as
+ * `{ "html": "<p>…</p>" }`. The conversion keeps what DAST can represent (paragraphs, headings,
+ * lists, quotes, code, rules, line breaks; bold, italic, underline, strikethrough, code and
+ * highlighted text; links) and reports what it dropped (images, tables, embeds, forms). A link to
+ * the address of a page becomes a link to that page (see textLinks.ts), so it keeps working if the
+ * page's address changes.
  */
 import { parseDocument } from 'htmlparser2';
 
@@ -27,10 +28,10 @@ type ListItem = { type: 'listItem'; children: Block[] };
 
 export type DastDocument = { schema: 'dast'; document: { type: 'root'; children: Block[] } };
 
-/** What a conversion did besides the text: what it left out, and the links it made to pages. */
+/** What a conversion did besides producing text: the content it dropped and the page links it created. */
 export type HtmlConversion = {
     doc: DastDocument;
-    /** By kind: `{ pictures: 2, tables: 1 }`. */
+    /** Count of dropped content by kind, such as `{ pictures: 2, tables: 1 }`. */
     leftOut: Record<string, number>;
     pageLinks: number;
 };
@@ -58,7 +59,7 @@ const MARKS: Record<string, Mark> = {
     mark: 'highlight'
 };
 
-/** What DAST can't hold, by the kind the report names. */
+/** Elements DAST cannot represent, mapped to the kind named in the report. */
 const LEFT_OUT: Record<string, string> = {
     img: 'pictures',
     picture: 'pictures',
@@ -73,7 +74,7 @@ const LEFT_OUT: Record<string, string> = {
     canvas: 'embeds',
     form: 'forms'
 };
-/** Never content. */
+/** Elements that never contain content. */
 const IGNORED = new Set([
     'script',
     'style',
@@ -122,8 +123,8 @@ const textOf = (node: Node): string =>
     node.type === 'text' ? (node.data ?? '') : (node.children ?? []).map(textOf).join('');
 
 /**
- * @param pageAt the page an address leads to (`/pricing` → its id), or null: such a link becomes
- * a link to the page.
+ * @param pageAt Maps an address (`/pricing`) to the id of the page it leads to, or returns null.
+ * A link to an address that maps to a page becomes a link to that page.
  */
 export function htmlToDast(
     html: string,
@@ -137,7 +138,7 @@ export function htmlToDast(
     };
     const root = parseDocument(html, { decodeEntities: true }) as unknown as Node;
 
-    /** Inline content: spans with their marks, and links; neighbouring alike spans merged. */
+    /** Converts inline content to spans with marks and links, merging adjacent spans that have the same marks. */
     function inline(nodes: Node[], marks: Mark[], out: Inline[], inLink = false): Inline[] {
         const push = (value: string) => {
             if (!value) return;
@@ -189,7 +190,7 @@ export function htmlToDast(
         return out;
     }
 
-    /** Trim a run of inline content; nothing left is no paragraph. */
+    /** Trims a run of inline content. If nothing is left, no paragraph is created. */
     function trimmed(nodes: Inline[]): Inline[] {
         const first = nodes[0];
         if (first?.type === 'span') first.value = first.value.replace(/^\s+/, '');
@@ -198,7 +199,7 @@ export function htmlToDast(
         return nodes.filter(n => n.type !== 'span' || n.value !== '');
     }
 
-    /** Block content: blocks, with loose inline content gathered into paragraphs. */
+    /** Converts block content. Inline content that is not inside a block is gathered into paragraphs. */
     function blocks(nodes: Node[]): Block[] {
         const out: Block[] = [];
         let loose: Node[] = [];
@@ -237,7 +238,7 @@ export function htmlToDast(
                 for (const li of children) {
                     if (li.type !== 'tag') continue;
                     const inner = li.name === 'li' ? blocks(li.children ?? []) : blocks([li]);
-                    // A list item holds paragraphs and lists.
+                    // A list item can only contain paragraphs and nested lists.
                     const kept = inner.flatMap(b =>
                         b.type === 'paragraph' || b.type === 'list'
                             ? [b]
@@ -283,7 +284,7 @@ export function htmlToDast(
     };
 }
 
-/** "2 pictures and 1 table": what a conversion left out, said once. */
+/** Describes dropped content in one phrase, such as "2 pictures and 1 table". */
 export function leftOutText(leftOut: Record<string, number>): string {
     const one: Record<string, string> = {
         pictures: 'picture',

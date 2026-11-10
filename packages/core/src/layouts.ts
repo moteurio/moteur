@@ -102,7 +102,7 @@ export async function updateLayout(
         throw new Error(`Layout ${id} does not exist in project ${projectId}`);
     }
     const updated = { ...current, ...patch };
-    // Nothing to save: no commit, no hooks.
+    // Nothing changed, so skip the commit and hooks.
     if (sameContent(current, updated)) return current;
     if (updated.meta?.audit) {
         updated.meta.audit.revision = (current.meta?.audit?.revision ?? 0) + 1;
@@ -154,7 +154,8 @@ export async function restoreLayoutAtRevision(
         revisionId
     )) as Layout | null;
     if (!snapshot) throw new Error('Revision not found');
-    // The whole version: keys added since are cleared (undefined drops out of the JSON).
+    // Restore the whole version. Keys added after it are set to undefined, which drops them from
+    // the JSON.
     const cleared = Object.fromEntries(Object.keys(current).map(k => [k, undefined]));
     const audit = current.meta?.audit;
     const restored = await updateLayout(
@@ -169,7 +170,7 @@ export async function restoreLayoutAtRevision(
         } as Partial<Layout>,
         { restoredFrom: revisionId }
     );
-    // Already the same as that version: nothing was saved.
+    // The layout already matches that version, so nothing is saved.
     return { restored, changed: !sameContent(current, restored) };
 }
 

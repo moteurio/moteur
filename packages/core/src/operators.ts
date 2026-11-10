@@ -145,7 +145,7 @@ function write(data: OperatorsFile): void {
     const file = storageConfig.operatorsFile;
     fs.mkdirSync(path.dirname(file), { recursive: true });
     const tmp = `${file}.${process.pid}.${Date.now()}.tmp`;
-    // Only the server's own user may read it.
+    // Restrict the file to the user running the server.
     fs.writeFileSync(tmp, JSON.stringify(data, null, 2), { encoding: 'utf8', mode: 0o600 });
     fs.renameSync(tmp, file);
 }
@@ -446,7 +446,8 @@ export async function loginOperator(input: {
     };
 
     const stored = read().operators.find(o => o.email === email);
-    // Compare a password even for an unknown email, so timing says nothing.
+    // Compare a password even for an unknown email, so response timing does not reveal whether the
+    // account exists.
     const hash = stored?.passwordHash ?? (unknownHash ??= await bcrypt.hash(randomUUID(), 12));
     const passwordOk = await bcrypt.compare(input.password ?? '', hash);
     if (!stored || !stored.passwordHash || !stored.totp || !passwordOk) return fail();
@@ -455,8 +456,8 @@ export async function loginOperator(input: {
     let recoveryCodeUsed = false;
     const signedIn = change(list => {
         const o = list.find(x => x.id === stored.id)!;
-        // A changed OPERATOR_SECRET (or JWT_SECRET) leaves the authenticator unreadable: the
-        // recovery codes still work, and a reset sets it up again.
+        // Changing OPERATOR_SECRET (or JWT_SECRET) makes the stored authenticator secret unreadable.
+        // Recovery codes still work, and a reset sets up a new authenticator.
         let secret: string | null = null;
         try {
             secret = unseal(o.totp!.secret);

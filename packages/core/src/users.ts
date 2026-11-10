@@ -129,7 +129,7 @@ export async function createUser(user: User, performedBy?: User): Promise<User> 
 }
 
 async function createUserUnlocked(user: User, performedBy?: User): Promise<User> {
-    // Every account has its roles stored: none given is a Writer.
+    // Always store roles explicitly. An account created without roles becomes a Writer.
     user = { ...user, roles: normalizeStoredRoles(user.roles) };
     const users = getCachedUsers();
     if (users.some(u => u.email?.toLowerCase() === user.email.trim().toLowerCase())) {

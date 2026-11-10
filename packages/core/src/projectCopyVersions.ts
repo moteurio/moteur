@@ -39,7 +39,8 @@ export async function asPublished(sourceDir: string, projectId: string): Promise
             const key = entryKey(modelId, entryId);
             const entry = await getProjectJson<Entry>(projectId, key);
             if (entry?.status !== 'published') continue;
-            // Edited since it was published, by the same rule sites are served by.
+            // If the entry was edited after publishing, read its published version from the source
+            // history, using the same rule that delivery uses.
             const commit = publishedSnapshotCommit(entry);
             if (commit) waiting.push({ key, commit, kind: 'entry' });
             else out.entries.push(key);
@@ -61,12 +62,13 @@ export async function asPublished(sourceDir: string, projectId: string): Promise
         : new Map<string, string | null>();
     for (const w of waiting) {
         const raw = blobs.get(`${w.commit}:${w.key}`);
-        // Its published version is gone (the source hides it too): it stays as it was, unpinned,
-        // rather than its edits going live in the copy.
+        // The published version no longer exists (the source does not serve it either). Leave the item
+        // unpinned so its unpublished edits do not go live in the copy.
         if (raw == null) continue;
         const published = JSON.parse(raw) as Record<string, unknown>;
         if (w.kind === 'page') {
-            // Where it sits is the current place, as sites see it.
+            // Keep the page's current position in the tree, because delivery uses the current
+            // position, not the published one.
             const now = (await getProjectJson<Record<string, unknown>>(projectId, w.key)) ?? {};
             published.parentId = now.parentId;
             published.order = now.order;

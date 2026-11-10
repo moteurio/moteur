@@ -88,8 +88,9 @@ export function loadProject(projectId: string): ProjectSchema | null {
 }
 
 /**
- * Project IDs the user is in: those they are a member of, and those their workspaces give them.
- * Use this for JWT and /auth/me so project.json (and the workspaces) stay the source of truth.
+ * IDs of the projects the user can access: those they are a member of and those they reach
+ * through a workspace. Use this for the JWT and /auth/me so project.json and the workspaces stay
+ * the source of truth.
  */
 export function getProjectIdsForUser(userId: string): string[] {
     return loadProjects()
@@ -149,7 +150,8 @@ export async function createProject(
     if (isExistingProjectId(input.id)) {
         throw new Error(`Project with id "${input.id}" already exists`);
     }
-    // The demo's address is the server's: nobody else may take it, or every newcomer would copy theirs.
+    // Reserve the demo project id for the server, otherwise a user could take it and every new user
+    // would copy their project.
     const demoId = process.env.DEMO_PROJECT_ID?.trim();
     if (demoId && input.id === demoId) {
         throw Object.assign(new Error(`The project id "${input.id}" is reserved on this server.`), {
@@ -197,7 +199,8 @@ export async function createProject(
         await ensureProjectState(projectWithUsers.id);
         await ensureUserData(projectWithUsers.id);
     } catch (err) {
-        // All or nothing: a half-made folder would keep the id taken by a project nobody has.
+        // Roll back on failure, because a half-created project folder would keep the id taken by a
+        // project no one can use.
         if (made) fs.rmSync(dir, { recursive: true, force: true });
         throw err;
     }
@@ -243,7 +246,7 @@ export async function createProjectFromBlueprint(
     blueprint?: BlueprintOutcome;
 }> {
     if (blueprintId !== undefined && blueprintId !== '') {
-        // An unknown blueprint is refused before anything is made.
+        // Refuse an unknown blueprint before creating anything.
         let found: ReturnType<typeof getBlueprint> | undefined;
         try {
             if (isValidId(blueprintId)) found = getBlueprint('project', blueprintId);
@@ -263,7 +266,7 @@ export async function createProjectFromBlueprint(
     if (!blueprint.bundle) return result;
     const { importBundle } = await import('./imports/importBundle.js');
     const { adaptBundleToLanguages } = await import('./imports/bundleLanguages.js');
-    // Written in its languages, made to fit the project's.
+    // Adapt the blueprint's content to the project's languages.
     const made = result.project;
     const bundle = adaptBundleToLanguages(blueprint.bundle, blueprint.languages ?? ['en'], {
         defaultLocale: made.defaultLocale,
@@ -304,11 +307,13 @@ export async function updateProject(
     patch: Partial<ProjectSchema>
 ): Promise<ProjectSchema> {
     const current = await getProject(user, projectId);
-    // Its workspace changes only by moving the project (a handover), never in an update.
+    // The workspace can only change by moving the project to another workspace, never through a
+    // regular update.
     const updated = { ...applyProjectPatch(current, patch), workspaceId: current.workspaceId };
     await triggerEvent('project.beforeUpdate', { project: updated, user });
 
-    // Keep user.projects in sync when project.users changes (so JWT and presence get correct list after re-login)
+    // Keep user.projects in sync when project.users changes (so JWT and presence get correct list
+    // after re-login)
     if (patch.users !== undefined) {
         const prev = new Set((current.users ?? []) as string[]);
         const next = new Set((updated.users ?? []) as string[]);
@@ -366,9 +371,10 @@ export async function addProjectMember(
 }
 
 /**
- * Move a project to another workspace (a handover: to a client's own workspace, say). Its
- * workspace's owners and admins may move it, to a workspace where they may start projects. People
- * added to it one by one stay in it; the old workspace's team no longer is, the new one's now is.
+ * Move a project to another workspace, for example to hand it over to a client's workspace. The
+ * owners and admins of its current workspace may move it, and only to a workspace where they may
+ * start projects. Members added to the project individually keep their access. Members of the old
+ * workspace's team lose access, and members of the new workspace's team gain it.
  */
 export async function moveProject(
     user: User,
@@ -410,8 +416,8 @@ export async function moveProject(
 }
 
 /**
- * Someone left a workspace's team: they are no longer in any of its projects, not even those
- * they were added to one by one. Returns the ids of the projects they were taken out of.
+ * Removes a user from every project of a workspace after they leave its team, including projects
+ * they were added to individually. Returns the ids of the projects they were removed from.
  */
 export async function leaveWorkspaceProjects(
     workspaceId: string,
@@ -454,7 +460,7 @@ export async function deleteProject(user: User, projectId: string): Promise<void
     fs.mkdirSync(path.dirname(dest), { recursive: true });
     (await getContentIndex()).close(projectId);
     fs.renameSync(source, dest);
-    // Its bin (what was deleted from it) goes with it.
+    // Delete the project's bin (its deleted items) together with the project.
     const bin = trashProjectDir(projectId);
     if (fs.existsSync(bin)) fs.renameSync(bin, path.join(dest, '.bin'));
 
@@ -484,8 +490,8 @@ export function listTrashedProjects(): TrashedProject[] {
 }
 
 /**
- * For the server's operators: a deleted project's copy in the trash, removed for good (its files,
- * its history). Nothing else on the server names it any more.
+ * For server operators: permanently removes a deleted project's copy from the trash, including its
+ * files and history. No other data on the server references it.
  */
 export function purgeTrashedProject(folder: string): void {
     const found = listTrashedProjects().find(t => t.folder === folder);
@@ -494,8 +500,8 @@ export function purgeTrashedProject(folder: string): void {
 }
 
 /**
- * For the server's operators: a project deleted for good at once, without the trash. Its members
- * lose it, as when it's deleted; then its files and history are removed.
+ * For server operators: permanently deletes a project immediately, skipping the trash. Its members
+ * lose access as in a normal delete, then its files and history are removed.
  */
 export async function purgeProject(operator: User, projectId: string): Promise<void> {
     if (!isValidId(projectId) || !isExistingProjectId(projectId))
@@ -549,7 +555,7 @@ export async function copyProjectForNewUser(
     const sourceDir = path.join(base, sourceProjectId);
     const destDir = path.join(base, newProjectId);
 
-    // The content only: models, entries, pages, media. Never the project state (.moteur: secrets,
+    // Copy content only: models, entries, pages and media. Never copy project state (.moteur: secrets,
     // notes, AI log, notifications), the history, the outbound hooks or what visitors sent.
     fs.cpSync(sourceDir, destDir, {
         recursive: true,
@@ -565,14 +571,14 @@ export async function copyProjectForNewUser(
     if (fs.existsSync(destGit)) {
         fs.rmSync(destGit, { recursive: true });
     }
-    // The source's content index is rebuilt for the copy on first use.
+    // The copy builds its own content index on first use, so the source's index is not copied.
     fs.rmSync(path.join(destDir, '.moteur', 'cache'), { recursive: true, force: true });
     await initRepo(destDir);
 
     const project = await getProjectJson<ProjectSchema>(newProjectId, PROJECT_KEY);
     if (!project) throw new Error(`Project data not found in "${sourceProjectId}"`);
 
-    // Settings that reach outside services stay with the source: its keys, its remote, its hosts.
+    // Do not copy settings that connect to outside services: API keys, the git remote and hosts.
     const {
         apiKeys: _apiKeys,
         git: _git,
@@ -581,7 +587,7 @@ export async function copyProjectForNewUser(
         assetConfig: _assetConfig,
         ...content
     } = project;
-    // The copy is theirs: it goes in their own workspace unless told which.
+    // Put the copy in the user's own workspace unless another workspace is given.
     const owner = getUserById(userId);
     const workspaceId =
         extra.workspaceId ?? (owner ? (await ensurePersonalWorkspace(owner)).id : undefined);
@@ -596,7 +602,7 @@ export async function copyProjectForNewUser(
         ...extra
     };
     await putProjectJson(newProjectId, PROJECT_KEY, updated);
-    // The copy starts as its source is published, under its own name (see projectCopyVersions.ts).
+    // Make the copy's published state match the source's published state (see projectCopyVersions.ts).
     const published = await asPublished(sourceDir, newProjectId);
     await renameCopy(newProjectId, sourceProjectId);
     const userForCommit = {

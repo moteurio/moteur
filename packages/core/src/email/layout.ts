@@ -8,78 +8,78 @@ import type { EmailLocale, EmailLook } from './settings.js';
  * dark palette and phone padding; without it the email is still whole.
  */
 
-/** A part of a line: plain, in bold, or a link (shown as `text`, written out in the plain text). */
+/** A piece of a line of text: plain, bold, or a link. In the plain-text version a link is written out as its URL. */
 export type RichPart = string | { strong: string } | { href: string; text: string };
-/** Text with some parts in bold or linked. */
+/** Text that may contain bold parts and links. */
 export type Rich = string | RichPart[];
 
 export type Block =
     | { t: 'h'; text: string }
-    /** A smaller heading, inside a panel or over a section. */
+    /** A smaller heading, used inside a panel or above a section. */
     | { t: 'h2'; text: string }
-    /** A short label over the heading: what kind of email this is. */
+    /** A short label above the heading that says what kind of email this is. */
     | { t: 'kicker'; text: string }
     | { t: 'p'; text: Rich }
-    /** A one-time code: shown spaced, copied without the space. */
+    /** A one-time code. It is displayed with spacing, and copying it gives the code without the spacing. */
     | { t: 'code'; code: string }
-    /** The one action. `fallback` introduces the bare address for when the button can't be pressed. */
+    /** The email's main action. `fallback` is the text introducing the plain URL, for clients where the button doesn't work. */
     | { t: 'button'; label: string; href: string; fallback: string }
     | { t: 'steps'; items: { text: string; href?: string }[] }
-    /** Short points, in no order. */
+    /** An unordered list of short items. */
     | { t: 'list'; items: Rich[] }
-    /** Labels over values, one under the other (answers to a form). */
+    /** Labels stacked above their values, such as the answers to a form. */
     | { t: 'facts'; rows: { label: string; value: string }[] }
-    /** Labels beside values (a role, a date). */
+    /** Labels shown next to their values, such as a role or a date. */
     | { t: 'pairs'; rows: { label: string; value: Rich }[] }
-    /** A person, with their initials in a circle (never a remote picture). */
+    /** A person shown with their initials in a circle. A remote picture is never loaded. */
     | { t: 'person'; name: string; detail?: string; label?: string }
-    /** Someone's own words, set apart: an inviter's note. */
+    /** A quotation set apart from the text, such as a note written by the inviter. */
     | { t: 'quote'; label: string; text: string }
-    /** A tinted box holding other blocks: the project someone is invited to. */
+    /** A tinted box containing other blocks, such as the project someone is invited to. */
     | { t: 'panel'; blocks: Block[] }
-    /** A quiet section under a rule: what the product is, where help is. */
+    /** A low-emphasis section below a divider, such as what the product is and where to get help. */
     | { t: 'about'; title: string; text: Rich }
     | { t: 'note'; text: Rich }
     | { t: 'sign'; text: string };
 
-/** What one email says, before it has a look. */
+/** The content of one email, independent of any look. */
 export interface EmailContent {
     subject: string;
-    /** The line inboxes show after the subject. */
+    /** The preview text that inboxes show after the subject. */
     preheader: string;
     blocks: Block[];
-    /** Why the reader got it, at the foot. */
+    /** An explanation of why the recipient got this email, shown in the footer. */
     why?: Rich;
-    /** Notifications only: the page that stops them (also sent as List-Unsubscribe). */
+    /** For notifications only: the page where the recipient can unsubscribe. Also sent as the List-Unsubscribe header. */
     unsubscribe?: { label: string; href: string };
-    /** Mail a project sends to its own people: its name heads it, not the product's. */
+    /** Set for mail a project sends to its own team. The project's name is shown at the top instead of the product's. */
     sender?: { name: string };
-    /** The plain-text part as it must read, when not built from the blocks (form mail). */
+    /** The exact plain-text version to send, used when it can't be built from the blocks (form mail). */
     text?: string;
 }
 
-/** Whose name, logo, colour and foot an email carries: the operator's, or a project's. */
+/** The name, logo, colour and footer an email carries, belonging either to the operator or to a project. */
 export interface Brand {
     productName: string;
     accent?: string;
-    /** `cid:` or https URL of the logo, with its width. */
+    /** The logo's `cid:` or https URL, and its width. */
     logo?: { src: string; width: number };
     footer?: string;
     supportUrl?: string;
-    /** A project's mail: its site, linked at the foot. */
+    /** For project mail: the project's site, linked in the footer. */
     siteUrl?: string;
-    /** A project's mail: the operator's "Sent with …" line, when it asks for one. */
+    /** For project mail: the operator's "Sent with …" line, when the operator enables it. */
     credit?: string;
 }
 
-/** A look of the Studio's, or a project's own: how an email is set. */
+/** The look of an email: one of the operator's looks, or `project` for a project's own mail. */
 export type EmailStyle = EmailLook | 'project';
 
 /**
- * How a look sets an email. Discothèque is Marquee: the Studio's chocolate band with the name and
- * the four stripes, the code on a mustard ticket, a pill button. Folio is Tab: a white card with a
- * line of accent along its top, the code in a grey well. A project's own mail is Plain: none of
- * the Studio's, only the project's logo (or name), its colour and its foot, on a white card.
+ * How a look sets an email. Discothèque is Marquee: a chocolate-brown band with the name and
+ * the four stripes, the code in a highlighted yellow box, a pill-shaped button. Folio is Tab: a white card with a
+ * line of accent along its top, the code in a grey well. A project's own mail is Plain: it uses
+ * none of the product styling, only the project's logo (or name), colour and footer, on a white card.
  */
 export interface Design {
     id: string;
@@ -105,7 +105,7 @@ type Palette = {
     ink: string;
     muted: string;
     rule: string;
-    /** The outline of the box and of controls. */
+    /** The border color of the card and of controls. */
     edge: string;
     action: string;
     onAction: string;
@@ -115,13 +115,13 @@ type Palette = {
     codeEdge: string;
     band: string;
     onBand: string;
-    /** A tinted box inside the card, and its outline. */
+    /** The background and border of a tinted box inside the card. */
     panel: string;
     panelEdge: string;
-    /** The circle behind a person's initials, and the initials. */
+    /** The circle behind a person's initials, and the color of the initials. */
     avatar: string;
     onAvatar: string;
-    /** The rule beside a quoted note. */
+    /** The vertical line beside a quoted note. */
     quote: string;
     stripes: string[];
 };
@@ -220,7 +220,7 @@ const PALETTES: Record<EmailStyle, { light: Palette; dark: Palette }> = {
             stripes: []
         }
     },
-    // Neutral greys, a little warm, so any project's logo and colour sit well on them.
+    // Slightly warm neutral greys, so any project's logo and colour look right on them.
     project: {
         light: {
             ground: '#F3F3F1',
@@ -276,7 +276,7 @@ const FONTS: Record<EmailStyle, { display: string; body: string }> = {
         body: `Karla, ${SANS}`
     },
     folio: { display: `'IBM Plex Sans', ${SANS}`, body: `'IBM Plex Sans', ${SANS}` },
-    // The reader's own system font: nothing of the Studio's.
+    // Use the system font stack so a project's mail doesn't depend on web fonts.
     project: { display: SANS, body: SANS }
 };
 const MONO =
@@ -290,13 +290,13 @@ export const esc = (s: string) =>
         .replace(/"/g, '&quot;')
         .replace(/'/g, '&#39;');
 
-/** Plain text of a line: links written out in full, so the text part has every address. */
+/** Converts a line to plain text. Links are written out in full so the text version contains every address. */
 const plain = (r: Rich): string =>
     typeof r === 'string'
         ? r
         : r.map(p => (typeof p === 'string' ? p : 'strong' in p ? p.strong : p.href)).join('');
 
-/** Up to two initials, for a person's circle. */
+/** Returns up to two initials for a person's avatar circle. */
 export function initials(name: string): string {
     const words = name
         .replace(/@.*/, '')
@@ -324,9 +324,9 @@ function palettes(brand: Brand, look: EmailStyle): { light: Palette; dark: Palet
     return { light, dark };
 }
 
-/** The `<style>` block: dark palette (Apple Mail, iOS, Outlook.com), phone padding. */
+/** Builds the `<style>` block: the dark-mode palette (Apple Mail, iOS, Outlook.com) and padding for phones. */
 function styles(d: Palette): string {
-    // [class, colour, background, border]: one list, written for each client's dark mode.
+    // Each entry is [class, text color, background color, border color]. They are expanded for each client's dark-mode mechanism.
     const rows: [string, string?, string?, string?][] = [
         ['m-ground', undefined, d.ground],
         ['m-card', undefined, d.card, d.edge],
@@ -362,14 +362,15 @@ function styles(d: Palette): string {
         ':root{color-scheme:light dark;supported-color-schemes:light dark}',
         'body{margin:0;padding:0;width:100%!important;-webkit-text-size-adjust:100%}',
         `@media (prefers-color-scheme:dark){${css('', ['color', 'bg', 'border'])}}`,
-        // Outlook.com and the Outlook apps mark their own dark mode with these attributes.
+        // Outlook.com and the Outlook apps mark dark mode with these attributes instead of the
+        // media query.
         css('[data-ogsc] ', ['color', 'border']),
         css('[data-ogsb] ', ['bg']),
         '@media (max-width:620px){.m-pad{padding:24px 20px!important}.m-outer{padding:16px 8px!important}.m-h{font-size:26px!important;line-height:1.15!important}.m-code span{font-size:30px!important}.m-ppad{padding:16px 16px 4px!important}.m-lab{width:92px!important}}'
     ].join('\n');
 }
 
-/** Renders an email's content in a look's design. */
+/** Renders an email's content using a look's design. */
 export function renderHtml(
     content: EmailContent,
     design: Design,
@@ -384,7 +385,7 @@ export function renderHtml(
     const linkStyle = `color:${c.link};text-decoration:underline;`;
     const dotted = disco ? 'dotted' : 'solid';
 
-    // A line break someone wrote (a project's sign-off: "See you soon,\nThe team") stays one.
+    // Keep line breaks the author wrote, such as a sign-off like "See you soon,\nThe team".
     const text = (s: string) => esc(s).replace(/\r?\n/g, '<br>');
     const rich = (r: Rich) =>
         typeof r === 'string'
@@ -519,7 +520,7 @@ export function renderHtml(
         );
 
     const plainStyle = design.look === 'project';
-    // The brand is the email's own: the operator's on the engine's mail, the project's on its own.
+    // Use the operator's brand on the server's mail and the project's brand on a project's own mail.
     const own = plainStyle || !content.sender;
     const name = plainStyle ? brand.productName : (content.sender?.name ?? brand.productName);
     const logo = own && brand.logo;
@@ -529,13 +530,13 @@ export function renderHtml(
 
     let header: string;
     if (disco) {
-        // Marquee: the name on the chocolate band, the four stripes under it.
+        // Marquee: the name on the brown band, with the four stripes underneath.
         const bandName =
             logoImg ||
             `<span class="m-band-ink" style="font-family:${f.display};font-size:26px;line-height:1.2;font-weight:800;color:${c.onBand};">${esc(name)}</span>`;
         header = `<tr><td class="m-band" bgcolor="${c.band}" style="background-color:${c.band};padding:20px 32px;border-radius:22px 22px 0 0;">${bandName}</td></tr>${content.sender ? '' : `<tr><td>${stripeRows(6)}</td></tr>`}`;
     } else if (plainStyle) {
-        // Plain: the project's logo, or its name in its colour, centred over the card.
+        // Plain: the project's logo, or its name in its accent color, centered above the card.
         const mark =
             logoImg ||
             `<span class="m-link" style="font-family:${f.display};font-size:20px;line-height:1.25;font-weight:700;color:${c.link};">${esc(name)}</span>`;
@@ -548,7 +549,7 @@ export function renderHtml(
     }
 
     const body = content.blocks.map(block).join('');
-    // Tab: a line of accent along the top of the card.
+    // Tab: an accent-colored line along the top of the card.
     const topLine =
         disco || plainStyle
             ? ''
@@ -568,7 +569,7 @@ export function renderHtml(
     if (content.unsubscribe) foot.push(quiet(content.unsubscribe.href, content.unsubscribe.label));
     if (own && brand.supportUrl) foot.push(quiet(brand.supportUrl, host(brand.supportUrl)));
     if (own && brand.footer) foot.push(lines(brand.footer));
-    // The project's site, unless the email already links it.
+    // Link the project's site unless the email already links it.
     const site = plainStyle ? siteNotLinked(content, brand.siteUrl) : undefined;
     if (site) foot.push(quiet(site, host(site)));
     if (plainStyle && brand.credit) foot.push(esc(brand.credit));
@@ -613,7 +614,7 @@ ${footer}
 `;
 }
 
-/** A project's site, unless the email's words already link it. */
+/** Returns the project's site unless the email text already links to it. */
 function siteNotLinked(content: EmailContent, site: string | undefined): string | undefined {
     if (!site) return undefined;
     const linked = (r: Rich | undefined) =>
@@ -631,7 +632,7 @@ function siteNotLinked(content: EmailContent, site: string | undefined): string 
     return walk(content.blocks) || linked(content.why) ? undefined : site;
 }
 
-/** The plain-text part: the same words, in reading order, every address written out. */
+/** Builds the plain-text version: the same text in reading order, with every address written out. */
 export function renderText(
     content: EmailContent,
     brand: Brand,
@@ -641,7 +642,7 @@ export function renderText(
     const colon = locale === 'fr' ? '\u202f:' : ':';
     const plainStyle = style === 'project';
     const own = plainStyle || !content.sender;
-    // A project's foot: its address (CASL), its site, and the operator's line when asked for.
+    // Footer of a project's mail: its postal address (required by CASL), its site, and the operator's credit line when enabled.
     const projectFoot = plainStyle
         ? [brand.footer, siteNotLinked(content, brand.siteUrl), brand.credit].filter(
               (s): s is string => Boolean(s)
@@ -669,7 +670,7 @@ export function renderText(
                     out.push(`    ${b.code.slice(0, 3)} ${b.code.slice(3)}`);
                     break;
                 case 'button': {
-                    // After a sentence that already leads to it, the address alone.
+                    // After a sentence that already points to the address, show the address alone.
                     const led = /:$/.test(out[out.length - 1] ?? '');
                     out.push(led ? b.href : `${b.label}${colon}\n${b.href}`);
                     break;

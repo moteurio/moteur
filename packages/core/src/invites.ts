@@ -7,9 +7,10 @@ import { writeJsonAtomic } from './utils/fileUtils.js';
 import type { MemberInput } from './workspaces.js';
 
 /**
- * Invitations to join a project or a workspace, kept in `invites.json` next to the users file.
- * Only a hash of each link's token is stored; the token itself is shown once, when the invite is
- * made or renewed. Both kinds share the link (`/invite/<token>`): `workspaceId` tells them apart.
+ * Invitations to join a project or a workspace, stored in `invites.json` next to the users file.
+ * Only a hash of each invite token is stored. The token itself is returned once, when the invite
+ * is created or renewed. Both kinds use the same link format (`/invite/<token>`), and the
+ * `workspaceId` field tells them apart.
  */
 export type ProjectInvite = {
     id: string;
@@ -230,7 +231,7 @@ export function revokeWorkspaceInvite(workspaceId: string, inviteId: string): bo
     return revoke({ workspaceId }, inviteId);
 }
 
-/** Every pending invite to a workspace withdrawn (it is going). */
+/** Withdraws every pending invite to a workspace, used when the workspace is deleted. */
 export function withdrawWorkspaceInvites(workspaceId: string): void {
     const all = readAll();
     const next = all.filter(i => !inScope(i, { workspaceId }));
@@ -252,14 +253,14 @@ export function findInviteByToken(token: string): Invite | null {
     return readAll().find(i => i.tokenHash === hash && isLive(i)) ?? null;
 }
 
-/** Once accepted, an invite is gone. */
+/** Deletes an invite after it is accepted. */
 export function consumeInvite(inviteId: string): void {
     const all = readAll();
     const next = all.filter(i => i.id !== inviteId);
     if (next.length !== all.length) writeAll(next);
 }
 
-/** Withdraw every pending invite someone sent (their account is going). How many went. */
+/** Withdraws every pending invite a user sent, used when their account is deleted. Returns how many were withdrawn. */
 export function withdrawInvitesBy(userId: string): number {
     const all = readAll();
     const next = all.filter(i => i.invitedBy !== userId);

@@ -3,7 +3,7 @@ import type { ValidationIssue } from '@moteurio/types/ValidationResult.js';
 import { isPlainObject } from '../../fieldValueUtils.js';
 import { validateFieldValue } from '../../validateFieldValue.js';
 
-/** The field each key of a map holds (text when the map doesn't say). */
+/** Returns the field definition of the values in a map. It defaults to a text field when the map does not define one. */
 export function mapValueField(field: Field): Field {
     const value = field.options?.value as Field | undefined;
     return value && typeof value === 'object' && typeof value.type === 'string'
@@ -11,7 +11,7 @@ export function mapValueField(field: Field): Field {
         : ({ type: 'core/text', label: 'Value' } as Field);
 }
 
-/** The keys a map may have, or undefined for any key. */
+/** Returns the keys a map may have, or undefined when any key is allowed. */
 export function mapKeys(field: Field): string[] | undefined {
     const keys = field.options?.keys;
     if (!Array.isArray(keys) || !keys.length) return undefined;

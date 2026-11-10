@@ -20,7 +20,7 @@ export const ALLOWED_MIME: Record<AssetType, string[]> = {
     model: ['model/gltf-binary', 'model/gltf+json', 'model/vnd.usdz+zip']
 };
 
-/** Browsers rarely know 3D formats (and some audio) and send these files as octet-stream or with no type. */
+/** Browsers rarely recognize 3D formats (and some audio), so they send these files as octet-stream or with no type. */
 const MIME_BY_EXTENSION: Record<string, string> = {
     jpg: 'image/jpeg',
     jpeg: 'image/jpeg',
@@ -43,7 +43,7 @@ const MIME_BY_EXTENSION: Record<string, string> = {
     flac: 'audio/flac'
 };
 
-/** The extension a file is stored under for each accepted type (the first is used when it has none of them). */
+/** The extensions a file may be stored with for each accepted type. The first is used when the file has none of them. */
 const EXTENSIONS_BY_MIME: Record<string, string[]> = {
     'image/jpeg': ['jpg', 'jpeg'],
     'image/png': ['png'],
@@ -68,8 +68,9 @@ const EXTENSIONS_BY_MIME: Record<string, string[]> = {
 };
 
 /**
- * The name a file is stored under: its own, with the extension of the type it was accepted as.
- * `page.html` sent as a PDF is kept as `page.pdf`, so nothing serves it as a web page.
+ * The name a file is stored under: its original name with the extension of the type it was
+ * accepted as. A file `page.html` uploaded as a PDF is stored as `page.pdf`, so it can't be
+ * served as a web page.
  */
 export function nameForType(filename: string, mimeType: string): string {
     const allowed = EXTENSIONS_BY_MIME[mimeType];
@@ -83,7 +84,7 @@ export function nameForType(filename: string, mimeType: string): string {
 
 const GENERIC_MIME = new Set(['', 'application/octet-stream', 'binary/octet-stream']);
 
-/** The upload's MIME type, or the one its extension implies when the client sent a generic one. */
+/** The upload's MIME type, or the type implied by its extension when the client sent a generic one. */
 export function resolveUploadMime(mimeType: string | undefined, filename: string): string {
     const given = (mimeType ?? '').trim().toLowerCase();
     if (!GENERIC_MIME.has(given)) return given;

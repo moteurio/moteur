@@ -2,8 +2,8 @@ import fieldRegistry from '../../registry/FieldRegistry.js';
 import { validateAudioField } from '../../validators/fields/core/validateAudioField.js';
 
 /**
- * A sound file: narration, a podcast clip, an interview. Points at an audio asset (or any URL).
- * The title and transcript are per language.
+ * An audio file such as narration, a podcast clip or an interview. It points to an audio asset or
+ * to any URL. The title and transcript are stored per language.
  */
 fieldRegistry.register({
     type: 'core/audio',

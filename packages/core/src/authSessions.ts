@@ -112,9 +112,9 @@ export function revokeAuthSession(userId: string, id?: string): void {
     });
 }
 
-/** An account is gone: its sessions end, and their file goes with it. */
+/** Ends all of an account's sessions when the account is deleted. */
 export function forgetAuthSessions(userId: string): void {
     revokeAuthSession(userId);
-    // AUTH_SESSIONS_FILE keeps everyone's sessions in one file: only this account's leave it.
+    // AUTH_SESSIONS_FILE holds every account's sessions, so remove only this account's.
     if (!process.env.AUTH_SESSIONS_FILE) fs.rmSync(file(userId), { force: true });
 }

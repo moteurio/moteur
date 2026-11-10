@@ -17,8 +17,9 @@ const DEFAULT_TTL_SEC = 1800;
 const MAX_TTL_SEC = 3600;
 const STORAGE_KEY = 'preview-tokens';
 /**
- * Live links each person may have at once, and a project in all. Past the first, the person's
- * own oldest link ends, never someone else's (a link a colleague sent a client keeps working).
+ * Maximum number of active preview links per user, and per project in total. When a user goes
+ * over their limit, their own oldest link is revoked, never another user's, so a link a colleague
+ * shared with a client keeps working.
  */
 const MAX_ACTIVE_PER_PERSON = 50;
 const MAX_ACTIVE_TOKENS = 500;
@@ -92,7 +93,7 @@ export async function createPreviewToken(
     user: User,
     input: PreviewTokenCreateInput = {}
 ): Promise<PreviewTokenCreateResult> {
-    // A preview link shows drafts: for the people who write them.
+    // A preview link exposes drafts, so only users who can edit content may create one.
     assertCanEdit(user);
     if (input.entryId && !input.modelId)
         throw Object.assign(new Error('A preview link for an entry needs its model (modelId).'), {

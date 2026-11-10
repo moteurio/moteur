@@ -3,7 +3,7 @@ import { ValidationIssue } from '@moteurio/types/ValidationResult.js';
 import safeRegex from 'safe-regex';
 import { isLikelyLocaleStringMap, isPlainObject } from '../../fieldValueUtils.js';
 
-/** Property name for stored string / locale map (matches registry `fields`). */
+/** The property name that holds the string or locale map for this field type. It matches `fields` in the registry. */
 function textSubKey(field: Field): string {
     const t = field.type;
     if (t === 'core/url') return 'url';
@@ -12,7 +12,8 @@ function textSubKey(field: Field): string {
 }
 
 /**
- * Collect string segments to validate (plain string, `{ text: ... }`, `{ url: ... }`, `{ value: ... }`, or locale maps).
+ * Collects the string segments to validate from a plain string, `{ text: ... }`, `{ url: ... }`,
+ * `{ value: ... }`, or a locale map.
  */
 function collectTextSegments(
     value: unknown,

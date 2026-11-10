@@ -1,8 +1,8 @@
 import type { PlanLimitKind, PluginContributions } from '@moteurio/types/Plugin.js';
 
 /**
- * Records what a plugin actually registers during `init()`. Snapshot is merged
- * with `manifest.contributes` after init.
+ * Records what a plugin actually registers during `init()`. After init, a snapshot of these
+ * records is merged with `manifest.contributes`.
  */
 export class ContributionCollector {
     private blocks: string[] = [];

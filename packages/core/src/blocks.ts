@@ -27,7 +27,7 @@ export function registerBlockSchema(schema: BlockSchema): void {
 
 for (const schema of builtinBlockSchemas) registerBlockSchema(schema);
 
-/** Blocks that ship with the engine or a plugin, before any file in data/core overrides them. */
+/** Blocks shipped with the engine or a plugin. A file in data/core with the same type overrides them. */
 export function shippedBlockSchemas(): Record<string, BlockSchema> {
     return { ...pluginBlockRegistry };
 }
@@ -72,7 +72,8 @@ export function listBlocks(projectId?: string): Record<string, BlockSchema> {
     const registry: Record<string, BlockSchema> = {};
     const testEnv = isTestEnv();
 
-    // Shipped blocks first. A file in data/core, then a project block, overrides the same type.
+    // Start with the shipped blocks. A file in data/core overrides one of the same type, and a
+    // project block overrides both.
     Object.assign(registry, pluginBlockRegistry);
     const coreRoot = path.join(storageConfig.dataRoot, 'data', 'core', 'blocks');
     loadBlocksFromDir(coreRoot, 'core', registry, testEnv);
@@ -159,7 +160,7 @@ export function parseProjectBlockIdParam(projectId: string, param: string): stri
     return slug;
 }
 
-/** A project's own block named with a slash: refused, saying the rule. */
+/** Rejects a project block whose name contains a slash, because namespaced names are reserved for the server's blocks. */
 function ownName(name: string) {
     return Object.assign(
         new Error(

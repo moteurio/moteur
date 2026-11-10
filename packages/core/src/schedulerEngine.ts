@@ -14,7 +14,8 @@ import { getProjectUsers } from './users.js';
 import { dispatch as webhookDispatch } from './webhooks/webhookService.js';
 
 const timeouts = new Map<string, NodeJS.Timeout>();
-// The file store has one writer. Claim before the first await so timer/sweep cannot run twice.
+// The file store allows a single writer. Claim the schedule before the first await so the timer and
+// the sweep cannot run it twice.
 const running = new Map<string, Promise<void>>();
 /** setTimeout fires at once for delays above 2^31−1 ms (~24.8 days): longer waits are re-armed. */
 const MAX_TIMER_MS = 2 ** 31 - 1;
@@ -292,9 +293,10 @@ export async function sweep(): Promise<void> {
                     try {
                         let schedule = await getProjectJson<Schedule>(project.id, scheduleKey(id));
                         if (!schedule || running.has(`${project.id}:${schedule.id}`)) continue;
-                        // In the single-writer process, processing without an active claim means
-                        // the process stopped between claiming and recording completion. Replay
-                        // the status assignment (at-least-once), never leave it stranded forever.
+                        // In the single-writer process, a schedule in processing state without an
+                        // active
+                        // claim means the process stopped between claiming it and recording completion.
+                        // Replay the status update (at-least-once delivery) so it is not stuck forever.
                         if (schedule.status === 'processing') {
                             schedule = {
                                 ...schedule,

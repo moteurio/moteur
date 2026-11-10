@@ -63,10 +63,10 @@ function refuse(message: string, status = 400, code?: string, extra?: Record<str
 // ---------------------------------------------------------------------------------------------
 
 export type PasskeySettings = {
-    /** The relying party: the Studio's host (or a parent domain of it). */
+    /** The WebAuthn relying party ID: the host of the configured app URL, or a parent domain of it. */
     rpID: string;
     rpName: string;
-    /** Pages allowed to ask for a passkey: the Studio's origins. */
+    /** Origins allowed to request a passkey (the configured app URL and any extra passkey origins). */
     origins: string[];
     /** A developer's machine without `STUDIO_URL`: any `localhost` port. */
     anyLocalhostPort: boolean;
@@ -335,7 +335,8 @@ export async function beginPasskeyRegistration(
         challenge: isoBase64URL.toBuffer(challenge),
         timeout: CHALLENGE_MS,
         attestationType: 'none',
-        // The browser won't make a second passkey on an authenticator that holds one already.
+        // Prevent the browser from creating a second passkey on an authenticator that already holds
+        // one.
         excludeCredentials: (user.passkeys ?? []).map(p => ({
             id: p.id,
             transports: p.transports
@@ -480,7 +481,8 @@ export async function beginPasskeySignIn(
         if (!allow.length) throw refuse('No passkey on this account.', 409, 'NO_PASSKEY');
     } else if (input.email?.trim()) {
         reloadUsers();
-        // An address with no account gets a challenge no passkey can answer.
+        // For an address with no account, issue a challenge that no passkey can answer, so the
+        // response does not reveal whether the account exists.
         userId =
             getUserByEmail(input.email)?.id ?? `nobody:${digest(input.email.trim().toLowerCase())}`;
     }
@@ -511,7 +513,7 @@ export async function finishPasskeySignIn(
         : undefined;
     const passkey = owner?.passkeys?.find(p => p.id === credentialId);
     if (!owner || !passkey)
-        // The browser can forget it (PublicKeyCredential.signalUnknownCredential).
+        // Tell the browser to forget the credential (PublicKeyCredential.signalUnknownCredential).
         throw refuse(
             'This passkey isn’t known here. It may have been removed.',
             401,

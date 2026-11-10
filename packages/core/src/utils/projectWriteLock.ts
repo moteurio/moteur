@@ -4,7 +4,7 @@ import { projectDir } from './pathUtils.js';
 const tails = new Map<string, Promise<void>>();
 const held = new AsyncLocalStorage<Map<string, { active: boolean }>>();
 
-/** Serialize authoring and branch mutations in the supported single-writer process. */
+/** Serializes authoring and branch changes. Moteur supports a single writer process. */
 export async function withProjectWriteLock<T>(
     projectId: string,
     work: () => Promise<T>
@@ -12,7 +12,7 @@ export async function withProjectWriteLock<T>(
     return withWriteLock(projectDir(projectId), work);
 }
 
-/** Other single-writer resources, notably users.json, use the same reentrant queue. */
+/** Serializes writes to any other single-writer resource, such as users.json, with the same reentrant queue. */
 export async function withWriteLock<T>(key: string, work: () => Promise<T>): Promise<T> {
     if (held.getStore()?.get(key)?.active) return work();
     const previous = tails.get(key) ?? Promise.resolve();

@@ -4,7 +4,7 @@ import path from 'path';
 import { existsSync, readdirSync, readFileSync, rmSync } from 'fs';
 import { gitAuthEnv } from '../gitCredentials.js';
 
-/** Paths to exclude from the repo. Project state and user data are gitignored; content is tracked. */
+/** Paths excluded from the repository. Project state and user data are gitignored; content is tracked. */
 export const GITIGNORE_LINES = ['.moteur/', 'user-data/', '.trash/'];
 
 export interface GitAuthor {
@@ -19,8 +19,8 @@ function safeAuthor(user: { name?: string; email?: string; id?: string }): GitAu
 }
 
 /**
- * Git's version (`git version 2.43.0`), or null when there is no git to run: every project is a
- * Git repository, so the API checks this before it starts.
+ * Returns the installed Git version (such as `git version 2.43.0`), or null when Git can't be
+ * run. Every project is a Git repository, so the API checks this at startup.
  */
 export function gitVersion(command = 'git'): string | null {
     const r = spawnSync(command, ['--version'], { encoding: 'utf-8' });
@@ -41,7 +41,7 @@ function git(
         cwd: projectDir,
         encoding: 'utf-8',
         env: fullEnv,
-        // A commit of thousands of files lists each one; Node's default 1 MB fails with ENOBUFS.
+        // A commit of thousands of files lists every path in its output, which exceeds Node's default 1 MB buffer (ENOBUFS).
         maxBuffer
     });
     if (r.error) throw r.error;
@@ -55,7 +55,7 @@ function git(
     return (r.stdout ?? '').trim();
 }
 
-/** `gitAsync` as text: what most commands answer. The server keeps answering while Git works. */
+/** Runs `gitAsync` and returns its output as text, which is what most commands produce. The event loop stays free while Git runs. */
 async function run(
     projectDir: string,
     args: string[],
@@ -67,8 +67,8 @@ async function run(
 const queues = new Map<string, Promise<unknown>>();
 
 /**
- * One Git change at a time in a repository (two would meet on its index.lock); different
- * projects' repositories work side by side.
+ * Runs one Git operation at a time per repository, because concurrent operations would conflict
+ * on its index.lock. Different projects' repositories run in parallel.
  */
 function inRepo<T>(projectDir: string, work: () => Promise<T>): Promise<T> {
     const previous = queues.get(projectDir) ?? Promise.resolve();
@@ -81,7 +81,7 @@ function inRepo<T>(projectDir: string, work: () => Promise<T>): Promise<T> {
     return next;
 }
 
-/** Every repository's Git work done (tests clean up after it; shutting down waits for it). */
+/** Resolves when all queued Git work in every repository has finished. Tests use it before cleanup, and shutdown waits for it. */
 export async function gitIdle(): Promise<void> {
     while (queues.size || handedOver.size) {
         await Promise.allSettled([
@@ -92,13 +92,13 @@ export async function gitIdle(): Promise<void> {
 }
 
 /**
- * Commits handed to the background, per repository, from the moment a save hands them over
- * (before they reach the queue): a save doesn't wait for Git, so what reads the latest history
- * waits for them first.
+ * Background commits that are pending, per repository, from the moment a save hands them over
+ * (before they reach the queue). A save doesn't wait for Git, so code that reads the latest
+ * history must wait for these first.
  */
 const handedOver = new Map<string, Set<Promise<unknown>>>();
 
-/** Run `work` in the background for this repository; reads of its history wait for it. */
+/** Runs `work` in the background for this repository. Reads of its history wait for it to finish. */
 export function inBackground(projectDir: string, work: Promise<unknown>): void {
     const set = handedOver.get(projectDir) ?? new Set();
     handedOver.set(projectDir, set);
@@ -116,9 +116,10 @@ export function inBackground(projectDir: string, work: Promise<unknown>): void {
 }
 
 /**
- * What was handed over for this repository committed: history as the last save left it. Code that
- * writes a file and commits it itself (publishing) waits for this first, so a save's background
- * commit can't take its new content along before it.
+ * Resolves when everything handed to the background for this repository has been committed, so
+ * the history matches the last save. Code that writes a file and commits it itself (publishing)
+ * waits for this first, so that a save's background commit can't include the new content ahead
+ * of it.
  */
 export async function gitSettled(projectDir: string): Promise<void> {
     while (handedOver.get(projectDir)?.size)
@@ -140,7 +141,7 @@ function authorEnv(author: GitAuthor | { name?: string; email?: string; id?: str
  */
 export function isGitRepo(projectDir: string): boolean {
     try {
-        // Don't overthink it. If .git exists, it's a repo.
+        // A repository exists wherever .git exists.
         return existsSync(path.join(projectDir, '.git'));
     } catch {
         return false;
@@ -148,10 +149,10 @@ export function isGitRepo(projectDir: string): boolean {
 }
 
 /**
- * Lock files Git leaves when it's stopped mid-command (a crash, a machine killed during a
- * commit). One left behind makes every later commit in the repository fail. Only for startup,
- * before any Git work of this process: removing a lock a running Git holds would be worse.
- * Returns the locks removed.
+ * Removes lock files that Git leaves behind when it is stopped mid-command (a crash, or a
+ * machine killed during a commit). A leftover lock makes every later commit in the repository
+ * fail. Call it only at startup, before this process runs any Git work, because removing a lock
+ * that a running Git holds would be worse. Returns the locks removed.
  */
 export function removeStaleLocks(projectDir: string): string[] {
     const gitDir = path.join(projectDir, '.git');
@@ -255,8 +256,8 @@ export function addAndCommit(
     const env = authorEnv(author);
     const normalized = relativePaths.map(p => p.replace(/\\/g, '/'));
     return inRepo(projectDir, async () => {
-        // A path gone from disk is staged only if Git knows it (a deletion to commit): one it
-        // never knew would make `git add` refuse the whole commit.
+        // A path missing from disk is staged only if Git tracks it (a deletion to commit). Staging
+        // a path Git never knew would make `git add` refuse the whole commit.
         const missing = normalized.filter(p => !existsSync(path.join(projectDir, p)));
         const known = missing.length
             ? new Set((await run(projectDir, ['ls-files', '--', ...missing])).split('\n'))
@@ -300,8 +301,8 @@ export function addAllAndCommit(
 }
 
 /**
- * The commit HEAD points at, read from .git as Git keeps it (a ref file, or packed-refs): asked
- * after every commit, and starting a process each time costs the server more than the commit.
+ * Returns the commit HEAD points at, read directly from .git (a ref file, or packed-refs). It is
+ * needed after every commit, and starting a Git process each time costs more than the commit.
  */
 async function headCommit(projectDir: string): Promise<string> {
     const gitDir = path.join(projectDir, '.git');
@@ -319,7 +320,7 @@ async function headCommit(projectDir: string): Promise<string> {
             if (line && /^[0-9a-f]{40} /.test(line)) return line.slice(0, 40);
         }
     } catch {
-        /* Git says, below */
+        /* Fall through: the Git command below reports the problem. */
     }
     return run(projectDir, ['rev-parse', 'HEAD']);
 }
@@ -376,7 +377,7 @@ export async function getLog(
     const normalized = relativePath.replace(/\\/g, '/');
     await gitSettled(projectDir);
     try {
-        // After the commits already waiting in this repository: history as the last save left it.
+        // Wait for the commits already pending in this repository so the history matches the last save.
         const out = await inRepo(projectDir, () =>
             run(projectDir, [
                 'log',
@@ -417,7 +418,7 @@ export async function show(
 ): Promise<string | null> {
     if (!isGitRepo(projectDir)) return null;
     const normalized = relativePath.replace(/\\/g, '/');
-    // A commit named by its hash is what it is; HEAD or a branch waits for the saves handed over.
+    // A commit hash is immutable, but HEAD or a branch name must wait for the pending saves to be committed.
     if (!/^[0-9a-f]{40}$/.test(rev)) await gitSettled(projectDir);
     try {
         return await inRepo(projectDir, () =>
@@ -455,16 +456,16 @@ function gitAsync(
                     )
                 );
         });
-        // Git may exit before reading its input (EPIPE); 'close' above reports why.
+        // Git may exit before reading all of its input (EPIPE). The 'close' handler above reports why.
         child.stdin.on('error', () => {});
         child.stdin.end(input ?? '');
     });
 }
 
-/** Above this many files at one revision, list its tree once instead of resolving each path. */
+/** Above this many files at one revision, list the revision's tree once instead of resolving each path separately. */
 const LS_TREE_THRESHOLD = 64;
 
-/** Blob id of every file at a revision. */
+/** Returns the blob id of every file at a revision. */
 async function blobIds(projectDir: string, rev: string): Promise<Map<string, string>> {
     const ids = new Map<string, string>();
     const out = await gitAsync(projectDir, ['ls-tree', '-r', '-z', '--full-tree', rev]);
@@ -505,7 +506,7 @@ export async function readBlobs(
         if (list) list.push(spec);
         else byRev.set(rev, [spec]);
     }
-    // What cat-file is asked for each spec: a blob id, the spec itself, or nothing (missing).
+    // What to ask cat-file for each spec: a blob id, the spec itself, or nothing when the file is missing.
     const objects = new Map<string, string | null>(specs.map(spec => [spec, spec]));
     for (const [rev, revSpecs] of byRev) {
         if (revSpecs.length < LS_TREE_THRESHOLD) continue;
@@ -513,7 +514,7 @@ export async function readBlobs(
         try {
             ids = await blobIds(projectDir, rev);
         } catch {
-            continue; // unknown revision: cat-file reports each spec missing
+            continue; // Unknown revision: report each spec as missing.
         }
         for (const spec of revSpecs) {
             objects.set(spec, ids.get(spec.slice(rev.length + 1).replace(/\\/g, '/')) ?? null);
@@ -572,7 +573,7 @@ export function setRemoteOrigin(projectDir: string, remoteUrl: string): void {
 export function hasRemote(projectDir: string): boolean {
     if (!isGitRepo(projectDir)) return false;
     try {
-        // Asked on every save: the repository's config says it, with no Git process to start.
+        // This runs on every save, so read the repository's config directly instead of starting a Git process.
         return /^\[remote "/m.test(readFileSync(path.join(projectDir, '.git', 'config'), 'utf-8'));
     } catch {
         return false;
@@ -580,15 +581,15 @@ export function hasRemote(projectDir: string): boolean {
 }
 
 /**
- * Push to the remote now. False when it failed. Pushes take turns with each other, not with
- * commits: a push only reads what's committed (and moves origin's ref), so a save never waits on
- * the network, even in the same project.
+ * Pushes to the remote immediately. Returns false when the push fails. Pushes are serialized
+ * with each other but not with commits: a push only reads committed data (and moves origin's
+ * ref), so a save never waits on the network, even in the same project.
  */
 export function push(projectDir: string): Promise<boolean> {
     if (!isGitRepo(projectDir)) return Promise.resolve(false);
     return inRepo(`${projectDir}\0push`, async () => {
         try {
-            // A branch never pushed has no upstream: the first push sets it, on origin.
+            // A branch that was never pushed has no upstream, so the first push sets it on origin.
             const env = pushEnv(projectDir);
             const upstream = await run(projectDir, [
                 'rev-parse',
@@ -605,7 +606,7 @@ export function push(projectDir: string): Promise<boolean> {
     });
 }
 
-/** Quiet time after a commit before its push (`MOTEUR_GIT_PUSH_DELAY_MS`, default 2 s). */
+/** How long to wait after a commit before pushing (`MOTEUR_GIT_PUSH_DELAY_MS`, default 2 s). */
 function pushDelay(): number {
     const n = Number(process.env.MOTEUR_GIT_PUSH_DELAY_MS);
     return Number.isFinite(n) && n >= 0 ? n : 2000;
@@ -614,8 +615,9 @@ function pushDelay(): number {
 const scheduled = new Map<string, { timer: NodeJS.Timeout; done: ((pushed: boolean) => void)[] }>();
 
 /**
- * Push soon, in the background: saves never wait on the network. Commits made meanwhile go in
- * the same push (one per quiet spell, not one per save). `done` hears whether it went.
+ * Schedules a push in the background so saves never wait on the network. Commits made in the
+ * meantime go out in the same push (one push per quiet period, not one per save). `done` is
+ * called with whether the push succeeded.
  */
 export function schedulePush(projectDir: string, done?: (pushed: boolean) => void): void {
     const waiting = scheduled.get(projectDir);
@@ -629,7 +631,7 @@ export function schedulePush(projectDir: string, done?: (pushed: boolean) => voi
     scheduled.set(projectDir, { timer, done: callbacks });
 }
 
-/** Pushes waiting their turn, sent now (shutting down, tests). */
+/** Sends any scheduled pushes immediately (used when shutting down, and in tests). */
 export async function flushPushes(): Promise<void> {
     const waiting = [...scheduled.entries()];
     scheduled.clear();
@@ -642,12 +644,12 @@ export async function flushPushes(): Promise<void> {
     );
 }
 
-/** A push never waits for a password prompt, and uses the project's token when it has one. */
+/** Environment for push commands: never wait for a password prompt, and use the project's token when it has one. */
 function pushEnv(projectDir: string): Record<string, string> {
     return { GIT_TERMINAL_PROMPT: '0', ...gitAuthEnv(projectDir) };
 }
 
-/** The branch this one pushes to (`origin/main`), or null before its first push. */
+/** The remote branch this branch pushes to (`origin/main`), or null before its first push. */
 function upstreamOf(projectDir: string): string | null {
     try {
         return (
@@ -659,16 +661,16 @@ function upstreamOf(projectDir: string): string | null {
 }
 
 export interface GitStatus {
-    /** The content branch, null before the first commit. */
+    /** The content branch, or null before the first commit. */
     branch: string | null;
-    /** Where it pushes (`origin`'s address), as Git has it. */
+    /** The address of `origin`, as Git has it configured. */
     remoteUrl: string | null;
     lastCommit: CommitInfo | null;
-    /** Commits the remote doesn't have yet: 0 when all are there, null without a remote. */
+    /** Number of commits the remote doesn't have yet: 0 when it has all of them, null when there is no remote. */
     unpushed: number | null;
 }
 
-/** Where the content's history stands: its branch, last commit, and what the remote lacks. */
+/** The state of the content history: its branch, last commit, and how many commits the remote lacks. */
 export function gitStatus(projectDir: string): GitStatus {
     const empty: GitStatus = { branch: null, remoteUrl: null, lastCommit: null, unpushed: null };
     if (!isGitRepo(projectDir)) return empty;
@@ -711,7 +713,7 @@ export const STATE_SNAPSHOT_BRANCH = 'moteur-state-snapshots';
 export const USERDATA_SNAPSHOT_BRANCH = 'moteur-userdata-snapshots';
 
 const STATE_SECRETS_PATH = '.moteur/secrets.json';
-/** Rebuildable caches (content index): never snapshotted. */
+/** Caches that can be rebuilt (the content index). They are never included in snapshots. */
 const STATE_CACHE_PATH = '.moteur/cache/';
 
 /**

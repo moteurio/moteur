@@ -14,7 +14,7 @@ import { screenWithPlugins } from './plugins/formExtensions.js';
  */
 
 const SECTION = 'forms';
-/** A token older than this says nothing: the page was left open, or it was copied. */
+/** Tokens older than this are ignored, since the page was probably left open or the token was copied. */
 const TOKEN_LIFETIME_SECONDS = 24 * 60 * 60;
 export const DEFAULT_MIN_SECONDS = 3;
 
@@ -30,7 +30,7 @@ function writeSection(projectId: string, section: FormsSecrets): void {
     updateSecretsSection(projectDir(projectId), SECTION, empty ? undefined : section);
 }
 
-/** The project's token key, made the first time a form asks for one. */
+/** The project's token-signing key, created the first time a form needs it. */
 function tokenKey(projectId: string): string {
     const section = readSection(projectId);
     if (section.tokenKey) return decryptSecret(section.tokenKey);
@@ -45,7 +45,7 @@ const sign = (key: string, projectId: string, formId: string, issuedAt: number) 
         .update(`${projectId}:${formId}:${issuedAt}`)
         .digest('base64url');
 
-/** A token for a form shown now: when it was shown, signed. */
+/** A signed token recording the time the form is shown. */
 export function issueFormToken(projectId: string, formId: string, now = Date.now()): string {
     return `${now}.${sign(tokenKey(projectId), projectId, formId, now)}`;
 }
@@ -69,7 +69,7 @@ export function formTokenAge(
     if (given.length !== expected.length || !crypto.timingSafeEqual(given, expected))
         return undefined;
     const seconds = (now - issuedAt) / 1000;
-    // A clock a little behind is fine; a token from the future isn't.
+    // Tolerate a small clock difference, but reject a token dated in the future.
     if (seconds < -5 || seconds > TOKEN_LIFETIME_SECONDS) return undefined;
     return Math.max(0, Math.round(seconds * 10) / 10);
 }
@@ -146,7 +146,7 @@ export async function checkCaptcha(
     const captcha = formCaptcha(form);
     if (!captcha) return undefined;
     const secret = captchaSecret(projectId, form);
-    // Set up without its secret: nothing to check with. The Studio says so.
+    // A captcha configured without a secret cannot be verified, so no check is made.
     if (!secret) return undefined;
     if (!response) return { outcome: 'failed', reason: 'missing-input-response' };
 
@@ -239,7 +239,7 @@ export async function screenSubmission(
     if (check?.outcome === 'unchecked') out.captchaUnchecked = true;
     if (check?.outcome === 'passed' && check.score !== undefined) out.recaptchaScore = check.score;
 
-    // Last, the plugins' own checks (Akismet…), on answers that already fit the form.
+    // Run plugin spam checks (such as Akismet) last, on answers that already fit the form.
     if (letter) {
         const verdict = await screenWithPlugins({ projectId, form, ...letter });
         if (verdict)

@@ -67,7 +67,7 @@ function changedSinceSubmitted(): Error {
     );
 }
 
-/** Publishing used the approvals waiting for this entry or page: each publishes once. */
+/** Mark the approved reviews for this entry or page as used, so each approval publishes only once. */
 export async function useApprovals(
     projectId: string,
     target: { modelId: string; entryId: string } | { pageId: string }
@@ -253,7 +253,8 @@ export async function approveReview(
     user: User,
     reviewId: string
 ): Promise<Review> {
-    // Checked and published with no save in between: what goes live is what was approved.
+    // Check and publish with no save in between, so the content that goes live is the content that
+    // was approved.
     return withProjectWriteLock(projectId, () => approveReviewUnlocked(projectId, user, reviewId));
 }
 
@@ -276,7 +277,8 @@ async function approveReviewUnlocked(
         if (review.status !== 'pending') {
             throw new Error('Review is not pending');
         }
-        // The reviewer approves what was sent: an edit since then needs a fresh look.
+        // An approval covers the content that was submitted. If it was edited since, it needs a new
+        // review.
         const sent =
             review.resourceType === 'page' && review.pageId
                 ? await getProjectJson<PageNode>(projectId, pageKey(review.pageId))
@@ -284,7 +286,7 @@ async function approveReviewUnlocked(
                   ? await getProjectJson<Entry>(projectId, entryKey(review.modelId, review.entryId))
                   : null;
         if (sent && contentVersion(sent) !== review.submittedVersion) throw changedSinceSubmitted();
-        // A page goes live on approval: it must be complete first.
+        // Approving publishes the page, so its required fields must be complete.
         if (review.resourceType === 'page' && sent)
             await assertPageReady(projectId, sent as PageNode);
 
@@ -310,7 +312,7 @@ async function approveReviewUnlocked(
                     user
                 });
             if (page) {
-                // Approving publishes what was reviewed: it becomes the page's public version.
+                // The reviewed content becomes the page's published version.
                 await publishReviewedPage(projectId, user, page, recordSave);
                 await useApprovals(projectId, { pageId: review.pageId });
             } else void recordSave();
@@ -356,8 +358,9 @@ async function approveReviewUnlocked(
                 // swallow
             }
         } else if (review.modelId && review.entryId) {
-            // Publish for real (commit + publishedCommit pointer), not just flip the status:
-            // otherwise the public API keeps serving the previous publish-time snapshot. The
+            // Publish for real (commit and publishedCommit pointer) instead of only changing the
+            // status,
+            // otherwise the public API keeps serving the previous published snapshot. The
             // review is already saved as approved, which satisfies publishEntry's review check.
             const exists = await getProjectJson<Entry>(
                 projectId,
@@ -484,9 +487,8 @@ export async function rejectReview(
         if (review.resourceType === 'page' && review.pageId) {
             const page = await getProjectJson<PageNode>(projectId, pageKey(review.pageId));
             if (page) {
-                // A live page stays live with its published version. The refused changes stay in
-                // the page, for its writer to rework: they are not live, and go live only when
-                // someone publishes the page again.
+                // A live page keeps serving its published version. The rejected changes stay in the
+                // page so the writer can rework them. They go live only when someone publishes again.
                 const live = !!(page as { publishedCommit?: string }).publishedCommit;
                 await putProjectJson(projectId, pageKey(review.pageId), {
                     ...page,
@@ -706,7 +708,7 @@ export async function submitForPageReview(
         throw new Error('This page already has a pending review');
     }
 
-    // A live page stays live while in review: its published version is pinned first.
+    // Pin the published version first, so a live page keeps serving it while it is in review.
     const page = (await pinPublishedPage(projectId, user, found)) as typeof found;
 
     const requestedByName = normalizeUserName(user);
@@ -726,7 +728,7 @@ export async function submitForPageReview(
     list.push(review);
     await putProjectJson(projectId, REVIEWS_KEY, list);
 
-    // A live page stays live while its changes are reviewed: sites keep its published version.
+    // Sites keep serving the page's published version while its changes are in review.
     await putProjectJson(projectId, pageKey(pageId), { ...page, status: 'in_review' });
 
     triggerEvent('content.saved', {

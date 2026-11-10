@@ -1,6 +1,7 @@
 /**
  * Built-in block and structure schemas. They ship with the engine, so a fresh data directory
- * still has paragraph, hero, SEO, and the rest. A file under data/core overrides one of these.
+ * still has paragraph, hero, SEO and the rest. A file under data/core overrides the built-in
+ * schema of the same name.
  */
 import type { BlockSchema } from '@moteurio/types/Block.js';
 import type { StructureSchema } from '@moteurio/types/Structure.js';
@@ -201,7 +202,7 @@ export const builtinBlockSchemas: BlockSchema[] = [
 const structureField = (type: string, label: string, extra: Record<string, unknown> = {}) =>
     ({ type, label, ...extra }) as StructureSchema['fields'][string];
 
-/** The four structures that used to live in data/core/structures. */
+/** The built-in structures shipped with the engine. */
 export const builtinStructureSchemas: StructureSchema[] = [
     {
         type: 'core/audit',

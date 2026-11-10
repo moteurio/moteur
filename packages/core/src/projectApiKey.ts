@@ -212,7 +212,7 @@ export async function createKey(
     input: CreateProjectApiKeyInput = {}
 ): Promise<{ rawKey: string; prefix: string; meta: ProjectApiKeyMeta }> {
     const project = await getProject(user, projectId);
-    // A key is what lets a site read the project: a demo copy serves no site.
+    // API keys let a site read the project, and a demo copy does not serve a site.
     assertNotDemoCopy(project, 'have API keys for a site');
     const keys = [...(project.apiKeys ?? [])];
     if (keys.length >= MAX_PROJECT_API_KEYS) {

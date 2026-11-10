@@ -16,9 +16,9 @@ export interface ValidateBlockInstancesOptions {
     projectId?: string;
     allowHtmlIframe?: boolean;
     allowHtmlEmbed?: boolean;
-    /** The project's structures, passed on to the blocks' fields. */
+    /** The project's structures, which are passed on to the fields of the blocks. */
     structures?: Record<string, StructureSchema>;
-    /** A draft's blocks: a required value left empty is a warning (see FieldValidationContext). */
+    /** Treat the blocks as part of a draft: a required value left empty is a warning instead of an error (see FieldValidationContext). */
     requiredAsWarning?: boolean;
     /** Project locales for block.locales validation */
     projectLocales?: string[];
@@ -126,8 +126,9 @@ export function validateBlockInstances(
             const fieldPath = `${blockPath}.data.${fieldName}`;
 
             if (isMissingValue(fieldValue)) {
-                // An optional field left out is fine; a required one is missing (a draft's, a
-                // warning). `required` as the import format has it (options.required) or at the top.
+                // Leaving out an optional field is fine, but a required field is reported as missing
+                // (as a warning for a draft). `required` may be set at the top level of the field or
+                // in `options.required`, which is the form the import format uses.
                 if (isFieldRequired(fieldDef))
                     issues.push({
                         type: options?.requiredAsWarning ? 'warning' : 'error',
@@ -159,7 +160,7 @@ export function validateBlockInstances(
             );
         }
 
-        // A value for a field the block doesn't have would be kept and never delivered: say so.
+        // A value for a field the block does not define is stored but never delivered, so report it.
         issues.push(
             ...unknownFieldIssues(blockInstance.data, schemaFields, `${blockPath}.data`, blockType)
         );

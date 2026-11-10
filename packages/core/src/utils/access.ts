@@ -5,11 +5,12 @@ import { isSystemActor } from './systemActor.js';
 import { workspaceOf } from '../workspaces.js';
 
 /**
- * Refuses someone who is not in the project: neither one of its members (a guest among them) nor
- * a member of its workspace who the workspace gives every project to.
+ * Throws if the user has no access to the project. A user has access as a project member (guests
+ * included) or as a member of the project's workspace when the workspace gives its members access
+ * to every project.
  */
 export function assertUserCanAccessProject(user: User, project: ProjectSchema): void {
-    // The engine's own work (scheduled publishing, form actions) is not a person's.
+    // Work done by the engine itself, such as scheduled publishing and form actions, is allowed.
     if (isSystemActor(user)) return;
     if (!isInProject(user.id, project, workspaceOf(project))) {
         throw new Error(`User "${user.id}" does not have access to project "${project.id}".`);

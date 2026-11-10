@@ -13,12 +13,12 @@ export async function validatePage(
         projectLocales?: string[];
         allowHtmlIframe?: boolean;
         allowHtmlEmbed?: boolean;
-        /** A draft may leave required fields empty (warnings); a live page may not. */
+        /** A draft may leave required fields empty, which is reported as warnings. A live page may not. */
         draft?: boolean;
     }
 ): Promise<ValidationResult> {
     const pathPrefix = `pages/${page.id}.fields`;
-    // Read once: structure fields at any depth look their schema up here.
+    // Load the structures once. Structure fields at any depth look up their schema here.
     const structures = await listStructures(projectId);
     const fieldOpts = {
         projectId,

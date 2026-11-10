@@ -2,12 +2,13 @@ import type { RadarGraph, RadarViolation } from '@moteurio/types/Radar.js';
 import type { RuleEvaluator } from './types.js';
 import { makeViolationId } from '../violationId.js';
 
-/** Radar's name for the "model" of a violation found on a page. */
+/** The model name Radar reports for violations found on a page. */
 export const PAGES_MODEL_SLUG = 'pages';
 
 /**
- * Links and relations to pages, from one record (an entry or a page) or from all of them:
- * an error when the page is gone (or is a folder), a warning when it is not published.
+ * Checks links and relations that point to pages, from one record (an entry or a page) or from
+ * all records. It reports an error when the target page no longer exists or is a folder, and a
+ * warning when the target page is not published.
  */
 export function pageLinkViolations(
     graph: RadarGraph,
@@ -46,6 +47,6 @@ export function pageLinkViolations(
     return out;
 }
 
-/** The entry's links to pages (pages themselves are checked by the scan). */
+/** Checks the entry's links to pages. The scan checks the pages' own links separately. */
 export const pageLinks: RuleEvaluator = ({ entry, graph }) =>
     pageLinkViolations(graph, { kind: 'entry', id: entry.slug });

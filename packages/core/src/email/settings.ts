@@ -4,9 +4,10 @@ import { storageConfig } from '../config/storageConfig.js';
 import { contrast, isHex } from './colour.js';
 
 /**
- * How the server's emails look and who they come from: the operator's to set (`PATCH
- * /operator/email`, or `moteur-email set`), kept in `data/operator/email.json`. Credentials stay
- * in the environment (SMTP_*, MOTEUR_DKIM_*), never in this file.
+ * Settings for how the server's emails look and who they come from. An operator sets them
+ * (`PATCH /operator/email`, or `moteur-email set`) and they are stored in
+ * `data/operator/email.json`. Credentials stay in the environment (SMTP_*, MOTEUR_DKIM_*), never
+ * in this file.
  */
 
 export const EMAIL_LOOKS = ['discotheque', 'folio'] as const;
@@ -15,67 +16,68 @@ export const EMAIL_LOCALES = ['en', 'fr'] as const;
 export type EmailLocale = (typeof EMAIL_LOCALES)[number];
 
 /**
- * The look a page says it shows (a request's `look`): Discothèque or Folio, anything else ignored.
- * For the one email that answers the request; never stored from it.
+ * Reads the look a client requests (a request's `look`): Discothèque or Folio, anything else is
+ * ignored. It applies only to the email sent in response to that request and is never stored.
  */
 export function pageLook(value: unknown): EmailLook | undefined {
     return EMAIL_LOOKS.includes(value as EmailLook) ? (value as EmailLook) : undefined;
 }
 
 export interface EmailSettings {
-    /** The name people see the mail come from. Default: the name in SMTP_FROM, else the product name. */
+    /** The sender name recipients see. Default: the name in SMTP_FROM, else the product name. */
     fromName?: string;
-    /** The address mail comes from. Default: the address in SMTP_FROM. */
+    /** The From address. Default: the address in SMTP_FROM. */
     fromAddress?: string;
-    /** Where replies go, when not to the From address. Invitations reply to the person who invited. */
+    /** Where replies go when it isn't the From address. Replies to invitations go to the inviter. */
     replyTo?: string;
-    /** The name the emails say: "Moteur" unless the operator renames it. */
+    /** The product name used in emails. Default: "Moteur". */
     productName?: string;
     /**
-     * What the product is, in a sentence or two, for the emails that are someone's first contact
-     * (invitation, welcome, sign-up). One text for every language, or `{ en, fr }`. Default: a
-     * line about the product, with its name.
+     * A sentence or two describing the product, used in emails that are someone's first contact
+     * (invitation, welcome, sign-up). Either one text for every language, or `{ en, fr }`.
+     * Default: a generic description that includes the product name.
      */
     productTagline?: string | ProductTagline;
     /**
-     * `recipient` (the default): each email in the look its reader chose (see docs/Email.md for
-     * which look each email takes). `discotheque` or `folio`: every email in that look.
+     * `recipient` (the default): each email uses the look its reader chose (see docs/Email.md for
+     * which look each email takes). `discotheque` or `folio`: every email uses that look.
      */
     look?: EmailLook | 'recipient';
-    /** The look when the reader's isn't known (an invitation to a new address). Default Discothèque. */
+    /** The look used when the reader's choice isn't known (such as an invitation to a new address). Default: Discothèque. */
     defaultLook?: EmailLook;
-    /** Buttons and links, as `#RRGGBB`: white text on it must read at 4.5:1. Default: the look's. */
+    /** Color of buttons and links, as `#RRGGBB`. White text on it must have a 4.5:1 contrast. Default: the look's own color. */
     accent?: string;
-    /** An HTTPS image shown at the top in place of the product name (not loaded until the reader allows). */
+    /** An HTTPS image shown at the top in place of the product name. Mail clients may not load it until the reader allows remote images. */
     logoUrl?: string;
-    /** A PNG, JPEG or GIF on the server (at most 100 KB), sent inside each email in place of the name. */
+    /** A PNG, JPEG or GIF stored on the server (at most 100 KB), attached to each email in place of the name. */
     logoFile?: string;
-    /** Width the logo is shown at, in pixels (default 120, at most 300). */
+    /** Display width of the logo in pixels (default 120, maximum 300). */
     logoWidth?: number;
-    /** A line at the foot of every email: the sender's postal address or legal line. */
+    /** A line in the footer of every email, such as the sender's postal address or a legal notice. */
     footer?: string;
-    /** A page where people get help, linked at the foot. */
+    /** A help page, linked in the footer. */
     supportUrl?: string;
-    /** The language of an email when the reader's isn't known. */
+    /** The email language used when the reader's language isn't known. */
     locale?: EmailLocale;
     /**
-     * Domains a project may send its own mail From (form confirmations), besides the server's
-     * address. Each is added only when its DNS passes the check (SPF, DMARC, a DKIM key).
+     * Domains a project may use as the From address for its mail (such as form confirmations), in
+     * addition to the server's address. A domain is added only when its DNS passes the check (SPF,
+     * DMARC, a DKIM key).
      */
     sendingDomains?: string[];
     /**
-     * A small "Sent with {productName}" line at the foot of projects' own mail. Default: off, or
-     * `MOTEUR_EMAIL_PROJECT_CREDIT` when the host sets it.
+     * A small "Sent with {productName}" line in the footer of mail that projects send. Default:
+     * off, or `MOTEUR_EMAIL_PROJECT_CREDIT` when the host sets it.
      */
     projectCredit?: boolean;
 }
 
-/** A tagline per language; a missing language uses the default line. */
+/** A tagline per language. A missing language falls back to the default tagline. */
 export type ProductTagline = Partial<Record<EmailLocale, string>>;
 
 export type StoredEmailSettings = EmailSettings & { updatedAt?: string; updatedBy?: string };
 
-/** Settings as every email uses them: the file, then SMTP_FROM, then defaults. */
+/** The effective settings, resolved in order from the settings file, then SMTP_FROM, then defaults. */
 export interface ResolvedEmailSettings {
     fromName: string;
     fromAddress: string;
@@ -119,7 +121,7 @@ export const EMAIL = /^[^\s@<>()",;]+@[^\s@<>()",;]+\.[^\s@<>()",;]+$/;
 const DOMAIN = /^(?=.{4,253}$)([a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/;
 export const SENDING_DOMAINS_MAX = 20;
 
-/** A domain as the allow-list keeps it: lower case, no trailing dot; null when it isn't one. */
+/** Normalizes a domain for the allow-list: lower case, no trailing dot. Returns null if it isn't a valid domain. */
 export function cleanDomain(value: unknown): string | null {
     if (typeof value !== 'string') return null;
     const d = value.trim().toLowerCase().replace(/\.$/, '');
@@ -141,7 +143,7 @@ export function readEmailSettings(): StoredEmailSettings {
     }
 }
 
-/** `Name <address>` or a bare address, as SMTP_FROM holds it. */
+/** Parses `Name <address>` or a bare address, the formats SMTP_FROM accepts. */
 export function parseMailbox(value: string | undefined): { name?: string; address?: string } {
     const v = (value ?? '').trim();
     if (!v) return {};
@@ -173,8 +175,8 @@ export function resolveEmailSettings(
         sendingDomains: (stored.sendingDomains ?? [])
             .map(cleanDomain)
             .filter((d): d is string => Boolean(d)),
-        // The file's choice, else the host's default (`MOTEUR_EMAIL_PROJECT_CREDIT`, as a hosted
-        // service sets it in its deployment); off otherwise.
+        // Use the setting from the file, else the host's default (`MOTEUR_EMAIL_PROJECT_CREDIT`,
+        // which a hosting service can set in its deployment), else off.
         projectCredit:
             typeof stored.projectCredit === 'boolean'
                 ? stored.projectCredit
@@ -184,7 +186,7 @@ export function resolveEmailSettings(
 
 export const TAGLINE_MAX = 300;
 
-/** A stored tagline as one per language: a plain string stands for every language. */
+/** Normalizes a stored tagline to one text per language. A plain string applies to every language. */
 function taglineOf(value: unknown): ProductTagline | undefined {
     if (typeof value === 'string')
         return value.trim() ? { en: value.trim(), fr: value.trim() } : undefined;
@@ -197,7 +199,7 @@ function taglineOf(value: unknown): ProductTagline | undefined {
     return Object.keys(out).length ? out : undefined;
 }
 
-/** Why an accent can't be used, or null: white text on it, and it as a link on white, at 4.5:1. */
+/** Returns why an accent color can't be used, or null if it can. It needs a 4.5:1 contrast both with white text on it and as a link on white. */
 export function accentProblem(value: string): string | null {
     if (!isHex(value)) return 'accent must be a colour like #1F5FC4';
     const onWhite = contrast(value, '#FFFFFF');
@@ -210,12 +212,12 @@ function problem(message: string): Error {
     return Object.assign(new Error(message), { status: 400 });
 }
 
-/** Checks one change; throws a readable 400 when a value can't be used. */
+/** Validates one change and throws a 400 error with a readable message when a value is invalid. */
 export function validateEmailSettings(patch: Record<string, unknown>): Partial<EmailSettings> {
     const out: Record<string, unknown> = {};
     for (const [key, raw] of Object.entries(patch)) {
         if (!KEYS.includes(key as keyof EmailSettings)) throw problem(`Unknown setting: ${key}`);
-        // null or '' clears a setting: it falls back to its default.
+        // null or '' clears a setting, which then falls back to its default.
         if (raw === null || raw === '') {
             out[key] = null;
             continue;
@@ -327,7 +329,7 @@ export function validateEmailSettings(patch: Record<string, unknown>): Partial<E
                 out[key] = raw;
                 break;
             case 'sendingDomains': {
-                // A list, or the CLI's "a.example, b.example".
+                // Accept an array, or a comma-separated string like the CLI sends: "a.example, b.example".
                 const items = typeof raw === 'string' ? raw.split(/[\s,]+/) : raw;
                 if (!Array.isArray(items)) throw problem(`${key} must be a list of domains`);
                 const domains = [
@@ -357,7 +359,7 @@ export function validateEmailSettings(patch: Record<string, unknown>): Partial<E
     return out as Partial<EmailSettings>;
 }
 
-/** Saves a change (null clears a setting) and returns what is stored. */
+/** Saves a change (null clears a setting) and returns the stored settings. */
 export function saveEmailSettings(patch: Record<string, unknown>, by: string): StoredEmailSettings {
     const clean = validateEmailSettings(patch);
     const next: Record<string, unknown> = { ...readEmailSettings() };

@@ -86,7 +86,7 @@ export function workspacesOf(userId: string): Workspace[] {
     return read().workspaces.filter(w => !!w.members?.[userId]);
 }
 
-/** Someone's own workspace, if they have one yet. */
+/** The user's personal workspace, or undefined if they do not have one yet. */
 export function personalWorkspaceOf(userId: string): Workspace | undefined {
     return read().workspaces.find(w => w.personal?.userId === userId);
 }
@@ -116,8 +116,9 @@ function made(user: Pick<User, 'id'>, name: string, personal: boolean): Workspac
 }
 
 /**
- * Someone's own workspace is only theirs: nobody else joins it. To work with others, they start a
- * team workspace and move projects there; a project's guests stay guests of that project.
+ * Throws when someone other than the owner tries to join a personal workspace. A personal
+ * workspace is accessible only to its owner. To work with others, the owner creates a team
+ * workspace and moves projects there. Guests added to a project stay guests of that project only.
  */
 export function assertTakesPeople(workspace: Workspace, userId?: string): void {
     if (workspace.personal && workspace.personal.userId !== userId)
@@ -138,8 +139,8 @@ export async function createWorkspace(user: User, name: string): Promise<Workspa
 }
 
 /**
- * Someone's own workspace, made the first time they need one (their first project). Its name is
- * theirs; a Studio may show it as "Personal".
+ * Returns the user's personal workspace, creating it the first time one is needed (when they
+ * create their first project). It is named after the user.
  */
 export async function ensurePersonalWorkspace(user: User): Promise<Workspace> {
     const existing = personalWorkspaceOf(user.id);
@@ -157,8 +158,8 @@ export async function ensurePersonalWorkspace(user: User): Promise<Workspace> {
 }
 
 /**
- * The workspace a new project of this person's goes in: the one asked for, if they may start
- * projects there, else their own.
+ * The workspace a new project of this user goes in: the requested one if the user may start
+ * projects there, otherwise their personal workspace.
  */
 export async function workspaceForNewProject(user: User, workspaceId?: string): Promise<Workspace> {
     if (!workspaceId) return ensurePersonalWorkspace(user);
@@ -186,7 +187,7 @@ function mustGet(data: WorkspacesFile, id: string): Workspace {
     return workspace;
 }
 
-/** Only owners and admins manage a workspace; only owners touch owners. */
+/** Only owners and admins can manage a workspace, and only owners can manage other owners. */
 function assertManages(workspace: Workspace, actorId: string, target?: WorkspaceRole): void {
     const role = roleOf(workspace, actorId);
     if (!runsWorkspace(role))
@@ -230,7 +231,7 @@ function member(input: MemberInput, joinedAt: string): WorkspaceMember {
     };
 }
 
-/** A member's place as it would be kept: checked, and Member-only settings dropped otherwise. */
+/** Validates a member entry as it would be stored, dropping settings that apply only to the Member role. */
 export function cleanMemberInput(input: MemberInput): MemberInput {
     const { joinedAt: _joined, ...kept } = member(input, '');
     return kept;

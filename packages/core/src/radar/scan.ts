@@ -5,7 +5,7 @@ import { loadRadarReport, saveRadarReport, computeSummary } from './storage.js';
 import { dispatch as webhookDispatch } from '../webhooks/webhookService.js';
 import { batchFor } from '../contentBatch.js';
 
-/** A violation of this entry (a page's have the `pages` model). */
+/** Whether a violation belongs to this entry. Violations of a page use the `pages` model. */
 const isEntryViolation = (v: RadarViolation, entryId: string) =>
     v.entrySlug === entryId && v.modelSlug !== PAGES_MODEL_SLUG;
 
@@ -38,7 +38,7 @@ export async function runFullScan(projectId: string, options?: ScanOptions): Pro
         };
         violations.push(...runAllRules(ctx));
     }
-    // Pages are checked for their links to pages (entries are, by the rules above).
+    // Check each page's links to other pages. The rules above already check entries.
     for (const [, page] of graph.pages ?? [])
         violations.push(...pageLinkViolations(graph, { kind: 'page', id: page.id }));
 
@@ -59,7 +59,7 @@ export async function runFullScan(projectId: string, options?: ScanOptions): Pro
                     { projectId, source }
                 );
             } catch {
-                // never fail scan on webhook
+                // A failing webhook must not fail the scan.
             }
         }
     }
@@ -72,7 +72,7 @@ export async function runFullScan(projectId: string, options?: ScanOptions): Pro
                     { projectId, source }
                 );
             } catch {
-                // never fail scan on webhook
+                // A failing webhook must not fail the scan.
             }
         }
     }
@@ -192,7 +192,7 @@ export function runEntryScanDebounced(
     entryId: string,
     options?: ScanOptions
 ): void {
-    // A batch (an import) is scanned once, as a whole, when it is saved.
+    // A batch such as an import is scanned once as a whole when it is saved, not entry by entry.
     if (batchFor(projectId)) return;
     const key = `${projectId}:${modelId}:${entryId}`;
     const existing = debounceMap.get(key);
@@ -200,7 +200,7 @@ export function runEntryScanDebounced(
     const t = setTimeout(() => {
         debounceMap.delete(key);
         runEntryScan(projectId, modelId, entryId, options).catch(() => {
-            // log in dev if needed
+            // Ignore scan failures. A debounced scan has no caller to report them to.
         });
     }, DEBOUNCE_MS);
     debounceMap.set(key, t);

@@ -132,7 +132,7 @@ export function validateProjectEmail(
                 break;
             }
             case 'footer':
-                // Kept as written, line breaks too; at most a few lines.
+                // Keep the text as written, including line breaks, up to a few lines.
                 out[k] = text(400, true).replace(/\n{3,}/g, '\n\n');
                 break;
         }
@@ -233,7 +233,7 @@ export async function projectMailOf(
     };
 }
 
-/** A project's email settings as the Studio shows them: stored, in effect, and what the server allows. */
+/** A project's email settings as returned to admin clients: stored, in effect, and what the server allows. */
 export async function projectEmailView(project: ProjectSchema, canEdit: boolean) {
     const settings = resolveEmailSettings();
     const mail = await projectMailOf(project, undefined, settings);

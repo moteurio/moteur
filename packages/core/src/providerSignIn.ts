@@ -137,9 +137,9 @@ export async function requestProviderEmail(
     item.codeHash = digest(`${ticket}:${code}`);
     item.sentAt = Date.now();
     item.sends++;
-    // Persist the budget before SMTP; failures must not permit an unlimited mail flood.
+    // Persist the send budget before sending mail, so a failure cannot allow unlimited emails.
     writePrivateState(file(), all);
-    // An address that already has an account gets the check in its owner's look.
+    // If the address already has an account, render the email in that account's look.
     await sendVerificationEmail(email, code, locale, readerOf(getUserByEmail(email)).look);
 }
 
@@ -158,7 +158,7 @@ export async function completeProviderEmail(
     if (!valid) throw problem('The verification code is incorrect.');
     reloadUsers();
     if (listUsers().some(user => user.email.toLowerCase() === item.email)) {
-        // Email proof alone never attaches a new provider to an existing account.
+        // Proving ownership of the email alone never links a new provider to an existing account.
         throw problem('Sign in to your existing account, then connect this provider.', 409);
     }
     item.used = true;
@@ -170,7 +170,7 @@ export async function connectProvider(ticket: string, browserToken: string, user
     const { all, item } = pending(ticket, browserToken);
     const account = getUserById(userId);
     if (!account?.isActive) throw problem('Account is unavailable', 401);
-    // Consume before the first await: concurrent confirmation cannot link twice.
+    // Consume the token before the first await, so concurrent confirmations cannot link twice.
     item.used = true;
     writePrivateState(file(), all);
     return linkUserProvider(userId, item.identity.auth);

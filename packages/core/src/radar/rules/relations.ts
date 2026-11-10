@@ -1,6 +1,6 @@
 import type { RadarRuleContext } from './types.js';
 
-/** A relation of the entry being checked: where it sits, and the id it names. */
+/** A relation of the entry being checked: its field path and the id it references. */
 export type EntryRelation = { path: string; id: string };
 
 const idsOf = (value: unknown): string[] => {
@@ -14,8 +14,9 @@ const idsOf = (value: unknown): string[] => {
 };
 
 /**
- * The entry's relations to other entries. From the graph's references when it has them (at any
- * depth); otherwise its top-level relation fields.
+ * Returns the entry's relations to other entries. It uses the graph's references when the graph
+ * has them, which covers relations at any depth. Otherwise it reads only the entry's top-level
+ * relation fields.
  */
 export function entryRelations({ entry, model, graph }: RadarRuleContext): EntryRelation[] {
     if (graph.references)

@@ -7,9 +7,9 @@ import type { ContentIndex, EntryQuery, EntryQueryResult, ReindexStats } from '.
 import { usesListFeatures } from './types.js';
 
 /**
- * No index: every query reads and parses every entry file of the model. Always correct, cost
- * grows with the number of entries. Used when MOTEUR_CONTENT_INDEX=files, or when SQLite is
- * unavailable.
+ * An adapter with no index: every query reads and parses every entry file of the model. It is
+ * always correct, but the cost grows with the number of entries. Used when
+ * MOTEUR_CONTENT_INDEX=files, or when SQLite is unavailable.
  */
 export class FileScanIndex implements ContentIndex {
     readonly kind = 'files';

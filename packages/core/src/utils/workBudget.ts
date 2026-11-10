@@ -1,5 +1,5 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
-/** Bounded process-wide work. Queued callers do not start allocating processor resources. */
+/** Limits how much work runs at once in the process. Callers that are queued do not start allocating processor resources. */
 export class WorkBudget {
     private readonly held = new AsyncLocalStorage<{ active: boolean }>();
     private active = 0;
@@ -8,7 +8,7 @@ export class WorkBudget {
         private readonly concurrency: number,
         private readonly maxQueued: number
     ) {}
-    /** `maxQueued`: how many may wait before this caller is turned away (the budget's own by default). */
+    /** `maxQueued` is how many callers may wait before this caller is rejected. It defaults to the budget's own limit. */
     async run<T>(work: () => Promise<T>, maxQueued = this.maxQueued): Promise<T> {
         if (this.held.getStore()?.active) return work();
         if (this.active < this.concurrency) this.active++;

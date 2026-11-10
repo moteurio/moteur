@@ -1,24 +1,24 @@
 /**
- * Projects' SQLite indexes (content, assets) are opened on first use and closed after a while
- * unused: a server with thousands of projects keeps open only those its sites and editors are
- * using, each with a small page cache. Reopening one costs a few milliseconds. An index with work
- * queued (`pending`) is never closed, and one used in the last few seconds isn't either, so nothing in
- * progress loses its database.
+ * Projects' SQLite indexes (content, assets) are opened on first use and closed after a period
+ * without use. A server with thousands of projects therefore keeps open only the indexes that its
+ * sites and editors are using, each with a small page cache. Reopening an index takes a few
+ * milliseconds. An index with queued work (`pending`) is never closed, and neither is one used in
+ * the last few seconds, so work in progress never loses its database.
  */
 
-/** What an open index records for this. */
+/** Usage that an open index records: when it was last used and how much work is pending. */
 export type Usage = { used: number; pending: number };
 
-/** Closed after this long unused (`MOTEUR_INDEX_IDLE_SECONDS`, 15). */
+/** How long an index may stay unused before it is closed, in ms. `MOTEUR_INDEX_IDLE_SECONDS` sets it (default 15 seconds). */
 export function idleMs(): number {
     const n = Number(process.env.MOTEUR_INDEX_IDLE_SECONDS);
     return (Number.isFinite(n) && n > 0 ? n : 15) * 1000;
 }
 
-/** Per connection: SQLite's page cache, in KiB (its default is about 2 MB). */
+/** SQLite pragmas for each connection. They limit the page cache to 1 MiB (the default is about 2 MB) and disable memory mapping. */
 export const INDEX_PRAGMAS = 'PRAGMA cache_size = -1024; PRAGMA mmap_size = 0;';
 
-/** Count a piece of work on an index while it runs. */
+/** Counts a piece of work on an index as pending while it runs. */
 export function busy<T>(usage: Usage, run: Promise<T>): Promise<T> {
     usage.pending++;
     const done = () => {
@@ -29,7 +29,7 @@ export function busy<T>(usage: Usage, run: Promise<T>): Promise<T> {
     return run;
 }
 
-/** Close, every half `idleMs` (half a minute at most), the indexes unused for longer than it. */
+/** Periodically closes the indexes that have been unused for longer than `idleMs`. It checks every half of `idleMs`, at most every 30 seconds. */
 export function closeWhenIdle(open: Map<string, Usage>, close: (key: string) => void): void {
     const timer = setInterval(
         () => {

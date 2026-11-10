@@ -2,9 +2,9 @@ import fieldRegistry from '../../registry/FieldRegistry.js';
 import { validateVariantField } from '../../validators/fields/core/validateVariantField.js';
 
 /**
- * One of several shapes, chosen by `kind`: an exhibit that is an image, a code listing or a
- * video. Stored flat, the chosen variant's fields beside its kind:
- * `{ "kind": "image", "src": { "assetId": "…" }, "alt": { "en": "…" } }`.
+ * A value that takes one of several shapes, chosen by `kind`. For example an exhibit can be an
+ * image, a code listing or a video. It is stored flat, with the chosen variant's fields next to
+ * its kind: `{ "kind": "image", "src": { "assetId": "…" }, "alt": { "en": "…" } }`.
  */
 fieldRegistry.register({
     type: 'core/variant',

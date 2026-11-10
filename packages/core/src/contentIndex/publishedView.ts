@@ -13,12 +13,12 @@ export function publishedSnapshotCommit(entry: Entry): string | null {
     return requiresPublishedSnapshot(entry) ? (entry.meta?.audit?.publishedCommit ?? null) : null;
 }
 
-/** A missing commit pointer must not turn newer edits into public content either. */
+/** Whether the entry must be read from its published snapshot. A missing commit pointer must not expose newer edits as public content. */
 export function requiresPublishedSnapshot(entry: Entry): boolean {
     if (entry.status === 'unpublished') return false;
     const audit = entry.meta?.audit;
-    // In review after being published: sites keep the published version until it's approved
-    // (as pages do), whatever the revision count says.
+    // An entry sent for review after being published keeps serving its published version until
+    // the review is approved (as pages do), whatever the revision count says.
     if (entry.status === 'in_review' && audit?.publishedCommit) return true;
     if (
         audit?.publishedRevision != null &&

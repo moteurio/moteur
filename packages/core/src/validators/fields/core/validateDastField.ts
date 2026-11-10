@@ -38,7 +38,7 @@ export function validateDastField(value: any, field: Field, path: string): Valid
 }
 
 /**
- * Validates core/rich-text stored value: DastDocument or { dast: Record<locale, DastDocument> }.
+ * Validates the stored value of a core/rich-text field: a DastDocument, or `{ dast: Record<locale, DastDocument> }`.
  */
 export function validateDastStoredField(value: any, field: Field, path: string): ValidationIssue[] {
     if (value === null || value === undefined) return [];

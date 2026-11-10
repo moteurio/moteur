@@ -3,10 +3,10 @@ import { makeViolationId } from '../violationId.js';
 
 const UNREVIEWED_DAYS = 7;
 
-/** Check if a field has AI badge (e.g. data._aiGenerated?.[fieldKey] or similar). */
+/** Whether the field is marked as AI generated in `data._aiGenerated`. */
 function hasAIBadge(_entry: { data: Record<string, unknown> }, _fieldKey: string): boolean {
-    // V1: we don't have a standard AI badge field; assume we check options or a convention.
-    // If entry.data has _aiGenerated as object with field keys, use that.
+    // There is no standard AI badge field yet, so rely on the convention that
+    // `entry.data._aiGenerated` is an object with the generated field keys.
     const data = _entry.data as Record<string, unknown> & {
         _aiGenerated?: Record<string, unknown>;
     };
@@ -22,7 +22,7 @@ export const aiBadgeUnreviewed: RuleEvaluator = ({ entry, model }) => {
     if (!updatedAt) return [];
     const updated = new Date(updatedAt).getTime();
     const threshold = Date.now() - UNREVIEWED_DAYS * 24 * 60 * 60 * 1000;
-    if (updated > threshold) return []; // was updated recently
+    if (updated > threshold) return []; // Updated recently, so it is not overdue for review yet.
 
     for (const [fieldKey] of Object.entries(model.fields)) {
         if (!hasAIBadge(entry, fieldKey)) continue;

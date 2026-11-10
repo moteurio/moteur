@@ -66,7 +66,7 @@ export function monthlyUsage(projectId: string, period = currentPeriod()): Month
     return out;
 }
 
-/** 100 once all of it is used, 80 from four fifths, else null. */
+/** Returns 100 when the allowance is fully used, 80 from 80% usage, otherwise null. */
 export function levelOf(used: number, limit: number): UsageLevel | null {
     if (used >= limit) return 100;
     if (used >= limit * 0.8) return 80;

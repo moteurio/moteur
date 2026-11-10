@@ -2,7 +2,7 @@ import type { Entry, EntryStatus } from '@moteurio/types/Model.js';
 
 /**
  * Which version of each entry a query returns:
- * - `latest`: the entry file as it is on disk (Studio, previews).
+ * - `latest`: the entry file as it is on disk (editing UIs, previews).
  * - `published`: the public version — the snapshot taken at publish time when the entry has
  *   unpublished edits, otherwise the entry file (public API).
  */
@@ -36,7 +36,7 @@ export type EntryQuery = {
     limit?: number;
     offset?: number;
 
-    // -- list features (view `latest` only) ----------------------------------------------------
+    // -- List features (view `latest` only) ----------------------------------------------------
     /** Words to find in the entry's id and short text fields, ignoring case and accents. */
     search?: string;
     /** Field or virtual key → values; an entry matches when it has any of them, for every key. */

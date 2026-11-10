@@ -4,7 +4,7 @@ import { isPlainObject } from '../../fieldValueUtils.js';
 
 const filled = (v: unknown) => typeof v === 'string' && v.trim() !== '';
 
-/** An audio value: `{ src, assetId?, title?, transcript? }`. Empty is fine unless required. */
+/** Validates an audio value of the form `{ src, assetId?, title?, transcript? }`. An empty value is valid unless the field is required. */
 export function validateAudioField(value: any, _field: Field, path: string): ValidationIssue[] {
     if (value === null || value === undefined) return [];
     if (!isPlainObject(value)) {

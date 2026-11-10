@@ -1,9 +1,10 @@
 /**
- * A project as an import bundle: its own schemas, files, pages, entries, menus and redirects.
- * Imported elsewhere it makes the same project: pictures become `$ref`s (their ids change when
- * they are stored again), and what is live says `published`, so it goes live there too. Files are
- * listed by address, or with `inlineFiles` carried in the bundle (base64): an address only this
- * server can reach (a local Moteur's) can't be fetched by another.
+ * Exports a project as an import bundle containing its schemas, files, pages, entries, menus and
+ * redirects. Importing the bundle elsewhere recreates the same project. Asset ids change when the
+ * files are stored again, so asset ids are exported as `$ref`s. Live pages and entries are marked
+ * `published` so they go live after the import as well. Files are listed by URL, or embedded as
+ * base64 with `inlineFiles`, because another server cannot fetch a URL that only this server can
+ * reach (for example a local Moteur).
  */
 import type { User } from '@moteurio/types/User.js';
 import type { ImportBundle, ImportPage } from '@moteurio/types/Import.js';
@@ -23,7 +24,7 @@ import { projectRecords } from '../contentReferences.js';
 import { getProjectJson, listProjectKeys } from '../utils/projectStorage.js';
 import { structureKey, structureListPrefix } from '../utils/storageKeys.js';
 
-/** `assetId: "<id>"` of an exported file becomes `assetId: { "$ref": "asset:<id>" }`. */
+/** Replaces `assetId: "<id>"` of an exported file with `assetId: { "$ref": "asset:<id>" }`. */
 function assetRefs(value: unknown, ids: Set<string>): unknown {
     if (Array.isArray(value)) return value.map(v => assetRefs(v, ids));
     if (value && typeof value === 'object')
@@ -46,7 +47,7 @@ const textOf = (v: unknown) =>
           : undefined;
 
 export type ExportOptions = {
-    /** Each file's content in the bundle (base64), instead of its address. */
+    /** Embed each file's content in the bundle as base64 instead of listing its URL. */
     inlineFiles?: boolean;
 };
 
@@ -62,7 +63,8 @@ export async function exportBundle(
         const s = await getProjectJson<StructureSchema>(projectId, structureKey(id));
         if (s) structures.push(s);
     }
-    // The project's own blocks (named without a namespace): the server's are there wherever it's imported.
+    // Export only the project's own blocks (types without a namespace). Core and plugin blocks
+    // exist on every server.
     const blocks = Object.values(listBlocks(projectId)).filter(
         b => !b.type.includes('/')
     ) as BlockSchema[];
@@ -81,7 +83,7 @@ export async function exportBundle(
 
     const adapter = options.inlineFiles ? getProjectAdapter(project) : undefined;
     const fileOf = async (a: (typeof assets)[number]) => {
-        // A video kept only by its host has no file here: its address it is.
+        // A video stored only by its host has no file here, so export its URL.
         if (adapter && a.path)
             return { content: (await adapter.download(a.path)).toString('base64') };
         return { url: a.url! };
@@ -139,14 +141,15 @@ export async function exportBundle(
             ...(n.itemSchema && { itemSchema: n.itemSchema }),
             items: assetRefs(n.items, ids) as unknown[]
         })),
-        // Forms as they are, without their dates (secrets live apart and don't travel).
+        // Export forms without their dates. Secrets are stored separately and are not exported.
         forms: (await listFormsForProject(projectId)).map(
             ({ createdAt: _c, updatedAt: _u, ...form }) => {
                 const { secretSet: _s, ...captcha } = form.captcha ?? ({} as never);
                 return form.captcha ? { ...form, captcha } : form;
             }
         ),
-        // Moteur's own redirects come back as addresses change: only the ones people made.
+        // Skip automatic redirects, which are recreated when addresses change. Export only the ones
+        // users made.
         redirects: (await listRedirects(projectId))
             .filter(r => !r.auto)
             .map(r => ({

@@ -136,19 +136,19 @@ export function assetVariantPath(
 export function baseProjectsTrashDir(): string {
     return path.join(baseProjectsDir(), '.trash', 'projects');
 }
-/** A live project's bin: what was deleted from it (entries, pages, schemas), see contentBin.ts. */
+/** The bin of a live project, which holds content deleted from it (entries, pages, schemas). See contentBin.ts. */
 export function trashProjectDir(projectId: string): string {
     return path.join(baseProjectsTrashDir(), safeId(projectId));
 }
 
-/** Where deleted projects wait, apart from the projects' bins. */
+/** The folder that holds deleted projects. It is separate from the bins of live projects. */
 export function deletedProjectsDir(): string {
     return path.join(baseProjectsDir(), '.trash', 'deleted-projects');
 }
 
 /**
- * Where a deleted project waits: its id and when it was deleted (`journal@2026-11-02T03-00-00Z`),
- * so the same id deleted twice keeps both.
+ * The folder for one deleted project. Its name is the project id plus the deletion time
+ * (`journal@2026-11-02T03-00-00Z`), so a project id that is deleted twice keeps both copies.
  */
 export function deletedProjectDir(projectId: string, deletedAt = new Date()): string {
     const at = deletedAt
@@ -186,7 +186,7 @@ export function trashTemplatesDir(projectId: string): string {
     return path.join(baseProjectsTrashDir(), safeId(projectId), 'templates');
 }
 
-/** Deleted models, each a folder holding the model and its entries as they were. */
+/** Deleted models. Each is a folder that holds the model and its entries as they were when deleted. */
 export function trashSchemasDir(projectId: string): string {
     return path.join(baseProjectsTrashDir(), safeId(projectId), 'schemas');
 }

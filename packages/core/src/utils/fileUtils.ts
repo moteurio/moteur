@@ -30,9 +30,10 @@ export function writeJson(file: string, data: any): void {
 }
 
 /**
- * Write a whole file or nothing: to a temporary file beside it, then renamed over it. A write cut
- * short (a full disk, a crash) leaves the file as it was, never half written, and the temporary
- * file goes. `mode` for files only their owner may read (secrets).
+ * Writes a file atomically: the data goes to a temporary file next to it, which is then renamed
+ * over the target. If the write is cut short (a full disk, a crash) the original file is left
+ * unchanged instead of half written, and the temporary file is removed. Pass `mode` for files that
+ * only their owner may read, such as secrets.
  */
 export function writeFileAtomicSync(file: string, data: string | Buffer, mode?: number): void {
     const tmp = tempPathFor(path.dirname(file), path.basename(file));
@@ -44,7 +45,7 @@ export function writeFileAtomicSync(file: string, data: string | Buffer, mode?: 
     }
 }
 
-/** `writeFileAtomicSync`, without blocking: for project storage. */
+/** Non-blocking version of `writeFileAtomicSync`, used for project storage. */
 export async function writeFileAtomicAsync(file: string, data: string | Buffer): Promise<void> {
     const tmp = tempPathFor(path.dirname(file), path.basename(file));
     try {
@@ -56,24 +57,23 @@ export async function writeFileAtomicAsync(file: string, data: string | Buffer):
 }
 
 /**
- * Atomic write for JSON: write to a temp file then rename.
- * Reduces risk of corruption if the process crashes during write.
- * Use for critical single-file data (e.g. users.json).
- * Note: No cross-process locking; avoid concurrent writes to the same file from multiple processes.
- */
-/**
- * A temp file unique to this write. With a shared name, two concurrent writes to the same file
- * write into the same temp file and one can rename the other's half-written data into place.
+ * Returns a temporary file path that is unique to this write. If two concurrent writes to the same
+ * file shared a temporary name, one could rename the other's half-written data into place.
  */
 function tempPathFor(dir: string, name: string): string {
     return path.join(dir, `.${name}.${process.pid}.${randomUUID()}.tmp`);
 }
 
+/**
+ * Writes JSON atomically (temporary file, then rename), so a crash during the write cannot corrupt
+ * the file. Use it for critical single-file data such as users.json.
+ * There is no cross-process locking, so do not write the same file from several processes.
+ */
 export function writeJsonAtomic(file: string, data: any): void {
     writeFileAtomicSync(file, JSON.stringify(data, null, 2));
 }
 
-/** Async atomic write for JSON: write to temp file then rename. Use for project storage. */
+/** Asynchronous version of `writeJsonAtomic`, used for project storage. */
 export async function writeJsonAtomicAsync(file: string, data: unknown): Promise<void> {
     await writeFileAtomicAsync(file, JSON.stringify(data, null, 2));
 }

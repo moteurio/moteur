@@ -97,7 +97,7 @@ export async function registerCorePlugins(): Promise<void> {
         await initAndCollect(plugin.manifest.id, plugin);
     }
 
-    // Core: commit and push on content.saved / content.deleted (gated by project.git.enabled)
+    // Commit and push on content.saved and content.deleted, when project.git.enabled allows it.
     registerContentCommitHook();
     registerRedirectHooks();
 }

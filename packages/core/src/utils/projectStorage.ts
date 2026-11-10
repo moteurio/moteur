@@ -16,7 +16,7 @@ import {
 } from './projectSecrets.js';
 import type { ProjectSchema } from '@moteurio/types/Project.js';
 
-/** project.json: its credentials live apart, in the secrets file (see projectSecrets.ts). */
+/** The project file. Its credentials are stored separately in the secrets file (see projectSecrets.ts). */
 const PROJECT_FILE = 'project.json';
 
 function fullPath(projectId: string, key: string): string {
@@ -37,8 +37,8 @@ function fullPath(projectId: string, key: string): string {
 }
 
 /**
- * Keep the content index in step with entry files. The file is already written, so an index
- * failure must not fail the operation: the index re-checks files on its next query instead.
+ * Updates the content index after an entry file changes. The file is already written, so an index
+ * failure must not fail the operation. The index re-checks the files on its next query instead.
  */
 async function updateContentIndex(projectId: string, key: string, data?: unknown): Promise<void> {
     const ids = parseEntryKey(key);
@@ -57,8 +57,8 @@ async function updateContentIndex(projectId: string, key: string, data?: unknown
 }
 
 /**
- * A project file's text as stored, from the file cache (null when there is none): for a reader
- * that keeps what it parsed while the text stays the same.
+ * Returns a project file's raw text from the file cache, or null if the file does not exist. Use
+ * it when you want to cache a parsed result and reuse it for as long as the text is unchanged.
  */
 export async function getProjectText(projectId: string, key: string): Promise<string | null> {
     try {
@@ -95,7 +95,7 @@ export async function putProjectJson(projectId: string, key: string, data: unkno
     const fullPath_ = fullPath(projectId, key);
     await fs.mkdir(path.dirname(fullPath_), { recursive: true });
     if (key === PROJECT_FILE && data && typeof data === 'object') {
-        // The secrets first: if the second write fails, project.json still has them.
+        // Write the secrets first. If the second write fails, project.json still contains them.
         const { project, secrets } = splitProjectSecrets(data as Partial<ProjectSchema>);
         writeProjectSecrets(projectDir(projectId), secrets);
         await writeJsonAtomicAsync(fullPath_, project);
@@ -131,7 +131,8 @@ export async function deleteProjectKey(projectId: string, key: string): Promise<
 }
 
 /**
- * List keys under prefix. Uses directory listing, or single-file JSON keys when prefix points to a .json file.
+ * Lists the keys under a prefix. It lists a directory, or the keys of a single JSON file when the
+ * prefix points to a .json file.
  */
 export async function listProjectKeys(projectId: string, prefix?: string): Promise<string[]> {
     const basePath = fullPath(projectId, prefix ?? '');
@@ -180,8 +181,8 @@ export async function listProjectKeys(projectId: string, prefix?: string): Promi
 }
 
 /**
- * Puts a file back as it was (its exact text), or removes it (`null`): an undone change. The
- * content index follows.
+ * Restores a file to its previous exact text, or removes it when `text` is null. This undoes a
+ * change. The content index is updated to match.
  */
 export async function restoreProjectFile(
     projectId: string,
@@ -191,7 +192,7 @@ export async function restoreProjectFile(
     const target = fullPath(projectId, key);
     if (text === null) {
         await fs.rm(target, { force: true });
-        // Folders left empty go too (an entry's): a folder is how entries and models are listed.
+        // Also remove folders left empty, such as an entry's folder, because entries and models are listed by their folders.
         const root = fullPath(projectId, '');
         for (
             let dir = path.dirname(target);

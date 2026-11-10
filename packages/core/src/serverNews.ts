@@ -217,7 +217,8 @@ export async function sendServerNews(now = new Date()): Promise<number> {
                 continue;
             }
         }
-        // A daily reader's day starts again even when nothing happened in it.
+        // Mark news as sent. A daily reader is marked up to now even when nothing happened, so the
+        // next summary starts a new day.
         if (due.length || daily)
             markOperatorNewsSent(reader.id, daily ? now.toISOString() : due.at(-1)!.at);
     }

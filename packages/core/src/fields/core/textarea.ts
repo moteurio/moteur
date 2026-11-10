@@ -2,8 +2,9 @@ import fieldRegistry from '../../registry/FieldRegistry.js';
 import { validateTextField } from '../../validators/fields/core/validateTextField.js';
 
 /**
- * Multi-line text field. Same storage shape as core/text; Studio renders it as a textarea.
- * Registered so API and validators accept type "core/textarea" from Studio-created models.
+ * Multi-line text field with the same storage shape as core/text. Editor clients show it as a
+ * textarea. It is registered so the API and validators accept the type "core/textarea" in models
+ * that admin clients create.
  */
 fieldRegistry.register({
     type: 'core/textarea',

@@ -83,7 +83,8 @@ export function validateModel(model: ModelSchema): ValidationResult {
         });
     }
 
-    // studio.form: presentation only, so its problems are warnings and never block a save.
+    // studio.form only describes the layout of the editing form, so problems in it are warnings
+    // and never block a save.
     if (model.studio?.form !== undefined && model.fields && typeof model.fields === 'object') {
         for (const problem of checkStudioForm(model.studio.form, model.fields)) {
             addIssue(result, {

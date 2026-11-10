@@ -27,17 +27,17 @@ import { ACTIVITY_KEY } from './utils/storageKeys.js';
  * admins export it with the project.
  */
 
-/** As far back as the activity logs go: each keeps its last 10,000 events. */
+/** Activity logs keep at most their last 10,000 events, so the export cannot reach further back. */
 const ACTIVITY_WINDOW = 10_000;
 
 export type ProjectRef = { id: string; name: string };
 
 const ref = (p: ProjectSchema): ProjectRef => ({ id: p.id, name: p.label || p.id });
-/** Added to the project one by one (a guest among them), not only there through a workspace. */
+/** True when the user is listed on the project itself (including guests), not only through its workspace. */
 const memberOf = (p: ProjectSchema, userId: string) =>
     Array.isArray(p.users) && (p.users as string[]).includes(userId);
 
-/** Everyone in the project: its own members and those its workspace gives it to. */
+/** Every user in the project: its own members plus those who have access through its workspace. */
 function peopleIn(project: ProjectSchema): string[] {
     const workspace = workspaceOf(project);
     const ids = new Set([
@@ -54,7 +54,7 @@ function account(userId: string): User {
     return user;
 }
 
-/** An activity event without the content it carried: that belongs to the project. */
+/** An activity event without its before/after content, which belongs to the project, not the person. */
 function slim(event: ActivityEvent) {
     const { before: _before, after: _after, ...rest } = event;
     return rest;
@@ -121,20 +121,21 @@ export async function accountExport(userId: string, currentSessionId?: string) {
 }
 
 export type AccountDeletion = {
-    /** Only they are in it: it goes to the server's project trash with the account. */
+    /** Projects where the user is the only member. They move to the server's project trash with the account. */
     deletes: ProjectRef[];
-    /** Others are in it, and another admin: they leave, their content stays credited by name. */
+    /** Projects with other members and another admin. The user leaves; their content stays, credited by name. */
     leaves: ProjectRef[];
-    /** Others are in it and they are its only admin: someone else must be made admin first. */
+    /** Projects with other members where the user is the only admin. Another member must be made admin first. */
     blocked: ProjectRef[];
     workspaces: {
-        /** Only they are in it, and all its projects go: it goes too. */
+        /** Workspaces where the user is the only member and all of whose projects are deleted. The workspace is deleted too. */
         deletes: ProjectRef[];
-        /** Others are in it: they leave it. */
+        /** Workspaces with other members. The user leaves. */
         leaves: ProjectRef[];
         /**
-         * They are its only owner and others are in it, or a project of it stays (someone else
-         * is in it): make someone else an owner first, or move the project.
+         * Workspaces where the user is the only owner and other members remain, or where a project
+         * stays because someone else is in it. Another member must become owner first, or the
+         * project must be moved.
          */
         blocked: ProjectRef[];
     };
@@ -151,7 +152,7 @@ export function accountDeletion(userId: string): AccountDeletion {
     };
     for (const project of loadProjects().filter(p => memberOf(p, userId))) {
         const workspace = workspaceOf(project);
-        // Their workspace's team is in it too, though not added one by one.
+        // peopleIn also counts workspace members, who are not listed on the project itself.
         const others = peopleIn(project)
             .filter(id => id !== userId)
             .map(id => getUserById(id))
@@ -161,7 +162,7 @@ export function accountDeletion(userId: string): AccountDeletion {
             plan.leaves.push(ref(project));
         else if (hasRole(inProject(user, project, workspace), 'admin'))
             plan.blocked.push(ref(project));
-        // No admin at all: leaving changes nothing about who can run it.
+        // Nobody is an admin, so the user leaving does not change who can manage the project.
         else plan.leaves.push(ref(project));
     }
     const going = new Set(plan.deletes.map(p => p.id));

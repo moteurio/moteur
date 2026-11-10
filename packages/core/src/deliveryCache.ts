@@ -1,13 +1,13 @@
 import { cacheShare } from './utils/cacheBudget.js';
 
 /**
- * Answers to sites' reads, kept per project until the project changes. Every change Moteur makes
- * announces itself on the event bus, and any event about a project moves that project on a
- * version (`touchProject`); an answer is kept under the version its request started on, so
- * none outlives a change. What could change without an event (a file edited by hand, a branch
- * switched) is covered by a short age limit (`MOTEUR_DELIVERY_CACHE_SECONDS`, 5 s; 0 turns the
- * cache off). Only answers the same for every site reader belong here: published content read
- * with an API key, never previews or signed-in members.
+ * Caches the responses to site reads per project, until the project changes. Every change
+ * Moteur makes emits an event on the event bus, and any event about a project increments that
+ * project's version (`touchProject`). A response is cached under the version at which its request
+ * started, so no cached response outlives a change. Changes that emit no event (a file edited by
+ * hand, a branch switch) are covered by a short expiry (`MOTEUR_DELIVERY_CACHE_SECONDS`, default
+ * 5; 0 disables the cache). Only responses that are identical for every site reader belong here:
+ * published content read with an API key, never previews or signed-in members.
  */
 
 type Answer = { body: string; headers: Record<string, string>; at: number };
@@ -16,9 +16,10 @@ let bytes = 0;
 const versions = new Map<string, number>();
 
 /**
- * What never reaches a site, so changing it keeps the kept answers: visitors' submissions
- * (user-data/), the project state (.moteur/: comments, reviews, notifications) and preview links.
- * Anything not listed counts as a change: a mistake here costs kept answers, never fresh ones.
+ * Paths that never reach a site, so writing them leaves cached answers valid: visitor
+ * submissions (user-data/), project state (.moteur/: comments, reviews, notifications) and
+ * preview links. Any path not listed counts as a change, so a mistake here only costs cache
+ * hits and never serves stale content.
  */
 const NOT_DELIVERED = ['user-data/', '.moteur/', 'preview-tokens'];
 
@@ -49,12 +50,12 @@ export function eventReachesSites(eventName: string): boolean {
     return !QUIET_EVENTS.has(eventName);
 }
 
-/** The project changed: its kept answers no longer count. */
+/** Marks the project as changed, which invalidates its cached answers. */
 export function touchProject(projectId: string): void {
     versions.set(projectId, (versions.get(projectId) ?? 0) + 1);
 }
 
-/** The project's version now: an answer is kept and looked up under it. */
+/** The project's current version. Cached answers are stored and looked up under it. */
 export function projectVersion(projectId: string): number {
     return versions.get(projectId) ?? 0;
 }
@@ -72,7 +73,7 @@ export function deliveryCacheEnabled(): boolean {
 const keyOf = (projectId: string, version: number, request: string) =>
     `${projectId}\0${version}\0${request}`;
 
-/** The kept answer to this request at this version, if it's still young enough. */
+/** The cached answer for this request at this version, if it has not expired. */
 export function cachedAnswer(
     projectId: string,
     version: number,
@@ -89,7 +90,7 @@ export function cachedAnswer(
     return found;
 }
 
-/** Keep an answer, under the version its request started on. */
+/** Caches an answer under the project version at which its request started. */
 export function keepAnswer(
     projectId: string,
     version: number,
@@ -97,7 +98,7 @@ export function keepAnswer(
     body: string,
     headers: Record<string, string>
 ): void {
-    // Changed meanwhile: an answer read across a change isn't kept.
+    // The project changed while this answer was computed, so do not cache it.
     if (version !== projectVersion(projectId) || body.length > 4 * 1024 * 1024) return;
     const key = keyOf(projectId, version, request);
     const old = answers.get(key);
@@ -115,9 +116,9 @@ export function keepAnswer(
 const derived = new Map<string, { version: number; at: number; value: Promise<unknown> }>();
 
 /**
- * What every read of a project works out the same way (its pages and their addresses, its
- * schemas), kept on the same terms as answers: until the project changes, at most the age
- * limit. The value is shared, so it must be read, never changed.
+ * Caches values that every read of a project computes identically (its pages and their URLs, its
+ * schemas), on the same terms as responses: until the project changes, and at most for the
+ * expiry time. The cached value is shared, so callers must treat it as read-only.
  */
 export function perVersion<T>(
     projectId: string,
@@ -132,15 +133,15 @@ export function perVersion<T>(
         return kept.value as Promise<T>;
     const value = compute();
     derived.set(key, { version, at: Date.now(), value });
-    // A failure isn't kept: the next read tries again.
+    // Do not cache a failure, so the next read retries.
     value.catch(() => {
         if (derived.get(key)?.value === value) derived.delete(key);
     });
     return value;
 }
 
-// What's past the age limit would be worked out again anyway: let it go, so memory follows the
-// projects being read now, not every project ever read.
+// Entries past the age limit would be recomputed anyway, so evict them. This keeps memory
+// proportional to the projects currently being read, not every project ever read.
 const sweeper = setInterval(() => {
     const before = Date.now() - maxAgeMs();
     for (const [key, kept] of derived) if (kept.at < before) derived.delete(key);
@@ -152,7 +153,7 @@ const sweeper = setInterval(() => {
 }, 30_000);
 sweeper.unref?.();
 
-/** Forget every kept answer (tests). */
+/** Clears every cached answer. For tests. */
 export function clearDeliveryCache(): void {
     answers.clear();
     derived.clear();

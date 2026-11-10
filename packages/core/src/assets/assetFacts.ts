@@ -1,10 +1,10 @@
 import type { Asset, AssetText, AssetType } from '@moteurio/types/Asset.js';
 import { getAssetTypeFromMime } from './allowedTypes.js';
 
-/** The kinds of file the library tells apart. */
+/** The kinds of file the library distinguishes. */
 export const ASSET_KINDS: AssetType[] = ['image', 'video', 'audio', 'model', 'document'];
 
-/** Every string in an asset text, whatever its shape. */
+/** Every string in an asset text field, whether it is one string or one per language. */
 export function textValues(value: AssetText | undefined): string[] {
     if (typeof value === 'string') return [value];
     if (value && typeof value === 'object')
@@ -12,7 +12,7 @@ export function textValues(value: AssetText | undefined): string[] {
     return [];
 }
 
-/** The kind a file counts as: its type, else what its MIME type says. */
+/** The kind of a file: its stored type, otherwise derived from its MIME type. */
 export function kindOf(asset: Asset): AssetType {
     if (asset.type && ASSET_KINDS.includes(asset.type)) return asset.type;
     const mime = asset.mimeType ?? '';
@@ -22,10 +22,10 @@ export function kindOf(asset: Asset): AssetType {
     return getAssetTypeFromMime(mime) ?? 'document';
 }
 
-/** Lowercase, without accents, so "gaspesie" finds "Gaspésie". */
+/** Lowercases and removes accents, so a search for "gaspesie" finds "Gaspésie". */
 export const fold = (s: string) => s.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase();
 
-/** What library search looks through: the name, title, alt text and caption, every language. */
+/** The text library search covers: the name, title, alt text and caption, in every language. */
 export const searchText = (asset: Asset) =>
     [
         asset.filename,

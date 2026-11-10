@@ -1,7 +1,7 @@
 import type { Entry, ModelSchema } from '@moteurio/types/Model.js';
 import { validateFieldsAgainstSchema } from './validateFieldsAgainstSchema.js';
 
-/** What a missing required value is called at each depth (top level, blocks, groups…). */
+/** The issue codes that report a missing required value, one for each depth (top level, blocks, groups and so on). */
 const MISSING = new Set([
     'ENTRY_MISSING_REQUIRED_FIELD',
     'BLOCK_REQUIRED_FIELD',
@@ -12,10 +12,11 @@ const MISSING = new Set([
 ]);
 
 /**
- * Required values an entry leaves empty, at any depth: a top-level field, or one inside its blocks,
- * groups, structures and variants. `where` names each (`author`, `body[2].image`); `fields` gives
- * the top-level field holding each, once, in the schema's order (what clients label).
- * `projectId` finds the project's own blocks.
+ * Finds the required values an entry leaves empty, at any depth: in a top-level field or inside
+ * its blocks, groups, structures and variants. `where` lists the path of each empty value (for
+ * example `author` or `body[2].image`). `fields` lists the top-level field that contains each one,
+ * once, in schema order, which clients use for labels. `projectId` is needed to find the project's
+ * own blocks.
  */
 export function missingRequired(
     entry: Entry,
@@ -36,7 +37,7 @@ export function missingRequired(
     return { fields: Object.keys(schema.fields ?? {}).filter(k => tops.has(k)), where };
 }
 
-/** Top-level fields holding a required value left empty (at any depth, see missingRequired). */
+/** Returns the top-level fields that contain a required value left empty at any depth (see missingRequired). */
 export function missingRequiredFields(
     entry: Entry,
     schema: ModelSchema,
@@ -53,7 +54,7 @@ export class IncompleteEntryError extends Error {
         readonly entryId: string,
         readonly missing: string[],
         action: 'publish' | 'review',
-        /** Each empty required value by where it is (`body[2].image`), for the message. */
+        /** The path of each empty required value (for example `body[2].image`), used in the message. */
         where: string[] = missing
     ) {
         super(
@@ -65,8 +66,8 @@ export class IncompleteEntryError extends Error {
 }
 
 /**
- * Drafts may be saved with required values still empty, at any depth; an entry going to review or
- * live may not.
+ * Throws if the entry has empty required values at any depth. Drafts may be saved with empty
+ * required values, but an entry that goes to review or live may not.
  */
 export function assertEntryComplete(
     entry: Entry,

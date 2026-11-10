@@ -2,8 +2,8 @@ import type { Field } from '@moteurio/types/Field.js';
 import type { ValidationIssue } from '@moteurio/types/ValidationResult.js';
 
 /**
- * Structural validation only. Deep validation against the project Layout resource
- * runs in validateLayoutFieldValues (async, with projectId).
+ * Validates only the structure of the value. Validation against the project's Layout resource
+ * happens in validateLayoutFieldValues, which is async and needs the projectId.
  */
 export function validateLayoutField(value: any, field: Field, path: string): ValidationIssue[] {
     const issues: ValidationIssue[] = [];

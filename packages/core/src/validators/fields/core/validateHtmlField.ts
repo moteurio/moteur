@@ -3,7 +3,7 @@ import type { Field, FieldValidationContext } from '@moteurio/types/Field.js';
 // @ts-expect-error - Sanitize HTML does not have a default export
 import sanitizeHtml from 'sanitize-html';
 
-/** Baseline tags for HTML_UNKNOWN_TAGS; iframe/embed/object/param are project-gated. */
+/** The tags that are known by default for HTML_UNKNOWN_TAGS. Iframe, embed, object and param are only allowed when the project enables them. */
 const BASE_KNOWN_HTML_TAGS = new Set([
     'p',
     'strong',
@@ -181,7 +181,7 @@ export function validateHtmlField(
 }
 
 /**
- * Validates core/html stored value: either a string (legacy) or { html: Record<locale, string> }.
+ * Validates the stored value of a core/html field: either a plain string, or `{ html: Record<locale, string> }`.
  */
 export function validateHtmlStoredField(
     value: any,

@@ -160,12 +160,8 @@ export async function getEntryForProject(
 }
 
 /**
- * A settings model's one entry: its id, or nothing while it has none. Refuses a model that isn't
- * a settings model (404: there's no "the" entry to give).
- */
-/**
- * The ids of a model's entries: folders that hold an entry. A folder left without one (by an
- * import's undo, a crash) isn't an entry.
+ * Returns the ids of a model's entries. Only folders that contain an entry file count: a folder
+ * can be left empty by an undone import or a crash.
  */
 async function entryIdsOf(projectId: string, modelId: string): Promise<string[]> {
     const ids: string[] = [];
@@ -174,6 +170,10 @@ async function entryIdsOf(projectId: string, modelId: string): Promise<string[]>
     return ids;
 }
 
+/**
+ * Returns the id of a settings model's single entry, or undefined if it has none yet.
+ * Throws a 404 error if the model is not a settings model.
+ */
 export async function settingsEntryId(
     projectId: string,
     modelId: string
@@ -271,8 +271,8 @@ async function createEntryUnlocked(
         };
     }
 
-    // Saved as a draft first: publishing goes through publishEntry, with its review check and
-    // the published revision it records. Nobody skips review by sending status: 'published'.
+    // Save as a draft first. Publishing goes through publishEntry, which applies the review check and
+    // records the published revision, so sending status: 'published' cannot skip review.
     const publishNow = entry.status === 'published';
     if (publishNow) {
         if (needsApproval(user, project)) {
@@ -284,7 +284,7 @@ async function createEntryUnlocked(
     }
 
     if (user.agent) {
-        // What an agent writes is marked as such, unread until a person reads it.
+        // Mark text written by an agent as such. It stays unread until a person reads it.
         const assisted = agentMarks(
             undefined,
             {},
@@ -302,7 +302,7 @@ async function createEntryUnlocked(
         throw new Error(`Entry "${entry.id}" already exists in model "${modelId}".`);
     }
     await checkCountRoom(projectId, 'entries', () => countOf(projectId, 'entries'));
-    // A settings model holds one entry: the site's settings, its interface's words.
+    // A settings model holds a single entry, such as site-wide settings or interface text.
     if (schema.modelType === 'settings') {
         if ((await entryIdsOf(projectId, modelId)).length > 0)
             throw Object.assign(
@@ -380,11 +380,11 @@ async function updateEntryUnlocked(
             code: 'ENTRY_CONFLICT'
         });
     }
-    // The precondition is consumed once; a save followed by publish uses the new version.
+    // The precondition applies once. A save followed by a publish uses the new version.
     options = options ? { ...options, expectedVersion: undefined } : options;
     const prevStatus = (current.status ?? 'draft') as string;
-    // Publishing a live entry again publishes what changed since (the Studio's "Publish
-    // changes"), and data sent along with it; with nothing new, it only confirms the status.
+    // Publishing an already live entry publishes the changes made since, plus any data sent
+    // with the request. With nothing new, it only confirms the status.
     const audit = current.meta?.audit;
     const editedSinceLive =
         audit?.publishedRevision != null && audit.revision !== audit.publishedRevision;
@@ -438,14 +438,14 @@ async function updateEntryUnlocked(
     const coreIdFields = getCoreIdFieldIds(schema);
     const updated = mergeEntryPatch(current, patch, coreIdFields);
     if (patch.languages !== undefined) {
-        // null or [] clears it: every language.
+        // null or [] clears the list for every language.
         const languages = normalizeLanguages(patch.languages, project);
         if (languages) updated.languages = languages;
         else delete updated.languages;
     }
     const restoredFrom = options?.restoredFrom;
     if (restoredFrom) {
-        // A restore puts back the whole version: fields filled since then are emptied again.
+        // A restore replaces the whole version, so fields filled in after that version are cleared.
         const data = stripCoreIdFromData(patch.data ?? {}, coreIdFields);
         for (const id of coreIdFields) {
             if (current.data && id in current.data) data[id] = current.data[id];
@@ -463,15 +463,17 @@ async function updateEntryUnlocked(
     ) {
         throw contentForbidden('A translator can only change other languages.');
     }
-    // Helper marks: who kept and who read are stamped here, never taken from the client.
+    // Helper marks: the server stamps who kept and who read each mark and ignores any such values
+    // from the client.
     let withHelp = false;
     if (restoredFrom) {
-        // The marks go back with the text they describe, as they were then.
+        // Restore the marks along with the text they describe.
         updated.meta = { ...updated.meta };
         if (patch.meta?.assisted) updated.meta.assisted = patch.meta.assisted;
         else delete updated.meta.assisted;
     } else if (user.agent) {
-        // An agent can't mark its own text as read: its marks come from what it changed.
+        // An agent cannot mark its own text as read, so its marks are derived from the fields it
+        // changed.
         const assisted = agentMarks(
             current.meta?.assisted,
             current.data ?? {},
@@ -494,7 +496,7 @@ async function updateEntryUnlocked(
     if (patch.status === 'in_review' && prevStatus !== 'in_review') {
         assertEntryComplete(updated, schema, 'review', projectId);
     }
-    // Nothing to save: no commit, no hooks, no webhooks.
+    // Nothing changed, so skip the commit, hooks and webhooks.
     if (sameContent(current, updated)) return current;
 
     await triggerEvent('entry.beforeUpdate', { entry: updated, user, modelId, projectId });
@@ -560,7 +562,7 @@ async function deleteEntryUnlocked(
 
     await triggerEvent('entry.beforeDelete', { entry, user, modelId, projectId });
 
-    // Kept in the bin first: what can't be kept there isn't deleted.
+    // Copy to the bin first, so an entry that cannot be stored there is never deleted.
     const stored = await getProjectJson<Entry>(projectId, entryKey(modelId, entryId));
     binEntry(projectId, modelId, entryId, stored ?? entry, user);
     fs.unlinkSync(entryFilePath(projectId, modelId, entryId));
@@ -592,7 +594,7 @@ async function deleteEntryUnlocked(
     }
 }
 
-/** A refusal the API turns into HTTP 409: the project changed since it went in the bin. */
+/** Thrown when restoring from the bin fails because the project changed since the item was deleted. The API returns HTTP 409. */
 function binConflict(message: string): Error {
     return Object.assign(new Error(message), { statusCode: 409 });
 }

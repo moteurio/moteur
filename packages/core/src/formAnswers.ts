@@ -139,7 +139,7 @@ export function checkAnswers(
 ): { data: Record<string, unknown>; issues: AnswerIssue[] } {
     const data: Record<string, unknown> = {};
     const issues: AnswerIssue[] = [];
-    // Worded in the visitor's language, or in the field's own words.
+    // Messages use the visitor's language, or the field's own messages when it defines them.
     const refuse = (id: string, { code, params, detail }: Problem) =>
         issues.push({
             field: id,
@@ -147,7 +147,7 @@ export function checkAnswers(
             message: issueMessage(form.fields?.[id], code, locale, params, detail)
         });
     const fields = Object.entries(form.fields ?? {});
-    // A form that declares no fields takes any answers, as text, within limits.
+    // A form that declares no fields accepts any answers as text, within the length limits.
     if (fields.length === 0) {
         for (const [id, raw] of Object.entries(sent).slice(0, 50)) {
             if (isEmpty(raw) || !/^[\w.-]{1,100}$/.test(id)) continue;
@@ -159,7 +159,7 @@ export function checkAnswers(
     for (const [id, field] of fields) {
         const raw = sent[id];
         const required = field.options?.required === true;
-        // An unticked box sends nothing: that's a "no", unless the form needs a "yes".
+        // An unchecked checkbox sends nothing. Treat it as false, unless the field is required.
         if (field.type === 'core/boolean' && isEmpty(raw)) {
             if (required) refuse(id, { code: 'required' });
             else data[id] = false;
@@ -185,7 +185,7 @@ export function checkAnswers(
             continue;
         }
 
-        // A plugin's field type: its own check, which may take lists and objects.
+        // A plugin field type validates its own value, which may be a list or an object.
         const plugin = getFormFieldCheck(field.type);
         if (plugin) {
             let checked;

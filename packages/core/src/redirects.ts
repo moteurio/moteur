@@ -75,7 +75,7 @@ async function saveRedirects(
 ): Promise<void> {
     await putProjectJson(projectId, REDIRECTS_KEY, list);
     triggerEvent('content.saved', { projectId, paths: [REDIRECTS_KEY], message, user });
-    // Hosts often apply redirects at build time: a deploy hook rebuilds.
+    // Some hosts apply redirects at build time, so notify the deploy hook to rebuild.
     try {
         await webhookDispatch(
             'redirects.updated',
@@ -187,7 +187,7 @@ export async function updateRedirect(
     const now = new Date().toISOString();
     const updated: Redirect = { ...current, ...fields, updatedAt: now };
     if (!fields.note) delete updated.note;
-    // Edited by a person: no longer Moteur's own.
+    // A redirect a user has edited is no longer managed automatically.
     delete updated.auto;
     const next = list.map(r => (r.id === id ? updated : r));
     retarget(next, updated.from, updated.to, now);
@@ -229,7 +229,7 @@ export async function recordMovedAddresses(
         const from = normalizePath(move.from);
         const to = normalizePath(move.to);
         if (from === null || to === null || from === to) continue;
-        // The new address is live: nothing redirects away from it any more.
+        // The new address is live again, so remove any redirect that leads away from it.
         const stale = list.findIndex(r => r.from === to);
         if (stale >= 0) list.splice(stale, 1);
         retarget(list, from, to, now);

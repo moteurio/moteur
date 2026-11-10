@@ -10,29 +10,31 @@ import { projectDir } from '../utils/pathUtils.js';
 import { pageKey } from '../utils/storageKeys.js';
 
 /**
- * A page's public version, like an entry's: publishing commits the page and records that commit
- * (`publishedCommit`). Sites are served the page as committed then. Edits saved afterwards by
- * someone who needs a review stay in the page file, waiting, until the page is published again;
- * edits by someone who can publish go live as saved, as they always have.
+ * Tracks the public version of a page, the same way it is done for entries. Publishing commits the
+ * page and records that commit as `publishedCommit`. Sites are served the page as it was in that
+ * commit. Edits saved afterwards by a user who needs review stay in the page file as waiting
+ * changes until the page is published again. Edits by a user who can publish go live as soon as
+ * they are saved.
  *
- * Where a page sits (its parent and order) is always the current one: moving a page in the tree
- * is not content. A project without Git keeps no published copy: it serves the file, so edits to
- * a live page can't wait there (they are refused, see `pinPublishedPage`).
+ * A page's position in the tree (its parent and order) always comes from the current page file,
+ * because moving a page is not a content change. A project without Git keeps no published copy and
+ * serves the page file itself, so edits to a live page cannot wait there and are refused (see
+ * `pinPublishedPage`).
  */
 
 type ContentPage = StaticPage | CollectionPage;
 
 const hasContent = (page: PageNode): page is ContentPage => page.type !== 'folder';
 
-/** Whether the project can keep a page's published version (it has Git). */
+/** Whether the project can keep published versions of pages, which requires Git. */
 export async function keepsVersions(projectId: string): Promise<boolean> {
     const project = await getProjectById(projectId);
     return !!project && project.git?.enabled !== false && isGitRepo(projectDir(projectId));
 }
 
 /**
- * The commit holding `page` exactly as given: the last one that touched its file, when that is
- * the same content, or else a new one made here.
+ * Returns a commit that contains `page` exactly as given. This is the last commit that touched the
+ * page file if its content is identical, otherwise a new commit made here.
  */
 async function commitHolding(
     projectId: string,
@@ -55,10 +57,10 @@ async function commitHolding(
 }
 
 /**
- * Make what the page holds now its public version. `save` records the save as usual (the
- * content hook commits it, pushes, runs deploy hooks); that commit becomes the published one,
- * and the pointer to it is saved in the page file, to be carried by its next commit. Returns
- * the page as saved. Without Git, the file is the public version.
+ * Makes the page's current content its public version. `save` records the save as usual (the
+ * content hook commits it, pushes and runs deploy hooks). That commit becomes the published
+ * version, and the reference to it is stored in the page file, to be included in its next commit.
+ * Returns the saved page. Without Git, the page file itself is the public version.
  */
 export async function publishPageVersion(
     projectId: string,
@@ -67,7 +69,7 @@ export async function publishPageVersion(
     save: () => Promise<unknown> = async () => {}
 ): Promise<PageNode> {
     if (!hasContent(page)) return page;
-    // Earlier saves' commits first: in the background, they would take this version along.
+    // Wait for earlier saves to commit first. Otherwise their background commits would include this version.
     await gitSettled(projectDir(projectId));
     const { publishedCommit: _old, publishedAt: _at, ...content } = page;
     const live = { ...content, status: 'published' } as ContentPage;
@@ -83,10 +85,10 @@ export async function publishPageVersion(
 }
 
 /**
- * Before changes wait on a live page (an edit by someone who needs a review, an import, a review
- * request): make sure its public version is pinned, so they never become it. A live page without
- * one (a copied project starts so) is pinned to its file as it is now. Without Git nothing can be
- * pinned, so the changes are refused.
+ * Ensures a live page has a pinned public version before changes are allowed to wait on it (an edit
+ * by a user who needs review, an import, or a review request). Without a pinned version, waiting
+ * changes would become the public version. A live page that has none, as in a copied project, is
+ * pinned to its current file. Without Git nothing can be pinned, so the changes are refused.
  */
 export async function pinPublishedPage(
     projectId: string,
@@ -101,7 +103,7 @@ export async function pinPublishedPage(
     return publishPageVersion(projectId, user, page);
 }
 
-/** A page without its published pointer, for saving it as no longer live. */
+/** Returns the page without its published-version fields, for saving it as no longer live. */
 export function withoutPublishedVersion<T extends PageNode>(page: T): T {
     if (!hasContent(page)) return page;
     const { publishedCommit: _c, publishedAt: _a, ...rest } = page;
@@ -109,12 +111,13 @@ export function withoutPublishedVersion<T extends PageNode>(page: T): T {
 }
 
 /**
- * The public version of each page: drafts as they are (callers keep only published pages),
- * published pages as committed when they were published, in their current place in the tree.
- * A published page whose version can't be read is left out rather than shown as edited since.
+ * Returns the public version of each page. Drafts are returned unchanged, and callers keep only
+ * published pages. Published pages are returned as they were committed when published, but with
+ * their current position in the tree. A published page whose version cannot be read is left out
+ * instead of being shown with later edits.
  */
 export async function publicPages(projectId: string, pages: PageNode[]): Promise<PageNode[]> {
-    // In review, a live page keeps serving its published version.
+    // A live page that is in review keeps serving its published version.
     const pinned = pages.filter(
         (p): p is ContentPage =>
             hasContent(p) &&
@@ -133,7 +136,7 @@ export async function publicPages(projectId: string, pages: PageNode[]): Promise
                 versions.set(page.id, JSON.parse(cached) as ContentPage);
                 continue;
             } catch {
-                /* read it from Git */
+                /* The cached text is not valid JSON, so read it from Git. */
             }
         }
         missing.push(`${page.publishedCommit}:${key}`);
@@ -148,7 +151,7 @@ export async function publicPages(projectId: string, pages: PageNode[]): Promise
                 const sep = spec.indexOf(':');
                 publishedCache.set(spec.slice(0, sep), spec.slice(sep + 1), raw);
             } catch {
-                /* unreadable: left out below */
+                /* Unreadable, so the page is left out below. */
             }
         }
     }
@@ -173,14 +176,14 @@ export async function publicPages(projectId: string, pages: PageNode[]): Promise
     return out;
 }
 
-/** One page's public version, or null when it has none (a draft, or a version that can't be read). */
+/** Returns one page's public version, or null if it has none (a draft, or a version that cannot be read). */
 export async function publicPage(projectId: string, page: PageNode): Promise<PageNode | null> {
     const [found] = await publicPages(projectId, [page]);
     if (!found) return null;
     return hasContent(found) && found.status !== 'published' ? null : found;
 }
 
-/** The pages as the members' API answers them: a live page with waiting edits says so. */
+/** Adds `waitingChanges` to live pages, which is true when a page has edits that are not yet published. */
 export async function withWaitingChanges<T extends PageNode>(
     projectId: string,
     pages: T[]
@@ -200,7 +203,7 @@ export async function withWaitingChanges<T extends PageNode>(
     });
 }
 
-/** Content only: where a page sits, its state and the pointer itself aren't changes. */
+/** Strips the fields that are not content, so comparing two pages ignores position, status and published-version references. */
 const contentOf = (p: PageNode) => {
     const { waitingChanges: _w, ...rest } = p as PageNode & { waitingChanges?: boolean };
     return {
@@ -213,7 +216,7 @@ const contentOf = (p: PageNode) => {
     };
 };
 
-/** Whether a live page has edits saved since it was published, waiting to go live. */
+/** Whether a live page has edits saved since it was published that are not yet live. */
 export async function hasWaitingChanges(projectId: string, page: PageNode): Promise<boolean> {
     if (!hasContent(page) || !page.publishedCommit) return false;
     const [version] = await publicPages(projectId, [page]);

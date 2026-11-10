@@ -14,10 +14,10 @@ import { apiUrl } from './unsubscribe.js';
 import { studioUrl } from '../utils/studioUrl.js';
 
 /**
- * What an operator can check from the server about its email: the SMTP server answers, the From
- * domain publishes SPF, DMARC and a DKIM key, links point at the same domain. What it can't see
- * (whether a mailbox puts the mail in the inbox) is for the test email and a tool like
- * mail-tester.com.
+ * The email checks an operator can run from the server: the SMTP server responds, the From
+ * domain publishes SPF, DMARC and a DKIM key, and links point at the same domain. The server
+ * can't see whether a mailbox puts the mail in the inbox; use the test email and a tool like
+ * mail-tester.com for that.
  */
 
 export type CheckStatus = 'ok' | 'warn' | 'fail' | 'info';
@@ -25,7 +25,7 @@ export interface EmailCheck {
     id: string;
     status: CheckStatus;
     message: string;
-    /** What was found, as is (a DNS record). */
+    /** The raw value that was found, such as a DNS record. */
     found?: string;
 }
 
@@ -39,7 +39,7 @@ const systemResolver: Resolver = {
     mx: async name => (await dns.resolveMx(name)).map(r => r.exchange)
 };
 
-/** Selectors common mail services publish their DKIM keys under. */
+/** DKIM selectors that common mail services publish their keys under. */
 export const COMMON_SELECTORS = [
     'default',
     'mail',
@@ -64,11 +64,11 @@ export const COMMON_SELECTORS = [
     'zmail'
 ];
 
-/** Mailboxes whose DMARC refuses their address on mail from anyone else's server. */
+/** Free mail providers whose DMARC policy rejects mail from their addresses when sent from other servers. */
 const FREE_MAIL =
     /^(gmail\.com|googlemail\.com|outlook\.[a-z.]+|hotmail\.[a-z.]+|live\.[a-z.]+|msn\.com|yahoo\.[a-z.]+|ymail\.com|aol\.com|icloud\.com|me\.com|mac\.com|proton\.me|protonmail\.com|gmx\.[a-z.]+|videotron\.ca|sympatico\.ca|bell\.net|rogers\.com|shaw\.ca)$/;
 
-/** The registrable part of a host: `mail.moteur.io` → `moteur.io` (two-part suffixes too). */
+/** Returns the registrable domain of a host: `mail.moteur.io` → `moteur.io` (two-part suffixes too). */
 export function baseDomain(host: string): string {
     const parts = host.toLowerCase().replace(/\.$/, '').split('.');
     const twoPart = /^(co|com|net|org|gov|edu|ac|qc|on|bc|ab)\.[a-z]{2}$/;
@@ -86,7 +86,7 @@ async function lookup(fn: () => Promise<string[]>): Promise<string[] | null> {
     }
 }
 
-/** The public half of the engine's DKIM key, as DNS would publish it (`p=`). */
+/** The public half of the engine's DKIM key, in the form DNS publishes it (`p=`). */
 function publicKeyOf(privateKey: string): string | null {
     try {
         const der = createPublicKey(createPrivateKey(privateKey)).export({
@@ -107,7 +107,7 @@ export async function checkDns(
     options: {
         selectors?: string[];
         resolver?: Resolver;
-        /** Compare with the engine's own DKIM key (the server's From domain). Default: yes. */
+        /** Compare the DNS record with the engine's own DKIM key (for the server's From domain). Default: true. */
         ownKey?: boolean;
     } = {}
 ): Promise<EmailCheck[]> {
@@ -148,7 +148,7 @@ export async function checkDns(
             found: spf[0]
         });
 
-    // DMARC: at the From domain, else at the domain it belongs to.
+    // DMARC: look at the From domain, then fall back to its parent domain.
     let dmarcAt = `_dmarc.${fromDomain}`;
     let dmarc = ((await lookup(() => r.txt(dmarcAt))) ?? []).filter(t => /^v=DMARC1\b/i.test(t));
     const base = baseDomain(fromDomain);
@@ -181,7 +181,7 @@ export async function checkDns(
         );
     }
 
-    // DKIM: the engine's own key, compared with what DNS publishes; else selectors services use.
+    // DKIM: compare the engine's own key with what DNS publishes, otherwise try the selectors common mail services use.
     const own = options.ownKey === false ? null : dkimConfig();
     if (own) {
         const name = `${own.keySelector}._domainkey.${own.domainName}`;
@@ -242,7 +242,7 @@ export async function checkDns(
         );
     }
 
-    // MX: a domain nobody can write back to looks like a throwaway.
+    // MX: a domain that can't receive mail looks like a throwaway.
     const mx = await lookup(() => r.mx(fromDomain));
     out.push(
         mx && mx.length
@@ -257,8 +257,8 @@ export async function checkDns(
 }
 
 /**
- * Whether a domain can carry projects' own mail (the operator's `sendingDomains`): it passes when
- * nothing fails and a DKIM key is published there, so receivers can tie the mail to the domain.
+ * Whether a domain can be used for projects' mail (the operator's `sendingDomains`). It passes
+ * when no check fails and a DKIM key is published for it, so receivers can tie the mail to the domain.
  */
 export async function checkSendingDomain(
     domain: string,
@@ -291,7 +291,7 @@ export async function checkSendingDomain(
     return { domain: d, passes, checks };
 }
 
-/** The check for a domain projects send from: its DNS, and whether the server allows it. */
+/** Checks a domain that projects send mail from: its DNS records, and whether the server allows it. */
 export async function runDomainCheck(
     domain: string,
     options: { selectors?: string[]; resolver?: Resolver } = {}
@@ -322,7 +322,7 @@ export async function runDomainCheck(
     return { checks, passes };
 }
 
-/** The whole check: settings, SMTP, DNS, links. Sends a test email when `to` is given. */
+/** Runs every check: settings, SMTP, DNS and links. Sends a test email when `to` is given. */
 export async function runEmailCheck(
     options: { to?: string; selectors?: string[]; resolver?: Resolver; verifySmtp?: boolean } = {}
 ): Promise<{ checks: EmailCheck[]; sent?: { to: string; messageId: string } }> {
@@ -372,7 +372,7 @@ export async function runEmailCheck(
     if (fromDomain && !FREE_MAIL.test(fromDomain))
         checks.push(...(await checkDns(fromDomain, options)));
 
-    // Links that go to another domain than the mail comes from look like phishing to filters.
+    // Spam filters treat links to a different domain than the sender's as phishing.
     const base = fromDomain ? baseDomain(fromDomain) : '';
     for (const [id, url] of [
         ['links-studio', studioUrl()],

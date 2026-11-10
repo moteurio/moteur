@@ -29,7 +29,7 @@ export async function loadPluginById(
         manifest
     };
 
-    // Built-in core plugins are already initialized at server start; return manifest-only module
+    // Built-in core plugins are initialized at server start, so return a module with the manifest only.
     if (manifest.source === 'builtin') {
         return plugin;
     }

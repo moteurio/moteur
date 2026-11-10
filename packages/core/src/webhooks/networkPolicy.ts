@@ -2,9 +2,9 @@ import dns from 'node:dns/promises';
 import { isIPv4, isIPv6 } from 'node:net';
 
 /**
- * Plain HTTP to this machine, for developing against a local site: only when asked for
- * (MOTEUR_ALLOW_LOOPBACK_URLS=1) and never in production, so a server whose NODE_ENV is unset
- * still refuses it.
+ * Allows plain HTTP to this machine, for developing against a local site. It is enabled only
+ * explicitly (MOTEUR_ALLOW_LOOPBACK_URLS=1) and never in production, so a server whose NODE_ENV
+ * is unset still refuses it.
  */
 function loopbackAllowed(): boolean {
     return process.env.MOTEUR_ALLOW_LOOPBACK_URLS === '1' && process.env.NODE_ENV !== 'production';
@@ -35,7 +35,7 @@ function ipv4ToUint32(ip: string): number {
     return n >>> 0;
 }
 
-/** RFC 1918, loopback, link-local, CGNAT, and common SSRF targets. When allowLoopback, 127.0.0.0/8 is allowed. */
+/** Matches RFC 1918, loopback, link-local and CGNAT addresses and other common SSRF targets. When allowLoopback is set, 127.0.0.0/8 is allowed. */
 function isRestrictedIpv4Uint32(n: number, allowLoopback: boolean): boolean {
     if (allowLoopback && n >>> 24 === 127) return false;
     if (n >>> 24 === 0 || n >>> 24 >= 224) return true;
@@ -95,9 +95,9 @@ function isRestrictedIpv6(ip: string, allowLoopback: boolean): boolean {
         return true;
     }
     const first = parseInt(expanded.split(':')[0]!, 16);
-    // Only global unicast; also excludes unspecified, IPv4-mapped and compatible forms.
+    // Allow only global unicast addresses. This also excludes unspecified, IPv4-mapped and IPv4-compatible forms.
     if (first < 0x2000 || first > 0x3fff) return true;
-    // Transition mechanisms can tunnel an otherwise restricted IPv4 destination.
+    // IPv6 transition mechanisms can tunnel to an IPv4 destination that would otherwise be blocked.
     if (first === 0x2002 || expanded.startsWith('2001:0000:')) return true;
     if (expanded.startsWith('2001:0db8:')) return true;
     return false;
@@ -122,7 +122,7 @@ function devLocalHttpAllowsLoopback(u: URL): boolean {
     );
 }
 
-/** IPv6 literals in URLs are often `::1` without brackets; some parsers keep `[::1]` — normalize for net.isIPv* and dns. */
+/** Normalizes IPv6 literals. URL hostnames may or may not keep the brackets (`::1` vs `[::1]`), and net.isIPv* and dns need them removed. */
 function normalizedHostname(u: URL): string {
     const h = u.hostname;
     if (h.startsWith('[') && h.endsWith(']')) {
@@ -171,8 +171,9 @@ export async function validateUrl(url: string): Promise<{ address: string; famil
 }
 
 /**
- * For any server-side fetch of an address a client gave (a provider's file, a picture): HTTPS
- * only, and never a private or restricted network address. Same rules as webhook targets.
+ * Validates the address of any server-side fetch of a URL that a client provided (such as a
+ * provider's file or an image): HTTPS only, and never a private or restricted network address.
+ * These are the same rules as for webhook targets.
  */
 export async function assertPublicHttpsUrl(url: string, what = 'URL'): Promise<void> {
     let u: URL;

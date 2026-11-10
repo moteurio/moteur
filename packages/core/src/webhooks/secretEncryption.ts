@@ -10,11 +10,11 @@ function getEncryptionKey(): Buffer | null {
     if (!raw || typeof raw !== 'string') return null;
     const trimmed = raw.trim();
     if (trimmed.length === 0) return null;
-    // Support 64-char hex key (32 bytes)
+    // Accept a 64-character hex key (32 bytes).
     if (/^[0-9a-fA-F]{64}$/.test(trimmed)) {
         return Buffer.from(trimmed, 'hex');
     }
-    // Otherwise derive 32 bytes from the string
+    // Otherwise derive a 32-byte key from the string.
     return crypto.createHash('sha256').update(trimmed, 'utf8').digest();
 }
 

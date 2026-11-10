@@ -3,14 +3,15 @@ import { encryptSecret, decryptSecret } from '../webhooks/secretEncryption.js';
 import { readSecretsFile, updateSecretsSection } from './secretsFile.js';
 
 /**
- * Credentials a project holds (its storage keys, its video hosts' tokens, its Shopify token) never
- * go into project.json, which every save commits and pushes. Saving a project moves them to the
- * secrets file, encrypted; reading it puts them back, so the rest of the engine sees one project.
+ * Keeps a project's credentials (storage keys, video host tokens, the Shopify token) out of
+ * project.json, because every save commits and pushes that file. Saving a project moves the
+ * credentials to the encrypted secrets file. Reading the project merges them back in, so the rest
+ * of the engine sees a single project object.
  */
 
 const SECTION = 'project';
 
-/** Video hosts' fields that are secrets (ids and account ids are not). */
+/** The fields of each video host that are secrets. Ids and account ids are not secrets. */
 const VIDEO_SECRETS: Record<string, string[]> = {
     mux: ['tokenSecret', 'webhookSecret'],
     vimeo: ['accessToken', 'webhookSecret'],
@@ -18,14 +19,14 @@ const VIDEO_SECRETS: Record<string, string[]> = {
     youtube: ['clientSecret', 'refreshToken']
 };
 
-/** A storage setting is secret by its name, as redactAdapterConfig shows it: keys, secrets… */
+/** Whether a storage setting is a secret, judged by its name (keys, secrets, passwords, tokens), the same way redactAdapterConfig does. */
 function isStorageSecret(key: string): boolean {
     const lower = key.toLowerCase();
     if (lower.includes('publicurl') || lower.includes('public_url')) return false;
     return ['key', 'secret', 'password', 'token'].some(word => lower.includes(word));
 }
 
-/** The paths of the secrets this project holds, as [object path, field]. */
+/** Lists the paths of the secrets this project holds, each as an array of property names. */
 function secretPaths(project: Partial<ProjectSchema>): string[][] {
     const paths: string[][] = [];
     const adapter = project.assetConfig?.adapterConfig;
@@ -48,7 +49,7 @@ function at(obj: unknown, path: string[]): unknown {
     );
 }
 
-/** A copy of the project without its secrets, and the secrets by dotted path. */
+/** Returns a copy of the project without its secrets, and the removed secrets keyed by dotted path. */
 export function splitProjectSecrets<T extends Partial<ProjectSchema>>(
     project: T
 ): { project: T; secrets: Record<string, string> } {
@@ -64,7 +65,7 @@ export function splitProjectSecrets<T extends Partial<ProjectSchema>>(
     return { project: copy, secrets };
 }
 
-/** The project with its secrets put back (a value already in project.json wins: not yet moved). */
+/** Returns the project with its secrets put back. A value already in project.json wins, because it has not been moved to the secrets file yet. */
 export function mergeProjectSecrets<T extends Partial<ProjectSchema>>(
     project: T,
     secrets: Record<string, string>
@@ -75,7 +76,7 @@ export function mergeProjectSecrets<T extends Partial<ProjectSchema>>(
         let parent = merged as Record<string, unknown>;
         let ok = true;
         for (const key of path.slice(0, -1)) {
-            // Only put a secret back where its setting still exists.
+            // Only restore a secret where its parent setting still exists.
             if (!parent[key] || typeof parent[key] !== 'object') {
                 ok = false;
                 break;
@@ -88,7 +89,7 @@ export function mergeProjectSecrets<T extends Partial<ProjectSchema>>(
     return merged;
 }
 
-/** The project's secrets, decrypted, by dotted path. */
+/** Returns the project's decrypted secrets, keyed by dotted path. */
 export function readProjectSecrets(projectDir: string): Record<string, string> {
     const stored = readSecretsFile(projectDir)[SECTION];
     if (!stored || typeof stored !== 'object') return {};
@@ -97,7 +98,7 @@ export function readProjectSecrets(projectDir: string): Record<string, string> {
     );
 }
 
-/** Keep exactly these secrets for the project (what isn't here is gone). */
+/** Replaces the project's stored secrets with exactly these. Any secret not listed is removed. */
 export function writeProjectSecrets(projectDir: string, secrets: Record<string, string>): void {
     const sealed = Object.fromEntries(
         Object.entries(secrets).map(([k, v]) => [k, encryptSecret(v)])

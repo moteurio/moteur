@@ -5,18 +5,18 @@ import { listEntries } from '../entries.js';
 import { listPages } from '../pages.js';
 import { listAssets } from './assetService.js';
 
-/** Where an asset is used: a field (or a block inside one) of an entry or a page. */
+/** Where an asset is used: a field (or a block inside a field) of an entry or a page. */
 export type AssetUsage =
     | {
           kind: 'entry';
           modelId: string;
           entryId: string;
           status?: string;
-          /** The entry's title as stored: a string or one per language. */
+          /** The entry's title as stored: a string, or one string per language. */
           title?: unknown;
-          /** Top-level field holding the asset. */
+          /** The top-level field that holds the asset. */
           field: string;
-          /** Full path to the reference, e.g. `body.blocks[2].image.src`. */
+          /** Full path to the reference, such as `body.blocks[2].image.src`. */
           path: string;
       }
     | {
@@ -33,7 +33,7 @@ const TITLE_KEYS = ['title', 'name', 'label', 'headline'];
 
 /**
  * Calls `found` for every asset reference in a stored value: an object with an `assetId`, or a
- * string pointing at an asset file (images inserted into rich text keep only their URL).
+ * string that points at an asset file (images inserted into rich text keep only their URL).
  */
 export function findAssetRefs(
     value: unknown,
@@ -76,19 +76,19 @@ function titleOf(data: Record<string, unknown> | undefined, schema?: ModelSchema
 const topField = (path: string) => path.split(/[.[]/)[0];
 
 /**
- * Every place the project's assets are used, by asset id. One pass over all entries and pages,
- * so asking for one asset costs the same as asking for all of them.
+ * Finds every place the project's assets are used, keyed by asset id. It makes one pass over all
+ * entries and pages, so looking up one asset costs the same as looking up all of them.
  */
 export async function assetUsage(
     user: User,
     projectId: string
 ): Promise<Map<string, AssetUsage[]>> {
-    // Binned assets too: content still pointing at one is worth knowing before it goes for good.
+    // Include binned assets: it is useful to know that content still references one before it is permanently deleted.
     const known = new Set((await listAssets(projectId, { includeBinned: true })).map(a => a.id));
     const usage = new Map<string, AssetUsage[]>();
     const add = (assetId: string, u: AssetUsage) => {
         const list = usage.get(assetId) ?? [];
-        // One line per field: a gallery using the same picture twice is still one use.
+        // Record one usage per field: a gallery that uses the same image twice still counts as one use.
         if (
             !list.some(
                 x =>

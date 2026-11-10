@@ -297,7 +297,8 @@ export function generateTypes(input: TypegenInput): string {
     const blockNames = new Map<string, string>();
     for (const type of Object.keys(input.blocks))
         blockNames.set(type, `${nameFor(short(type), ['Block', 'BlockData'])}Block`);
-    // Models and templates by stem: `${stem}Data` and `${stem}Entry`, `${stem}Fields` and `${stem}Page`.
+    // Models and templates by stem: `${stem}Data` and `${stem}Entry`, `${stem}Fields` and
+    // `${stem}Page`.
     const modelNames = new Map<string, string>();
     for (const m of input.models) modelNames.set(m.id, nameFor(pascal(m.id), ['Data', 'Entry']));
     const templateNames = new Map<string, string>();
@@ -412,7 +413,7 @@ export function generateTypes(input: TypegenInput): string {
         for (const [k, f] of Object.entries(fields)) {
             if (first && k === 'kind') continue;
             const text = textOf(f.description, locale) || textOf(f.label, locale);
-            // A label that only repeats the key says nothing.
+            // Skip a label that only repeats the key.
             const label =
                 text.replace(/[^a-z0-9]/gi, '').toLowerCase() ===
                 k.replace(/[^a-z0-9]/gi, '').toLowerCase()
@@ -428,7 +429,8 @@ export function generateTypes(input: TypegenInput): string {
     const out: string[] = [PRELUDE(input)];
     const iface = (name: string, label: string, fields: unknown) => {
         const body = objectOf((fields as Fields | undefined) ?? {}, '');
-        // Every type takes the mode; one whose fields don't depend on it says so (no unused-parameter hint).
+        // Every type takes the locale mode as a parameter. A type whose fields don't depend on it
+        // is marked to avoid an unused-parameter warning.
         const mode = /\bM\b/.test(body) ? 'M' : '_M';
         return `${doc(label, '')}export interface ${name}<${mode} extends LocaleMode = 'all'> ${body}\n`;
     };

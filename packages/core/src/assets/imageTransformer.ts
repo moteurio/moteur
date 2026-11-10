@@ -15,7 +15,7 @@ export interface GeneratedVariant {
     format: string;
 }
 
-/** How an image reads once turned upright, and whether it moves. */
+/** An image's dimensions once rotated upright, and whether it is animated. */
 export interface ImageShape {
     width: number;
     height: number;
@@ -23,8 +23,9 @@ export interface ImageShape {
 }
 
 /**
- * The image's size as people see it: phone photos are stored sideways with an orientation tag
- * (5–8 mean a quarter turn), and an animated image's height is one frame, not the whole strip.
+ * The image's size as people see it. Phone photos are often stored sideways with an orientation
+ * tag (values 5–8 mean a quarter turn), and an animated image's reported height is the whole
+ * strip of frames, so the height of one frame is used instead.
  */
 export async function readImageShape(buffer: Buffer): Promise<ImageShape> {
     return imageWork(() => readImageShapeUnlimited(buffer));
@@ -58,7 +59,7 @@ async function readImageShapeUnlimited(buffer: Buffer): Promise<ImageShape> {
     return { width: turned ? height : width, height: turned ? width : height, animated };
 }
 
-/** Formats whose files can carry camera data (EXIF, XMP, IPTC), and how to save them again. */
+/** Formats whose files can carry camera metadata (EXIF, XMP, IPTC), and how to re-encode each one. */
 const STRIPPABLE: Record<string, (img: Sharp) => Sharp> = {
     'image/jpeg': img => img.jpeg({ quality: 92, mozjpeg: true }),
     'image/png': img => img.png(),
@@ -68,10 +69,11 @@ const STRIPPABLE: Record<string, (img: Sharp) => Sharp> = {
 };
 
 /**
- * The uploaded picture without what the camera wrote in it: where it was taken (GPS), the
- * camera, its owner's name. It is turned upright first, since the orientation tag goes with
- * the rest; its colour profile stays. A file with nothing to remove is kept byte for byte, and
- * one that can't be read is returned as it came (its copies will fail and say so).
+ * Returns the uploaded image without the metadata the camera wrote into it: where it was taken
+ * (GPS), the camera model and the owner's name. The image is rotated upright first, because the
+ * orientation tag is removed with the rest of the metadata. The color profile is kept. A file
+ * with nothing to remove is returned byte for byte, and one that can't be read is returned
+ * unchanged (variant generation will then fail and report it).
  */
 export async function stripImageMetadata(buffer: Buffer, mimeType: string): Promise<Buffer> {
     return imageWork(() => stripImageMetadataUnlimited(buffer, mimeType));
@@ -92,17 +94,17 @@ async function stripImageMetadataUnlimited(buffer: Buffer, mimeType: string): Pr
 }
 
 /**
- * Generate image variants. Always includes original (source buffer + metadata).
- * Per-variant errors are logged and skipped; never abort the batch.
+ * Generates image variants. The result always includes the original (source buffer and metadata).
+ * An error in one variant is logged and that variant is skipped; the batch is never aborted.
  *
- * Every variant is turned upright first (its orientation tag is dropped with the rest of the
- * metadata), is never larger than the original, and keeps an animation when its format can.
+ * Every variant is rotated upright first (its orientation tag is dropped with the rest of the
+ * metadata), is never larger than the original, and stays animated when its format supports it.
  */
 /**
- * AVIF's quality scale isn't JPEG's: at the same number it keeps far more detail, in larger files
- * that take many times longer to make. Measured on photos, AVIF at 0.7 of a JPEG/WebP quality looks
- * as good (80 → 56), in about half the bytes of AVIF at 80; effort 2 (of 9) makes it 8 times
- * faster than the default for files a few percent larger.
+ * AVIF's quality scale differs from JPEG's: at the same number AVIF keeps far more detail, in
+ * larger files that take many times longer to encode. Measured on photos, AVIF at 0.7 times the
+ * JPEG/WebP quality looks as good (80 becomes 56) in about half the bytes of AVIF at 80. An effort
+ * of 2 (out of 9) encodes 8 times faster than the default, for files a few percent larger.
  */
 export function avifOptions(quality: number): { quality: number; effort: number } {
     return { quality: Math.max(1, Math.round(quality * 0.7)), effort: 2 };
@@ -150,7 +152,7 @@ async function generateVariantsUnlimited(
         });
     }
 
-    // Upright, every frame of an animation; metadata (location, camera) is not carried over.
+    // Rotate upright, including every frame of an animation. Metadata (location, camera) is not carried over.
     const open = (): Sharp => openImage(source, { animated: shape.animated }).rotate();
 
     for (const def of allDefs) {
@@ -172,8 +174,8 @@ async function generateVariantsUnlimited(
 
             let pipeline: Sharp;
             if (def.fit === 'cover' && def.width && def.height) {
-                // A crop is never bigger than the picture: a small image gets a smaller crop
-                // with the same proportions instead of a blurry enlargement.
+                // A crop is never bigger than the image: a small image gets a smaller crop with the
+                // same proportions instead of a blurry enlargement.
                 const shrink = Math.min(1, shape.width / def.width, shape.height / def.height);
                 const width = Math.max(1, Math.round(def.width * shrink));
                 const height = Math.max(1, Math.round(def.height * shrink));

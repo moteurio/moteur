@@ -1,6 +1,6 @@
 /**
- * Single write path for admin Media Settings: assetConfig + videoProviders.
- * Empty or *** incoming values for credentials keep existing stored values.
+ * The single write path for the media settings that admins edit: assetConfig and videoProviders.
+ * Credentials that arrive empty or as `***` keep their existing stored values.
  */
 import type { User } from '@moteurio/types/User.js';
 import type { ProjectSchema, VideoProvidersConfig } from '@moteurio/types/Project.js';
@@ -35,7 +35,7 @@ function assertAdmin(user: User): void {
         throw contentForbidden('Only a content lead or an admin can change media settings.');
 }
 
-/** Video host settings with every secret shown as `***` (and an empty string when not set). */
+/** Video host settings with every secret masked as `***` (or an empty string when not set). */
 export function redactVideoProviders(
     vp: VideoProvidersConfig | undefined
 ): VideoProvidersConfig | undefined {
@@ -74,7 +74,7 @@ export function redactVideoProviders(
     };
 }
 
-/** A project as sent to people: storage and video host secrets shown as `***`. */
+/** A project as returned to clients, with storage and video host secrets masked as `***`. */
 export function redactProjectSecrets<T extends Partial<ProjectSchema>>(project: T): T {
     if (
         !project.assetConfig?.adapterConfig &&
@@ -139,13 +139,13 @@ function checkVariants(variants: VariantDefinition[]): void {
     }
 }
 
-/** Files a project keeps on its storage (originals, in the bin too); hosted videos aren't counted. */
+/** Number of files a project keeps on its storage (originals, including those in the bin). Hosted videos are not counted. */
 async function storedFileCount(projectId: string): Promise<number> {
     const list = await getProjectJson<{ path?: string }[]>(projectId, ASSETS_KEY);
     return Array.isArray(list) ? list.filter(a => a.path).length : 0;
 }
 
-/** The keys slot of each video host in `videoProviders`. */
+/** The key under which each video host's credentials are stored in `videoProviders`. */
 const HOST_SLOT = {
     mux: 'mux',
     vimeo: 'vimeo',
@@ -162,8 +162,9 @@ type StoredVideo = {
 };
 
 /**
- * Where a project's videos are: per host (or `local`, this server), how many, and how many have
- * a copy here (those can move to another host). Videos in the bin are left out.
+ * Counts where a project's videos are stored, per host (or `local` for this server): how many
+ * there are and how many have a local copy (those can be moved to another host). Videos in the
+ * bin are excluded.
  */
 async function videoHomes(
     projectId: string
@@ -180,8 +181,9 @@ async function videoHomes(
 }
 
 /**
- * Forgets a video host's keys. Refused for the host taking new videos, and while any video (in
- * the bin too, or moving away) is still there: Moteur needs the keys to delete it.
+ * Removes a video host's keys. It is refused for the host that takes new videos, and while any
+ * video (including those in the bin or being moved away) is still stored there, because Moteur
+ * needs the keys to delete it.
  */
 export async function forgetVideoHost(projectId: string, user: User, host: string) {
     assertAdmin(user);
@@ -207,7 +209,7 @@ export async function forgetVideoHost(projectId: string, user: User, host: strin
     return redactVideoProviders((await getProject(user, projectId)).videoProviders);
 }
 
-/** Media settings as shown in Setup: secrets hidden, with what this server offers. */
+/** Media settings as returned to admin clients: secrets masked, plus the options this server offers. */
 export async function getProjectMediaSettings(projectId: string, user: User) {
     const project = await getProject(user, projectId);
     return {
@@ -230,7 +232,7 @@ export async function getProjectMediaSettings(projectId: string, user: User) {
     };
 }
 
-/** Storage settings as they would be saved: secrets left empty or `***` keep the stored ones. */
+/** Storage settings as they would be saved. Secrets left empty or sent as `***` keep the stored values. */
 async function targetStorage(
     projectId: string,
     user: User,
@@ -255,8 +257,8 @@ async function targetStorage(
 }
 
 /**
- * Tries storage settings before they are saved: writes a small file, reads it back, deletes it.
- * Answers with what went wrong instead of throwing.
+ * Tests storage settings before they are saved by writing a small file, reading it back and
+ * deleting it. Returns what went wrong instead of throwing.
  */
 export async function checkStorage(
     projectId: string,
@@ -278,7 +280,7 @@ export async function checkStorage(
     }
 }
 
-/** Switches the project to another storage, copying its files there first (content leads and admins). */
+/** Switches the project to another storage after copying its files there. Content leads and admins only. */
 export async function moveProjectStorage(
     projectId: string,
     user: User,
@@ -311,7 +313,7 @@ function pickCredential(incoming: unknown, stored: unknown): unknown {
     return incoming;
 }
 
-/** Merge incoming adapterConfig onto current; empty credential fields keep stored values. */
+/** Merges the incoming adapterConfig onto the current one. Empty credential fields keep their stored values. */
 export function mergeAdapterConfigPreservingSecrets(
     current: Record<string, unknown> | undefined,
     incoming: Record<string, unknown> | undefined
@@ -395,10 +397,10 @@ function mergeYoutube(
 }
 
 /**
- * Video host settings after an update. Keys are kept for every host, not only the one in use:
- * videos already at a host stay there when another takes the new uploads, and Moteur still needs
- * that host's keys to delete or move them. Forgetting a host's keys is `forgetVideoHost`.
- * `active` unset means no host: new videos stay on this server.
+ * Video host settings after an update. Keys are kept for every host, not only the active one:
+ * videos already at a host stay there when another host takes new uploads, and Moteur still
+ * needs that host's keys to delete or move them. Use `forgetVideoHost` to remove a host's keys.
+ * An unset `active` means no host, so new videos stay on this server.
  */
 export function mergeVideoProvidersPayload(
     current: VideoProvidersConfig | undefined,
@@ -472,7 +474,7 @@ export async function updateProjectMediaSettings(
 
     let nextVideo = project.videoProviders;
     if (body.videoProviders === null) {
-        // No host for new videos; the keys stay for the videos still at one.
+        // No host takes new videos, but keep the keys for videos still stored at a host.
         nextVideo = project.videoProviders
             ? { ...project.videoProviders, active: undefined }
             : undefined;
@@ -510,7 +512,7 @@ export async function updateProjectMediaSettings(
                     `Storage "${nextAdapter}" is not available on this server`,
                     'storage'
                 );
-            // Files already stored would be left behind: they have to be moved.
+            // Files already stored on the current storage would be left behind, so they must be moved.
             if ((await storedFileCount(projectId)) > 0)
                 throw badRequest(
                     'This project has files: move them to change storage',
@@ -535,7 +537,7 @@ export async function updateProjectMediaSettings(
             enabled: patch.enabled ?? currentAc.enabled,
             variants: patch.variants ?? currentAc.variants ?? getVariantDefinitions(project),
             maxUploadSizeMb: patch.maxUploadSizeMb ?? currentAc.maxUploadSizeMb,
-            // null (or every kind) means no restriction.
+            // null, or a list containing every kind, means no restriction.
             allowedTypes:
                 patch.allowedTypes === undefined
                     ? currentAc.allowedTypes
@@ -574,7 +576,7 @@ export async function updateProjectMediaSettings(
     };
 }
 
-/** Moves the project's videos to where new ones go (see `moveVideosToHost`). Admins. */
+/** Moves the project's videos to wherever new videos are stored (see `moveVideosToHost`). Admins only. */
 export async function moveProjectVideos(
     projectId: string,
     user: User,

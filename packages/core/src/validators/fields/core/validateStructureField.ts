@@ -95,7 +95,7 @@ export function validateStructureField(
     for (const [subKey, subField] of Object.entries(schemaFields)) {
         const subValue = contentValue[subKey];
         const subPath = `${path}.${subKey}`;
-        // Same rule as entry fields: absent optional sub-fields are fine, absent required ones are not.
+        // Apply the same rule as for entry fields: a missing optional sub-field is fine, a missing required one is not.
         if (subValue === undefined || subValue === null || subValue === '') {
             if (subField.required === true || subField.options?.required === true) {
                 issues.push({
