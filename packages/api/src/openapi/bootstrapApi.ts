@@ -287,6 +287,8 @@ export async function bootstrapApi(options?: {
                 ...baseSpec.components?.schemas,
                 ...authSpecs.schemas,
                 ...projectsSpecs.schemas,
+                ...modelsSpecs.schemas,
+                ...entriesSpecs.schemas,
                 ...blueprintsSchemas,
                 ...workspacesSchemas
             }

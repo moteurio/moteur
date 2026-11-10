@@ -1174,9 +1174,22 @@ export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
                 { name: 'channelId', in: 'path', required: true, schema: { type: 'string' } }
             ],
             requestBody: {
+                required: true,
                 content: {
                     'application/json': {
-                        schema: { type: 'object', additionalProperties: true }
+                        schema: {
+                            type: 'object',
+                            description:
+                                'Only the fields sent change. `resources` replaces the whole list.',
+                            properties: {
+                                label: { type: 'string' },
+                                description: { type: 'string' },
+                                resources: {
+                                    type: 'array',
+                                    items: { $ref: '#/components/schemas/ChannelResource' }
+                                }
+                            }
+                        }
                     }
                 }
             },
@@ -1292,6 +1305,50 @@ export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
                     }
                 },
                 '404': { description: 'Not found', ...jsonErrorBody }
+            }
+        }
+    },
+    '/projects/{projectId}/channels/{channelId}/settings/{modelId}': {
+        get: {
+            summary: 'Get the entry of a settings model',
+            description:
+                'A settings model has a single entry, such as site-wide contact details. This returns it the same way as getting one entry, without needing its id.',
+            tags: ['Public API — Channels'],
+            parameters: [
+                { name: 'projectId', in: 'path', required: true, schema: { type: 'string' } },
+                { name: 'channelId', in: 'path', required: true, schema: { type: 'string' } },
+                { name: 'modelId', in: 'path', required: true, schema: { type: 'string' } },
+                {
+                    name: 'locale',
+                    in: 'query',
+                    required: false,
+                    schema: { type: 'string' },
+                    description:
+                        'When set, resolves multilingual field values to this locale (falls back to project defaultLocale).'
+                },
+                {
+                    name: 'lang',
+                    in: 'query',
+                    required: false,
+                    schema: { type: 'string' },
+                    description: 'Alias for locale.'
+                },
+                resolveAssetsParameter(),
+                resolveUrlParameter()
+            ],
+            responses: {
+                '200': {
+                    description: 'Entry',
+                    content: {
+                        'application/json': {
+                            schema: { $ref: '#/components/schemas/Entry' }
+                        }
+                    }
+                },
+                '404': {
+                    description: 'No such channel or model, or no settings saved yet',
+                    ...jsonErrorBody
+                }
             }
         }
     },

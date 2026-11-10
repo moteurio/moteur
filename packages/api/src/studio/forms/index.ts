@@ -441,6 +441,59 @@ const formsOpenapi: Record<string, OpenAPIV3.PathItemObject> = {
                 { name: 'projectId', in: 'path', required: true, schema: { type: 'string' } },
                 { name: 'formId', in: 'path', required: true, schema: { type: 'string' } }
             ],
+            requestBody: {
+                required: true,
+                content: {
+                    'application/json': {
+                        schema: {
+                            type: 'object',
+                            description:
+                                'Only the fields sent change. `fields` replaces every field. Null removes a setting, such as `redirectUrl` or `notifications`.',
+                            properties: {
+                                label: { type: 'string' },
+                                description: { type: 'string' },
+                                fields: { type: 'object', additionalProperties: true },
+                                status: {
+                                    type: 'string',
+                                    enum: ['active', 'inactive', 'archived']
+                                },
+                                submitLabel: {
+                                    type: 'object',
+                                    additionalProperties: { type: 'string' },
+                                    description: 'Text by locale'
+                                },
+                                successMessage: {
+                                    type: 'object',
+                                    additionalProperties: { type: 'string' },
+                                    description: 'Text by locale'
+                                },
+                                redirectUrl: { type: 'string', nullable: true },
+                                honeypot: { type: 'boolean' },
+                                captcha: {
+                                    type: 'object',
+                                    nullable: true,
+                                    additionalProperties: true
+                                },
+                                timeTrap: {
+                                    type: 'object',
+                                    nullable: true,
+                                    additionalProperties: true
+                                },
+                                actions: {
+                                    type: 'array',
+                                    nullable: true,
+                                    items: { type: 'object', additionalProperties: true }
+                                },
+                                notifications: {
+                                    type: 'object',
+                                    nullable: true,
+                                    additionalProperties: true
+                                }
+                            }
+                        }
+                    }
+                }
+            },
             responses: {
                 '200': {
                     description: 'Form updated',

@@ -105,4 +105,34 @@ export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
     }
 };
 
+export const schemas: OpenAPIV3.ComponentsObject['schemas'] = {
+    UpdateModelInput: {
+        type: 'object',
+        description:
+            'Only the fields sent change. `fields` replaces every field, so send the whole set. The result is checked as a full model.',
+        properties: {
+            label: {
+                description: 'A string, or text by locale',
+                oneOf: [
+                    { type: 'string' },
+                    { type: 'object', additionalProperties: { type: 'string' } }
+                ]
+            },
+            description: { type: 'string' },
+            modelType: { type: 'string', enum: ['content', 'userData', 'taxonomy', 'settings'] },
+            fields: {
+                type: 'object',
+                additionalProperties: { $ref: '#/components/schemas/Field' }
+            },
+            urlPattern: {
+                type: 'string',
+                description: 'The address of an entry, such as `/blog/[slug]`'
+            },
+            optionsSchema: { type: 'object', additionalProperties: true },
+            studio: { type: 'object', additionalProperties: true },
+            meta: { type: 'object', additionalProperties: true }
+        }
+    }
+};
+
 export default router;

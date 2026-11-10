@@ -130,6 +130,42 @@ export function mcpRouter(
     return router;
 }
 
+/** The transport defines GET and DELETE, so clients try them. Each POST stands alone, so both answer 405. */
+function notAllowedSpec(method: 'GET' | 'DELETE'): OpenAPIV3.OperationObject {
+    return {
+        summary: `${method} is not used: send every message with POST`,
+        description:
+            method === 'GET'
+                ? 'Moteur does not open a server-sent stream. The answer is a JSON-RPC error with the Allow header set to POST.'
+                : 'There is no session to end, because each POST stands alone. The answer is a JSON-RPC error with the Allow header set to POST.',
+        tags: ['MCP'],
+        security: [],
+        responses: {
+            '405': {
+                description: 'Method not allowed',
+                content: {
+                    'application/json': {
+                        schema: {
+                            type: 'object',
+                            properties: {
+                                jsonrpc: { type: 'string', enum: ['2.0'] },
+                                error: {
+                                    type: 'object',
+                                    properties: {
+                                        code: { type: 'integer' },
+                                        message: { type: 'string' }
+                                    }
+                                },
+                                id: { type: 'string', nullable: true }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    };
+}
+
 export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
     '/mcp': {
         post: {
@@ -153,6 +189,8 @@ export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
                 },
                 '401': { description: 'Not signed in' }
             }
-        }
+        },
+        get: notAllowedSpec('GET'),
+        delete: notAllowedSpec('DELETE')
     }
 };

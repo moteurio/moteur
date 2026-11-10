@@ -655,6 +655,18 @@ const ok = (
     '401': { description: 'Not signed in' },
     '403': { description: 'Operator access required' }
 });
+/** A required JSON request body with these properties. */
+const jsonBody = (
+    properties: Record<string, OpenAPIV3.SchemaObject>,
+    required?: string[]
+): OpenAPIV3.RequestBodyObject => ({
+    required: true,
+    content: {
+        'application/json': {
+            schema: { type: 'object', properties, ...(required?.length ? { required } : {}) }
+        }
+    }
+});
 const tags = ['Operator'];
 const int: OpenAPIV3.SchemaObject = { type: 'integer' };
 const str: OpenAPIV3.SchemaObject = { type: 'string' };
@@ -818,6 +830,17 @@ const paths: Record<string, OpenAPIV3.PathItemObject> = {
             parameters: [
                 { name: 'projectId', in: 'path', required: true, schema: { type: 'string' } }
             ],
+            requestBody: jsonBody(
+                {
+                    plugins: {
+                        type: 'array',
+                        items: { type: 'string' },
+                        nullable: true,
+                        description: 'Plugin ids, or null for every plugin the server runs'
+                    }
+                },
+                ['plugins']
+            ),
             responses: {
                 ...ok('`{ project }`', { project: projectRowSchema }),
                 '400': { description: 'Unknown plugin ids' }
@@ -885,6 +908,24 @@ const paths: Record<string, OpenAPIV3.PathItemObject> = {
             description:
                 'Body: `email`, `name`, and optionally `password` (without one, the person signs in with an email code), `projectId` and `roles` to add them to a project.',
             tags,
+            requestBody: jsonBody(
+                {
+                    email: { type: 'string', format: 'email' },
+                    name: { type: 'string', maxLength: 120 },
+                    password: {
+                        type: 'string',
+                        format: 'password',
+                        description: 'Left out, the person signs in with an email code'
+                    },
+                    projectId: { type: 'string', description: 'A project to add them to' },
+                    roles: {
+                        type: 'array',
+                        items: { type: 'string' },
+                        description: 'Their roles in `projectId`'
+                    }
+                },
+                ['email', 'name']
+            ),
             responses: {
                 '201': {
                     description: '`{ user }`',
@@ -909,6 +950,9 @@ const paths: Record<string, OpenAPIV3.PathItemObject> = {
             parameters: [
                 { name: 'userId', in: 'path', required: true, schema: { type: 'string' } }
             ],
+            requestBody: jsonBody({ password: { type: 'string', format: 'password' } }, [
+                'password'
+            ]),
             responses: {
                 ...ok('`{ user }`', { user: userRowSchema }),
                 '400': { description: 'Missing or weak password' },
@@ -947,8 +991,19 @@ const paths: Record<string, OpenAPIV3.PathItemObject> = {
             parameters: [
                 { name: 'userId', in: 'path', required: true, schema: { type: 'string' } }
             ],
+            requestBody: jsonBody({
+                name: str,
+                email: { type: 'string', format: 'email' },
+                isActive: { type: 'boolean' },
+                roles: {
+                    type: 'array',
+                    items: { type: 'string' },
+                    description: 'Account roles; `admin` makes an operator'
+                }
+            }),
             responses: {
                 ...ok('`{ user }`', { user: userRowSchema }),
+                '400': { description: 'Nothing to change, or roles is not a list of names' },
                 '404': { description: 'No such account' },
                 '409': { description: 'Email already in use' }
             }
@@ -972,8 +1027,19 @@ const paths: Record<string, OpenAPIV3.PathItemObject> = {
             parameters: [
                 { name: 'pluginId', in: 'path', required: true, schema: { type: 'string' } }
             ],
+            requestBody: jsonBody(
+                {
+                    on: {
+                        type: 'boolean',
+                        nullable: true,
+                        description: 'Null follows the host’s list again'
+                    }
+                },
+                ['on']
+            ),
             responses: {
                 ...ok('`{ plugin }`', { plugin: pluginRowSchema }),
+                '400': { description: 'on is not true, false or null, or the plugin is core' },
                 '404': { description: 'No such plugin' }
             }
         }
@@ -1012,6 +1078,20 @@ const paths: Record<string, OpenAPIV3.PathItemObject> = {
                 },
                 { name: 'name', in: 'path', required: true, schema: { type: 'string' } }
             ],
+            requestBody: {
+                required: true,
+                description: 'The block or structure schema, with a label and fields',
+                content: {
+                    'application/json': {
+                        schema: {
+                            type: 'object',
+                            required: ['label', 'fields'],
+                            properties: { label: str, fields: object },
+                            additionalProperties: true
+                        }
+                    }
+                }
+            },
             responses: {
                 ...ok('`{ item }`', { item: serverSchemaSchema }),
                 '400': { description: 'Invalid name or schema' }
@@ -1097,6 +1177,12 @@ const operatorObject: OpenAPIV3.SchemaObject = {
         newsSeenAt: { type: 'string', format: 'date-time' }
     }
 };
+const operatorIdParam: OpenAPIV3.ParameterObject = {
+    name: 'id',
+    in: 'path',
+    required: true,
+    schema: { type: 'string' }
+};
 paths['/operator/operators'] = {
     get: {
         summary: 'The operators',
@@ -1113,6 +1199,7 @@ paths['/operator/operators'] = {
         description:
             'Body `{ email, name? }`. Answers with `enrollToken`: their one-time link is `<studio>/operator/enroll/<enrollToken>` (24 hours), where they set a password and their authenticator.',
         tags,
+        requestBody: jsonBody({ email: { type: 'string', format: 'email' }, name: str }, ['email']),
         responses: ok('`{ operator, enrollToken }`', { operator: operatorObject, enrollToken: str })
     }
 };
@@ -1122,6 +1209,7 @@ paths['/operator/operators/{id}/reset'] = {
         description:
             'Their password, authenticator and recovery codes are removed and every session ends; `enrollToken` is their new one-time link.',
         tags,
+        parameters: [operatorIdParam],
         responses: ok('`{ operator, enrollToken }`', { operator: operatorObject, enrollToken: str })
     }
 };
@@ -1130,6 +1218,7 @@ paths['/operator/operators/{id}'] = {
         summary: 'Remove an operator',
         description: 'Their sessions end at once. The last operator who can sign in stays.',
         tags,
+        parameters: [operatorIdParam],
         responses: { '204': { description: 'Removed' } }
     }
 };

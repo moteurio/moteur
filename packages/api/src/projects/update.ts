@@ -115,4 +115,58 @@ export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
     }
 };
 
+export const schemas: OpenAPIV3.ComponentsObject['schemas'] = {
+    UpdateProjectInput: {
+        type: 'object',
+        description:
+            'Only the fields sent change. Members, member roles, API keys, the workspace and email settings have their own routes and are ignored here. `id` cannot change.',
+        properties: {
+            label: { type: 'string' },
+            description: { type: 'string' },
+            defaultLocale: {
+                type: 'string',
+                description: 'Used when a translation is missing'
+            },
+            supportedLocales: {
+                type: 'array',
+                items: { type: 'string' },
+                description: 'Locales besides the default one'
+            },
+            localePrefix: {
+                type: 'string',
+                enum: ['others', 'all', 'none'],
+                description: 'Which locales get a prefix in addresses'
+            },
+            isActive: { type: 'boolean' },
+            plugins: { type: 'array', items: { type: 'string' } },
+            namespaces: { type: 'array', items: { type: 'string' } },
+            siteUrl: {
+                type: 'string',
+                description:
+                    'The site’s base URL, such as `https://example.com`, used in the sitemap'
+            },
+            previewUrl: { type: 'string' },
+            allowHtmlIframe: { type: 'boolean' },
+            allowHtmlEmbed: { type: 'boolean' },
+            workflow: {
+                type: 'object',
+                properties: {
+                    enabled: { type: 'boolean' },
+                    mode: { type: 'string', enum: ['auto_publish'] },
+                    requireReview: { type: 'boolean' }
+                }
+            },
+            git: {
+                type: 'object',
+                properties: { enabled: { type: 'boolean' }, remoteUrl: { type: 'string' } }
+            },
+            assetConfig: { type: 'object', additionalProperties: true },
+            videoProviders: { type: 'object', additionalProperties: true },
+            ai: { type: 'object', additionalProperties: true },
+            integrations: { type: 'object', additionalProperties: true },
+            meta: { type: 'object', additionalProperties: true }
+        }
+    }
+};
+
 export default router;

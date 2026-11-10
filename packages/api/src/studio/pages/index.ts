@@ -388,6 +388,10 @@ const pagePaths: Record<string, OpenAPIV3.PathItemObject> = {
         }
     },
     '/projects/{projectId}/pages/{id}': {
+        parameters: [
+            { name: 'projectId', in: 'path', required: true, schema: { type: 'string' } },
+            { name: 'id', in: 'path', required: true, schema: { type: 'string' } }
+        ],
         get: {
             summary: 'Get page',
             tags: ['Pages'],
@@ -449,6 +453,10 @@ const pagePaths: Record<string, OpenAPIV3.PathItemObject> = {
         }
     },
     '/projects/{projectId}/pages/{id}/referrers': {
+        parameters: [
+            { name: 'projectId', in: 'path', required: true, schema: { type: 'string' } },
+            { name: 'id', in: 'path', required: true, schema: { type: 'string' } }
+        ],
         get: {
             summary: 'What links to a page',
             description:
@@ -500,6 +508,10 @@ const pagePaths: Record<string, OpenAPIV3.PathItemObject> = {
         }
     },
     '/projects/{projectId}/pages/{id}/status': {
+        parameters: [
+            { name: 'projectId', in: 'path', required: true, schema: { type: 'string' } },
+            { name: 'id', in: 'path', required: true, schema: { type: 'string' } }
+        ],
         patch: {
             summary: 'Update page status',
             tags: ['Pages'],
@@ -536,6 +548,25 @@ const pagePaths: Record<string, OpenAPIV3.PathItemObject> = {
         post: {
             summary: 'Submit page for review',
             tags: ['Pages'],
+            parameters: [
+                { name: 'projectId', in: 'path', required: true, schema: { type: 'string' } },
+                { name: 'id', in: 'path', required: true, schema: { type: 'string' } }
+            ],
+            requestBody: {
+                content: {
+                    'application/json': {
+                        schema: {
+                            type: 'object',
+                            properties: {
+                                assignedTo: {
+                                    type: 'string',
+                                    description: 'User ID of assigned reviewer'
+                                }
+                            }
+                        }
+                    }
+                }
+            },
             responses: {
                 '201': {
                     description: 'Review created',
@@ -549,6 +580,10 @@ const pagePaths: Record<string, OpenAPIV3.PathItemObject> = {
         }
     },
     '/projects/{projectId}/pages/{id}/validate': {
+        parameters: [
+            { name: 'projectId', in: 'path', required: true, schema: { type: 'string' } },
+            { name: 'id', in: 'path', required: true, schema: { type: 'string' } }
+        ],
         post: {
             summary: 'Validate page',
             tags: ['Pages'],
@@ -565,6 +600,7 @@ const pagePaths: Record<string, OpenAPIV3.PathItemObject> = {
         }
     },
     '/projects/{projectId}/pages/reorder': {
+        parameters: [{ name: 'projectId', in: 'path', required: true, schema: { type: 'string' } }],
         post: {
             summary: 'Reorder pages (batch parentId + order)',
             tags: ['Pages'],

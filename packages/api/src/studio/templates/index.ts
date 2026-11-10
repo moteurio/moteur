@@ -182,6 +182,10 @@ const templatePaths: Record<string, OpenAPIV3.PathItemObject> = {
         }
     },
     '/projects/{projectId}/templates/{id}': {
+        parameters: [
+            { name: 'projectId', in: 'path', required: true, schema: { type: 'string' } },
+            { name: 'id', in: 'path', required: true, schema: { type: 'string' } }
+        ],
         get: {
             summary: 'Get template',
             tags: ['Templates'],
@@ -233,6 +237,10 @@ const templatePaths: Record<string, OpenAPIV3.PathItemObject> = {
         }
     },
     '/projects/{projectId}/templates/{id}/validate': {
+        parameters: [
+            { name: 'projectId', in: 'path', required: true, schema: { type: 'string' } },
+            { name: 'id', in: 'path', required: true, schema: { type: 'string' } }
+        ],
         post: {
             summary: 'Validate template',
             tags: ['Templates'],

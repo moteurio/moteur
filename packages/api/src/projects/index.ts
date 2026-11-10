@@ -5,7 +5,7 @@ import { mergePathSpecs } from '../utils/mergePathSpecs.js';
 import getAll, { openapi as getAllSpec } from './getAll.js';
 import getOne, { openapi as getOneSpec } from './getOne.js';
 import create, { openapi as createSpec, schemas as createSchemas } from './create.js';
-import update, { openapi as updateSpec } from './update.js';
+import update, { openapi as updateSpec, schemas as updateSchemas } from './update.js';
 import remove, { openapi as deleteSpec } from './delete.js';
 import keep, { openapi as keepSpec } from './keep.js';
 import move, { openapi as moveSpec } from './move.js';
@@ -38,7 +38,6 @@ import templatesRouter, { openapi as templatesSpec } from '../studio/templates/i
 import pagesStudioRouter, { openapi as pagesStudioSpec } from '../studio/pages/index.js';
 import structuresRouter, { openapi as structuresSpec } from '../studio/structures/index.js';
 import layoutsRouter, { openapi as layoutsSpec } from '../studio/layouts/index.js';
-import { openapi as channelsStudioSpec } from '../studio/channels/index.js';
 import apiKeysRouter, { openapi as apiKeysSpec } from '../studio/apiKeys/index.js';
 import previewTokensRouter, {
     openapi as previewTokensSpec
@@ -125,7 +124,6 @@ export const projectsSpecs = {
         pagesStudioSpec,
         structuresSpec,
         layoutsSpec,
-        channelsStudioSpec,
         apiKeysSpec,
         previewTokensSpec,
         assetsSpec,
@@ -146,6 +144,7 @@ export const projectsSpecs = {
     ),
     schemas: {
         ...createSchemas,
+        ...updateSchemas,
         ...importsSchemas,
         ...activitySchemas,
         ...commentsSchemas,

@@ -73,7 +73,7 @@ export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
             description:
                 "Send a project key in `x-api-key`; the answer says its project and the channels it reads. `channel` is the one to read when there's no doubt: the key's only channel, or `site`. What lets a site be configured with its key alone.",
             tags: ['Public API — Channels'],
-            security: [{ ApiKeyAuth: [] }],
+            security: [{ apiKeyAuth: [] }],
             responses: {
                 '200': {
                     description: 'The key',

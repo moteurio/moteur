@@ -89,6 +89,7 @@ export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
     '/projects/{projectId}/radar': {
         get: {
             summary: 'Get Radar violation report',
+            tags: ['Radar'],
             description:
                 "Returns current violations, drafts included: for the project's people (sign-in), not API keys. Use ?scan=true to run a full scan first. Supports severity, model, locale, ruleId filters.",
             parameters: [
@@ -137,6 +138,7 @@ export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
     '/projects/{projectId}/radar/entry/{slug}': {
         get: {
             summary: 'Get Radar violations for one entry',
+            tags: ['Radar'],
             parameters: [
                 { name: 'projectId', in: 'path', required: true, schema: { type: 'string' } },
                 { name: 'slug', in: 'path', required: true, schema: { type: 'string' } }
