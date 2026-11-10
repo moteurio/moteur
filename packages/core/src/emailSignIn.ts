@@ -67,12 +67,15 @@ const file = () => privateStatePath('email-codes.json');
 const normalise = (email: string) => email.trim().toLowerCase();
 
 /**
- * HMAC-SHA256 of the parts joined with `:`, keyed with JWT_SECRET, else MOTEUR_ENCRYPTION_KEY, else
- * a built-in default. Codes, link tokens and addresses are stored only in this form, so a copy of
- * the store reveals none of them without the key.
+ * HMAC-SHA256 of the parts joined with `:`, keyed with JWT_SECRET, else MOTEUR_ENCRYPTION_KEY.
+ * Codes, link tokens and addresses are stored only in this form, so a copy of the store reveals
+ * none of them without the key. Throws when neither secret is set: with a key written in this
+ * code, anyone could recover a short code from its hash by trying every value.
  */
 function keyed(...parts: string[]): string {
-    const key = process.env.JWT_SECRET || process.env.MOTEUR_ENCRYPTION_KEY || 'moteur-email-codes';
+    const key = process.env.JWT_SECRET?.trim() || process.env.MOTEUR_ENCRYPTION_KEY?.trim();
+    if (!key)
+        throw new Error('JWT_SECRET (or MOTEUR_ENCRYPTION_KEY) must be set for email sign-in.');
     return createHmac('sha256', key).update(parts.join(':')).digest('hex');
 }
 const addressId = (email: string) => keyed('address', email);

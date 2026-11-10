@@ -82,6 +82,16 @@ describe('signing in and up with an email code', () => {
         fs.rmSync(root, { recursive: true, force: true });
     });
 
+    it('refuses to check a code when no secret is set', async () => {
+        await requestEmailCode('louise@agency.test');
+        await sent();
+        vi.stubEnv('JWT_SECRET', '');
+        vi.stubEnv('MOTEUR_ENCRYPTION_KEY', '');
+        await expect(verifyEmailCode('louise@agency.test', '123456')).rejects.toThrow(
+            /JWT_SECRET \(or MOTEUR_ENCRYPTION_KEY\) must be set/
+        );
+    });
+
     it('makes an account from a code when sign-up is open, and keeps where they came from', async () => {
         vi.stubEnv('MOTEUR_SIGNUP', 'open');
         await requestEmailCode(' Theo@Agency.test ', {
