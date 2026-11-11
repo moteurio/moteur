@@ -88,6 +88,14 @@ export const storageConfig = {
         return resolveFromRoot(raw);
     },
 
+    /**
+     * The server's own activity log: accounts and blueprints, which belong to no project. It sits
+     * with the other server-wide files under data/, so a backup of data/ includes it.
+     */
+    get activityFile(): string {
+        return resolveFromRoot('data/activity.json');
+    },
+
     /** Data root used for resolving relative paths. */
     get dataRoot(): string {
         return getDataRoot();

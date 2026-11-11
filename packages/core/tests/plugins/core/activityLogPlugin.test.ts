@@ -211,6 +211,27 @@ describe('activityLogPlugin', () => {
         });
     });
 
+    it('writes global activity to data/activity.json under the data root', async () => {
+        const createdUser: User = {
+            id: 'new-user-2',
+            name: 'Another User',
+            email: 'another@test.com',
+            isActive: true,
+            roles: [],
+            projects: []
+        };
+
+        const loggedPromise = waitForActivityLogged();
+        await triggerEvent('user.afterCreate', { user: createdUser, performedBy: user });
+        await loggedPromise;
+
+        const written = JSON.parse(
+            await fs.readFile(path.join(tempDir, 'data', 'activity.json'), 'utf-8')
+        ) as ActivityEvent[];
+        expect(written.some(e => e.resourceId === 'new-user-2')).toBe(true);
+        await expect(fs.access(path.join(tempDir, 'activity.json'))).rejects.toThrow();
+    });
+
     it('logs blueprint.afterCreate to global activity', async () => {
         const blueprint = {
             id: 'test-bp',
