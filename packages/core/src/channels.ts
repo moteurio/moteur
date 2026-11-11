@@ -67,20 +67,49 @@ export async function createChannel(
     return channel;
 }
 
+/** The fields a channel update may change. The id, project and dates are the server's. */
+export type ChannelPatch = Partial<Pick<Channel, 'label' | 'description' | 'resources'>>;
+
+/**
+ * Keeps only the fields a channel update may change, and checks their types. Other fields are
+ * ignored rather than refused, so a client that sends back the whole channel still works.
+ */
+function channelChanges(patch: unknown): ChannelPatch {
+    if (!patch || typeof patch !== 'object' || Array.isArray(patch)) return {};
+    const { label, description, resources } = patch as Record<string, unknown>;
+    const changes: ChannelPatch = {};
+    if (label !== undefined) {
+        if (typeof label !== 'string' || !label.trim())
+            throw new Error('A channel label must be a non-empty string.');
+        changes.label = label;
+    }
+    if (description !== undefined) {
+        if (typeof description !== 'string')
+            throw new Error('A channel description must be a string.');
+        changes.description = description;
+    }
+    if (resources !== undefined) {
+        if (!Array.isArray(resources)) throw new Error('Channel resources must be a list.');
+        changes.resources = resources as ChannelResource[];
+    }
+    return changes;
+}
+
 export async function updateChannel(
     projectId: string,
     user: User,
     id: string,
-    patch: Partial<Pick<Channel, 'label' | 'description' | 'resources'>>
+    patch: ChannelPatch
 ): Promise<Channel> {
     await getProject(user, projectId);
+    const changes = channelChanges(patch);
     const list = await loadChannels(projectId);
     const idx = list.findIndex(c => c.id === id);
     if (idx === -1) throw new Error(`Channel "${id}" not found`);
     const now = new Date().toISOString();
     const updated: Channel = {
         ...list[idx],
-        ...patch,
+        ...changes,
         updatedAt: now
     };
     list[idx] = updated;
