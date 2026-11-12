@@ -1,8 +1,8 @@
 import type { MoteurClient } from '../../client.js';
 
 /**
- * Moves videos to another host, project by project (admins of each). Deprecated: prefer
- * `forProject(id).mediaSettings.moveVideos()`.
+ * Moves videos to another host, one project at a time. Requires an admin of each project.
+ * Deprecated: use `forProject(id).mediaSettings.moveVideos()` instead.
  */
 export function deploymentMigrateAssetsApi(client: MoteurClient) {
     return {

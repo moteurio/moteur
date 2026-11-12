@@ -1,4 +1,4 @@
-/** Durable OAuth grants, alongside the API's other file-backed data. Codes and tokens are hashed. */
+/** Persistent OAuth grants, stored next to the API's other file-backed data. Codes and tokens are stored hashed. */
 import fs from 'node:fs';
 import path from 'node:path';
 import { randomBytes } from 'node:crypto';
@@ -23,7 +23,7 @@ export interface Grant {
     scopes: string[];
     expires: number;
     revoked?: boolean;
-    /** Missing on credentials from before project consent: they must reconnect. */
+    /** Absent on credentials issued without project consent. Those clients must reconnect. */
     policy?: McpAccessPolicy;
 }
 
@@ -40,8 +40,9 @@ export interface OAuthData {
     refresh: Record<string, { grantId: string; expires: number; used?: boolean }>;
 }
 
-/** Synchronous transactions within one API process, persisted by atomic replacement.
- * Like Moteur's other file-backed data, run one writer process on a durable disk.
+/**
+ * Runs synchronous transactions within one API process and persists them by atomically replacing the file.
+ * As with Moteur's other file-backed data, run a single writer process on a durable disk.
  */
 export class OAuthStore {
     constructor(private readonly directory: string) {}

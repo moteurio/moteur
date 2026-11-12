@@ -1,8 +1,8 @@
 import { t } from '../../runtime/fields.js';
 
 /**
- * Block helpers for article sources. Rich-text arguments use the markup from runtime/dast.ts
- * and become DAST at build time. Pass `undefined` for `en` to leave a translation missing.
+ * Block helpers for article sources. Rich-text arguments use the markup from runtime/dast.ts and
+ * are converted to DAST at build time. Pass `undefined` for `en` to leave the translation missing.
  */
 type Block = { type: string; data: Record<string, unknown>; meta?: Record<string, unknown> };
 

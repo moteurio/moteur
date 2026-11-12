@@ -129,7 +129,7 @@ export function validateProject(
 ): ValidationResult {
     const result = createValidationResult();
 
-    // id: required on create; optional on update (when existingProjectId is set). When present, validate format and reserved.
+    // id: required on create, optional on update (when existingProjectId is set). When present, check its format and that it is not reserved.
     const isUpdate = options?.existingProjectId !== undefined;
     if (!project.id || typeof project.id !== 'string') {
         if (!isUpdate) {
@@ -232,7 +232,7 @@ export function validateProject(
         }
     }
 
-    // localePrefix: optional, how addresses show their language
+    // localePrefix: optional, controls how addresses show their language
     if (
         project.localePrefix !== undefined &&
         project.localePrefix !== null &&
@@ -243,6 +243,19 @@ export function validateProject(
             code: 'PROJECT_INVALID_LOCALE_PREFIX',
             message: 'Project "localePrefix" is "others", "all" or "none".',
             path: 'localePrefix'
+        });
+    }
+
+    // workspaceId: createProject fills it in when it is missing. When given, it must be a workspace id.
+    if (
+        project.workspaceId !== undefined &&
+        (typeof project.workspaceId !== 'string' || !/^ws_[A-Za-z0-9]+$/.test(project.workspaceId))
+    ) {
+        addIssue(result, {
+            type: 'error',
+            code: 'PROJECT_INVALID_WORKSPACE',
+            message: 'Project "workspaceId" is a workspace’s id (ws_…).',
+            path: 'workspaceId'
         });
     }
 
@@ -348,7 +361,7 @@ export function validateProject(
         });
     }
 
-    // ai.helpers: each helper on (true) or off; ai.roles: role slugs allowed to ask.
+    // ai.helpers maps each helper to true (enabled) or false. ai.roles lists the role slugs that may ask for helpers.
     const helpers = project.ai?.helpers;
     if (helpers !== undefined) {
         if (!helpers || typeof helpers !== 'object' || Array.isArray(helpers))

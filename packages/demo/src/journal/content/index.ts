@@ -7,7 +7,7 @@ import { events } from './events.js';
 import { articles } from './articles.js';
 import { pressReleases, jobs, faq, settings } from './company.js';
 
-/** All Journal entries, by model. The timeline orders their history by date. */
+/** All Journal entries, grouped by model. The timeline orders their history by date. */
 export function content(): Array<[string, SourceEntry[]]> {
     return [
         ['settings', settings],

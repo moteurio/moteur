@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import type { Entry } from '@moteurio/types/Model.js';
 
-/** An opaque authoring version, independent of whether the audit plugin is enabled. */
+/** Returns an opaque version string for an entry, computed from its content so it works even when the audit plugin is disabled. */
 export function entryVersion(entry: Entry): string {
     return createHash('sha256').update(JSON.stringify(entry)).digest('hex');
 }

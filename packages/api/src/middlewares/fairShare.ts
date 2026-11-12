@@ -1,14 +1,15 @@
 import type { NextFunction, Request, Response } from 'express';
 
 /**
- * A fair share of the server for each project's sites: so many of its requests answered at once,
- * the next ones waiting their turn instead of being refused. A static site's build, which asks
- * for everything in a burst, goes through at the server's pace; a runaway loop or a scraper on one
- * project can't take the server from the others. Only what doesn't fit in the queue, or waits too
- * long, is turned away (429, Retry-After: 1). The monthly quota (requestQuota) is the plan's cap.
+ * Gives each project's sites a fair share of the server. A limited number of the project's requests
+ * run at once, and further requests wait in a queue instead of being refused. A static site build,
+ * which requests everything in a burst, completes at the server's pace, and a runaway loop or
+ * scraper on one project cannot starve the others. Only requests that do not fit in the queue, or
+ * wait too long, are rejected (429, Retry-After: 1). The monthly quota (requestQuota) is the
+ * plan's separate cap.
  *
- * Sites' reads and images are shared apart, so a page's pictures don't hold up its content.
- * MOTEUR_PUBLIC_CONCURRENCY (10), MOTEUR_PUBLIC_QUEUE (200), MOTEUR_PUBLIC_QUEUE_SECONDS (10).
+ * Reads and images use separate queues so a page's pictures do not delay its content.
+ * Settings: MOTEUR_PUBLIC_CONCURRENCY (10), MOTEUR_PUBLIC_QUEUE (200), MOTEUR_PUBLIC_QUEUE_SECONDS (10).
  */
 
 type Lane = { active: number; waiting: Array<() => void> };
@@ -20,11 +21,11 @@ function setting(name: string, fallback: number): number {
     return Number.isFinite(value) && value > 0 ? value : fallback;
 }
 
-/** How many of a project's requests are answered at once. */
+/** How many of a project's requests may run at once. */
 const concurrency = () => Math.floor(setting('MOTEUR_PUBLIC_CONCURRENCY', 10));
-/** How many may wait for their turn. */
+/** How many requests may wait in the queue. */
 const queueLength = () => Math.floor(setting('MOTEUR_PUBLIC_QUEUE', 200));
-/** How long one may wait before being told to retry. */
+/** How long a request may wait before it is rejected with a retry hint. */
 const maxWaitMs = () => setting('MOTEUR_PUBLIC_QUEUE_SECONDS', 10) * 1000;
 
 function busy(res: Response): void {
@@ -36,7 +37,7 @@ function busy(res: Response): void {
     });
 }
 
-/** Must run after requestClassifier: it shares what sites ask for (`public`, `image`) per project. */
+/** Limits `public` and `image` requests per project. Must run after requestClassifier, which sets the request type. */
 export function fairShare(req: Request, res: Response, next: NextFunction): void {
     const type = req.apiRequestType;
     const projectId = req.apiRequestProjectId;
@@ -47,7 +48,7 @@ export function fairShare(req: Request, res: Response, next: NextFunction): void
     if (!lane) lanes.set(key, (lane = { active: 0, waiting: [] }));
     const own = lane;
 
-    // The turn ends once, when the answer is sent or the visitor goes away.
+    // Release the slot exactly once, when the response finishes or the client disconnects.
     let done = false;
     const release = () => {
         if (done) return;
@@ -68,7 +69,7 @@ export function fairShare(req: Request, res: Response, next: NextFunction): void
     }
     if (own.waiting.length >= queueLength()) return busy(res);
 
-    // Waits for a turn (the slot passes to it as another request ends), or gives up.
+    // Wait in the queue; a slot is handed over when another request releases one. Give up after the maximum wait.
     let timer: ReturnType<typeof globalThis.setTimeout> | undefined;
     const turn = () => {
         globalThis.clearTimeout(timer);
@@ -81,7 +82,7 @@ export function fairShare(req: Request, res: Response, next: NextFunction): void
         if (i !== -1) own.waiting.splice(i, 1);
         busy(res);
     }, maxWaitMs());
-    // A visitor gone while waiting gives their place up.
+    // If the client disconnects while waiting, remove the request from the queue.
     res.once('close', () => {
         const i = own.waiting.indexOf(turn);
         if (i === -1) return;
@@ -90,7 +91,7 @@ export function fairShare(req: Request, res: Response, next: NextFunction): void
     });
 }
 
-/** Forget every lane (tests). */
+/** Clears all queues (for tests). */
 export function resetFairShare(): void {
     lanes.clear();
 }

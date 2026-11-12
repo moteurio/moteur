@@ -36,7 +36,7 @@ router.use(revisionsRouter);
 
 const VALID_PAGE_STATUSES = ['draft', 'published'] as const;
 
-/** One page as members get it: a live page with edits waiting says so. */
+/** Returns one page as members see it. A live page with unpublished edits is marked as having changes waiting. */
 const one = async (projectId: string, page: PageNode) =>
     (await withWaitingChanges(projectId, [page]))[0]!;
 
@@ -90,7 +90,7 @@ router.get('/:id', requireProjectAccess, async (req: Request, res: Response) => 
     }
 });
 
-/** What links to the page or relates to it: entries and other pages (shown before deleting it). */
+/** Lists what links or relates to the page, both entries and other pages. Clients show this before the page is deleted. */
 router.get('/:id/referrers', requireProjectAccess, async (req: Request, res: Response) => {
     const { projectId, id } = req.params as Record<string, string>;
     if (!projectId || !id) return void res.status(400).json({ error: 'Missing projectId or id' });
@@ -388,6 +388,10 @@ const pagePaths: Record<string, OpenAPIV3.PathItemObject> = {
         }
     },
     '/projects/{projectId}/pages/{id}': {
+        parameters: [
+            { name: 'projectId', in: 'path', required: true, schema: { type: 'string' } },
+            { name: 'id', in: 'path', required: true, schema: { type: 'string' } }
+        ],
         get: {
             summary: 'Get page',
             tags: ['Pages'],
@@ -449,6 +453,10 @@ const pagePaths: Record<string, OpenAPIV3.PathItemObject> = {
         }
     },
     '/projects/{projectId}/pages/{id}/referrers': {
+        parameters: [
+            { name: 'projectId', in: 'path', required: true, schema: { type: 'string' } },
+            { name: 'id', in: 'path', required: true, schema: { type: 'string' } }
+        ],
         get: {
             summary: 'What links to a page',
             description:
@@ -500,6 +508,10 @@ const pagePaths: Record<string, OpenAPIV3.PathItemObject> = {
         }
     },
     '/projects/{projectId}/pages/{id}/status': {
+        parameters: [
+            { name: 'projectId', in: 'path', required: true, schema: { type: 'string' } },
+            { name: 'id', in: 'path', required: true, schema: { type: 'string' } }
+        ],
         patch: {
             summary: 'Update page status',
             tags: ['Pages'],
@@ -536,6 +548,25 @@ const pagePaths: Record<string, OpenAPIV3.PathItemObject> = {
         post: {
             summary: 'Submit page for review',
             tags: ['Pages'],
+            parameters: [
+                { name: 'projectId', in: 'path', required: true, schema: { type: 'string' } },
+                { name: 'id', in: 'path', required: true, schema: { type: 'string' } }
+            ],
+            requestBody: {
+                content: {
+                    'application/json': {
+                        schema: {
+                            type: 'object',
+                            properties: {
+                                assignedTo: {
+                                    type: 'string',
+                                    description: 'User ID of assigned reviewer'
+                                }
+                            }
+                        }
+                    }
+                }
+            },
             responses: {
                 '201': {
                     description: 'Review created',
@@ -549,6 +580,10 @@ const pagePaths: Record<string, OpenAPIV3.PathItemObject> = {
         }
     },
     '/projects/{projectId}/pages/{id}/validate': {
+        parameters: [
+            { name: 'projectId', in: 'path', required: true, schema: { type: 'string' } },
+            { name: 'id', in: 'path', required: true, schema: { type: 'string' } }
+        ],
         post: {
             summary: 'Validate page',
             tags: ['Pages'],
@@ -565,6 +600,7 @@ const pagePaths: Record<string, OpenAPIV3.PathItemObject> = {
         }
     },
     '/projects/{projectId}/pages/reorder': {
+        parameters: [{ name: 'projectId', in: 'path', required: true, schema: { type: 'string' } }],
         post: {
             summary: 'Reorder pages (batch parentId + order)',
             tags: ['Pages'],

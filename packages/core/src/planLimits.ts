@@ -1,8 +1,8 @@
 /**
- * Limits a host puts on a project (api.moteur.io's plans). Moteur on its own has none: until a
- * plugin sets a resolver, every check passes. Public API requests can have a monthly quota
- * (setRequestQuota) and, apart from it, a fair use level where the host's notice starts
- * (setRequestFairUse), which never turns a request away.
+ * Limits that a host (for example api.moteur.io's plans) can place on a project. Moteur itself
+ * has no limits: until a plugin sets a resolver, every check passes. Public API requests can have
+ * a monthly quota (setRequestQuota) and a separate fair use level (setRequestFairUse) at which
+ * the host shows a notice. The fair use level never rejects a request.
  */
 import { AsyncLocalStorage } from 'node:async_hooks';
 
@@ -21,12 +21,14 @@ export function outsidePlanLimits<T>(projectId: string, work: () => Promise<T>):
 export type ProjectLimit = (projectId: string) => number | null;
 
 /**
- * Whether someone may start another project: refused once `taken` reaches `max` (null: no
- * limit). What counts is the host's to say (api.moteur.io: their projects waiting for a plan).
+ * Returns how many projects a user has started (`taken`) and the most they may start (`max`), or
+ * null for no limit. Starting another project is refused once `taken` reaches `max`. The host
+ * decides what counts toward `taken`; api.moteur.io counts the user's projects that are waiting
+ * for a plan.
  */
 export type ProjectsLimit = (userId: string) => { taken: number; max: number } | null;
 
-/** Things a plan may cap how many a project has. */
+/** Kinds of items whose count a plan can limit. */
 export const COUNT_KINDS = [
     'channels',
     'models',
@@ -174,7 +176,7 @@ const COUNT_NOUNS: Record<CountKind, [one: string, many: string]> = {
     pages: ['page', 'pages']
 };
 
-/** "100 MB", "2 GB": bytes the way plans state them (1 MB = 1024 × 1024 bytes). */
+/** Formats a byte count the way plans state it, such as "100 MB" or "2 GB" (1 MB = 1024 × 1024 bytes). */
 export function formatBytes(bytes: number): string {
     const units = ['bytes', 'KB', 'MB', 'GB', 'TB'];
     let n = bytes;
@@ -273,8 +275,8 @@ export function assertCountRoom(
 }
 
 /**
- * assertCountRoom, counting only when the project has a limit on the kind (counting entries
- * across every model is not free).
+ * Like assertCountRoom, but counts only when the project has a limit on this kind, because
+ * counting entries across every model is expensive.
  */
 export async function checkCountRoom(
     projectId: string,

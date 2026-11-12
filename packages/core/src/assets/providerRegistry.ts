@@ -14,7 +14,7 @@ export function registerProvider(provider: VideoProvider): void {
     providers.set(provider.id, provider);
 }
 
-/** Register a factory for a video provider (e.g. mux, vimeo). Used by plugins. */
+/** Registers a factory for a video provider (for example mux or vimeo). Used by plugins. */
 export function registerProviderFactory(id: VideoProviderId, factory: VideoProviderFactory): void {
     providerFactories.set(id, factory);
 }
@@ -192,7 +192,7 @@ export async function verifyProviderWebhookAndGetProjectId(
     return null;
 }
 
-/** Every video host this server can send videos to (each added by a plugin). */
+/** Lists every video host this server can send videos to. Each one is added by a plugin. */
 export function videoProviderIds(): VideoProviderId[] {
     return [...new Set([...providers.keys(), ...providerFactories.keys()])];
 }

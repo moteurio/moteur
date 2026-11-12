@@ -15,7 +15,7 @@ export function isLocaleStringMap(v: unknown): v is Record<string, string> {
     return vals.length > 0 && vals.every(x => typeof x === 'string');
 }
 
-/** Locale-ish keys (en, fr, en-CA) to avoid treating arbitrary { foo: "bar" } as translations. */
+/** Matches locale-like keys (en, fr, en-CA), so an arbitrary object such as { foo: "bar" } is not mistaken for translations. */
 const LIKELY_LOCALE_KEY = /^[a-z]{2}(-[a-zA-Z]{2,8})?$/;
 
 /**

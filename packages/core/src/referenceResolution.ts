@@ -22,7 +22,7 @@ function isReferenceLike(value: unknown): value is { id: string; type: string } 
 
 /**
  * What a schema-aware resolution reads: each model's schema, and the project's blocks and
- * structures to walk into. With it, relations stored as plain ids (as Studio keeps them) resolve
+ * structures to walk into. With it, relations stored as plain ids resolve
  * wherever they sit: in blocks, lists, structures and variants.
  */
 export type ReferenceSchemas = {
@@ -146,8 +146,8 @@ export async function resolveEntryReferences(
             schemas
         });
 
-    // With the model's schema, its relation fields are the only references: a `{ id, type }`
-    // stored anywhere else is content.
+    // With the model's schema, only its relation fields are references. An `{ id, type }` object
+    // stored in any other field is plain content.
     if (schema) return { ...entry, data: source };
 
     const data: Record<string, any> = {};

@@ -72,7 +72,7 @@ function section(type: string): string {
     if (options.length) {
         out.push('| Option | Type | Default | What it does |', '| --- | --- | --- | --- |');
         for (const [name, o] of options) {
-            // What allowEmpty means now: the registry's words predate the rule.
+            // Describe `allowEmpty` here because the registry description does not cover how it works with `required`.
             const what =
                 name === 'allowEmpty'
                     ? "With `required`: whether an empty value is accepted all the same. A field that isn't required may always be empty."

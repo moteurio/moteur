@@ -11,7 +11,7 @@ export type BlockRenderer<TData = Record<string, unknown>> = (
 export type BlockRegistryOptions = {
     load: (type: string) => Promise<{ render: BlockRenderer } | BlockRenderer>;
     fallback?: BlockRenderer;
-    /** When true, log missing renderers (default: true in development). */
+    /** When true, logs a warning when no renderer exists for a block type. Defaults to true outside production. */
     warnOnMissing?: boolean;
 };
 

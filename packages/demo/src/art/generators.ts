@@ -22,7 +22,7 @@ const paper = (w: number, h: number, p: Palette) =>
 const grainLayer = (w: number, h: number) =>
     `<rect width="${w}" height="${h}" filter="url(#grain)" opacity="0.9"/>`;
 
-/** A robot drawn from geometric parts; series sets the palette, the name seeds the shapes. */
+/** Draws a robot from geometric parts. The series sets the palette and the robot's name seeds the shapes. */
 export function robotPortrait(opts: {
     name: string;
     palette: PaletteName;
@@ -178,7 +178,7 @@ const COVER_MOTIFS = {
 } as const;
 export type CoverMotif = keyof typeof COVER_MOTIFS;
 
-/** A magazine cover: masthead, issue number, bilingual title, one central motif. */
+/** Draws a magazine cover with a masthead, an issue number, a bilingual title and one central motif. */
 export function issueCover(opts: {
     number: string;
     titleFr: string;
@@ -219,7 +219,7 @@ export function issueCover(opts: {
     return svg(W, H, body, halftone('dots', p.ink, 18, 2.4, 0.12) + grain('grain', 0.16));
 }
 
-/** Duotone portrait: a human silhouette or a robot head, with initials. */
+/** Draws a duotone portrait of a human silhouette or a robot head, with the person's initials. */
 export function authorPortrait(opts: {
     name: string;
     kind: 'human' | 'robot';
@@ -340,7 +340,7 @@ const SCENES = {
 } as const;
 export type SceneKind = keyof typeof SCENES;
 
-/** A wide illustration (articles, pages, heroes). */
+/** Draws a wide illustration for articles, pages and hero images. */
 export function scene(opts: {
     kind: SceneKind;
     seed: string;
@@ -363,7 +363,7 @@ export function scene(opts: {
     );
 }
 
-/** A typographic event poster. */
+/** Draws a typographic event poster. */
 export function poster(opts: {
     title: string;
     subtitle: string;
@@ -408,7 +408,7 @@ export function poster(opts: {
     return svg(W, H, body, halftone('dots', p.ink, 16, 2.2, 0.12) + grain('grain', 0.16));
 }
 
-/** A simple bar chart in the journal's style (data journalism illustrations). */
+/** Draws a simple bar chart in the journal's style, for data journalism illustrations. */
 export function chart(opts: {
     title: string;
     unit: string;
@@ -445,7 +445,7 @@ export function chart(opts: {
     return svg(W, H, body);
 }
 
-/** The Moteur logo mark, as SVG (stays SVG in the media library). */
+/** Draws the Moteur logo mark as SVG, and it stays SVG in the media library. */
 export function logo(color = '#1a1a1a', accent = '#d8622b'): string {
     return svg(
         512,

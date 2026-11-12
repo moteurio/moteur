@@ -2,7 +2,7 @@ import { Field } from '@moteurio/types/Field.js';
 import { ValidationIssue } from '@moteurio/types/ValidationResult.js';
 import { isPlainObject } from '../../fieldValueUtils.js';
 
-/** Empty allowed only when `options.allowEmpty === true` (default: required). */
+/** An empty relation is allowed only when `options.allowEmpty === true`. By default a relation is required. */
 function allowEmptyRelation(field: Field): boolean {
     return field.options?.allowEmpty === true;
 }

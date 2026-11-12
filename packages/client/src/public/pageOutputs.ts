@@ -3,7 +3,7 @@ import type { MoteurClient } from '../client.js';
 
 const root = (projectId: string) => `/projects/${encodeURIComponent(projectId)}`;
 
-/** What lives at a path: a page or entry in one language, or a redirect to follow. */
+/** The result of resolving a path: a page or entry in one locale, or a redirect to follow. */
 export type ResolvedPath =
     | {
           match: 'page';
@@ -18,7 +18,7 @@ export type ResolvedPath =
       }
     | { match: 'redirect'; from: string; to: string; status: 301 | 302 };
 
-/** A page's or entry's address in one language, with the same in the others. */
+/** The URL of a page or entry in one locale, together with its URLs in the other locales. */
 export type SiteUrl = {
     url: string;
     nodeId: string;
@@ -32,7 +32,7 @@ export type SiteUrl = {
     entryId?: string;
     modelId?: string;
     locale?: string;
-    /** The same page or entry in every language, by locale (this address included). */
+    /** URLs of the same page or entry in every locale, keyed by locale code. This URL is included. */
     alternates?: Record<string, string>;
 };
 
@@ -48,12 +48,13 @@ export type BreadcrumbItem = { label: string; url: string; nodeId: string; entry
 
 /**
  * Read-only page outputs: sitemap, resolved URLs, navigation tree, breadcrumb, path lookup and
- * redirects. These are separate from operator `navigations` CRUD (`/projects/:id/navigations`).
- * `locale` picks one language; addresses carry their `alternates` in the others.
+ * redirects. These are separate from the authenticated CRUD API for navigations
+ * (`/projects/:id/navigations`). `locale` selects the locale of the results, and each URL carries
+ * its `alternates` for the other locales.
  */
 export function publicSiteOutputsApi(client: MoteurClient, projectId: string, language?: string) {
     const base = root(projectId);
-    /** `{ locale }` as a query: the call's, or the client's own language. */
+    /** Returns the `locale` query parameter, using the call's locale or else the client's. */
     const inLocale = (locale?: string): Record<string, string> => {
         const lang = locale ?? language;
         return lang ? { locale: lang } : {};
@@ -69,7 +70,7 @@ export function publicSiteOutputsApi(client: MoteurClient, projectId: string, la
         sitemapJson(options?: { locale?: string }): Promise<SiteUrl[]> {
             return client.get(`${base}/sitemap.json`, inLocale(options?.locale));
         },
-        /** Published navigation tree (`GET .../navigation`), not navigation documents CRUD. */
+        /** Returns the published navigation tree (`GET .../navigation`), not the navigation documents managed through the CRUD API. */
         navigation(options?: {
             depth?: number;
             rootId?: string | null;
@@ -100,7 +101,7 @@ export function publicSiteOutputsApi(client: MoteurClient, projectId: string, la
             if (options.entryId) q.entryId = options.entryId;
             return client.get(`${base}/breadcrumb`, q);
         },
-        /** What lives at a path, for a catch-all route; null when nothing does. */
+        /** Resolves a path to the page, entry or redirect at that path, for use in a catch-all route. Returns null when nothing matches. */
         async resolve(path: string): Promise<ResolvedPath | null> {
             try {
                 return await client.get<ResolvedPath>(`${base}/resolve`, { path });
@@ -109,7 +110,7 @@ export function publicSiteOutputsApi(client: MoteurClient, projectId: string, la
                 throw err;
             }
         },
-        /** Old addresses and where they go, for the site or its host to apply. */
+        /** Returns the redirects (old paths and their destinations) for the site or its host to apply. */
         redirects(): Promise<Redirect[]> {
             return client.get(`${base}/redirects`);
         }

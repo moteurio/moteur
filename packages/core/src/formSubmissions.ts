@@ -31,7 +31,7 @@ import { screenSubmission, type SubmissionProof } from './formGuard.js';
 import { holdWithPlugins, runFormAction } from './plugins/formExtensions.js';
 import type { SubmissionRow } from './utils/submissionIndex.js';
 
-/** Form actions are the engine's own work, done for whoever sent the form. */
+/** Form actions run as the engine itself, on behalf of the visitor who submitted the form. */
 const systemUser = (): User => systemActor('_forms', 'Forms');
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -50,7 +50,7 @@ export function fillIn(template: string, data: Record<string, unknown>): string 
     return template.replace(/\{\{\s*([\w-]+)\s*\}\}/g, (_m, key: string) => asText(data[key]));
 }
 
-/** The address to reply to: the form's email field, when it holds one. */
+/** The address to reply to: the value of the form's email field, if it has one. */
 function senderEmail(form: FormSchema, data: Record<string, unknown>): string | undefined {
     const key =
         Object.entries(form.fields ?? {}).find(([, f]) => f.type === 'core/email')?.[0] ??
@@ -59,7 +59,7 @@ function senderEmail(form: FormSchema, data: Record<string, unknown>): string | 
     return typeof v === 'string' && EMAIL.test(v.trim()) ? v.trim() : undefined;
 }
 
-/** Every answer, labelled: the team's notice. */
+/** Every answer with its label, for the notification email sent to the project's team. */
 function answerRows(
     form: FormSchema,
     data: Record<string, unknown>
@@ -76,7 +76,7 @@ function answerRows(
         .map(k => ({ label: label(k), value: asText(data[k]) }));
 }
 
-/** A project's own mail: its words as they were written, under its name, logo and colour. */
+/** A project's email to its visitors: the project's own wording, with its name, logo and colour. */
 function projectMessage(mail: ProjectMail, subject: string, body: string, locale?: string) {
     const email = renderEmail(
         'form-message',
@@ -150,12 +150,12 @@ export async function purgeOldSpam(
     return old.length;
 }
 
-/** At most once an hour per form, whenever the form is used: no scheduler needed. */
+/** Purges a form's old spam at most once an hour, triggered by use of the form, so no scheduler is needed. */
 function purgeNowAndThen(projectId: string, formId: string): void {
     const last = lastPurge.get(`${projectId}\0${formId}`) ?? 0;
     if (Date.now() - last < PURGE_EVERY_MS) return;
     void purgeOldSpam(projectId, formId).catch(() => {
-        // the next use tries again
+        // The next use of the form tries again.
     });
 }
 
@@ -172,7 +172,7 @@ export async function querySubmissions(
     await getForm(user, projectId, formId);
     purgeNowAndThen(projectId, formId);
 
-    // The index answers the counts; only the page's submissions are opened.
+    // The index provides the counts, so only the submissions on the requested page are read.
     const rows = [...(await UserDataStore.readIndex(projectId, formId))].sort(
         (a, b) => b.submittedAt.localeCompare(a.submittedAt) || b.id.localeCompare(a.id)
     );
@@ -225,7 +225,8 @@ export async function updateSubmission(
         next.status = 'spam';
         next.spamAt = new Date().toISOString();
     } else if (patch.spam === false && next.status === 'spam') {
-        // Caught on arrival, its actions never ran: it goes back as received.
+        // The submission was caught as spam on arrival, so its actions never ran. Restore it to the
+        // received state.
         next.status = next.statusBeforeSpam ?? 'received';
         delete next.statusBeforeSpam;
         delete next.spamAt;
@@ -291,9 +292,9 @@ export async function deleteSubmission(
 }
 
 /**
- * Keep what a visitor sent. Answers are checked first (a person can fix them), then the proof
- * that it's a person: honeypot, time trap, captcha. Spam is kept quietly for 30 days: it runs no
- * actions, sends no email and doesn't count against the plan.
+ * Stores a visitor's submission. Answers are validated first so a person can fix them, then
+ * anti-bot checks run (honeypot, time trap, captcha). Spam is stored for 30 days without any
+ * signal to the sender: it runs no actions, sends no email and does not count against the plan.
  */
 export async function createSubmission(
     projectId: string,
@@ -309,8 +310,8 @@ export async function createSubmission(
     purgeNowAndThen(projectId, formId);
 
     const caught = proof.honeypotTriggered && form.honeypot !== false;
-    // The browser's checks can be skipped: the answers are checked again here. A caught bot is
-    // told the same thank-you, so it learns nothing; only what fits the form is kept.
+    // Browser-side validation can be bypassed, so validate the answers again here. A caught bot
+    // gets the same success response so it learns nothing; only values that fit the form are kept.
     const answers = checkAnswers(form, data, meta.locale);
     if (!caught && answers.issues.length) {
         throw Object.assign(new Error(answersMessage(form, answers.issues, meta.locale)), {
@@ -351,7 +352,8 @@ export async function createSubmission(
     if (spam) return submission;
     recordRequest('submission', projectId);
 
-    // A plugin may keep its actions waiting (double opt-in): nothing runs, not even the notice.
+    // A plugin can hold a submission's actions (for example for double opt-in). While held, nothing
+    // runs, including the notification email.
     const heldBy = await holdWithPlugins(projectId, form, submission);
     if (heldBy) {
         const held: FormSubmission = {
@@ -371,8 +373,9 @@ export async function createSubmission(
 }
 
 /**
- * Let a held letter go on: its actions, notice and confirmation run now. For the plugin that held
- * it (a confirmed email…); no user check. Throws when it isn't held.
+ * Releases a held submission so its actions, notification and confirmation run now. Intended for
+ * the plugin that held it (for example after the visitor confirms their email). No user check.
+ * Throws when the submission is not held.
  */
 export async function releaseSubmission(
     projectId: string,
@@ -408,7 +411,7 @@ async function processSubmission(
     const projectSchema = await getProjectById(projectId).catch(() => null);
     const project = projectSchema?.label || projectId;
     const formLabel = typeof form.label === 'string' ? form.label : form.id;
-    // The project's own mail to visitors: its name, logo, colour, foot and addresses.
+    // Branding for emails to visitors: the project's name, logo, colour, footer and addresses.
     const mail: ProjectMail = projectSchema
         ? await projectMailOf(projectSchema)
         : { brand: { name: project }, fromName: project };
@@ -421,10 +424,12 @@ async function processSubmission(
                 const entryData: Record<string, unknown> = {};
                 for (const [formFieldId, value] of Object.entries(submission.data)) {
                     if (value === undefined) continue;
-                    // An empty mapping means "not kept"; by default, the field of the same name.
+                    // An empty mapping means the answer is not copied; with no mapping, the form
+                    // field with the same name is used.
                     const modelFieldId = fieldMap[formFieldId] ?? formFieldId;
                     if (!modelFieldId) continue;
-                    // Answers the model has no field for are left out (they stay in the letter).
+                    // Leave out answers the model has no field for. They remain in the submission
+                    // itself.
                     if (model?.fields && !model.fields[modelFieldId]) continue;
                     entryData[modelFieldId] = value;
                 }
@@ -456,7 +461,7 @@ async function processSubmission(
                         fillIn(action.body, submission.data),
                         submission.metadata.locale
                     ),
-                    // Replies reach whoever wrote, else the project's contact address.
+                    // Replies go to the visitor who wrote, otherwise to the project's contact address.
                     replyTo: senderEmail(form, submission.data) ?? mail.replyTo
                 });
                 actionResults.push({ type: 'email', status: 'success' });
@@ -468,7 +473,7 @@ async function processSubmission(
                 });
             }
         } else if (action.type.includes(':')) {
-            // A plugin's action: its outcome is kept, a failure never stops the others.
+            // A plugin's action records its outcome, and a failure does not stop the other actions.
             const outcome = await runFormAction(
                 action.type,
                 projectId,
@@ -495,7 +500,7 @@ async function processSubmission(
         }
     }
 
-    // The team's notice, then the sender's confirmation.
+    // Send the team notification first, then the confirmation to the sender.
     const notify = form.notifications?.onSubmit;
     if (notify?.to?.length) {
         try {
@@ -540,7 +545,8 @@ async function processSubmission(
         const body =
             (locale && confirm.body?.[locale]) ?? Object.values(confirm.body ?? {})[0] ?? '';
         try {
-            // Often the visitor's first email from this project: its words, then what they sent.
+            // This is often the visitor's first email from the project, so lead with the project's
+            // text, then what they sent.
             const subject = fillIn(confirm.subject || formLabel, submission.data);
             const email = renderEmail(
                 'form-confirm',
@@ -554,7 +560,7 @@ async function processSubmission(
                 },
                 { locale, project: mail.brand }
             );
-            // Replies to a confirmation reach the project, never the server.
+            // Replies to a confirmation go to the project, never to the server's From address.
             await sendEmail({
                 to: [confirmTo.trim()],
                 subject,
@@ -575,7 +581,7 @@ async function processSubmission(
         }
     }
 
-    // If no webhook action was run, always dispatch form.submitted once
+    // If no webhook action ran, still dispatch form.submitted once.
     const hasWebhookAction = actions.some(a => a.type === 'webhook');
     if (!hasWebhookAction) {
         try {
@@ -594,7 +600,7 @@ async function processSubmission(
         }
     }
 
-    // Read again: someone may have opened it while the actions ran.
+    // Read the submission again, because someone may have opened it while the actions ran.
     const latest =
         (await UserDataStore.getSubmission(projectId, formId, submission.id)) ?? submission;
     const updated: FormSubmission = {
@@ -616,12 +622,12 @@ async function processSubmission(
     }
 }
 
-/** A form's submissions, one light line each (id, date, status, read): no user check. */
+/** A form's submissions as summaries (id, date, status, read flag), without a user check. */
 export function listSubmissionRows(projectId: string, formId: string): Promise<SubmissionRow[]> {
     return UserDataStore.readIndex(projectId, formId);
 }
 
-/** One submission, no user check: for the engine and its plugins. */
+/** One submission, without a user check. For the engine and its plugins. */
 export function getSubmissionForProject(
     projectId: string,
     formId: string,
@@ -631,15 +637,15 @@ export function getSubmissionForProject(
     return UserDataStore.getSubmission(projectId, formId, submissionId);
 }
 
-/** Save a submission as given (e.g. with answers taken out): no user check. */
+/** Saves a submission exactly as given (for example with answers removed), without a user check. */
 export async function saveSubmissionForProject(submission: FormSubmission): Promise<void> {
     if (!isValidId(submission.id)) throw new Error(`Invalid submission ID: "${submission.id}"`);
     await UserDataStore.saveSubmission(submission.projectId, submission.formId, submission);
 }
 
 /**
- * Delete a submission for good, in the name of a plugin or the engine: the activity log says
- * who (`by`), and keeps no copy of it. No user check: the caller decided.
+ * Permanently deletes a submission on behalf of a plugin or the engine. The activity log records
+ * who did it (`by`) but keeps no copy of the submission. No user check; the caller decides.
  */
 export async function eraseSubmission(
     projectId: string,

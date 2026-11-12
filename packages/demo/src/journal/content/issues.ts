@@ -3,8 +3,8 @@ import { t } from '../../runtime/fields.js';
 import { who } from '../team.js';
 
 /**
- * Five issues ran from 1968 to 1978. Around them: the pilot "numéro zéro" that was printed
- * for the founders and then pulled, and a special issue on the SIGNAL series, in preparation.
+ * The five issues that ran from 1968 to 1978, plus the pilot "numéro zéro", which was printed
+ * for the founders and then pulled, and a special issue on the SIGNAL series that is in preparation.
  */
 export type IssueInfo = {
     id: string;

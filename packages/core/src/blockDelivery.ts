@@ -22,7 +22,7 @@ export type BlockDelivery = (
 
 const deliveries = new Map<string, BlockDelivery>();
 
-/** How long one block's delivery may take before the block is sent as it is. */
+/** Maximum time a block's delivery may take before the block is sent unchanged. */
 export const DELIVERY_TIMEOUT_MS = 3000;
 
 /** A plugin's step for its block `type` (`play/oembed`): the last one registered wins. */
@@ -30,7 +30,7 @@ export function registerBlockDelivery(type: string, resolve: BlockDelivery): voi
     deliveries.set(type, resolve);
 }
 
-/** Forget every delivery step (tests). */
+/** Removes every registered delivery step. For tests. */
 export function clearBlockDeliveries(): void {
     deliveries.clear();
 }

@@ -66,7 +66,7 @@ function loadFromDir(dirPath: string, registry: Record<string, StructureSchema>)
         try {
             const raw = readTextCachedSync(path.join(dirPath, file));
             const parsed = JSON.parse(raw) as StructureSchema & { id?: string };
-            // Core structure files name themselves with "id"; accept it as the type.
+            // Core structure files identify themselves with "id", so accept it as the type.
             const schema: StructureSchema = { ...parsed, type: parsed.type ?? parsed.id ?? '' };
 
             if (!schema.type) {
@@ -125,7 +125,7 @@ export function getStructureFromCore(id: string): StructureSchema {
 
 /** Get a specific structure (project takes priority if provided) */
 export async function getStructure(id: string, project?: string): Promise<StructureSchema> {
-    // Core structures are namespaced ("core/seo"): accept "name" or "namespace/name".
+    // Core structures are namespaced ("core/seo"), so accept either "name" or "namespace/name".
     const segments = id.replace(/\.json$/, '').split('/');
     if (segments.length > 2 || !segments.every(isValidId)) {
         throw new Error(`Invalid structureId: "${id}"`);

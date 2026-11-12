@@ -18,8 +18,8 @@ import { getProjectById } from '@moteurio/core/projects.js';
 import { sendApiError } from '../utils/apiError.js';
 
 /**
- * The server's email, for its operator: who it comes from and how it looks (stored in
- * data/operator/email.json), a check of what the server can verify, and a preview of every email.
+ * Operator routes for the server's email: the sender and look (stored in data/operator/email.json),
+ * a check of what the server can verify, and a preview of every email.
  * Mounted under /operator, after requireOperator.
  */
 const router: Router = Router();
@@ -47,8 +47,8 @@ router.get('/', (_req: Request, res: Response) => {
 });
 
 /**
- * A domain joins `sendingDomains` only when its DNS passes the check (SPF, DMARC, a DKIM key):
- * projects' mail from it must reach the inbox. Says why when one doesn't.
+ * A domain can be added to `sendingDomains` only when its DNS passes the check (SPF, DMARC, a DKIM key),
+ * so that projects' mail from it reaches the inbox. Returns the reason when the check fails, or null when it passes.
  */
 async function domainRefusal(body: Record<string, unknown>): Promise<string | null> {
     if (!('sendingDomains' in body)) return null;
@@ -96,7 +96,7 @@ router.post('/check', async (req: Request, res: Response) => {
         ? body.selectors.filter((s): s is string => typeof s === 'string' && /^[\w.-]+$/.test(s))
         : [];
     try {
-        // A domain projects send from: given, or the one a project's From address is on.
+        // The domain projects send from: the one given, or else the domain of the project's From address.
         let domain = typeof body.domain === 'string' ? body.domain.trim() : '';
         if (!domain && typeof body.project === 'string' && body.project.trim()) {
             const project = await getProjectById(body.project.trim());

@@ -38,10 +38,11 @@ export type PluginInitContext = {
     setVideoProvidersConfig: (config: VideoProvidersConfig | null) => void;
     registerBlockSchema: (schema: BlockSchema) => void;
     /**
-     * What sites get for a block `type` of this plugin: called with the block's data (in the
-     * language asked for) when a channel sends it, at any depth; returns the data to send. Kept
-     * with the channel's answer, so it runs once per change, not per request. Throwing, or taking
-     * over 3 seconds, sends the block as it is.
+     * Transforms the data of this plugin's blocks of the given `type` before a channel delivers
+     * them to sites. The resolver receives the block's data in the requested language, for blocks
+     * at any depth, and returns the data to deliver. The result is cached with the channel's
+     * response, so the resolver runs once per content change and not once per request. If it
+     * throws or takes longer than 3 seconds, the block is delivered unchanged.
      */
     registerBlockDelivery: (
         type: string,
@@ -54,7 +55,7 @@ export type PluginInitContext = {
     registerBlueprint: (blueprint: BlueprintSchema) => void;
     registerFieldSchema: (field: FieldSchema) => void;
     registerCommand: (spec: PluginCommandSpec) => void;
-    /** Same as `registerCommand` with `surfaces: ['mcp']`. */
+    /** Registers a command with `surfaces: ['mcp']`, equivalent to calling `registerCommand` with that option. */
     registerMcpTool: (spec: PluginCommandSpec) => void;
     registerMediaVariantPreset: (preset: MediaVariantPreset) => void;
     registerMediaTransform: (transform: MediaTransform) => void;
@@ -63,60 +64,68 @@ export type PluginInitContext = {
     registerGitCommitHook: (hook: GitCommitHook) => void;
     registerGitProvider: (id: string) => void;
     registerOutboundWebhookEvent: (event: string) => void;
-    /** An action forms can run when a letter arrives (`sheets:append`), with the settings it asks. */
+    /** Registers an action that a form can run when a submission arrives, such as `sheets:append`, together with the settings the action needs. */
     registerFormAction: (action: PluginFormAction) => void;
-    /** The server-side check for a plugin field type's answers in forms. */
+    /** Registers the server-side validation for the values of a plugin-provided field type in forms. */
     registerFormField: (field: PluginFormField) => void;
-    /** A spam check after the honeypot, the time trap and the captcha. */
+    /** Registers a spam check that runs after the honeypot, the time trap and the captcha. */
     registerSubmissionScreen: (screen: PluginSubmissionScreen) => void;
-    /** Keeps a letter's actions waiting (status `held`) until the plugin releases it. */
+    /** Registers a hold that keeps a submission's actions pending (status `held`) until the plugin releases them. */
     registerSubmissionHold: (hold: PluginSubmissionHold) => void;
-    /** Who decides each project's monthly AI credits (null: unlimited); null restores the default. */
+    /** Sets the function that returns each project's monthly AI credit allowance. The function returns null for unlimited. Passing null instead of a function restores the default. */
     setCreditAllowance: (allowance: ((projectId: string) => number | null) | null) => void;
     /**
-     * Who decides how many people a project may have (members plus pending invites; null: no
-     * limit). Going over answers 402 `plan_limit`. Null removes the limit.
+     * Sets the function that returns how many people a project may have, counting members and
+     * pending invites. The function returns null for no limit. Exceeding the limit returns a 402
+     * `plan_limit` response. Passing null instead of a function removes the limit.
      */
     setPeopleLimit: (limit: ((projectId: string) => number | null) | null) => void;
-    /** Bytes of files a project may store (null: no limit). Uploads over it answer 402 `plan_limit`. */
+    /** Sets the function that returns how many bytes of files a project may store, or null for no limit. Uploads over the limit return a 402 `plan_limit` response. */
     setStorageLimit: (limit: ((projectId: string) => number | null) | null) => void;
     /**
-     * Public API requests a project may answer each calendar month (UTC; null: no limit). Once
-     * they are used up, public requests answer 402 `plan_limit` until the month ends.
+     * Sets the function that returns how many public API requests a project may make per calendar
+     * month (UTC), or null for no limit. Once the quota is used up, public requests return a 402
+     * `plan_limit` response until the month ends.
      */
     setRequestQuota: (quota: ((projectId: string) => number | null) | null) => void;
     /**
-     * Public API requests a calendar month (UTC) past which the host shows its fair use notice
-     * (null: none). Not a limit: it never turns a request away; for that, use setRequestQuota.
+     * Sets the function that returns the number of public API requests per calendar month (UTC)
+     * above which the host shows its fair use notice, or null for none. This is not a limit and
+     * never rejects a request. Use setRequestQuota to enforce a limit.
      */
     setRequestFairUse: (fairUse: ((projectId: string) => number | null) | null) => void;
     /**
-     * Bytes of images a project may send each calendar month (UTC; null: no limit): originals
-     * and sizes, to sites and browsers. A browser or CDN asking again for an image it has (304)
-     * costs nothing. Once used up, images answer 402 `plan_limit` until the month ends.
+     * Sets the function that returns how many bytes of images a project may serve per calendar
+     * month (UTC), or null for no limit. The quota covers originals and resized variants served to
+     * sites and browsers. A revalidation by a browser or CDN that is answered with 304 does not
+     * count. Once the quota is used up, image requests return a 402 `plan_limit` response until the month ends.
      */
     setImageTrafficQuota: (quota: ((projectId: string) => number | null) | null) => void;
     /**
-     * Bytes of images a calendar month (UTC) past which the host shows its fair use notice
-     * (null: none). Not a limit: images are never held back; for that, use setImageTrafficQuota.
+     * Sets the function that returns the number of image bytes per calendar month (UTC) above
+     * which the host shows its fair use notice, or null for none. This is not a limit and images
+     * are never withheld. Use setImageTrafficQuota to enforce a limit.
      */
     setImageTrafficFairUse: (fairUse: ((projectId: string) => number | null) | null) => void;
     /**
-     * Form submissions a project may receive each calendar month (UTC; null: no limit). Past it,
-     * submitting answers 402 `plan_limit`; submissions the honeypot catches don't count.
+     * Sets the function that returns how many form submissions a project may receive per calendar
+     * month (UTC), or null for no limit. Past the quota, submissions return a 402 `plan_limit`
+     * response. Submissions caught by the honeypot do not count.
      */
     setSubmissionQuota: (quota: ((projectId: string) => number | null) | null) => void;
     /**
-     * How many projects a person may start: `taken` of `max` (null: no limit). Creating one
-     * more answers 402 `plan_limit`. The plugin decides what counts (e.g. their free projects).
+     * Sets the function that returns how many projects a user may create, as `taken` out of `max`,
+     * or null for no limit. Creating a project beyond `max` returns a 402 `plan_limit` response.
+     * The plugin decides what counts toward the limit, for example only the user's free projects.
      */
     setProjectsLimit: (
         limit: ((userId: string) => { taken: number; max: number } | null) | null
     ) => void;
     /**
-     * How many of a kind a project may have (null: no limit): `channels`, `models`, `entries`,
-     * `forms`, `structures`, `blocks`, `templates` or `pages`. Creating one more answers 402
-     * `plan_limit`; what's already there stays.
+     * Sets the function that returns how many items of a kind a project may have, or null for no
+     * limit. The kinds are `channels`, `models`, `entries`, `forms`, `structures`, `blocks`,
+     * `templates` and `pages`. Creating an item beyond the limit returns a 402 `plan_limit`
+     * response, and items that already exist are kept.
      */
     setCountLimit: (
         limit:
@@ -134,13 +143,13 @@ export type PluginInitContext = {
               ) => number | null)
             | null
     ) => void;
-    /** Add credits to a project this month (negative takes some back); recorded in the ledger. */
+    /** Adds credits to a project for the current month. A negative amount removes credits. The change is recorded in the ledger. */
     grantCredits: (
         projectId: string,
         amount: number,
         detail?: { reason?: string; userId?: string }
     ) => unknown;
-    /** A project's credits this month. */
+    /** Returns a project's credit balance for the current month. */
     creditBalance: (projectId: string) => {
         period: string;
         allowance: number | null;

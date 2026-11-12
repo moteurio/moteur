@@ -1,4 +1,4 @@
-/** Running a declared command from the command line: words → arguments → the call → output. */
+/** Runs a declared command from the command line: parse the words into arguments, make the API call, then print the output. */
 import { confirm, isCancel } from '@clack/prompts';
 import {
     BODY_ARGS,
@@ -15,7 +15,7 @@ import { formatError } from '../utils/formatMessage.js';
 import { BOOLEAN_FLAGS, kebab, parseArgv } from './argv.js';
 import { printResult } from './output.js';
 
-/** Flags every command takes on the command line. */
+/** Flags that every command accepts on the command line. */
 export const GLOBAL_ARGS: ArgSpec[] = [
     { name: 'json', type: 'boolean', description: 'Print the result as JSON (for scripts)' },
     { name: 'quiet', type: 'boolean', description: 'Print nothing but errors' },
@@ -31,8 +31,8 @@ export const GLOBAL_ARGS: ArgSpec[] = [
 ];
 
 /**
- * Every argument a command takes here: its own, --file/--data for a JSON body (unless the
- * command gives one of those names its own meaning), the global ones.
+ * Returns every argument a command accepts on the command line: its own arguments, --file and
+ * --data for a JSON body (unless the command already uses one of those names), and the global flags.
  */
 export function argsOf(command: CommandSpec): ArgSpec[] {
     const own = command.args ?? [];
@@ -41,7 +41,7 @@ export function argsOf(command: CommandSpec): ArgSpec[] {
     return [...own, ...body, ...GLOBAL_ARGS];
 }
 
-/** The command's arguments from the command line: options by name, words by position. */
+/** Maps the parsed command line to the command's arguments: options by name and positional words by position. */
 export function readArgs(command: CommandSpec, argv: string[]): Record<string, unknown> {
     const specs = argsOf(command);
     const booleans = new Set([
@@ -56,7 +56,7 @@ export function readArgs(command: CommandSpec, argv: string[]): Record<string, u
     for (let i = 0; i < words.length; i++) {
         const arg = positionals[i];
         if (!arg) throw new UsageError(`Unexpected "${words[i]}"`);
-        // A list takes every word left: `moteur media upload a.jpg b.jpg`.
+        // A list argument takes all remaining positional words, as in `moteur media upload a.jpg b.jpg`.
         if (arg.type === 'list') {
             values[arg.name] = coerce(arg, words.slice(i));
             break;
@@ -82,7 +82,7 @@ async function confirmFirst(command: CommandSpec, args: Record<string, unknown>)
     return !isCancel(ok) && ok === true;
 }
 
-/** Runs one command from the words after `moteur`; returns the exit code. */
+/** Runs one command from the arguments after `moteur` and returns the process exit code. */
 export async function runCommand(command: CommandSpec, argv: string[]): Promise<number> {
     let args: Record<string, unknown> = {};
     try {

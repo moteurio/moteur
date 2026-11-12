@@ -4,9 +4,9 @@ type NodeProcess = {
 };
 
 /**
- * A variable from the environment, or from the site's `.env` files as Vite reads them
- * (`.env.[mode].local`, `.env.[mode]`, `.env.local`, `.env`): Astro doesn't hand those to
- * `process.env` while it loads content. Nothing is changed in `process.env`.
+ * Reads a variable from the environment, or from the site's `.env` files in the order Vite reads
+ * them (`.env.[mode].local`, `.env.[mode]`, `.env.local`, `.env`). The fallback is needed because
+ * Astro does not copy those files into `process.env` while it loads content. This function does not modify `process.env`.
  */
 export function env(name: string): string | undefined {
     const proc = (globalThis as { process?: NodeProcess }).process;
@@ -23,7 +23,7 @@ export function env(name: string): string | undefined {
             const value = util.parseEnv(fs.readFileSync(file, 'utf8'))[name];
             if (value) return value;
         } catch {
-            // No such file.
+            // The file does not exist or cannot be read, so try the next one.
         }
     }
     return undefined;

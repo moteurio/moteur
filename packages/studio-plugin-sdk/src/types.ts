@@ -1,7 +1,7 @@
 import type { ComponentType } from 'react';
 import type { Field } from '@moteurio/types/Field.js';
 
-/** Props for a custom field editor in Studio (matches the editor field grid contract). */
+/** Props for a custom field editor in Studio. They follow the editor's field grid contract. */
 export type StudioFieldEditorProps<T = unknown> = {
     labelledBy: string;
     field: Field;
@@ -20,10 +20,10 @@ export type StudioBlockPreviewProps = {
 };
 
 export type StudioProjectRoute = {
-    /** Path segment under `/projects/:projectId/` (no leading slash). */
+    /** The path segment under `/projects/:projectId/`, without a leading slash. */
     path: string;
     label: string;
-    /** When set, member must have one of these roles in the project. */
+    /** When set, the member needs one of these roles in the project to see the route. */
     roles?: string[];
     element: ComponentType;
 };
@@ -53,11 +53,11 @@ export type StudioScopeValue = {
 };
 
 export type StudioHostConfig = {
-    /** Public API origin (no trailing slash), for plugin asset URLs. */
+    /** The public API origin without a trailing slash, used to build plugin asset URLs. */
     publicApiUrl: string;
     /**
-     * Authenticated fetch under `/projects/:projectId/…` (Studio host provides bearer token).
-     * Used by block previews that call project-scoped plugin routes.
+     * Fetches a path under `/projects/:projectId/…` with authentication. The Studio host supplies
+     * the bearer token. Block previews use it to call project-scoped plugin routes.
      */
     fetchProject?: (projectId: string, pathWithQuery: string) => Promise<Response>;
     resolveAssetUrl?: (projectId: string, assetId: string) => Promise<string | undefined>;

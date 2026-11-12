@@ -1,7 +1,7 @@
 /**
- * Acting as an agent: the person's token is swapped for an agent token (POST /auth/session-token
- * with `agent`), so what the tools change is marked "via Claude" and, unless the person allows
- * more, goes live only once a person approves it.
+ * Lets the MCP server act as an agent. The user's token is exchanged for an agent token
+ * (POST /auth/session-token with `agent`). Changes made by the tools are marked as made via the
+ * agent, for example "via Claude", and go live only after a person approves them, unless the user allows otherwise.
  */
 import { createMoteurAdminClient, type MoteurAdminClient } from '@moteurio/client';
 
@@ -10,7 +10,7 @@ export interface Agent {
     reviewOnly: boolean;
 }
 
-/** How an MCP client names itself, as people would say it. */
+/** Returns a readable name for an MCP client, such as "Claude Code" instead of `claude-code`. */
 export function agentName(info: { name?: string; title?: string } | undefined): string {
     if (info?.title) return info.title;
     const known: Record<string, string> = {
@@ -22,7 +22,7 @@ export function agentName(info: { name?: string; title?: string } | undefined): 
     return (name && known[name.toLowerCase()]) || name || 'an agent';
 }
 
-/** The person's client as an agent's, renewed before it runs out. Needs a person's sign-in, not an API key. */
+/** Wraps the user's client as an agent client and renews the agent token shortly before it expires. It needs a user's sign-in and does not work with an API key. */
 export function agentClient(
     person: () => Promise<MoteurAdminClient>,
     agent: () => Agent

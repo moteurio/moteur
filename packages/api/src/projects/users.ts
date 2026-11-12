@@ -7,6 +7,8 @@ import { getProjectUsers, type OperatorUserPatch } from '@moteurio/core/users.js
 import { getProject, updateProject } from '@moteurio/core/projects.js';
 import { sendApiError } from '../utils/apiError.js';
 import { getOnlineUserIdsForProject } from '@moteurio/core';
+import { workspaceOf } from '@moteurio/core/workspaces.js';
+import type { ProjectSchema } from '@moteurio/types/Project.js';
 
 const router: Router = Router({ mergeParams: true });
 
@@ -20,8 +22,10 @@ function toProjectUserDto(
         isActive: boolean;
         lastLoginAt?: string;
     },
-    online: Set<string>
+    online: Set<string>,
+    project: Pick<ProjectSchema, 'users' | 'workspaceId'> | undefined
 ) {
+    const workspaceRole = workspaceOf(project)?.members?.[u.id]?.role;
     return {
         id: u.id,
         name: u.name,
@@ -30,7 +34,9 @@ function toProjectUserDto(
         roles: u.roles,
         isActive: u.isActive,
         lastLoginAt: u.lastLoginAt,
-        online: online.has(u.id)
+        online: online.has(u.id),
+        ...(workspaceRole && { workspaceRole }),
+        viaWorkspace: !((project?.users ?? []) as string[]).includes(u.id)
     };
 }
 
@@ -54,7 +60,8 @@ router.get('/:projectId/users', requireProjectAccess, (req: Request, res: Respon
                     isActive: u.isActive,
                     lastLoginAt: u.lastLoginAt
                 },
-                online
+                online,
+                req.project
             )
         );
         return void res.json({ users });
@@ -76,7 +83,7 @@ router.patch(
         }
 
         const body = (req.body ?? {}) as Record<string, unknown>;
-        // Only the roles Moteur knows are kept.
+        // Keep only the roles Moteur defines.
         const roles = Array.isArray(body.roles)
             ? normalizeStoredRoles(
                   body.roles.filter(
@@ -97,8 +104,8 @@ router.patch(
         if (roles && !hasRole(actor, 'admin')) {
             return void res.status(403).json({ error: 'Project admin role required' });
         }
-        // A person's account (name, email, whether it is active) is theirs, or an operator's to
-        // change (Operator › Users), never a project's.
+        // Account details (name, email, whether the account is active) can be changed only by the
+        // user or by an operator (Operator › Users), never through a project.
         if (Object.keys(patch).length > 0) {
             return void res
                 .status(403)
@@ -111,8 +118,8 @@ router.patch(
 
         try {
             let project = await getProject(account!, projectId);
-            // Developer (keys, webhooks, channels, Git) and Billing (plans, payment) are given or
-            // taken only by someone who has them: Admin implies neither.
+            // Developer (keys, webhooks, channels, Git) and Billing (plans, payment) can be granted or
+            // removed only by someone who has that role. Admin does not imply either.
             if (roles) {
                 const target = getProjectUsers(projectId, project).find(u => u.id === userId)!;
                 const before = new Set(target.roles ?? []);
@@ -151,7 +158,8 @@ router.patch(
                         isActive: member.isActive,
                         lastLoginAt: member.lastLoginAt
                     },
-                    online
+                    online,
+                    project
                 )
             });
         } catch (err: unknown) {

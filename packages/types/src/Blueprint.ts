@@ -3,28 +3,27 @@ import type { StructureSchema } from './Structure.js';
 import type { Field } from './Field.js';
 import type { ImportBundle } from './Import.js';
 
-/** Discriminator for blueprint kind. Default is 'project' when omitted. */
+/** The kind of a blueprint. Defaults to `project` when omitted. */
 export type BlueprintKind = 'project' | 'model' | 'structure' | 'template';
 
 /**
- * Template for a model blueprint (kind === 'model').
- * Single model schema to instantiate in a project.
+ * Template of a model blueprint (`kind` is `model`): a single model schema to create in a project.
  */
 export interface ModelBlueprintTemplate {
     model: ModelSchema;
 }
 
 /**
- * Template for a structure blueprint (kind === 'structure').
- * Single structure schema to instantiate in a project.
+ * Template of a structure blueprint (`kind` is `structure`): a single structure schema to create
+ * in a project.
  */
 export interface StructureBlueprintTemplate {
     structure: StructureSchema;
 }
 
 /**
- * Reusable page template schema (without projectId, timestamps).
- * Used when creating a template in a project from a template blueprint.
+ * A page template schema without `projectId` or timestamps. It is used when a template is created
+ * in a project from a template blueprint.
  */
 export interface TemplateBlueprintTemplateSchema {
     id?: string;
@@ -34,20 +33,21 @@ export interface TemplateBlueprintTemplateSchema {
 }
 
 /**
- * Template for a template blueprint (kind === 'template').
- * Single page template schema to instantiate in a project.
+ * Template of a template blueprint (`kind` is `template`): a single page template schema to create
+ * in a project.
  */
 export interface TemplateBlueprintTemplate {
     template: TemplateBlueprintTemplateSchema;
 }
 
 /**
- * Blueprint: reusable template with metadata.
- * - kind 'project' (or omitted): `bundle`, an import bundle: what a new project starts with
- *   (schemas, files, pages, entries, menus), imported when the project is made from it.
- * - kind 'model': template is ModelBlueprintTemplate (single model).
- * - kind 'structure': template is StructureBlueprintTemplate (single structure).
- * - kind 'template': template is TemplateBlueprintTemplate (single page template).
+ * A reusable blueprint with metadata. What it holds depends on `kind`:
+ * - `project` (or omitted): `bundle` is an import bundle with the initial content of a new
+ *   project (schemas, files, pages, entries, menus). It is imported when a project is created
+ *   from the blueprint.
+ * - `model`: `template` is a `ModelBlueprintTemplate` (a single model).
+ * - `structure`: `template` is a `StructureBlueprintTemplate` (a single structure).
+ * - `template`: `template` is a `TemplateBlueprintTemplate` (a single page template).
  */
 export interface BlueprintSchema {
     id: string;
@@ -55,23 +55,24 @@ export interface BlueprintSchema {
     description?: string;
     kind?: BlueprintKind;
     /**
-     * Offer this starting point to a new person making their first project. For project
-     * blueprints; an operator marks them.
+     * When true, this blueprint is offered as a starting point to users creating their first
+     * project. Applies to project blueprints only, and is set by an operator.
      */
     firstProject?: boolean;
-    /** A project blueprint's content: imported, all or nothing, into a project made from it. */
+    /** Content of a project blueprint. It is imported as a single all-or-nothing operation into a project created from the blueprint. */
     bundle?: ImportBundle;
     /**
-     * The languages its bundle is written in, its main one first (default `["en"]`). A project
-     * made from it gets the content in its own languages: the main one's where it has none.
+     * Locales the bundle's content is written in, with the main locale first. Defaults to
+     * `["en"]`. A project created from the blueprint receives the content in its own locales, and
+     * uses the main locale's content for locales the bundle does not cover.
      */
     languages?: string[];
     template?: ModelBlueprintTemplate | StructureBlueprintTemplate | TemplateBlueprintTemplate;
 }
 
-/** A project blueprint as a list gives it: what it is and what it holds, without the bundle. */
+/** A project blueprint as returned in lists: its metadata and a summary of its content, without the bundle. */
 export interface BlueprintSummary extends Omit<BlueprintSchema, 'bundle' | 'template'> {
-    /** How many of each the project starts with. */
+    /** Number of items of each kind that a new project starts with. */
     contains?: Partial<
         Record<
             | 'templates'

@@ -10,7 +10,7 @@ import {
 import { requireProjectAccess } from '../middlewares/auth.js';
 import { sendApiError } from '../utils/apiError.js';
 
-/** The bin for entries, pages and models: list, take out (as a draft), delete for good. */
+/** The bin for entries, pages and models: list items, restore them as drafts, or delete them permanently. */
 const router: Router = Router({ mergeParams: true });
 
 type BinParams = { projectId: string; binId: string };

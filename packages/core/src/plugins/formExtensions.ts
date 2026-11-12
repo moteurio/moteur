@@ -10,8 +10,9 @@ import type {
 import type { FormSchema, FormSubmission } from '@moteurio/types/Form.js';
 
 /**
- * What plugins add to forms: actions, field checks, spam checks and holds. Each is registered once
- * by the plugin that owns it; a plugin's work never stops a letter from being kept.
+ * Form extensions that plugins register: actions, field checks, spam checks and holds. Each one is
+ * registered once, by the plugin that owns it. A plugin failure never prevents a submission from
+ * being saved.
  */
 
 const actions = new Map<string, PluginFormAction & { pluginId?: string }>();
@@ -19,9 +20,9 @@ const fields = new Map<string, PluginFormField & { pluginId?: string }>();
 const screens = new Map<string, PluginSubmissionScreen & { pluginId?: string }>();
 const holds = new Map<string, PluginSubmissionHold & { pluginId?: string }>();
 
-/** How long one plugin action may take for one letter. */
+/** Maximum time one plugin action may take for one submission. */
 export const ACTION_TIMEOUT_MS = 15_000;
-/** How long a spam check or a hold may take before the letter goes on without it. */
+/** Maximum time a spam check or a hold may take. After that the submission is processed without it. */
 export const SCREEN_TIMEOUT_MS = 3_000;
 
 function claim<T extends object>(
@@ -39,7 +40,7 @@ function claim<T extends object>(
 }
 
 export function registerFormAction(action: PluginFormAction, pluginId?: string): void {
-    // A namespaced type can never clash with the engine's own (createEntry, email, webhook).
+    // Requiring a `plugin:name` type prevents clashes with the engine's own action types (createEntry, email, webhook).
     if (!/^[a-z0-9-]+:[a-zA-Z0-9-]+$/.test(action.type))
         throw new Error(`A form action's type is "plugin:name", got "${action.type}".`);
     claim(actions, action.type, action, 'action', pluginId);
@@ -62,7 +63,7 @@ export function registerSubmissionHold(hold: PluginSubmissionHold, pluginId?: st
 export const getFormAction = (type: string) => actions.get(type);
 export const getFormFieldCheck = (type: string) => fields.get(type);
 
-/** The plugin actions a form can use, for the Studio: what they're called and what they ask. */
+/** Lists the plugin actions a form can use, with their labels, descriptions and settings. Admin clients use this to build the form action editor. */
 export function listFormActions() {
     return [...actions.values()].map(({ type, label, description, settings }) => ({
         type,
@@ -85,7 +86,7 @@ function within<T>(ms: number, work: Promise<T>, what: string): Promise<T> {
     ]).finally(() => clearTimeout(timer));
 }
 
-/** Run one plugin action for one letter. Never throws: a failure is an outcome. */
+/** Runs one plugin action for one submission. It never throws: a failure is returned as the outcome. */
 export async function runFormAction(
     type: string,
     projectId: string,
@@ -107,7 +108,7 @@ export async function runFormAction(
     }
 }
 
-/** The first plugin check that calls this letter spam, if any. Slow or failing checks are skipped. */
+/** Returns the verdict of the first plugin spam check that flags the submission as spam, if any. Checks that are slow or fail are skipped. */
 export async function screenWithPlugins(
     context: SubmissionScreenContext
 ): Promise<(SubmissionScreenVerdict & { by: string }) | undefined> {
@@ -125,7 +126,7 @@ export async function screenWithPlugins(
     return undefined;
 }
 
-/** The first plugin that holds this letter's actions, if any. A failing hold lets it through. */
+/** Returns the id of the first plugin that holds back the submission's actions, if any. A hold that fails does not hold the submission. */
 export async function holdWithPlugins(
     projectId: string,
     form: FormSchema,

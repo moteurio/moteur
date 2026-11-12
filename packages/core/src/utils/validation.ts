@@ -15,9 +15,9 @@ export function addIssue(result: ValidationResult, issue: ValidationIssue): void
 }
 
 /**
- * Refuses what has errors: the message says the errors (where, and what), never the notes; the
- * error carries every issue with its level (`issues`), so a client can show the notes apart.
- * Notes alone (warnings) never refuse anything.
+ * Throws a validation error if any issue is an error. The message lists only the errors, each
+ * with its path and message, never the warnings. The thrown error carries every issue with its
+ * level in `issues`, so a client can show warnings separately. Warnings alone never cause a throw.
  */
 export function assertNoErrors(what: string, issues: ValidationIssue[], status = 400): void {
     const errors = issues.filter(i => i.type === 'error');
@@ -30,7 +30,7 @@ export function assertNoErrors(what: string, issues: ValidationIssue[], status =
     );
 }
 
-/** A schema's name: one, or one per language (`{ "en": "Article", "fr": "Article" }`). */
+/** Whether a value is a valid schema label: a non-empty string, or a per-language object such as `{ "en": "Article", "fr": "Article" }`. */
 export function isLabel(value: unknown): boolean {
     if (typeof value === 'string') return value.trim() !== '';
     if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
@@ -42,10 +42,10 @@ export function isLabel(value: unknown): boolean {
     );
 }
 
-/** What a refused label is told. */
+/** The message shown when a label is rejected. */
 export const LABEL_RULE = 'a name, or a name per language ({ "en": "…", "fr": "…" })';
 
-/** A label as one text: the string, or its first language's. */
+/** Returns a label as a single text: the string itself, or the first non-empty language of a per-language label. */
 export function labelText(label: unknown, fallback: string): string {
     if (typeof label === 'string' && label.trim()) return label;
     if (label && typeof label === 'object') {

@@ -139,7 +139,7 @@ export function validateVariantField(
         }
         issues.push(...validateFieldValue(subValue, subField, subPath, context));
     }
-    // Left over from another kind, most often after switching: kept, but not part of this shape.
+    // A key that belongs to a different kind, most often left behind after switching kinds. It is kept but is not part of this kind's shape, so warn about it.
     for (const key of Object.keys(value)) {
         if (key === 'kind' || key in fields) continue;
         issues.push({

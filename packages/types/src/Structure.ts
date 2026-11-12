@@ -2,10 +2,10 @@ import type { Localizable } from './PublicSchema.js';
 import { Field } from './Field.js';
 
 export interface StructureSchema {
-    type: string; // Unique structure ID (e.g., "core/teamMember")
-    /** Its name: one, or one per language (`{ en, fr }`). */
+    type: string; // Unique structure ID (for example "core/teamMember")
+    /** Display name: a single string, or a map from locale code to string such as `{ en, fr }`. */
     label: Localizable;
-    description?: string; // Optional description
-    fields: Record<string, Field>; // Field definitions for the structure
-    options?: Record<string, any>; // Optional additional options for the structure
+    description?: string; // Description of the structure
+    fields: Record<string, Field>; // Field definitions, keyed by field ID
+    options?: Record<string, any>; // Additional options
 }

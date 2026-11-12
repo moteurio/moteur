@@ -37,7 +37,7 @@ function appendLog(entry: RequestLogEntry): void {
 }
 
 /**
- * Call when response has finished. Logs the request for audit (type, projectId, path, status, duration).
+ * Call when the response has finished. Logs the request for audit: type, projectId, path, status and duration.
  */
 export function logRequest(
     req: Request,

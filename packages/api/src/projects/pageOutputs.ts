@@ -31,7 +31,7 @@ type ProjectParams = { projectId: string };
 type NavigationQuery = { depth?: string; rootId?: string; locale?: string };
 type BreadcrumbQuery = { pageId?: string; entryId?: string; locale?: string };
 
-/** `?locale=` (or `?lang=`) as one string, if given. */
+/** Returns `?locale=` (or `?lang=`) as a single string, if given. */
 function localeQuery(req: Request): string | undefined {
     const raw = req.query.locale ?? req.query.lang;
     return typeof raw === 'string' && raw.trim() ? raw.trim() : undefined;
@@ -50,7 +50,7 @@ router.get('/sitemap.xml', ...pageOutputAuth, async (req: Request, res: Response
         res.setHeader('Content-Type', 'application/xml; charset=utf-8');
         const loc = (path: string) => (siteUrl ? `${siteUrl}${path}` : path);
         const defaultLocale = project?.defaultLocale;
-        // Each address lists itself and its other languages, and x-default for the default one.
+        // Each URL lists itself and its other languages, plus x-default for the default language.
         const alternates = (u: (typeof urls)[number]): string => {
             const links = Object.entries(u.alternates ?? {});
             if (links.length < 2) return '';

@@ -1,7 +1,7 @@
 /**
- * Running a declared command, whoever asks: the CLI (from the command line) or the MCP server
- * (from a tool call). Arguments come in as an object; this checks them, fills paths, sends the
- * call, and returns the API's answer.
+ * Runs a declared command for either caller, the CLI or the MCP server. Arguments arrive as an
+ * object. This module validates them, fills in the path, sends the API call and returns the
+ * API's response.
  */
 import type { MoteurAdminClient } from '@moteurio/client';
 import type { ArgSpec, CommandSpec, RunContext } from './spec.js';
@@ -12,10 +12,10 @@ import {
     onProjectKey
 } from './config.js';
 
-/** The caller used the command wrongly (missing or bad argument): exit code 2, not an API error. */
+/** Thrown when the command is used incorrectly, for example with a missing or invalid argument. It maps to exit code 2 and is not an API error. */
 export class UsageError extends Error {}
 
-/** Command groups whose routes come from a plugin, and the plugin to ask for. */
+/** Command groups whose routes come from a plugin, mapped to the plugin that provides them. */
 export const PLUGIN_GROUPS: Record<string, string> = {
     ai: 'the AI plugin (Moteur Cloud)',
     billing: 'the billing plugin (Moteur Cloud)',
@@ -24,7 +24,7 @@ export const PLUGIN_GROUPS: Record<string, string> = {
     search: 'a search plugin (Meilisearch or Algolia)'
 };
 
-/** The server has no such route at all (Express's own 404, not an answer from a route). */
+/** Thrown when the server has no such route, which is Express's own 404 and not a response from a route handler. */
 export class NotOnServer extends Error {
     readonly status = 404;
 }
@@ -38,7 +38,7 @@ function isMissingRoute(err: unknown): boolean {
     );
 }
 
-/** A command list, findable by its words. */
+/** A list of commands that can be looked up by the words on the command line. */
 export class Commands {
     private list: CommandSpec[] = [];
 
@@ -67,7 +67,7 @@ export class Commands {
         return this.list.find(c => c.group === group && c.name === name);
     }
 
-    /** The command the words name, and the words left over (positionals). */
+    /** Finds the command that the leading words name and returns it with the remaining words as positionals. */
     resolve(words: string[]): { command?: CommandSpec; rest: string[] } {
         const [g, n, ...rest] = words;
         if (!g) return { rest: [] };
@@ -80,11 +80,11 @@ export class Commands {
     }
 }
 
-/** How an argument is named in messages: `--limit` on the command line, `limit` for tools. */
+/** Formats an argument name for messages: `--limit` on the command line and `limit` for MCP tools. */
 export type Naming = (arg: ArgSpec) => string;
 export const asFlag: Naming = a => `--${a.name}`;
 
-/** One argument's value in its declared type (from text or from JSON). */
+/** Converts one argument value, given as text or JSON, to its declared type. */
 export function coerce(arg: ArgSpec, raw: unknown, name: Naming = asFlag): unknown {
     const type = arg.type ?? 'string';
     const one = Array.isArray(raw) && type !== 'list' ? raw[raw.length - 1] : raw;
@@ -101,7 +101,7 @@ export function coerce(arg: ArgSpec, raw: unknown, name: Naming = asFlag): unkno
             return n;
         }
         case 'list': {
-            // `a,b` in one value is two; values given as a list stay as they are.
+            // Split a single comma-separated value `a,b` into two values. A value already given as a list is kept as is.
             const values = Array.isArray(raw)
                 ? raw.map(String)
                 : arg.whole
@@ -126,7 +126,7 @@ export function coerce(arg: ArgSpec, raw: unknown, name: Naming = asFlag): unkno
     }
 }
 
-/** The closest known name, for "did you mean". */
+/** Finds the closest known name, for "did you mean" suggestions. */
 export function closest(word: string, names: string[]): string | undefined {
     const distance = (a: string, b: string) => {
         const d = Array.from({ length: a.length + 1 }, (_, i) => [i, ...Array(b.length).fill(0)]);
@@ -145,8 +145,9 @@ export function closest(word: string, names: string[]): string | undefined {
 }
 
 /**
- * Checks given values against the declared arguments: each known (by name or old spelling),
- * converted to its type; then defaults filled and required ones present.
+ * Validates the given values against the declared arguments. Each value must match a known
+ * argument by name or alias and is converted to its type. Defaults are then filled in and required
+ * arguments are checked.
  */
 export function checkArgs(
     specs: ArgSpec[],
@@ -185,7 +186,7 @@ export function checkArgs(
     return out;
 }
 
-/** `/projects/{project}/models/{model}` with the arguments put in. */
+/** Substitutes the arguments into a path template such as `/projects/{project}/models/{model}`. */
 export function fillPath(
     template: string,
     args: Record<string, unknown>,
@@ -198,7 +199,7 @@ export function fillPath(
     });
 }
 
-/** Sets `a.b.c` in an object (body keys like `options.multilingual`). */
+/** Sets a nested value in an object from a dotted path such as `a.b.c`, used for body keys like `options.multilingual`. */
 function setPath(target: Record<string, unknown>, dotted: string, value: unknown): void {
     const parts = dotted.split('.');
     let at = target;
@@ -206,27 +207,27 @@ function setPath(target: Record<string, unknown>, dotted: string, value: unknown
     at[parts[parts.length - 1]] = value;
 }
 
-/** Where a command gets what isn't in its arguments. */
+/** Supplies what a command needs besides its own arguments: the API client, the default project and the request body. */
 export interface Session {
     client: () => Promise<MoteurAdminClient>;
-    /** The project when no `project` argument is given. */
+    /** Returns the project to use when no `project` argument is given. */
     defaultProject: () => Promise<string | undefined>;
-    /** The JSON body the caller gave (CLI: --file, --data, stdin; MCP: `body`). */
+    /** Returns the JSON body from the caller: --file, --data or stdin in the CLI, and `body` in MCP. */
     body?: () => Promise<Record<string, unknown>>;
-    /** Progress lines for people (the CLI prints them; tools ignore them). */
+    /** Prints progress lines for users. The CLI prints them and MCP tools ignore them. */
     say?: (message: string) => void;
-    /** Logs each request. */
+    /** Logs each request when true. */
     debug?: boolean;
-    /** The client for operator commands (default: the operator session on this machine). */
+    /** Returns the client for operator commands. Defaults to the operator session on this machine. */
     operatorClient?: () => Promise<MoteurAdminClient>;
     /**
-     * False on a hosted server: the disk is the server's, so commands never read or write
-     * paths a caller gives. Default true (the CLI, the local MCP process).
+     * False on a hosted server. The disk belongs to the server, so commands never read or write
+     * paths supplied by the caller. Defaults to true for the CLI and the local MCP process.
      */
     local?: boolean;
 }
 
-/** The signed-in session from MOTEUR_TOKEN/MOTEUR_API_KEY or ~/.moteur/config.json. */
+/** Builds a session from MOTEUR_TOKEN or MOTEUR_API_KEY, or else from ~/.moteur/config.json. */
 export function configSession(over: Partial<Session> = {}): Session {
     let client: MoteurAdminClient | undefined;
     return {
@@ -243,14 +244,14 @@ export function makeContext(
 ): RunContext {
     return {
         args,
-        // Operator commands never run with the person's sign-in.
+        // Operator commands never use the user's own sign-in.
         client: command.operator
             ? (session.operatorClient ?? getOperatorClientOrThrow)
             : session.client,
         project: async () => {
             const id = (args.project as string | undefined) ?? (await session.defaultProject());
             if (id) return id;
-            // A project key says its project.
+            // A project key identifies its project.
             if (!command.operator && (await onProjectKey())) {
                 const client = await session.client();
                 return (await client.get<{ projectId: string }>('/keys/me')).projectId;
@@ -273,7 +274,7 @@ export function makeContext(
     };
 }
 
-/** Sends an `http` command: path, query and body from the arguments. */
+/** Sends an `http` command, building the path, query and body from the arguments. */
 async function callHttp(command: CommandSpec, ctx: RunContext, debug?: boolean): Promise<unknown> {
     const [method, template] = command.http!.split(' ');
     const project = template.includes('{project}') ? await ctx.project() : undefined;
@@ -292,7 +293,7 @@ async function callHttp(command: CommandSpec, ctx: RunContext, debug?: boolean):
     return (await ctx.client()).request({ method, url, params, data });
 }
 
-/** Runs a command with checked arguments and returns the API's answer (or the command's own). */
+/** Runs a command with validated arguments and returns the API's response, or the result of the command's own `run`. */
 export async function execute(
     command: CommandSpec,
     args: Record<string, unknown>,

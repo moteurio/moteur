@@ -14,7 +14,7 @@ if (
 )
     chalk.level = 0;
 const wantsHelp = argv.includes('--help') || argv.includes('-h');
-// The command's words come before any option: `moteur entries list --q glace`.
+// The command name comes before any option, as in `moteur entries list --q glace`.
 const words: string[] = [];
 for (const a of argv) {
     if (a.startsWith('-')) break;
@@ -55,7 +55,7 @@ async function main(): Promise<number> {
         );
         return 0;
     }
-    // Everything after the command's own words: positionals and options.
+    // Everything after the command name: positionals and options.
     const consumed = command.name ? 2 : 1;
     return runCommand(command, argv.slice(consumed));
 }

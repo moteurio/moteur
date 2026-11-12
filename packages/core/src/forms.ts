@@ -41,7 +41,8 @@ function keepCaptchaSecret<T extends Partial<FormSchema>>(
         }
         out.captcha = captcha;
     }
-    // The older setting: its secret moves out the next time the form is saved.
+    // Forms with the legacy `recaptcha` setting get their secret moved to the secrets file on the
+    // next save.
     if (form.recaptcha?.secretKey) {
         if (!sent) setCaptchaSecret(projectId, formId, form.recaptcha.secretKey);
         out.recaptcha = { siteKey: form.recaptcha.siteKey };
@@ -49,7 +50,7 @@ function keepCaptchaSecret<T extends Partial<FormSchema>>(
     return out;
 }
 
-/** The form as people in the Studio see it: whether a captcha secret is set, never the secret. */
+/** The form as returned to admin clients: says whether a captcha secret is set, never the secret itself. */
 function withCaptchaState(projectId: string, form: FormSchema): FormSchema {
     const { recaptcha, ...rest } = form;
     const out: FormSchema = rest;
@@ -182,7 +183,8 @@ export function checkForm(form: Partial<FormSchema>): void {
     if (form.actions !== undefined) {
         if (!Array.isArray(form.actions)) bad('"actions" must be a list.');
         form.actions.forEach((action, i) => {
-            // A plugin's action (`sheets:append`): one this server has, with settings it accepts.
+            // A plugin action (such as `sheets:append`) must be registered on this server and its
+            // settings must be valid.
             if (action && typeof action.type === 'string' && action.type.includes(':')) {
                 const plugin = getFormAction(action.type);
                 if (!plugin)
@@ -281,10 +283,10 @@ export async function updateForm(
     patch: Partial<FormSchema>
 ): Promise<FormSchema> {
     await getForm(user, projectId, formId);
-    // As stored, not as the Studio sees it.
+    // Read the form as stored, including a legacy captcha secret that the public view omits.
     const current = (await getProjectJson<FormSchema>(projectId, formKey(formId)))!;
     checkForm(patch);
-    // Saving a form still holding the older secret moves it out too; a new one sent wins.
+    // Move a legacy captcha secret out of the form file. A secret sent in the patch takes precedence.
     if (current.recaptcha?.secretKey) {
         if (!hasStoredCaptchaSecret(projectId, formId))
             setCaptchaSecret(projectId, formId, current.recaptcha.secretKey);
@@ -298,7 +300,7 @@ export async function updateForm(
         createdAt: current.createdAt,
         updatedAt: new Date().toISOString()
     };
-    // `null` takes a setting away (a redirect, the notifications…).
+    // A `null` value removes a setting, such as the redirect or notifications.
     for (const [key, value] of Object.entries(patch))
         if (value === null) delete (updated as unknown as Record<string, unknown>)[key];
 

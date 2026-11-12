@@ -41,8 +41,8 @@ function resolveSpecifier(specifier: string): string {
 /**
  * Host-controlled plugin loading:
  * - `MOTEUR_HOST_PLUGINS`: comma-separated import specifiers (npm package names or local paths)
- * - `MOTEUR_ENABLED_PLUGINS`: optional comma-separated plugin ids allowed to run (empty => none)
- * - an operator's saved choices (`data/operator/plugins.json`) switch a plugin on or off over that list
+ * - `MOTEUR_ENABLED_PLUGINS`: optional comma-separated plugin ids allowed to run (empty means none)
+ * - an operator's saved choices (`data/operator/plugins.json`) override that list by switching a plugin on or off
  */
 export async function loadHostPluginsFromEnv(): Promise<HostPluginModule[]> {
     const specs = parseList(process.env.MOTEUR_HOST_PLUGINS);

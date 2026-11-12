@@ -26,28 +26,6 @@ With the password left empty, a sign-in code comes by email. At the code prompt,
 
 Forget the sign-in
 
-### `moteur auth create-user`
-
-Create an account straight in a local server’s files (no API)
-
-Runs where the server’s data is (DATA_ROOT / AUTH_USERS_FILE). To add someone through the API, use moteur invites send. Operators are not users: add them with moteur-operators on the server.
-
-| Option                |                          |
-| --------------------- | ------------------------ |
-| `--email <string>`    | Their email              |
-| `--password <string>` | Their password           |
-| `--name <string>`     | Their name               |
-| `--project <string>`  | Add them to this project |
-
-### `moteur auth reset-password`
-
-Set a password straight in a local server’s files (no API)
-
-| Option                |                  |
-| --------------------- | ---------------- |
-| `--user <string>`     | Email or user id |
-| `--password <string>` | The new password |
-
 ### `moteur auth whoami`
 
 Who you are signed in as, and where
@@ -132,11 +110,43 @@ Remove an operator; their sessions end at once Asks first (or `--yes`).
 
 Calls `DELETE /operator/operators/{id}`.
 
+### `moteur operator news`
+
+New accounts, projects and workspaces (90 days), newest first
+
+| Option             |                                      |
+| ------------------ | ------------------------------------ |
+| `--since <string>` | Only what came after this time (ISO) |
+
+Calls `GET /operator/news`.
+
+### `moteur operator news-seen`
+
+Mark what’s new as seen (for you)
+
+Calls `POST /operator/news/seen`.
+
+### `moteur operator news-email <news>`
+
+How you hear about new accounts, projects and workspaces by email
+
+| Option                      |                                                                                   |
+| --------------------------- | --------------------------------------------------------------------------------- |
+| `--news <each\|daily\|off>` | each (as it happens), daily (a summary when something happened) or off (required) |
+
+Calls `PATCH /operator/me`.
+
 ### `moteur operator summary`
 
 The whole server at a glance
 
 Calls `GET /operator/summary`.
+
+### `moteur operator server`
+
+What the server runs with: version, sign-in, AI, MCP, email, variables set
+
+Calls `GET /operator/server`.
 
 ### `moteur operator users`
 
@@ -168,11 +178,42 @@ Change an account (JSON, or active and roles)
 
 Calls `PATCH /operator/users/{id}`.
 
+### `moteur operator create-user`
+
+Create an account, with a password or for email-code sign-in
+
+| Option                |                                                          |
+| --------------------- | -------------------------------------------------------- |
+| `--email <string>`    | Their email (required)                                   |
+| `--name <string>`     | Their name (required)                                    |
+| `--password <string>` | Their password (leave out to sign in with an email code) |
+| `--project <string>`  | Add them to this project                                 |
+| `--roles <list>`      | Their roles in that project                              |
+
+Calls `POST /operator/users`.
+
+### `moteur operator set-password <id>`
+
+Set an account’s password and end its sessions Asks first (or `--yes`).
+
+| Option                |                             |
+| --------------------- | --------------------------- |
+| `--id <string>`       | User id (required)          |
+| `--password <string>` | The new password (required) |
+
+Calls `PUT /operator/users/{id}/password`.
+
 ### `moteur operator projects`
 
 Every project on the server
 
 Calls `GET /operator/projects`.
+
+### `moteur operator workspaces`
+
+Every workspace on the server
+
+Calls `GET /operator/workspaces`.
 
 ### `moteur operator project-plugins <project>`
 
@@ -344,6 +385,19 @@ Make a project the default for every command
 | Option          |                       |
 | --------------- | --------------------- |
 | `--id <string>` | Project id (required) |
+
+### `moteur projects move [project]`
+
+Move a project to another workspace (a handover)
+
+Owners and admins of its workspace, to a workspace where they may start projects. People added to it one by one stay; the old team leaves, the new one comes in.
+
+| Option                 |                                                                              |
+| ---------------------- | ---------------------------------------------------------------------------- |
+| `--project <string>`   | Project id (default: MOTEUR_PROJECT, .moteur.json, or `moteur projects use`) |
+| `--workspace <string>` | The workspace it goes to (ws_…) (required)                                   |
+
+Calls `POST /projects/{project}/move`.
 
 ### `moteur projects usage [project]`
 
@@ -2182,6 +2236,127 @@ Every field type the server knows, with its options
 
 Calls `GET /studio/field-types`.
 
+## workspaces
+
+### `moteur workspaces list`
+
+Your workspaces, and your role in each
+
+Calls `GET /workspaces`.
+
+### `moteur workspaces get <workspace>`
+
+A workspace and its people
+
+| Option                 |                                |
+| ---------------------- | ------------------------------ |
+| `--workspace <string>` | Workspace id (ws_…) (required) |
+
+Calls `GET /workspaces/{workspace}`.
+
+### `moteur workspaces create <name>`
+
+Start a workspace (you are its owner)
+
+| Option            |                     |
+| ----------------- | ------------------- |
+| `--name <string>` | Its name (required) |
+
+Calls `POST /workspaces`.
+
+### `moteur workspaces rename <workspace>`
+
+Rename a workspace
+
+| Option                 |                                |
+| ---------------------- | ------------------------------ |
+| `--workspace <string>` | Workspace id (ws_…) (required) |
+| `--name <string>`      | Its new name (required)        |
+
+Calls `PATCH /workspaces/{workspace}`.
+
+### `moteur workspaces delete <workspace>`
+
+Delete an empty workspace (owners) Asks first (or `--yes`).
+
+| Option                 |                                |
+| ---------------------- | ------------------------------ |
+| `--workspace <string>` | Workspace id (ws_…) (required) |
+
+Calls `DELETE /workspaces/{workspace}`.
+
+### `moteur workspaces set-member <workspace>`
+
+Change someone’s place in a workspace
+
+| Option                                   |                                                                           |
+| ---------------------------------------- | ------------------------------------------------------------------------- |
+| `--workspace <string>`                   | Workspace id (ws_…) (required)                                            |
+| `--user <string>`                        | Person id (required)                                                      |
+| `--role <owner\|admin\|billing\|member>` | owner, admin, billing or member (required)                                |
+| `--access <all\|chosen>`                 | Members: every project (all) or those they are added to (chosen, default) |
+| `--project-roles <list>`                 | Members with all: their roles in every project (default writer)           |
+
+Calls `PATCH /workspaces/{workspace}/members/{user}`.
+
+### `moteur workspaces remove-member <workspace>`
+
+Take someone out of a workspace and all its projects (or leave it: your own id) Asks first (or `--yes`).
+
+| Option                 |                                |
+| ---------------------- | ------------------------------ |
+| `--workspace <string>` | Workspace id (ws_…) (required) |
+| `--user <string>`      | Person id (required)           |
+
+Calls `DELETE /workspaces/{workspace}/members/{user}`.
+
+### `moteur workspaces invites <workspace>`
+
+Workspace invites not answered yet
+
+| Option                 |                                |
+| ---------------------- | ------------------------------ |
+| `--workspace <string>` | Workspace id (ws_…) (required) |
+
+Calls `GET /workspaces/{workspace}/invites`.
+
+### `moteur workspaces invite <workspace>`
+
+Invite someone into a workspace
+
+| Option                                   |                                                                           |
+| ---------------------------------------- | ------------------------------------------------------------------------- |
+| `--workspace <string>`                   | Workspace id (ws_…) (required)                                            |
+| `--email <string>`                       | Their email (required)                                                    |
+| `--role <owner\|admin\|billing\|member>` | owner, admin, billing or member (required)                                |
+| `--access <all\|chosen>`                 | Members: every project (all) or those they are added to (chosen, default) |
+| `--project-roles <list>`                 | Members with all: their roles in every project (default writer)           |
+| `--studio-url <string>`                  | The Studio the link opens (default: MOTEUR_STUDIO_URL)                    |
+
+Calls `POST /workspaces/{workspace}/invites`.
+
+### `moteur workspaces resend-invite <workspace>`
+
+Send a workspace invite again
+
+| Option                 |                                |
+| ---------------------- | ------------------------------ |
+| `--workspace <string>` | Workspace id (ws_…) (required) |
+| `--invite <string>`    | Invite id (required)           |
+
+Calls `POST /workspaces/{workspace}/invites/{invite}/resend`.
+
+### `moteur workspaces withdraw-invite <workspace>`
+
+Withdraw a workspace invite Asks first (or `--yes`).
+
+| Option                 |                                |
+| ---------------------- | ------------------------------ |
+| `--workspace <string>` | Workspace id (ws_…) (required) |
+| `--invite <string>`    | Invite id (required)           |
+
+Calls `DELETE /workspaces/{workspace}/invites/{invite}`.
+
 ## members
 
 ### `moteur members list`
@@ -2266,7 +2441,7 @@ Calls `GET /invites/{token}`.
 
 ### `moteur invites accept <token>`
 
-Join a project with an invite (signed in)
+Join a project or a workspace with an invite (signed in)
 
 | Option             |                                           |
 | ------------------ | ----------------------------------------- |

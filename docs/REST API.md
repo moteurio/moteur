@@ -226,20 +226,21 @@ Global templates (project, model, structure, or page template). Stored under `da
 
 Operators, who sign in apart from accounts (see [Authentication](Authentication.md#operators)). No account or project role reaches these routes. Studio: `/operator`.
 
-| Method | Endpoint                        | Description                                                                                                       |
-| ------ | ------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| GET    | `/operator/summary`             | Projects, accounts, this month's requests, submissions and AI credits, plugins.                                   |
-| GET    | `/operator/projects`            | Every project (members, languages, plugin allowlist, this month's usage).                                         |
-| PATCH  | `/operator/projects/:projectId` | Body `{ plugins }`: plugin ids, or `null` for every plugin the server runs.                                       |
-| GET    | `/operator/users`               | Every account.                                                                                                    |
-| PATCH  | `/operator/users/:userId`       | Body: any of `name`, `email`, `isActive`, `roles`. You cannot deactivate yourself or drop your own operator role. |
-| GET    | `/operator/plugins`             | Core and host plugins: running now, the operator's choice, restart needed.                                        |
-| PATCH  | `/operator/plugins/:pluginId`   | Body `{ on }`: `true`, `false`, or `null` to follow the host's list. Applies at the next start.                   |
-| GET    | `/operator/schemas/:kind`       | Server-wide `blocks` or `structures` (`origin`: `shipped`, `file`, `changed`).                                    |
-| PUT    | `/operator/schemas/:kind/:name` | Write `data/core/{kind}/{name}.json` as `core/{name}`.                                                            |
-| DELETE | `/operator/schemas/:kind/:name` | Remove the server file; a shipped one comes back as it ships.                                                     |
-| GET    | `/operator/settings`            | `{ settings, env }`: what operators saved, and what the environment gives (`termsUrl`, `privacyUrl`).             |
-| PATCH  | `/operator/settings`            | Body: any of `termsUrl`, `privacyUrl` (an https address, or `null` to clear). **400** `URL_INVALID`.              |
+| Method | Endpoint                        | Description                                                                                                                          |
+| ------ | ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| GET    | `/operator/summary`             | Projects, accounts, this month's requests, submissions and AI credits, plugins.                                                      |
+| GET    | `/operator/projects`            | Every project (members, languages, plugin allowlist, this month's usage).                                                            |
+| PATCH  | `/operator/projects/:projectId` | Body `{ plugins }`: plugin ids, or `null` for every plugin the server runs.                                                          |
+| GET    | `/operator/users`               | Every account.                                                                                                                       |
+| PATCH  | `/operator/users/:userId`       | Body: any of `name`, `email`, `isActive`, `roles`. You cannot deactivate yourself or drop your own operator role.                    |
+| GET    | `/operator/plugins`             | Core and host plugins: running now, the operator's choice, restart needed.                                                           |
+| PATCH  | `/operator/plugins/:pluginId`   | Body `{ on }`: `true`, `false`, or `null` to follow the host's list. Applies at the next start.                                      |
+| GET    | `/operator/schemas/:kind`       | Server-wide `blocks` or `structures` (`origin`: `shipped`, `file`, `changed`).                                                       |
+| PUT    | `/operator/schemas/:kind/:name` | Write `data/core/{kind}/{name}.json` as `core/{name}`.                                                                               |
+| DELETE | `/operator/schemas/:kind/:name` | Remove the server file; a shipped one comes back as it ships.                                                                        |
+| GET    | `/operator/settings`            | `{ settings, env }`: what operators saved, and what the environment gives (`termsUrl`, `privacyUrl`).                                |
+| PATCH  | `/operator/settings`            | Body: any of `termsUrl`, `privacyUrl` (an https address, or `null` to clear). **400** `URL_INVALID`.                                 |
+| GET    | `/operator/server`              | Version, sign-in (sign-up, email codes, passkeys, GitHub, Google), AI, MCP, email, and which variables are set (never their values). |
 
 Host plugins may add operator routes of their own.
 

@@ -1,7 +1,7 @@
 export type PreviewSessionSource = {
-    /** Read preview token from query string (e.g. `?preview=`). */
+    /** Query string to read the preview token from, for example `?preview=<token>`. */
     search?: string;
-    /** Read from cookie value (name defaults to `moteur_preview`). */
+    /** Cookie header value to read the preview token from. The cookie name defaults to `moteur_preview`. */
     cookie?: string;
     cookieName?: string;
 };

@@ -19,7 +19,7 @@ function getDataRoot(): string {
     if (fs.existsSync(dataUsersInCwd)) return cwd;
     const moteurData = path.join(cwd, 'moteur', 'data', 'users.json');
     if (fs.existsSync(moteurData)) return path.join(cwd, 'moteur');
-    // When running from packages/core (e.g. tests), put data at repo root (moteur/data), not packages/core/data
+    // When running from packages/core (for example tests), put data at the repo root (moteur/data), not in packages/core/data.
     const dirName = path.basename(cwd);
     const parentName = path.basename(path.dirname(cwd));
     if (parentName === 'packages' && dirName === 'core') {
@@ -55,7 +55,7 @@ export const storageConfig = {
      */
     get projectsDir(): string {
         const raw = process.env.PROJECTS_DIR || 'data/projects';
-        // Asked for every file a request reads: worked out again only when the setting changes.
+        // This is called for every file a request reads, so recompute the path only when the setting changes.
         const key = `${raw}\0${process.env.DATA_ROOT ?? ''}\0${process.cwd()}`;
         if (projectsDirMemo?.key !== key) projectsDirMemo = { key, dir: resolveFromRoot(raw) };
         return projectsDirMemo.dir;
@@ -80,8 +80,19 @@ export const storageConfig = {
     },
 
     /**
-     * The operators (the people who run the whole server), apart from users.json: their own
-     * sign-in with a second factor. Env: OPERATORS_FILE. Default: data/operators.json.
+     * The workspaces (the teams that own projects) and their members.
+     * Env: WORKSPACES_FILE. Default: workspaces.json next to the users file.
+     */
+    get workspacesFile(): string {
+        const raw = process.env.WORKSPACES_FILE;
+        return raw
+            ? resolveFromRoot(raw)
+            : path.join(path.dirname(this.usersFile), 'workspaces.json');
+    },
+
+    /**
+     * The operators (the people who run the whole server). They are stored apart from users.json
+     * and sign in separately, with a second factor. Env: OPERATORS_FILE. Default: data/operators.json.
      */
     get operatorsFile(): string {
         const raw = process.env.OPERATORS_FILE || 'data/operators.json';

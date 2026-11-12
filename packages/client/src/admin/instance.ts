@@ -4,8 +4,9 @@ import { deploymentSeedApi } from './deployment/seed.js';
 import { deploymentMigrateAssetsApi } from './deployment/migrate.js';
 
 /**
- * Deployment-wide maintenance: usage counters, blueprint seeding, asset migration.
- * Exposed as `client.instance` on the admin client (operator-oriented; see REST API for auth).
+ * Deployment-wide maintenance: usage counters, blueprint seeding and asset migration.
+ * Available as `client.instance` on the admin client. It is intended for operators; see the REST
+ * API documentation for authentication.
  */
 export function instanceApi(client: MoteurClient) {
     const usage = deploymentUsageApi(client);

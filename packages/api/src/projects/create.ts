@@ -14,7 +14,7 @@ router.post('/', requireAuth, async (req: Request, res: Response) => {
     try {
         const { blueprintId, ...body } = req.body || {};
         delete body.memberRoles;
-        // The person creating it is its first member; others join by invitation.
+        // The user creating the project is its first member. Others join by invitation.
         delete body.users;
         const refusal = gitRemoteRefusal(body.git);
         if (refusal) return void res.status(400).json({ error: refusal });
@@ -33,7 +33,7 @@ router.post('/', requireAuth, async (req: Request, res: Response) => {
         return void res.status(201).json(
             result.project && {
                 ...redactProjectSecrets(result.project),
-                // What the blueprint's import did: done, or why it kept nothing.
+                // The outcome of the blueprint import: completed, or the reason nothing was imported.
                 ...(result.blueprint && { fromBlueprint: result.blueprint })
             }
         );

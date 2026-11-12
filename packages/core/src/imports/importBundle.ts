@@ -1,7 +1,7 @@
 /**
- * A bundle saved all at once, or not at all: its schemas, files, pages, entries, menus and
- * redirects are saved in one batch (one commit, one webhook, one Radar scan), and any failure
- * puts every file back as it was. A dry run saves it all the same way, then undoes it.
+ * Imports a bundle atomically. Schemas, files, pages, entries, menus and redirects are saved in
+ * one batch (one commit, one webhook, one Radar scan). If anything fails, every file is restored
+ * to its previous state. A dry run saves everything the same way and then undoes it.
  */
 import { randomUUID } from 'crypto';
 import fs from 'fs';
@@ -57,7 +57,7 @@ import { log, toActivityEvent } from '../activityLogger.js';
 import { dispatch as webhookDispatch } from '../webhooks/webhookService.js';
 import { runFullScan } from '../radar/index.js';
 
-/** The asset list is undone by taking out what was added, not by putting the file back. */
+/** The asset list is rolled back by removing the assets that were added, not by restoring the file. */
 const ASSETS_KEY = 'assets.json';
 
 const uploadMaxBytes = () =>
@@ -68,7 +68,7 @@ export type ImportProgress = (done: number, total: number) => void;
 export type ImportOptions = {
     dryRun?: boolean;
     onProgress?: ImportProgress;
-    /** The files changed so far, after each item: what a job keeps, to undo after a crash. */
+    /** Called after each item with the files changed so far, so a job can undo them after a crash. */
     onTouched?: (paths: string[]) => void;
 };
 
@@ -77,11 +77,11 @@ export type ImportOutcome = {
     dryRun: boolean;
     items: ImportItemResult[];
     issues: ImportIssue[];
-    /** Worth saying, not wrong: what HTML lost, the links it made to pages. */
+    /** Informational messages that are not errors, such as content dropped from HTML and links converted to page links. */
     notes?: ImportIssue[];
     commit?: string;
     toPublish?: ImportToPublish;
-    /** On the way out of the save: an agent's menus, which become `toPublish.menus`. */
+    /** Menus saved by an agent that need approval. They are returned as `toPublish.menus`. */
     waitingMenus?: NonNullable<ImportToPublish['menus']>;
 };
 
@@ -96,7 +96,7 @@ class ImportError extends Error {
 
 const messageOf = (err: unknown) => (err instanceof Error ? err.message : String(err));
 
-/** How many things the bundle saves. */
+/** The number of items the bundle saves. */
 export function countItems(bundle: ImportBundle): number {
     return (
         (bundle.structures?.length ?? 0) +
@@ -112,7 +112,7 @@ export function countItems(bundle: ImportBundle): number {
     );
 }
 
-/** What is wrong with the bundle's shape, before anything is saved. */
+/** Checks the shape of the bundle and returns every problem found, before anything is saved. */
 export function checkBundle(bundle: unknown): ImportIssue[] {
     const issues: ImportIssue[] = [];
     const add = (path: string, message: string) => issues.push({ path, message });
@@ -195,7 +195,7 @@ export function checkBundle(bundle: unknown): ImportIssue[] {
     return issues;
 }
 
-/** Ids of what the bundle names, by `kind:name`. */
+/** Maps `kind:name` references used in the bundle to the ids they resolve to. */
 type Refs = Map<string, string>;
 
 const isRef = (v: unknown): v is { $ref: string } =>
@@ -205,7 +205,7 @@ const isRef = (v: unknown): v is { $ref: string } =>
     Object.keys(v).length === 1 &&
     typeof (v as { $ref?: unknown }).$ref === 'string';
 
-/** `{ "$ref": "page:pricing" }` anywhere in a value becomes the id it names. */
+/** Replaces every `{ "$ref": "page:pricing" }` in a value with the id it refers to. */
 function resolveRefs(value: unknown, refs: Refs, at: string): unknown {
     if (isRef(value)) {
         const id = refs.get(value.$ref);
@@ -221,7 +221,7 @@ function resolveRefs(value: unknown, refs: Refs, at: string): unknown {
     return value;
 }
 
-/** Refs to things the project already has (not in the bundle): accepted by their id. */
+/** Resolves references to things the project already has but the bundle does not contain. */
 async function addProjectRefs(projectId: string, bundle: ImportBundle, refs: Refs) {
     const wanted = new Set<string>();
     const collect = (v: unknown) => {
@@ -251,7 +251,7 @@ async function addProjectRefs(projectId: string, bundle: ImportBundle, refs: Ref
     }
 }
 
-/** Pages with parents in the bundle come after them. */
+/** Orders pages so that a parent defined in the bundle comes before its children. */
 function inTreeOrder(pages: (ImportPage & { id: string })[], refs: Refs): typeof pages {
     const ids = new Set(pages.map(p => p.id));
     const parentOf = (p: ImportPage) => {
@@ -276,7 +276,7 @@ function inTreeOrder(pages: (ImportPage & { id: string })[], refs: Refs): typeof
     return out;
 }
 
-/** The file of an asset given in the bundle. */
+/** Loads the file of an asset from its URL or its inline base64 content. */
 async function fileOf(a: NonNullable<ImportBundle['assets']>[number]) {
     if (a.url) {
         const got = await downloadPublicFile(a.url, { maxBytes: uploadMaxBytes() });
@@ -298,13 +298,13 @@ type Context = {
     projectId: string;
     bundle: ImportBundle;
     dryRun: boolean;
-    /** What a dry run's files would add to the project's storage, so far. */
+    /** Bytes that the dry run's files would add to the project's storage so far. */
     dryRunBytes: number;
-    /** The page an address leads to, among the project's and the bundle's (for HTML links). */
+    /** Finds the page an address leads to, among the project's pages and the bundle's pages. Used to convert HTML links. */
     pageAt: (href: string) => string | null;
-    /** Blocks and structures, to find rich-text fields at any depth. */
+    /** Block and structure schemas, used to find rich-text fields at any depth. */
     walk?: FieldWalkSchemas;
-    /** What went well but is worth saying: what HTML lost, the links it made to pages. */
+    /** Informational messages that are not errors, such as content dropped from HTML and links converted to page links. */
     notes: ImportIssue[];
     pageLinks: number;
     refs: Refs;
@@ -313,13 +313,13 @@ type Context = {
     createdAssets: string[];
     batch: ContentBatch;
     tick: () => void;
-    /** An agent's menus, kept for the approval (a menu is live once saved). */
+    /** Menus saved by an agent. They are held for approval because a menu is live as soon as it is saved. */
     waitingMenus: NonNullable<ImportToPublish['menus']>;
 };
 
 /**
- * Saves one thing. In a dry run a failure is noted and the run goes on (it is all undone
- * anyway); otherwise it stops the import.
+ * Saves one item. In a dry run a failure is recorded and the run continues, because everything is
+ * undone anyway. Otherwise the failure stops the import.
  */
 async function step(
     ctx: Context,
@@ -340,9 +340,9 @@ async function step(
 }
 
 /**
- * Values for fields their block, template or model doesn't have: saving content keeps them with a
- * warning, an import refuses them, all at once, at their place in the bundle
- * (`pages[4].fields.blocks[2].data.kicker`).
+ * Rejects values for fields that their block, template or model does not define. Saving content
+ * only warns about them, but an import refuses them. All of them are reported together, at their
+ * position in the bundle (for example `pages[4].fields.blocks[2].data.kicker`).
  */
 async function refuseUnknownFields(
     validation: Promise<{ issues: { code?: string; path?: string; message: string }[] }>,
@@ -359,8 +359,9 @@ async function refuseUnknownFields(
 }
 
 /**
- * Every address of the project's pages and the bundle's, in every language, to the page's id:
- * a link written in HTML to one of them becomes a link to the page.
+ * Builds a lookup from every address of the project's pages and the bundle's pages, in every
+ * language, to the page id. An HTML link to one of these addresses is converted to a link to the
+ * page, so it keeps working if the page's address changes.
  */
 async function pageAddresses(
     projectId: string,
@@ -401,8 +402,8 @@ async function pageAddresses(
 }
 
 /**
- * A record's rich-text fields given as HTML (`{ "html": "…" }`, or one per language) turned into
- * rich text, at any depth. What it leaves out is noted with its place in the bundle.
+ * Converts rich-text fields given as HTML (`{ "html": "…" }`, or one per language) to rich text
+ * (DAST), at any depth. Content that cannot be converted is reported with its position in the bundle.
  */
 async function richTextFromHtml(
     ctx: Context,
@@ -440,14 +441,14 @@ async function richTextFromHtml(
     );
 }
 
-/** What to do with something already there: update, skip, or refuse. */
+/** Applies the bundle's `existing` rule to an item that already exists: update it, skip it, or fail. */
 function whenExisting(ctx: Context, what: string): 'update' | 'skip' {
     const rule = ctx.bundle.existing ?? 'update';
     if (rule === 'fail') throw new Error(`${what} already exists.`);
     return rule;
 }
 
-/** A project block's file name, as `createProjectBlock` makes it. */
+/** The allowed format of a project block's file name, matching what `createProjectBlock` accepts. */
 const BLOCK_SLUG = /^[a-z0-9][a-z0-9-_]*$/;
 
 async function saveAll(ctx: Context): Promise<void> {
@@ -474,7 +475,7 @@ async function saveAll(ctx: Context): Promise<void> {
                 if (whenExisting(ctx, `Block "${b.type}"`) === 'skip')
                     return { id: b.type, action: 'skip' };
                 updateProjectBlock(projectId, slug, b, 'replace');
-                // Block files are not content events: the batch is told of them, once written.
+                // Block files do not trigger content events, so add them to the batch explicitly.
                 ctx.batch.paths.add(key);
                 return { id: b.type, action: 'update' };
             }
@@ -511,8 +512,8 @@ async function saveAll(ctx: Context): Promise<void> {
         await step(ctx, `assets[${i}]`, 'asset', async () => {
             const file = await fileOf(a);
             if (ctx.dryRun) {
-                // Checked as an upload would be (type, size, storage, a picture that reads), not
-                // stored: a stand-in id lets the rest be checked.
+                // Run the same checks as an upload (type, size, storage, readable image) without
+                // storing the file. A placeholder id lets the rest of the bundle be checked.
                 await checkUpload(
                     projectId,
                     user,
@@ -523,7 +524,7 @@ async function saveAll(ctx: Context): Promise<void> {
                 refs.set(`asset:${a.ref}`, `dry-run-${a.ref}`);
                 return { id: `dry-run-${a.ref}`, action: 'create' };
             }
-            // The same file already in the library is used again, not added twice.
+            // Reuse an identical file already in the library instead of adding it twice.
             const same = (await listAssets(projectId, { hash: fileHash(file.buffer) })).find(
                 x => !x.deletedAt
             );
@@ -542,7 +543,7 @@ async function saveAll(ctx: Context): Promise<void> {
             return { id: asset.id, action: 'create' };
         });
 
-    // Ids are known before any page is saved, so pages can point at each other.
+    // Assign ids before saving any page so pages can refer to each other.
     const pages = (bundle.pages ?? []).map(p => ({ ...p, id: p.id ?? randomUUID() }));
     pages.forEach(p => refs.set(`page:${p.ref ?? p.id}`, p.id));
     for (const [modelId, list] of Object.entries(bundle.entries ?? {}))
@@ -560,7 +561,8 @@ async function saveAll(ctx: Context): Promise<void> {
             const parentId = parentRef ? refs.get(parentRef) : null;
             if (parentRef && !parentId)
                 throw new ImportError(`${where}.parent`, `No page "${parentRef}".`);
-            // An import saves drafts: going live is its `publish` step, never a page's own fields.
+            // An import always saves drafts. Pages go live in the separate publish step, never
+            // through their own fields.
             const {
                 id,
                 ref: _ref,
@@ -601,7 +603,8 @@ async function saveAll(ctx: Context): Promise<void> {
                 );
             if (await hasProjectKey(projectId, pageKey(id))) {
                 if (whenExisting(ctx, `Page "${id}"`) === 'skip') return { id, action: 'skip' };
-                // A live page keeps its published version: the import's changes wait in it.
+                // A live page keeps serving its published version. The imported changes wait as
+                // unpublished edits.
                 await updatePage(projectId, user, id, data, { asDraft: true });
                 return { id, action: 'update' };
             }
@@ -701,7 +704,7 @@ async function saveAll(ctx: Context): Promise<void> {
         });
 }
 
-/** Every file the batch changed, as it was before; and the files it added, taken back. */
+/** Restores every file the batch changed and removes the assets it added. */
 async function undo(projectId: string, batch: ContentBatch, createdAssets: string[]) {
     await discardImportedAssets(projectId, createdAssets);
     const dir = projectDir(projectId);
@@ -709,7 +712,7 @@ async function undo(projectId: string, batch: ContentBatch, createdAssets: strin
         if (key !== ASSETS_KEY)
             await restoreProjectFile(projectId, key, await show(dir, 'HEAD', key));
     }
-    // A list the import began, empty again: as if it never was.
+    // If the import created the asset list and nothing else is in it, remove the file again.
     const before = await show(dir, 'HEAD', ASSETS_KEY);
     if (before === null && (await listAssets(projectId, { includeBinned: true })).length === 0)
         await restoreProjectFile(projectId, ASSETS_KEY, null);
@@ -740,12 +743,7 @@ const summary = (items: ImportItemResult[]) => {
     );
 };
 
-/**
- * Saves the bundle, all of it or none of it. With `publish`, its pages and entries then go live,
- * unless the person (or agent) needs approval: the import then waits for one (see
- * `publishImport`).
- */
-/** What went well but is worth saying, once the import is through. */
+/** Collects the informational messages for a finished import. */
 function notesOf(ctx: Context): { notes?: ImportIssue[] } {
     const notes = [...ctx.notes];
     if (ctx.pageLinks)
@@ -756,6 +754,11 @@ function notesOf(ctx: Context): { notes?: ImportIssue[] } {
     return notes.length ? { notes } : {};
 }
 
+/**
+ * Saves the whole bundle or nothing. With `publish`, its pages and entries then go live, unless
+ * the user (or agent) needs approval. In that case the import waits for approval (see
+ * `publishImport`).
+ */
 export async function importBundle(
     user: User,
     projectId: string,
@@ -777,7 +780,7 @@ export async function importBundle(
     const total = countItems(bundle);
     let done = 0;
     const outcome = await withProjectWriteLock<ImportOutcome>(projectId, async () => {
-        // Earlier saves' commits first, so the import's commit holds only the import.
+        // Wait for earlier saves to commit so the import's commit contains only the import.
         await gitSettled(projectDir(projectId));
         const saved = await runInBatch(projectId, async batch => {
             const ctx: Context = {
@@ -852,7 +855,8 @@ export async function importBundle(
     );
     const { waitingMenus, ...result } = outcome;
     const menus = waitingMenus?.length ? { menus: waitingMenus } : {};
-    // Everything with `publish`; otherwise what says `published` (an export's live pages and entries).
+    // With `publish` set, everything goes live. Otherwise only items marked `published` do, which
+    // is how an export marks live content.
     const livePages = new Set((bundle.pages ?? []).filter(p => p.published && p.id).map(p => p.id));
     const liveEntries = new Set(
         Object.entries(bundle.entries ?? {}).flatMap(([modelId, list]) =>
@@ -869,7 +873,7 @@ export async function importBundle(
         .map(i => ({ modelId: i.id.split('/')[0]!, id: i.id.split('/')[1]! }));
     const toPublish: ImportToPublish | undefined =
         pagesLive.length || entriesLive.length || waitingMenus?.length
-            ? // Folders have nothing to publish: publishImport passes them by.
+            ? // Folders have nothing to publish, and publishImport skips them.
               { ...menus, pages: pagesLive, entries: entriesLive }
             : undefined;
     if (toPublish && (needsApproval(user, project) || toPublish.menus))
@@ -884,9 +888,9 @@ export async function importBundle(
 }
 
 /**
- * Puts an import's pages and entries live: each page as publishing makes it (its own commit, its
- * waiting changes included), then the entries in one commit. What can't go live is reported, not
- * undone.
+ * Publishes an import's menus, pages and entries. Each page is published on its own, with its own
+ * commit and including any waiting changes. The entries are then published in a single commit.
+ * Items that cannot be published are reported, not rolled back.
  */
 export async function publishImport(
     user: User,
@@ -905,7 +909,7 @@ export async function publishImport(
                 issues.push({ path: `menu:${handle}`, message: messageOf(err) });
             }
         }
-        // A page's published version is the commit holding it: pages are not batched.
+        // A page's published version is the commit that contains it, so pages cannot be batched.
         for (const id of toPublish.pages) {
             try {
                 const page = await getPage(projectId, id);
@@ -935,7 +939,7 @@ export async function publishImport(
     return issues;
 }
 
-/** One webhook and one Radar scan for the whole import. */
+/** Sends one webhook and runs one Radar scan for the whole import. */
 export async function afterImport(
     projectId: string,
     items: ImportItemResult[],
@@ -948,7 +952,7 @@ export async function afterImport(
             { projectId, source: 'api' }
         );
     } catch {
-        // never fail an import on a webhook
+        // A failing webhook must not fail the import.
     }
     void runFullScan(projectId, { source: 'api' }).catch(() => undefined);
 }

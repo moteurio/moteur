@@ -17,19 +17,19 @@ import {
 import type { User } from '@moteurio/types/User.js';
 
 export interface RenderOptions {
-    /** The reader's language, as known (`fr-CA`, `en`…); else the operator's default. */
+    /** The reader's language if known (`fr-CA`, `en`…), otherwise the operator's default. */
     locale?: string;
-    /** The reader's look, used when the operator lets it follow the reader. */
+    /** The reader's chosen look, used when the operator lets the look follow the reader. */
     look?: EmailLook;
-    /** Force a look (previews). A project's own mail keeps its own. */
+    /** Force a look (for previews). Mail a project sends keeps its own design. */
     forceLook?: EmailLook;
     settings?: ResolvedEmailSettings;
     /**
-     * A project's own mail (form confirmations and form emails): its name, logo, colour and foot.
-     * Without it, the project's name alone.
+     * Set for mail a project sends (form confirmations and form emails): its name, logo, colour
+     * and footer. Without it, only the project's name is used.
      */
     project?: ProjectBrand;
-    /** How a logo file goes in: as an attachment (`cid`, for sending) or inline data (previews). */
+    /** How a logo file is embedded: as an attachment (`cid`, when sending) or as inline data (in previews). */
     images?: 'cid' | 'data';
 }
 
@@ -39,16 +39,16 @@ export interface RenderedEmail {
     preheader: string;
     html: string;
     text: string;
-    /** The reader's look, or `project` for a project's own mail. */
+    /** The reader's look, or `project` for mail a project sends. */
     look: EmailStyle;
     design: string;
     locale: EmailLocale;
-    /** Notifications only. */
+    /** Only for notification emails. */
     unsubscribe?: string;
     attachments: { filename: string; content: Buffer; cid: string; contentType: string }[];
 }
 
-/** The reader's language and look, from what the server knows of them. */
+/** Resolves the reader's language and look from what the server knows about them. */
 export function readerOf(user: Pick<User, 'preferences' | 'signup'> | undefined): {
     locale?: string;
     look?: EmailLook;
@@ -60,8 +60,8 @@ export function readerOf(user: Pick<User, 'preferences' | 'signup'> | undefined)
 }
 
 /**
- * A project's brand on its own mail, ready to render: the logo already read (an image from the
- * project's media) or a URL. See ./project.ts.
+ * A project's branding for the mail it sends, ready to render: the logo is either already read
+ * (an image from the project's media) or a URL. See ./project.ts.
  */
 export interface ProjectBrand {
     name: string;
@@ -81,12 +81,12 @@ export function emailLocale(locale: string | undefined, fallback: EmailLocale): 
     return fallback;
 }
 
-/** The look an email takes: the operator's when it set one, else the reader's, else the default. */
+/** Chooses the look an email uses: the operator's if set, else the reader's, else the default. */
 export function emailLook(settings: ResolvedEmailSettings, reader?: EmailLook): EmailLook {
     return settings.look === 'recipient' ? (reader ?? settings.defaultLook) : settings.look;
 }
 
-/** The line some operators ask for at the foot of projects' own mail. */
+/** The "Sent with …" credit line some operators enable in the footer of mail that projects send. */
 export function creditLine(
     settings: ResolvedEmailSettings,
     locale: EmailLocale
@@ -138,7 +138,7 @@ function logo(settings: ResolvedEmailSettings, images: 'cid' | 'data') {
     return null;
 }
 
-/** One email, ready to send: subject, HTML and plain text in the reader's language and look. */
+/** Renders one email, ready to send: subject, HTML and plain text in the reader's language and look. */
 export function renderEmail<K extends EmailKind>(
     kind: K,
     data: EmailData[K],
@@ -147,7 +147,7 @@ export function renderEmail<K extends EmailKind>(
     const settings = options.settings ?? resolveEmailSettings();
     const locale = emailLocale(options.locale, settings.locale);
     const images = options.images ?? 'cid';
-    // A project's own mail is the project's: its design, never the reader's look or the operator's brand.
+    // Mail a project sends uses the project's design, never the reader's look or the operator's brand.
     const ofProject = PROJECT_KINDS.includes(kind);
     const look: EmailStyle = ofProject
         ? 'project'
@@ -175,7 +175,7 @@ export function renderEmail<K extends EmailKind>(
         };
     } else {
         const image = logo(settings, images);
-        // Mail a project sends its own people (form notices) carries the project's name, not the logo.
+        // Mail a project sends to its own team (form notices) shows the project's name, not a logo.
         attachment =
             !content.sender && image && 'attachment' in image ? image.attachment : undefined;
         brand = {

@@ -83,9 +83,9 @@ import { inLanguage } from '@moteurio/core/pages/urlResolver.js';
 const router: Router = Router({ mergeParams: true });
 
 /**
- * Whether this request sees drafts, set on `req.previewAuth` for what follows. A preview link
- * made for the whole project shows every draft; one made for an entry or a page shows that one
- * as it is now, and everything else as published.
+ * Decides whether this request sees drafts and stores the result in `req.previewAuth` for the handlers
+ * that follow. A preview link for the whole project shows every draft. A preview link for one entry or
+ * page shows only that item in its current state, and everything else as published.
  */
 function previewing(
     req: Request,
@@ -100,7 +100,7 @@ function previewing(
     return req.previewAuth;
 }
 
-/** A preview link made for one entry or page: what's around it (its references, links) is as published. */
+/** True for a preview link made for one entry or page. Everything around that item (its references and links) is shown as published. */
 const previewsOneItem = (req: Request): boolean =>
     !!req.previewTokenId && !!(req.previewEntryId || req.previewPageId);
 
@@ -109,17 +109,17 @@ router.use((req, _res, next) => {
     next();
 });
 
-/** Answers being worked out now, by what they answer: others asking the same wait for them. */
+/** Responses currently being generated, keyed by request. Identical concurrent requests wait for the first one instead of repeating the work. */
 const inFlight = new Map<
     string,
     Promise<{ body: string; headers: Record<string, string> } | undefined>
 >();
 
 /**
- * What sites read again and again is kept until the project changes (core/deliveryCache.ts):
- * published content read with an API key only, the same for every reader with that key. The
- * key is part of what's kept, so its channel limits hold for answers served from memory. The
- * schema and OpenAPI routes answer with their own ETag and aren't kept here.
+ * Caches the responses that sites request repeatedly, until the project changes (core/deliveryCache.ts).
+ * Only published content read with an API key is cached, because it is identical for every reader using
+ * that key. The key is part of the cache key, so the key's channel limits still apply to cached responses.
+ * The schema and OpenAPI routes set their own ETag and are not cached here.
  */
 router.use((req, res, next) => {
     const projectId = (req.params as Record<string, string>).projectId;
@@ -143,8 +143,8 @@ router.use((req, res, next) => {
     };
     const kept = cachedAnswer(projectId, version, request);
     if (kept) return void send(kept, 'hit');
-    // Someone is already working this answer out (right after a change, everyone misses at
-    // once): wait for theirs rather than doing it again.
+    // Another request is already generating this response. Right after a change every request
+    // misses the cache at once, so wait for that one instead of repeating the work.
     const flightKey = `${projectId}\0${version}\0${request}`;
     const flying = inFlight.get(flightKey);
     if (flying) return void flying.then(answer => (answer ? send(answer, 'shared') : next()), next);
@@ -156,7 +156,7 @@ router.use((req, res, next) => {
             land(answer);
         }
     };
-    // Whatever happens (an error, a 404), those waiting go on by themselves.
+    // Whatever the outcome (an error, a 404), release the waiting requests so they continue on their own.
     res.on('close', () => done());
     const json = res.json.bind(res);
     res.json = (body: unknown) => {
@@ -204,8 +204,8 @@ function parseLocaleQuery(req: Request): string | undefined {
 }
 
 /**
- * Published-only snapshot for a bare API key, or a preview link outside what it previews
- * (a link made for one entry or page), without JWT.
+ * True when the request must see only published content: a bare API key, or a preview link
+ * (made for one entry or page) used outside the item it previews, without a JWT.
  */
 function isPublishedOnlyDelivery(req: Request): boolean {
     if (req.user) return false;
@@ -228,8 +228,9 @@ function getStatusFilter(
 }
 
 /**
- * The pages a link or a page relation may lead this reader to: those the channel gives (by its
- * page filter), or published pages when it gives none, with drafts too in a preview.
+ * The pages that links and page relations may point to for this reader: the pages the channel exposes
+ * (according to its page filter), or published pages when the channel has no page resource. Drafts are
+ * included in a preview.
  */
 function pageLinkOptions(
     channel: { resources: ChannelResource[] },
@@ -245,17 +246,17 @@ function pageLinkOptions(
     return { isLive: page => statuses.includes(page.status), locale: parseLocaleQuery(req) };
 }
 
-/** What one delivery reads once and shares across its items. */
+/** Data that a delivery loads once and shares across all of its items. */
 type Delivery = {
     projectId: string;
-    /** Blocks, structures and model schemas, to walk into fields at any depth. */
+    /** Blocks, structures and model schemas, used to traverse fields at any depth. */
     schemas: LocaleSchemas;
     links: PageLinkContext;
     linkOptions: PageLinkOptions;
-    /** `?locale=`: every multilingual value comes down to this language. */
+    /** The `?locale=` choice: every multilingual value is reduced to this language. */
     choice?: LocaleChoice;
     resolveAssets: boolean;
-    /** Relations to entries in a page's fields: inlined this deep (the page resource's `resolve`). */
+    /** How relations to entries in a page's fields are inlined, to the depth set by the page resource's `resolve`. */
     pageReferences: { depth: 0 | 1 | 2; statuses: EntryStatus[]; resolve: EntryResolver };
 };
 
@@ -277,8 +278,8 @@ async function deliveryFor(
                     )))
     });
     const locale = parseLocaleQuery(req);
-    // A page's relations show what a site may see: entries as published (drafts too in a
-    // preview of drafts), of the models the channel gives, with their field allowlists.
+    // Page relations expose only what a site may see: published entries (drafts too in a draft
+    // preview), only from models the channel exposes, and only the allowed fields.
     const budget = new EntryReadBudget(drafts ? getEntryForProject : getPublishedEntryForProject);
     return {
         projectId,
@@ -296,8 +297,8 @@ async function deliveryFor(
 }
 
 /**
- * Content as sites get it: blocks for the editors only (notes) left out, wherever they sit, then
- * what plugins add to their blocks (an embed's HTML…).
+ * Sends content as sites receive it. Editorial blocks (such as editor notes) are removed wherever they
+ * appear, then plugins add their output to the remaining blocks (for example an embed's HTML).
  */
 async function sendContent(
     res: Response,
@@ -309,8 +310,8 @@ async function sendContent(
 }
 
 /**
- * The language a page or entry is delivered in: the one asked for when it is in it, the default
- * otherwise. Each item gets its own, collecting the fields that fell back.
+ * Chooses the language an item is delivered in: the requested language if the item has it, otherwise
+ * the default language. Each item gets its own choice, which also records the fields that fell back.
  */
 function choiceFor(item: { languages?: string[] }, d: Delivery): LocaleChoice | undefined {
     if (!d.choice) return undefined;
@@ -322,7 +323,7 @@ function choiceFor(item: { languages?: string[] }, d: Delivery): LocaleChoice | 
     };
 }
 
-/** What a delivered item says of its language: which one it is in, and what isn't translated. */
+/** Describes the language of a delivered item: the locale it is in and which fields are not translated. */
 const languageNote = (choice: LocaleChoice | undefined) =>
     choice
         ? {
@@ -332,9 +333,10 @@ const languageNote = (choice: LocaleChoice | undefined) =>
         : {};
 
 /**
- * A page as delivered: relations to entries inlined (the page resource's `resolve`), links and
- * page relations filled in, then pictures (whose alt may come
- * from the asset), then one language (the default when it isn't in the one asked for).
+ * Builds a page as it is delivered: relations to entries are inlined (according to the page resource's
+ * `resolve`), links and page relations are filled in, then assets are resolved (an image's alt text may
+ * come from the asset), and finally the page is reduced to one language (the default language when the
+ * page is not available in the requested one).
  */
 async function deliverPage(page: PageNode, d: Delivery): Promise<PageNode> {
     if (page.type === 'folder') return page;
@@ -342,7 +344,7 @@ async function deliverPage(page: PageNode, d: Delivery): Promise<PageNode> {
     if (!template) return page;
     const own = template.fields as ModelSchema['fields'];
     const { depth, statuses, resolve } = d.pageReferences;
-    // Relations to entries, wherever they sit: in the page's fields and in its blocks.
+    // Resolve relations to entries wherever they appear, in the page's fields and in its blocks.
     const related = depth
         ? await resolveFieldReferences(page.fields ?? {}, own, {
               projectId: d.projectId,
@@ -359,14 +361,14 @@ async function deliverPage(page: PageNode, d: Delivery): Promise<PageNode> {
     const fields = choice
         ? ((await localizeFields(out.fields, own, d.schemas, choice)) ?? out.fields)
         : out.fields;
-    // Where it lives, so a page is all a site's route needs: `paths` has only its languages.
+    // Include the page's path so a site's route needs nothing else. `paths` only lists the page's own languages.
     const paths = d.links.urls(page.id);
     const path = paths[choice?.locale ?? d.links.defaultLocale] ?? paths[d.links.defaultLocale];
     const delivered = { ...out, path, paths, fields, ...languageNote(choice) };
     return delivered;
 }
 
-/** An entry as delivered, after its references are inlined: links, pictures, one language. */
+/** Builds an entry as it is delivered, once its references are inlined: links and assets are resolved and the entry is reduced to one language. */
 async function deliverEntry(entry: Entry, schema: ModelSchema | null, d: Delivery): Promise<Entry> {
     if (!schema) return entry;
     const data = await resolvePageLinks(entry.data, schema.fields, d.links, d.linkOptions);
@@ -378,7 +380,7 @@ async function deliverEntry(entry: Entry, schema: ModelSchema | null, d: Deliver
         : out;
 }
 
-/** Relations resolve by the model's schema, wherever they sit and however they are stored. */
+/** Provides the schemas used to resolve relations wherever they appear and however they are stored. */
 const referenceSchemas = (d: Delivery): ReferenceSchemas => ({
     model: d.schemas.model!,
     walk: d.schemas
@@ -397,8 +399,8 @@ function findResource(
 }
 
 /**
- * References as the channel shows them: an entry of a model the channel exposes, with that
- * model's fields only. Anything else stays a plain reference.
+ * Resolves references as the channel exposes them: an entry of a model the channel exposes, limited to
+ * that model's allowed fields. Any other reference stays a plain reference.
  */
 function channelResolver(
     channel: { resources: ChannelResource[] },
@@ -453,8 +455,8 @@ function rejectIfChannelAccessForbidden(req: Request, res: Response, channelId: 
 }
 
 /**
- * A list read with a preview link made for one page: that page as it is now, in place of its
- * published version or added when it has none (when the channel gives pages like it).
+ * Applies a preview link made for one page to a list. The page is shown in its current state, replacing
+ * its published version or added to the list if it has none, provided the channel exposes pages of that kind.
  */
 async function withPreviewedPage(
     req: Request,
@@ -473,9 +475,9 @@ async function withPreviewedPage(
 }
 
 /**
- * A list read with a preview link made for one entry: the rest as published, that entry as it
- * is now, where it sits now. It is left out when its edits no longer match the query, and
- * counted once more when it has never been published.
+ * Applies a preview link made for one entry to a list. The other entries are shown as published, and the
+ * previewed entry is shown in its current state at its current position. It is omitted when its edits no
+ * longer match the query, and the total is increased by one when it has never been published.
  */
 async function withPreviewedEntry(
     req: Request,
@@ -514,7 +516,7 @@ router.get('/', async (req: Request, res: Response) => {
     }
 });
 
-// OpenAPI spec (register before `/:channelId` — Express 5 path matching)
+// OpenAPI spec. Register this before `/:channelId` because of Express 5 path matching.
 router.get('/:channelId/openapi', async (req: Request, res: Response) => {
     try {
         await respondChannelOpenApi(req, res);
@@ -530,7 +532,7 @@ router.get('/:channelId/openapi.json', async (req: Request, res: Response) => {
     }
 });
 
-/** The channel's schema, and the types made from it: `If-None-Match` answers 304 when unchanged. */
+/** Responds with the channel's schema or the TypeScript types generated from it. Answers 304 to a matching `If-None-Match`. */
 async function respondChannelSchema(req: Request, res: Response, as: 'json' | 'types') {
     const { projectId, channelId } = req.params as Record<string, string>;
     if (rejectIfChannelAccessForbidden(req, res, channelId!)) return;
@@ -581,7 +583,7 @@ router.get('/:channelId', async (req: Request, res: Response) => {
     }
 });
 
-// Write routes (JWT + project access)
+// Write routes (JWT and project access required).
 router.post('/', requireDeveloper, async (req: Request, res: Response) => {
     const { projectId } = req.params as Record<string, string>;
     if (!projectId) return void res.status(400).json({ error: 'Missing projectId' });
@@ -643,7 +645,7 @@ router.get('/:channelId/pages', async (req: Request, res: Response) => {
         let pages = await listPages(projectId, {
             templateId: pageResource.resourceId === 'pages' ? undefined : pageResource.resourceId
         });
-        // Sites get each page as published; changes waiting for review stay out.
+        // Sites get each page as published. Changes that are waiting for review are not included.
         if (usePublishedEntryView(req, statuses)) pages = await publicPages(projectId, pages);
         pages = pages.filter(p => 'status' in p && statuses.includes((p as any).status));
         pages = await withPreviewedPage(req, projectId, pageResource, pages);
@@ -812,9 +814,8 @@ router.get('/:channelId/:resourceId/entries', async (req: Request, res: Response
     }
 });
 
-// GET /projects/:projectId/channels/:channelId/:resourceId/entries/:id
-// GET /projects/:projectId/channels/:channelId/settings/:modelId: a settings model's one entry,
-// delivered as the entry route delivers it.
+// GET /projects/:projectId/channels/:channelId/settings/:modelId
+// Returns a settings model's single entry, delivered the same way as the entry route.
 router.get('/:channelId/settings/:modelId', async (req: Request, res: Response) => {
     const { projectId, channelId, modelId } = req.params as Record<string, string>;
     if (!projectId || !channelId || !modelId)
@@ -830,11 +831,12 @@ router.get('/:channelId/settings/:modelId', async (req: Request, res: Response) 
     }
 });
 
+// GET /projects/:projectId/channels/:channelId/:resourceId/entries/:id
 router.get('/:channelId/:resourceId/entries/:id', (req: Request, res: Response) =>
     deliverOneEntry(req, res)
 );
 
-/** One entry of a channel's model, as the channel delivers it. */
+/** Delivers one entry of a channel's model, as the channel exposes it. */
 async function deliverOneEntry(req: Request, res: Response): Promise<void> {
     const { projectId, channelId, resourceId, id } = req.params as Record<string, string>;
     if (!projectId || !channelId || !resourceId || !id)
@@ -859,7 +861,7 @@ async function deliverOneEntry(req: Request, res: Response): Promise<void> {
         if (!statuses.includes((entry.status ?? 'draft') as EntryStatus))
             return void res.status(404).json({ error: 'Entry not found' });
         const depth = (resource.resolve ?? 0) as 0 | 1 | 2;
-        // A link made for this entry shows it as it is now, and what it points to as published.
+        // A preview link made for this entry shows the entry in its current state and everything it points to as published.
         const around = previewsOneItem(req);
         const readBudget = new EntryReadBudget(
             usePublished || around ? getPublishedEntryForProject : getEntryForProject
@@ -1014,7 +1016,7 @@ router.get('/:channelId/forms/:id', async (req: Request, res: Response) => {
     }
 });
 
-/** `?locale=` picks one language for each item label. Absent means the stored map is returned. */
+/** `?locale=` selects one language for each item label. Without it, the stored locale map is returned. */
 async function menuLanguage(
     projectId: string,
     req: Request
@@ -1025,7 +1027,7 @@ async function menuLanguage(
     return { locale, fallback: project?.defaultLocale || 'en' };
 }
 
-/** Menu handles the channel gives, or `null` when it gives every menu. Empty when it gives none. */
+/** Returns the menu handles the channel exposes, `null` when it exposes every menu, or an empty list when it exposes none. */
 function menuHandles(channel: { resources: ChannelResource[] }): string[] | null {
     const rows = channel.resources.filter(r => r.resourceType === 'menu');
     if (rows.some(r => r.resourceId === 'menus')) return null;
@@ -1172,9 +1174,22 @@ export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
                 { name: 'channelId', in: 'path', required: true, schema: { type: 'string' } }
             ],
             requestBody: {
+                required: true,
                 content: {
                     'application/json': {
-                        schema: { type: 'object', additionalProperties: true }
+                        schema: {
+                            type: 'object',
+                            description:
+                                'Only the fields sent change. `resources` replaces the whole list.',
+                            properties: {
+                                label: { type: 'string' },
+                                description: { type: 'string' },
+                                resources: {
+                                    type: 'array',
+                                    items: { $ref: '#/components/schemas/ChannelResource' }
+                                }
+                            }
+                        }
                     }
                 }
             },
@@ -1290,6 +1305,50 @@ export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
                     }
                 },
                 '404': { description: 'Not found', ...jsonErrorBody }
+            }
+        }
+    },
+    '/projects/{projectId}/channels/{channelId}/settings/{modelId}': {
+        get: {
+            summary: 'Get the entry of a settings model',
+            description:
+                'A settings model has a single entry, such as site-wide contact details. This returns it the same way as getting one entry, without needing its id.',
+            tags: ['Public API — Channels'],
+            parameters: [
+                { name: 'projectId', in: 'path', required: true, schema: { type: 'string' } },
+                { name: 'channelId', in: 'path', required: true, schema: { type: 'string' } },
+                { name: 'modelId', in: 'path', required: true, schema: { type: 'string' } },
+                {
+                    name: 'locale',
+                    in: 'query',
+                    required: false,
+                    schema: { type: 'string' },
+                    description:
+                        'When set, resolves multilingual field values to this locale (falls back to project defaultLocale).'
+                },
+                {
+                    name: 'lang',
+                    in: 'query',
+                    required: false,
+                    schema: { type: 'string' },
+                    description: 'Alias for locale.'
+                },
+                resolveAssetsParameter(),
+                resolveUrlParameter()
+            ],
+            responses: {
+                '200': {
+                    description: 'Entry',
+                    content: {
+                        'application/json': {
+                            schema: { $ref: '#/components/schemas/Entry' }
+                        }
+                    }
+                },
+                '404': {
+                    description: 'No such channel or model, or no settings saved yet',
+                    ...jsonErrorBody
+                }
             }
         }
     },

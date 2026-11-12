@@ -7,13 +7,13 @@ declare global {
         interface Request {
             /** Correlation id (generated or from `x-request-id`). */
             requestId?: string;
-            /** Set by JWT auth middleware when valid. After project access: roles in that project. */
+            /** Set by the JWT auth middleware when the token is valid. After project access it carries the user's roles in that project. */
             user?: User;
-            /** The account as stored (account roles), set by project access middleware. */
+            /** The account as stored, with its account-level roles. Set by the project access middleware. */
             account?: User;
-            /** Set by requireOperator: the operator signed in. */
+            /** Set by requireOperator to the signed-in operator. */
             operator?: import('@moteurio/core/operators.js').Operator;
-            /** The project, set by project access middleware. */
+            /** The project. Set by the project access middleware. */
             project?: ProjectSchema;
             /** Set when a valid project API key was presented. */
             apiKeyAuth?: boolean;
@@ -28,9 +28,9 @@ declare global {
             previewModelId?: string;
             previewEntryId?: string;
             previewPageId?: string;
-            /** Set by request classification middleware for usage/rate-limit logic. */
+            /** Set by the request classification middleware, for usage logging and rate limiting. */
             apiRequestType?: 'studio' | 'public' | 'image' | null;
-            /** Project id inferred by request classification middleware for public routes. */
+            /** The project id that the request classification middleware infers for public routes. */
             apiRequestProjectId?: string;
             /** Raw JSON body string for webhook signature verification. */
             rawBody?: string;

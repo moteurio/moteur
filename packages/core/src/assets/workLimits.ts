@@ -1,8 +1,8 @@
 import sharp, { type Sharp, type SharpOptions } from 'sharp';
 import { WorkBudget, boundedSetting } from '../utils/workBudget.js';
-// libvips' cache keeps recent operations and the pictures they read (whole originals): it helps
-// a program that repeats them. Moteur stores every copy it makes and never makes it twice, so the
-// cache would only hold memory.
+// The libvips cache keeps recent operations and the images they read (whole originals). It
+// helps programs that repeat operations, but Moteur stores every variant it generates and never
+// generates one twice, so the cache would only use memory.
 sharp.cache(false);
 
 let budget: WorkBudget | undefined;

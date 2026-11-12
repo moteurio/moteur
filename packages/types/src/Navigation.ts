@@ -4,53 +4,53 @@ export type NavItemLinkType = 'page' | 'custom' | 'asset' | 'none';
 
 export interface NavItemBase {
     id: string;
-    /** Plain text, or one string per locale (`{ fr: 'Accueil', en: 'Home' }`). */
+    /** Plain text, or a map from locale code to string such as `{ fr: 'Accueil', en: 'Home' }`. */
     label: string | Record<string, string>;
     linkType: NavItemLinkType;
 
-    /** linkType: 'page' — resolved to URL at read time */
+    /** Used when `linkType` is `page`. The page's URL is resolved at read time. */
     pageId?: string;
-    /** linkType: 'custom' — e.g. 'https://...' or '#anchor' */
+    /** Used when `linkType` is `custom`, for example `https://...` or `#anchor`. */
     customUrl?: string;
-    /** linkType: 'asset' — resolved to asset.url at read time */
+    /** Used when `linkType` is `asset`. Resolved to the asset's `url` at read time. */
     assetId?: string;
 
-    /** default false; ignored when linkType is 'none' */
+    /** When true, the link opens in a new tab. Defaults to false. Ignored when `linkType` is `none`. */
     openInNewTab?: boolean;
 
-    /** Custom fields — same shape as entry fields. Schema is defined on the Navigation (shared across all items). */
+    /** Custom field values, in the same shape as entry fields. The schema is defined by the navigation's `itemSchema` and shared by all items. */
     fields: Record<string, unknown>;
 
-    /** Nested items; depth limit enforced at service level */
+    /** Nested items. The service enforces the navigation's `maxDepth`. */
     children?: NavItem[];
 }
 
 export type NavItem = NavItemBase;
 
-/** Navigation purpose / display type. */
+/** The purpose of a navigation: a site menu, a sitemap, or a custom list. */
 export type NavigationType = 'menu' | 'sitemap' | 'custom';
 
 export interface Navigation {
     id: string;
     projectId: string;
-    /** e.g. 'Header', 'Footer', 'Mobile' */
+    /** Display name, for example 'Header', 'Footer' or 'Mobile'. */
     name: string;
-    /** URL-safe, unique per project e.g. 'header', 'footer'. Used to fetch by name in the public API. */
+    /** URL-safe identifier, unique within the project, for example `header` or `footer`. The public API uses it to fetch the navigation. */
     handle: string;
-    /** Purpose: menu (site nav), sitemap, or custom. */
+    /** What the navigation is for: `menu` (site navigation), `sitemap` or `custom`. */
     type?: NavigationType;
-    /** max nesting depth (default 3, min 1, max 5) */
+    /** Maximum nesting depth, from 1 to 5. Defaults to 3. */
     maxDepth: number;
-    /** Custom field definitions for all items. Uses the same Field type as models. */
+    /** Definitions of the custom fields available on every item, using the same `Field` type as models. */
     itemSchema?: Field[];
     items: NavItem[];
     createdAt: string;
     updatedAt: string;
 }
 
-/** Resolved navigation — URLs hydrated, assets resolved. Returned by public API; never stored. */
+/** A navigation item with URLs and assets resolved. Returned by the public API and never stored. */
 export interface ResolvedNavItem extends Omit<NavItemBase, 'pageId' | 'assetId' | 'children'> {
-    /** resolved from pageId, customUrl, or asset.url */
+    /** Resolved from the page, from `customUrl`, or from the asset's `url`. */
     url?: string;
     children?: ResolvedNavItem[];
 }

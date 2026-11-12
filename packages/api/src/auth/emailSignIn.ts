@@ -18,8 +18,8 @@ import { sendApiError } from '../utils/apiError.js';
 import { runOnboardingForNewUser } from './onboarding.js';
 
 /**
- * Signing in or up with an email code, and a new person's first screens: what they came for,
- * and their copy of the demo when they want to be shown around.
+ * Signing in or signing up with an email code, and the onboarding endpoints for a new user:
+ * recording what they came for and copying the demo for them if they want a tour.
  */
 const router: Router = Router();
 
@@ -52,11 +52,11 @@ router.post('/email/code', verificationRateLimiter, async (req: Request, res: Re
                 locale: text(body.locale, 20)
             },
             {
-                // The look of the page that asked, for this email only; anything else is ignored.
+                // Only the look of the requesting page is accepted, and it applies to this email only.
                 look: pageLook(body.look)
             }
         );
-        // The same answer whether the address has an account or not.
+        // Respond identically whether or not the address has an account, so it cannot be probed.
         res.json({ sent: true });
     } catch (err) {
         sendApiError(res, req, err);
@@ -68,13 +68,13 @@ router.post('/email/verify', verificationRateLimiter, async (req: Request, res: 
     const body = req.body ?? {};
     try {
         const email = text(body.email, 300) ?? '';
-        // The page's look goes to the welcome of an account made now (none is saved yet).
+        // Pass the page's look to the welcome email of a newly created account, since nothing is stored for it yet.
         const look = pageLook(body.look);
         const options = {
             name: text(body.name, 200),
             onNewUser: (user: User) => runOnboardingForNewUser(user, undefined, { look })
         };
-        // The email's link sends its token in place of the code.
+        // The link in the email carries a token instead of the code.
         const token = text(body.token, 100);
         const result = token
             ? await verifyEmailLink(email, token, options)

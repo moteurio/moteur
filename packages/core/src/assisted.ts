@@ -29,7 +29,7 @@ export function stampAssisted(
             action?: unknown;
             read?: unknown;
             readBy?: unknown;
-            /** Just kept: a new suggestion replaced the text, even if of the same kind. */
+            /** True when a new suggestion has just replaced the text, even if the kind of help is unchanged. */
             kept?: unknown;
         };
         if (!HELPERS.includes(m.helper as AssistHelper))
@@ -43,7 +43,7 @@ export function stampAssisted(
             keptBy: same ? prev.keptBy : userId,
             keptAt: same ? prev.keptAt : now
         };
-        // Read once stays read (until the text is replaced by a new suggestion).
+        // A mark that has been read stays read until a new suggestion replaces the text.
         const read =
             m.read === true || Boolean(m.readBy) || (same && prev.readBy && m.read !== false);
         if (read) {
@@ -55,7 +55,7 @@ export function stampAssisted(
     return Object.keys(out).length ? out : undefined;
 }
 
-/** Whether a save brings in helper text that wasn't there before (for "with help" in history). */
+/** Whether a save adds helper-written text that was not there before, so history can flag it as written with help. */
 export function addsAssisted(
     before: Record<string, AssistedMark> | undefined,
     after: Record<string, AssistedMark> | undefined
@@ -66,7 +66,7 @@ export function addsAssisted(
     });
 }
 
-/** Fields whose helper text nobody has read yet. */
+/** Fields whose helper-written text has not been read by anyone yet. */
 export function unreadAssisted(marks: Record<string, AssistedMark> | undefined): string[] {
     return Object.entries(marks ?? {})
         .filter(([, m]) => !m.readBy)

@@ -13,24 +13,24 @@ import {
     type FieldWalkSchemas
 } from '../fieldWalk.js';
 
-/** A field's own alt and caption override the asset's; either may be one per language. */
+/** A field's own alt text and caption override the asset's. Each may be a single string or one per language. */
 export type AssetFieldValue = { assetId: string; alt?: AssetText; caption?: AssetText };
 export type ResolvedAssetValue = AssetFieldValue & {
     alt: AssetText;
     caption: AssetText;
     _resolved?: Asset;
     /**
-     * For a field cropping its pictures (`aspectRatio`): the picture cropped to that shape
-     * around its focal point. Add `&w=` (and `&fmt=`) like `resizeUrl`.
+     * For a field that crops its images (`aspectRatio`): the image cropped to that shape around
+     * its focal point. Append `&w=` (and `&fmt=`) as with `resizeUrl`.
      */
     cropUrl?: string;
     aspectRatio?: string;
 };
 
-/** What a field asks of its pictures. */
+/** The image options a field requests. */
 type FieldOptions = { aspectRatio?: unknown } | undefined;
 
-/** The crop a field's options ask for, when it is one the server makes. */
+/** Returns the crop a field's options request, if it is one the server can produce. */
 const cropOf = (options: FieldOptions) =>
     typeof options?.aspectRatio === 'string' && RESIZE_RATIOS[options.aspectRatio]
         ? options.aspectRatio
@@ -82,7 +82,7 @@ export async function resolveAssetList(
     return out;
 }
 
-/** Pictures in asset fields, at any depth (in blocks, lists, structures, variants). */
+/** Image assets in asset fields at any depth (inside blocks, lists, structures and variants). */
 const assetVisitor =
     (projectId: string): FieldVisitor =>
     async (value, field) => {

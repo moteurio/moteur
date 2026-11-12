@@ -1,4 +1,4 @@
-/** Writes packages/demo/art-image-prompts.yaml from art-image-prompts.ts */
+/** Writes packages/demo/art-image-prompts.yaml from the prompts in art-image-prompts.ts. */
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';

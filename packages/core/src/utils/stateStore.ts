@@ -1,10 +1,10 @@
 /**
- * Workspace store — all reads and writes for .moteur/ (gitignored).
+ * Project state — all reads and writes for .moteur/ (gitignored).
  * Uses projectStorage under the hood; provides read-with-default, atomic write, and patch.
  * No in-memory caching; always read from disk.
  */
 import { getProjectJson, putProjectJson, listProjectKeys } from './projectStorage.js';
-import { workspaceDir } from './pathUtils.js';
+import { stateDir } from './pathUtils.js';
 import fs from 'fs/promises';
 import path from 'path';
 import {
@@ -18,35 +18,35 @@ import {
     scheduleListPrefix
 } from './storageKeys.js';
 
-const WORKSPACE_PREFIX = '.moteur/';
+const STATE_PREFIX = '.moteur/';
 
-function assertWorkspaceKey(key: string): void {
+function assertStateKey(key: string): void {
     const normalized = key.replace(/\\/g, '/');
-    if (!normalized.startsWith(WORKSPACE_PREFIX)) {
-        throw new Error(`WorkspaceStore: key must be under ${WORKSPACE_PREFIX}, got ${key}`);
+    if (!normalized.startsWith(STATE_PREFIX)) {
+        throw new Error(`StateStore: key must be under ${STATE_PREFIX}, got ${key}`);
     }
 }
 
 /**
- * Read a workspace key. Returns default when file does not exist.
+ * Read a project state key. Returns default when file does not exist.
  */
 export async function read<T = unknown>(projectId: string, key: string, defaultVal: T): Promise<T> {
-    assertWorkspaceKey(key);
+    assertStateKey(key);
     const val = await getProjectJson<T>(projectId, key);
     if (val === null || val === undefined) return defaultVal;
     return val;
 }
 
 /**
- * Write a workspace key. Atomic (temp file then rename) via putProjectJson.
+ * Write a project state key. Atomic (temp file then rename) via putProjectJson.
  */
 export async function write(projectId: string, key: string, data: unknown): Promise<void> {
-    assertWorkspaceKey(key);
+    assertStateKey(key);
     await putProjectJson(projectId, key, data);
 }
 
 /**
- * Patch a workspace key: read current (or default), apply patcher, write result.
+ * Patch a project state key: read current (or default), apply patcher, write result.
  */
 export async function patch<T>(
     projectId: string,
@@ -54,7 +54,7 @@ export async function patch<T>(
     patcher: (current: T) => T,
     defaultVal: T
 ): Promise<T> {
-    assertWorkspaceKey(key);
+    assertStateKey(key);
     const current = (await getProjectJson<T>(projectId, key)) ?? defaultVal;
     const next = patcher(current);
     await putProjectJson(projectId, key, next);
@@ -65,8 +65,8 @@ export async function patch<T>(
  * Ensure .moteur/ exists and has empty default files for known keys.
  * Idempotent; safe to call on every project access or once at project creation.
  */
-export async function ensureWorkspace(projectId: string): Promise<void> {
-    const dir = workspaceDir(projectId);
+export async function ensureProjectState(projectId: string): Promise<void> {
+    const dir = stateDir(projectId);
     await fs.mkdir(dir, { recursive: true });
     const defaults: [string, unknown][] = [
         ['activity.json', []],
@@ -160,11 +160,11 @@ export async function listScheduleIds(projectId: string): Promise<string[]> {
     return names.map(n => (n.endsWith('.json') ? n.slice(0, -5) : n)).filter(Boolean);
 }
 
-export const WorkspaceStore = {
+export const StateStore = {
     read,
     write,
     patch,
-    ensureWorkspace,
+    ensureProjectState,
     getActivity,
     setActivity,
     getComments,

@@ -2,35 +2,36 @@ import type { Localizable } from './PublicSchema.js';
 import { ValidationIssue } from './ValidationResult.js';
 import type { StructureSchema } from './Structure.js';
 
-/** Optional context passed through field validators (e.g. project-scoped block schemas). */
+/** Optional context passed to field validators, such as project-scoped block schemas. */
 export interface FieldValidationContext {
     projectId?: string;
-    /** From project.allowHtmlIframe; only true allows iframe in core/html validation. */
+    /** Value of `project.allowHtmlIframe`. core/html validation accepts iframe tags only when this is true. */
     allowHtmlIframe?: boolean;
-    /** From project.allowHtmlEmbed; only true allows embed/object/param in core/html validation. */
+    /** Value of `project.allowHtmlEmbed`. core/html validation accepts embed, object and param tags only when this is true. */
     allowHtmlEmbed?: boolean;
     /**
-     * The project's structures, read before validating (validators are sync). Without it,
-     * core/structure fields only find the engine's own structures.
+     * The project's structures, loaded before validation because validators are synchronous.
+     * Without it, core/structure fields can resolve only the built-in structures.
      */
     structures?: Record<string, StructureSchema>;
     /**
-     * A draft: a required value left empty, at any depth (blocks, structures, objects, variants),
-     * is a warning, not an error. Review and publishing check them (assertEntryComplete).
+     * When true (validating a draft), an empty required value at any depth (blocks, structures,
+     * objects, variants) is reported as a warning instead of an error. Review and publishing
+     * enforce required values with `assertEntryComplete`.
      */
     requiredAsWarning?: boolean;
 }
 
 export interface Field {
     id?: string; // Unique identifier for the field
-    type: string; // Field type (e.g., "text", "number")
-    /** Its name: one, or one per language (`{ en, fr }`). */
+    type: string; // Field type (for example "core/text" or "core/number")
+    /** Display name: a single string, or a map from locale code to string such as `{ en, fr }`. */
     label: Localizable;
-    /** Help shown under it in the Studio: one, or one per language. */
+    /** Help text that editing UIs show with the field: a single string, or a map from locale code to string. */
     description?: Localizable;
-    data?: Record<string, Field>; // Values defined by schema's fields.
-    meta?: FieldMeta; // Metadata for styling and attributes
-    options?: Record<string, any>; // Additional options for the field
+    data?: Record<string, Field>; // Values for the fields defined by the schema
+    meta?: FieldMeta; // Styling and HTML attribute metadata
+    options?: Record<string, any>; // Additional field options
     [key: string]: any; // Additional custom options
 }
 
@@ -42,34 +43,34 @@ export type FieldValidator = (
 ) => ValidationIssue[];
 
 export interface FieldSchema {
-    id?: string; // Unique identifier for the field schema (field type, e.g., "core/text")
+    id?: string; // Unique identifier for the field schema, which is the field type (for example "core/text")
     type: string; // Schema type
     label: string; // Display label
     description?: string; // Optional description
-    fields?: Record<string, FieldSchema>; // Field definitions for instance data
+    fields?: Record<string, FieldSchema>; // Definitions of the fields in an instance's data
     options?: FieldOptions; // Additional options
     default?: any; // Default value for the field
     required?: boolean; // Whether the field is mandatory
     pattern?: string; // Regex pattern for validation
-    storeDirect?: boolean; // Store as primitive value (e.g., string, number)
-    validate?: FieldValidator; // Optional validator registered with this field type
-    resolveValue?: boolean; // If false, skip storeDirect unwrapping (field handles its own)
+    storeDirect?: boolean; // Store the value directly as a primitive (for example a string or number)
+    validate?: FieldValidator; // Validator registered with this field type
+    resolveValue?: boolean; // When false, the storeDirect unwrapping is skipped because the field handles its own value
     [key: string]: any; // Additional custom options
 }
 
 export interface FieldMeta {
-    id?: string; // Manual block ID (e.g., for anchors)
-    customClass?: string; // Custom CSS classes
+    id?: string; // Manually set element ID, for example as an anchor target
+    customClass?: string; // Additional CSS classes
     customStyle?: string | Record<string, string>; // Inline styles
     attributes?: Record<string, string>; // Extra HTML attributes
-    hidden?: boolean; // Skip rendering if true
+    hidden?: boolean; // When true, the field is not rendered
     [key: string]: any; // Additional custom options
 }
 
 export interface FieldOptions {
     required?: boolean; // Whether the field is mandatory
-    multilingual?: boolean; // Whether the field supports multiple languages
-    ui?: string; // Free-text hint for Studio input type (e.g. "textarea", "radio", "slider")
+    multilingual?: boolean; // Whether the field holds a separate value per locale
+    ui?: string; // Free-text hint to editing UIs about which input to use (for example "textarea", "radio" or "slider")
     [key: string]: any; // Additional custom options
 }
 

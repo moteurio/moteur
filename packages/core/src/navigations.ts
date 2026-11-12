@@ -28,7 +28,7 @@ import {
 import { getAsset, resolveAssetUrl } from './assets/assetService.js';
 import { dispatch as webhookDispatch } from './webhooks/webhookService.js';
 
-/** Menus are part of the live site: say so to webhooks (a deploy hook rebuilds). Never throws. */
+/** Emits a webhook event for a menu change, since menus are part of the live site (a deploy hook can rebuild it). Never throws. */
 async function menuChanged(projectId: string, nav: Navigation, user: User): Promise<void> {
     try {
         await webhookDispatch(
@@ -101,7 +101,7 @@ function assertLabels(items: NavItem[]): void {
     }
 }
 
-/** The label in `locale`, or the project default, or a plain string stored as-is. */
+/** The label in `locale`, falling back to the project default; a plain string label is returned as stored. */
 export function navLabelForLocale(
     label: NavItem['label'],
     locale: string,
@@ -211,7 +211,7 @@ async function createNavigationUnlocked(
     const project = await getProject(user, projectId);
     assertUserCanAccessProject(user, project);
     assertCanEditMenus(user);
-    // A menu is live once saved.
+    // Menus have no draft state; a saved menu is live.
     assertNotReviewOnly(user, 'change live menus');
 
     const handle = data.handle.trim().toLowerCase();
@@ -281,7 +281,7 @@ async function updateNavigationUnlocked(
     const project = await getProject(user, projectId);
     assertUserCanAccessProject(user, project);
     assertCanEditMenus(user);
-    // Menus are live as saved.
+    // Menus have no draft state; a saved menu is live.
     assertNotReviewOnly(user, 'change live menus');
     const list = await loadNavigations(projectId);
     const idx = list.findIndex(n => n.id === id);
@@ -350,7 +350,7 @@ async function deleteNavigationUnlocked(projectId: string, user: User, id: strin
     const project = await getProject(user, projectId);
     assertUserCanAccessProject(user, project);
     assertCanEditMenus(user);
-    // Menus are live as saved.
+    // Menus have no draft state; a saved menu is live.
     assertNotReviewOnly(user, 'change live menus');
     const list = await loadNavigations(projectId);
     const filtered = list.filter(n => n.id !== id);
@@ -379,9 +379,9 @@ async function resolveItemUrl(
         case 'page': {
             if (!item.pageId) return undefined;
             const node = nodeMap.get(item.pageId);
-            // A draft page has no address on the site yet.
+            // A draft page has no public URL yet.
             if (!node || !isShown(node)) return undefined;
-            // The page's address in the menu's language (`/fr/tarifs`), as blocks' links have it.
+            // Use the page's URL in the menu's language (`/fr/tarifs`), the same form block links use.
             const prefix = resolveNodePrefix(item.pageId, nodeMap, languageFor(node, lang));
             return prefix || '/';
         }
@@ -430,7 +430,7 @@ export async function resolveNavigation(
     navigation: Navigation,
     language?: { locale: string; fallback: string }
 ): Promise<ResolvedNavigation> {
-    // Menus are delivered to sites: pages as published.
+    // Menus are served to sites, so link to pages as published.
     const pages = await publicPages(projectId, await listPages(projectId));
     const nodeMap = buildNodeMap(pages);
     const lang = language ? await urlLanguage(projectId, language.locale) : undefined;

@@ -7,7 +7,7 @@ import type {
     ProjectMemberUser
 } from '@moteurio/types';
 
-/** `GET /projects/:id/git/status`: the branch, last commit, Git address, and commits it lacks. */
+/** The response of `GET /projects/:id/git/status`: the current branch, the last commit, the remote URL and the number of unpushed commits. */
 export type GitStatus = {
     branch: string | null;
     remoteUrl: string | null;
@@ -18,41 +18,46 @@ export type GitStatus = {
         authorEmail: string;
         date: string;
     } | null;
-    /** 0 when the address has every commit; null without an address. */
+    /** Number of local commits not yet pushed to the remote. It is 0 when the remote has every commit, and null when no remote URL is set. */
     unpushed: number | null;
-    /** Whether pushes carry a token (never the token itself). */
+    /** Whether pushes use an access token. The token itself is never returned. */
     token?: GitTokenInfo;
 };
 
 export type GitTokenInfo = { hasToken: boolean; username?: string; setAt?: string };
 export function projectsApi(client: MoteurClient) {
     return {
-        list(): Promise<{ projects: ProjectSchema[] }> {
-            return client.get('/projects');
+        /** Lists the projects the user belongs to. With `workspaceId`, only that workspace's projects are returned. */
+        list(workspaceId?: string): Promise<{ projects: ProjectSchema[] }> {
+            return client.get('/projects', workspaceId ? { workspace: workspaceId } : undefined);
         },
         get(projectId: string): Promise<{ project: ProjectSchema }> {
             return client.get(`/projects/${encodeURIComponent(projectId)}`);
         },
-        create(body: Record<string, unknown>): Promise<{ project: ProjectSchema }> {
+        /** Creates a project and returns it. `fromBlueprint` reports the outcome when the body names a blueprint. */
+        create(
+            body: Record<string, unknown>
+        ): Promise<ProjectSchema & { fromBlueprint?: Record<string, unknown> }> {
             return client.post('/projects', body);
         },
-        update(
-            projectId: string,
-            body: Record<string, unknown>
-        ): Promise<{ project: ProjectSchema }> {
+        update(projectId: string, body: Record<string, unknown>): Promise<ProjectSchema> {
             return client.patch(`/projects/${encodeURIComponent(projectId)}`, body);
         },
         delete(projectId: string): Promise<void> {
             return client.delete(`/projects/${encodeURIComponent(projectId)}`);
         },
-        /** A demo copy becomes the person's own project, counted on their plan (Admin only). */
+        /** Moves a project to another workspace. Requires an owner or admin of the project's current workspace. */
+        move(projectId: string, workspaceId: string): Promise<{ project: ProjectSchema }> {
+            return client.post(`/projects/${encodeURIComponent(projectId)}/move`, { workspaceId });
+        },
+        /** Converts a demo copy into a regular project of the user, which then counts toward their plan. Requires the Admin role. */
         keep(projectId: string): Promise<{ project: ProjectSchema }> {
             return client.post(`/projects/${encodeURIComponent(projectId)}/keep`, {});
         },
         users(projectId: string): Promise<{ users: ProjectMemberUser[] }> {
             return client.get(`/projects/${encodeURIComponent(projectId)}/users`);
         },
-        /** Platform operator (`admin`) only. Target user must belong to the project. */
+        /** Updates a user's account details. Requires a platform operator (`admin`). The target user must belong to the project. */
         patchProjectUser(
             projectId: string,
             userId: string,
@@ -83,7 +88,7 @@ export function projectsApi(client: MoteurClient) {
                 );
             }
         },
-        /** Where the content's Git history stands, and pushing it now (admins). */
+        /** Reports the state of the content's Git history and pushes it on demand. Requires an admin. */
         git: {
             status(projectId: string): Promise<GitStatus> {
                 return client.get(`/projects/${encodeURIComponent(projectId)}/git/status`);
@@ -91,7 +96,7 @@ export function projectsApi(client: MoteurClient) {
             push(projectId: string): Promise<GitStatus & { pushed: boolean }> {
                 return client.post(`/projects/${encodeURIComponent(projectId)}/git/push`);
             },
-            /** Admins: the token pushes use. It's kept encrypted and never sent back. */
+            /** Sets the access token used for pushes. Requires an admin. The token is stored encrypted and never returned. */
             setToken(
                 projectId: string,
                 body: { token: string; username?: string }
@@ -131,7 +136,7 @@ export function projectsApi(client: MoteurClient) {
             get(
                 projectId: string,
                 options?: {
-                    /** When true, runs a full scan (query: `scan=true`). */
+                    /** When true, runs a full scan instead of returning the stored report (sent as the query parameter `scan=true`). */
                     fullScan?: boolean;
                     severity?: string;
                     model?: string;

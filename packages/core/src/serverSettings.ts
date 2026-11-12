@@ -3,7 +3,7 @@ import { privateStatePath, readPrivateState, writePrivateState } from './utils/p
 /**
  * Settings an operator changes for the whole server while it runs, kept beside the users file
  * (`server-settings.json`). Each one can also come from the environment; a saved setting wins.
- * For now: where the Terms and the Privacy policy are (`MOTEUR_TERMS_URL`, `MOTEUR_PRIVACY_URL`),
+ * Currently these are the URLs of the Terms and the Privacy policy (`MOTEUR_TERMS_URL`, `MOTEUR_PRIVACY_URL`),
  * which the sign-up page links to.
  */
 export type ServerSettings = { termsUrl?: string; privacyUrl?: string };

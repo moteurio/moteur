@@ -3,7 +3,7 @@ import { t } from '../../runtime/fields.js';
 import { who } from '../team.js';
 import { b } from './blocks.js';
 
-/** New articles for issues 01–05, alongside the original thirteen. */
+/** Additional articles for issues 01 to 05, alongside the thirteen in the archive. */
 
 type A = {
     id: string;

@@ -5,7 +5,7 @@ import { argsOf } from './run.js';
 const title = (s: string) => chalk.bold(s);
 const dim = (s: string) => chalk.dim(s);
 
-/** `moteur help`: every group, one line each. */
+/** Renders `moteur help`: every command group with a one-line description. */
 export function overviewHelp(commands: Commands): string {
     const lines = [
         title('moteur') + ' — Moteur from scripts, CI and agents',
@@ -32,7 +32,7 @@ export function overviewHelp(commands: Commands): string {
     return lines.join('\n');
 }
 
-/** `moteur entries --help`: the group's commands with their summaries. */
+/** Renders `moteur entries --help`: the commands of one group with their summaries. */
 export function groupHelp(commands: Commands, group: string): string {
     const list = commands.inGroup(group);
     const width = Math.max(...list.map(c => c.name.length)) + 2;
@@ -62,7 +62,7 @@ function argLine(a: ArgSpec): string {
     return `  ${flag.padEnd(32)}${a.description}${marks ? dim(` (${marks})`) : ''}`;
 }
 
-/** `moteur entries publish --help`: what it does, its arguments, the call it makes. */
+/** Renders `moteur entries publish --help`: the command's description, its arguments and the API call it makes. */
 export function commandHelp(command: CommandSpec): string {
     const all = argsOf(command);
     const own = all.filter(

@@ -11,16 +11,16 @@ export type {
 export type MediaTransformContext = {
     projectId?: string;
     mimeType: string;
-    /** Variant being built; omitted for source-buffer transforms. */
+    /** The variant being built. It is omitted for transforms that run on the source buffer. */
     variantKey?: string;
 };
 
 export type MediaTransform = {
     id: string;
     label: string;
-    /** Default: image/* */
+    /** The MIME types this transform applies to. Defaults to `image/*`. */
     mimeTypes?: string[];
-    /** Run on each generated copy instead of the uploaded file. */
+    /** Runs the transform on each generated variant instead of on the uploaded file. */
     perVariant?: boolean;
     apply: (bytes: Uint8Array, ctx: MediaTransformContext) => Promise<Uint8Array> | Uint8Array;
 };

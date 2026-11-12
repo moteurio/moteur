@@ -2,7 +2,7 @@ import sharp from 'sharp';
 
 export type RenderFormat = 'png' | 'jpeg' | 'svg';
 
-/** Render generated SVG to the format uploaded to the media library. */
+/** Renders generated SVG to the format that is uploaded to the media library. */
 export async function render(svgSource: string, format: RenderFormat): Promise<Buffer> {
     if (format === 'svg') return Buffer.from(svgSource);
     const image = sharp(Buffer.from(svgSource), { density: 72 });
@@ -11,7 +11,7 @@ export async function render(svgSource: string, format: RenderFormat): Promise<B
         : image.jpeg({ quality: 84, mozjpeg: true }).toBuffer();
 }
 
-/** Contact sheet of rendered images (used by the art preview). */
+/** Builds a contact sheet of rendered images, used by the art preview. */
 export async function contactSheet(images: Buffer[], columns = 5, tile = 300): Promise<Buffer> {
     const rows = Math.ceil(images.length / columns);
     const tiles = await Promise.all(

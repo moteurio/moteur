@@ -1,9 +1,10 @@
 /**
- * Moteur Journal — AI image generation prompts (Flux / DALL·E / fal).
- * Each entry in ART_IMAGE_PROMPTS_COMPLETE is a single copy-paste prompt including
- * style bible, palette, subject, aspect ratio, and negative prompt.
+ * AI image generation prompts for the Moteur Journal, for Flux, DALL·E and fal. Each entry in
+ * ART_IMAGE_PROMPTS_COMPLETE is a complete prompt that can be copied as is. It includes the style
+ * bible, palette, subject, aspect ratio and negative prompt.
  *
- * Typography (mastheads, issue numbers, poster dates) stays SVG overlay — illustration only.
+ * Typography such as mastheads, issue numbers and poster dates is added later as an SVG overlay,
+ * so the prompts describe the illustration only.
  */
 
 import type { PaletteName } from '../art/svg.js';
@@ -61,7 +62,7 @@ export interface ArtImagePromptSpec {
     aspectRatio: AspectRatio;
     folder: string;
     palette: PaletteName;
-    /** Illustration subject (style bible and negative are appended by assemblePrompt). */
+    /** The illustration subject. assemblePrompt appends the style bible and the negative prompt. */
     subject: string;
     overlayNote?: string;
 }
@@ -166,7 +167,7 @@ communications engineering, landscape 16:10, no text.`
     }
 };
 
-/** Visual direction per robot id — derived from catalogue copy. */
+/** The visual direction for each robot id, derived from the catalogue copy. */
 const ROBOT_SUBJECT: Record<string, string> = {
     'la-chose': `Product portrait: LA CHOSE prototype (1968), bulky first robot 92 kg energy, boxy head twin eyes, coffee-tray arms, garage-built honesty, archive brown palette, square 1:1, bottom dark band empty for name overlay.`,
     'maison-1': `Product portrait: MAISON-1 (1970), first kitchen domestic unit, shorter rounded body, simple twin eyes, no memory era, homemaker appliance personality, square 1:1, bottom band empty.`,
@@ -360,12 +361,12 @@ teal and coral, editorial chart aesthetic, no readable numbers, landscape 16:10.
 
 export const ART_IMAGE_PROMPT_SPECS: ArtImagePromptSpec[] = buildSpecs();
 
-/** Copy-paste ready prompts keyed by art key (matches `{ art: 'key' }` in demo content). */
+/** Complete prompts keyed by art key. The keys match `{ art: 'key' }` in the demo content. */
 export const ART_IMAGE_PROMPTS_COMPLETE: Record<string, string> = Object.fromEntries(
     ART_IMAGE_PROMPT_SPECS.map(s => [s.key, assemblePrompt(s)])
 );
 
-/** Serialises every complete prompt to YAML (see packages/demo/art-image-prompts.yaml). */
+/** Serializes every complete prompt to YAML (see packages/demo/art-image-prompts.yaml). */
 export function renderArtPromptsYaml(): string {
     const lines: string[] = [
         '# Moteur Journal — complete AI image prompts (one prompt per art key)',

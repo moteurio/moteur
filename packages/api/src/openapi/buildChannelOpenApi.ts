@@ -10,7 +10,7 @@ export type BuildChannelOpenApiInput = {
     channel: Channel;
     /** Model schemas keyed by model id (only models referenced by the channel need to be present). */
     modelsById: Map<string, ModelSchema | null>;
-    /** Every menu handle in the project, used when the channel gives every menu. */
+    /** Every menu handle in the project, used when the channel exposes every menu. */
     menuHandles?: string[];
     serverUrl: string;
 };
@@ -89,7 +89,7 @@ const LAYOUTS_TAG = 'layouts';
 const FORMS_TAG = 'forms';
 const MENUS_TAG = 'menus';
 
-/** Handles the channel gives, or undefined when it gives no menu. */
+/** Returns the menu handles the channel exposes, or undefined when it exposes no menu. */
 function exposedMenuHandles(channel: Channel, all: string[] = []): string[] | undefined {
     const rows = channel.resources.filter(r => r.resourceType === 'menu');
     if (rows.length === 0) return undefined;
@@ -229,8 +229,8 @@ function hasFormResource(channel: Channel): ChannelResource | undefined {
 }
 
 /**
- * Build an OpenAPI 3 document describing only the read routes exposed by one channel.
- * Intended for frontend developers (API key auth, published content).
+ * Builds an OpenAPI 3 document describing only the read routes exposed by one channel.
+ * Intended for frontend developers, who read published content with an API key.
  */
 export function buildChannelOpenApi(input: BuildChannelOpenApiInput): OpenAPIV3.Document {
     const { projectId, channel, modelsById, menuHandles, serverUrl } = input;
@@ -293,7 +293,7 @@ export function buildChannelOpenApi(input: BuildChannelOpenApiInput): OpenAPIV3.
         documentedModels.set(resource.resourceId, labelText(model.label, resource.resourceId));
     };
 
-    // Explicit model rows win over "every model" for their own model (fields, resolve depth).
+    // An explicit resource for a model takes precedence over the "every model" resource for that model (fields, resolve depth).
     for (const resource of channel.resources) {
         if (resource.resourceType !== 'model' || resource.resourceId === 'models') continue;
         const model = modelsById.get(resource.resourceId);

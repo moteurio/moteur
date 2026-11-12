@@ -1,0 +1,14 @@
+Subject: The day on Moteur: 3 accounts, 1 project, 1 workspace
+
+The last 24 hours
+
+• New account: Louise Tremblay (louise@agence.example) with an email code (came from /for/agencies)
+• New workspace: Agence Nord, by Louise Tremblay
+• New project: Journal de Montréal, by Louise Tremblay, in Agence Nord
+• New account: Marc Gagnon (marc@client.example), invited by Louise Tremblay to Journal de Montréal
+• New account: sam@studio.example with GitHub
+
+Open the Operator screen:
+https://studio.example.com/operator
+
+You get these emails because you are an operator of this Moteur server. On the Operator screen, choose to get them one by one, as a daily summary, or not at all.

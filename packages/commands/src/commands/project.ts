@@ -1,4 +1,4 @@
-/** Projects, and who and what can reach them: people, invites, keys, channels, webhooks, branches. */
+/** Commands for projects and for what can access them: members, invites, API keys, channels, webhooks and branches. */
 import fs from 'fs';
 import path from 'path';
 import { group, id, project, type ArgSpec } from '../spec.js';
@@ -50,7 +50,7 @@ export const projects = group('projects', [
             const [p, m, me] = await Promise.all([
                 c.get<{ project?: unknown }>(`/projects/${enc}`),
                 c.get<{ models?: unknown } | unknown[]>(`/projects/${enc}/models`),
-                c.get<{ user: { id: string; name?: string; roles?: string[] } }>('/auth/me')
+                c.get<{ user: Parameters<typeof describeProject>[2] }>('/auth/me')
             ]);
             const project = ((p as { project?: unknown }).project ?? p) as Parameters<
                 typeof describeProject
@@ -143,6 +143,24 @@ export const projects = group('projects', [
         done: (_r, a) => `Default project: ${a.id}.`
     },
     {
+        name: 'move',
+        summary: 'Move a project to another workspace (a handover)',
+        description:
+            'Owners and admins of its workspace, to a workspace where they may start projects. People added to it one by one stay; the old team leaves, the new one comes in.',
+        args: [
+            projectFirst,
+            {
+                name: 'workspace',
+                description: 'The workspace it goes to (ws_…)',
+                required: true,
+                in: 'body',
+                key: 'workspaceId'
+            }
+        ],
+        http: `POST ${P}/move`,
+        done: (_r, a) => `Moved to ${a.workspace}.`
+    },
+    {
         name: 'usage',
         summary: 'This month’s use: entries, storage, requests, AI',
         args: [projectFirst],
@@ -159,6 +177,160 @@ export const projects = group('projects', [
 ]);
 
 const userArg: ArgSpec = { ...id('Person', 'user'), aliases: ['id', 'userId'] };
+
+const W = '/workspaces/{workspace}';
+const wsArg: ArgSpec = {
+    name: 'workspace',
+    description: 'Workspace id (ws_…)',
+    required: true,
+    positional: 0,
+    aliases: ['workspaceId']
+};
+const wsUser: ArgSpec = {
+    name: 'user',
+    description: 'Person id',
+    required: true,
+    aliases: ['userId']
+};
+const wsInvite: ArgSpec = {
+    name: 'invite',
+    description: 'Invite id',
+    required: true,
+    aliases: ['inviteId']
+};
+const placeArgs: ArgSpec[] = [
+    {
+        name: 'role',
+        description: 'owner, admin, billing or member',
+        choices: ['owner', 'admin', 'billing', 'member'],
+        required: true,
+        in: 'body'
+    },
+    {
+        name: 'access',
+        description: 'Members: every project (all) or those they are added to (chosen, default)',
+        choices: ['all', 'chosen'],
+        in: 'body'
+    },
+    {
+        name: 'project-roles',
+        type: 'list',
+        description: 'Members with all: their roles in every project (default writer)',
+        in: 'body',
+        key: 'projectRoles'
+    }
+];
+
+export const workspaces = group('workspaces', [
+    {
+        name: 'list',
+        summary: 'Your workspaces, and your role in each',
+        http: 'GET /workspaces',
+        pick: 'workspaces',
+        table: [
+            { key: 'id', header: 'id' },
+            { key: 'name', header: 'name' },
+            { key: 'role', header: 'role' },
+            { key: 'members', header: 'people' },
+            { key: 'projects', header: 'projects' }
+        ],
+        readOnly: true
+    },
+    {
+        name: 'get',
+        summary: 'A workspace and its people',
+        args: [wsArg],
+        http: `GET ${W}`,
+        readOnly: true
+    },
+    {
+        name: 'create',
+        summary: 'Start a workspace (you are its owner)',
+        args: [
+            { name: 'name', description: 'Its name', required: true, positional: 0, in: 'body' }
+        ],
+        http: 'POST /workspaces',
+        done: r =>
+            `Started ${(r as { workspace?: { id?: string } }).workspace?.id}. New projects go in it with: moteur projects create --data '{"workspaceId":"…"}'`
+    },
+    {
+        name: 'rename',
+        summary: 'Rename a workspace',
+        args: [wsArg, { name: 'name', description: 'Its new name', required: true, in: 'body' }],
+        http: `PATCH ${W}`,
+        done: () => 'Renamed.'
+    },
+    {
+        name: 'delete',
+        summary: 'Delete an empty workspace (owners)',
+        args: [wsArg],
+        http: `DELETE ${W}`,
+        destructive: true,
+        done: () => 'Deleted.'
+    },
+    {
+        name: 'set-member',
+        summary: 'Change someone’s place in a workspace',
+        args: [wsArg, wsUser, ...placeArgs],
+        http: `PATCH ${W}/members/{user}`,
+        done: (_r, a) => `Saved ${a.user}.`
+    },
+    {
+        name: 'remove-member',
+        summary: 'Take someone out of a workspace and all its projects (or leave it: your own id)',
+        args: [wsArg, wsUser],
+        http: `DELETE ${W}/members/{user}`,
+        destructive: true,
+        done: () => 'Removed.'
+    },
+    {
+        name: 'invites',
+        summary: 'Workspace invites not answered yet',
+        args: [wsArg],
+        http: `GET ${W}/invites`,
+        pick: 'invites',
+        table: [
+            { key: 'id', header: 'id' },
+            { key: 'email', header: 'email' },
+            { key: 'role', header: 'role' },
+            { key: 'expiresAt', header: 'expires' }
+        ],
+        readOnly: true
+    },
+    {
+        name: 'invite',
+        summary: 'Invite someone into a workspace',
+        args: [
+            wsArg,
+            { name: 'email', description: 'Their email', required: true, in: 'body' },
+            ...placeArgs,
+            {
+                name: 'studio-url',
+                description: 'The Studio the link opens (default: MOTEUR_STUDIO_URL)',
+                in: 'body',
+                key: 'appUrl',
+                default: process.env.MOTEUR_STUDIO_URL || undefined
+            }
+        ],
+        http: `POST ${W}/invites`,
+        done: (_r, a) => `Invited ${a.email}.`
+    },
+    {
+        name: 'resend-invite',
+        summary: 'Send a workspace invite again',
+        args: [wsArg, wsInvite],
+        http: `POST ${W}/invites/{invite}/resend`,
+        done: () => 'Sent again.'
+    },
+    {
+        name: 'withdraw-invite',
+        summary: 'Withdraw a workspace invite',
+        args: [wsArg, wsInvite],
+        http: `DELETE ${W}/invites/{invite}`,
+        destructive: true,
+        done: () => 'Withdrawn.'
+    }
+]);
 
 export const members = group('members', [
     {
@@ -274,7 +446,7 @@ export const invites = group('invites', [
     },
     {
         name: 'accept',
-        summary: 'Join a project with an invite (signed in)',
+        summary: 'Join a project or a workspace with an invite (signed in)',
         args: [tokenArg],
         http: 'POST /invites/{token}/accept',
         done: () => 'Joined.'
@@ -603,7 +775,7 @@ export const branches = group('branches', [
     }
 ]);
 
-/** Each declaration of a generated types file, by name. */
+/** Splits a generated types file into its exported declarations, keyed by name. */
 function declarations(text: string): Map<string, string> {
     const out = new Map<string, string>();
     const parts = text.split(/^(?=export )/m);
@@ -614,7 +786,7 @@ function declarations(text: string): Map<string, string> {
     return out;
 }
 
-/** What changed between the types on file and the project's: `+ Added`, `- Removed`, `~ Changed`. */
+/** Compares the types on file with the project's current types. Each line is prefixed with `+` for added, `-` for removed or `~` for changed. */
 export function typesDiff(onFile: string, current: string): string[] {
     const before = declarations(onFile);
     const after = declarations(current);
@@ -627,7 +799,7 @@ export function typesDiff(onFile: string, current: string): string[] {
     return lines;
 }
 
-/** The content as TypeScript types: `moteur types --out src/moteur.ts`. */
+/** Generates TypeScript types for the project's content, as in `moteur types --out src/moteur.ts`. */
 export const types = group('types', [
     {
         name: '',
@@ -657,7 +829,7 @@ export const types = group('types', [
         ],
         run: async ctx => {
             const client = await ctx.client();
-            // With a project key: its channel's types, unless another is named.
+            // With a project key, use the key's channel unless --channel names another.
             let channel = ctx.args.channel ? String(ctx.args.channel) : undefined;
             if (!channel && (await onProjectKey())) {
                 const key = await client.get<{ channel?: string; channels: string[] }>('/keys/me');
@@ -679,11 +851,11 @@ export const types = group('types', [
             if (ctx.args.check && !out) throw new Error('--check needs --out: the file to check.');
             if (!out) return text;
             if (!ctx.local) throw new Error('Files can’t be written here: leave out out.');
-            // The header says how to make the file again: with this file.
+            // Put the actual --out path in the file's header, so the header shows the command that regenerates it.
             const again = `--out ${/\s/.test(out) ? JSON.stringify(out) : out}`;
             const written = text.replace('--out <file>', again);
             if (ctx.args.check) {
-                // Line endings are the checkout's (git may turn LF into CRLF), not a difference.
+                // Ignore line-ending differences, because git may convert LF to CRLF on checkout.
                 const lf = (s: string) => s.replace(/\r\n/g, '\n');
                 const onFile = fs.existsSync(out) ? lf(fs.readFileSync(out, 'utf8')) : '';
                 if (onFile === lf(written)) return `${out} is up to date.`;
@@ -709,7 +881,7 @@ export const types = group('types', [
 
 const importArg: ArgSpec = { ...id('Import'), positional: 0 };
 
-/** What an import did, in a line. */
+/** Summarizes the result of an import in one line. */
 function importLine(r: unknown): string {
     const job = r as {
         id: string;
@@ -737,7 +909,7 @@ function importLine(r: unknown): string {
     }
 }
 
-/** Bundles: many things saved at once, all or nothing (`moteur imports run site.json`). */
+/** Bundle imports, which save many items at once, all or nothing, as in `moteur imports run site.json`. */
 export const imports = group('imports', [
     {
         name: 'run',
@@ -816,7 +988,7 @@ export const imports = group('imports', [
     }
 ]);
 
-/** The project as a bundle (`moteur export --out site.json`), to import elsewhere. */
+/** Exports the project as a bundle that can be imported elsewhere, as in `moteur export --out site.json`. */
 export const exportBundle = group('export', [
     {
         name: '',

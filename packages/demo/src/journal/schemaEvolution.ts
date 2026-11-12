@@ -22,7 +22,7 @@ function pickFields(final: ModelSchema, keys: string[]): ModelSchema['fields'] {
     return fields;
 }
 
-/** Models as they existed when the Journal first opened its CMS (before later field additions). */
+/** Returns the models as they were when the Journal first adopted the CMS, before the later field additions. */
 export function journalModelsAtLaunch(finalModels: ModelSchema[]): ModelSchema[] {
     const article = byId(finalModels, 'article');
     const author = byId(finalModels, 'author');
@@ -142,7 +142,7 @@ function steps(finalModels: ModelSchema[]): Step[] {
     ];
 }
 
-/** Play schema changes on the simulated clock so model.json has real git history. */
+/** Applies the schema changes on the simulated clock, so that model.json has a realistic git history. */
 export async function evolveJournalSchemas(
     projectId: string,
     finalModels: ModelSchema[],

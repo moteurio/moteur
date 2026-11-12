@@ -28,7 +28,7 @@ const router: Router = Router();
 const text = (value: unknown, max = 40): string =>
     typeof value === 'string' && value.length <= max ? value : '';
 
-/** Only the person, in a personal session: never an agent, never a token made for one. */
+/** Allows only a user in a personal session. Agents and tokens issued to agents are refused. */
 function personOnly(req: Request, res: Response): boolean {
     if (!req.user?.agent) return true;
     res.status(403).json({ error: 'A personal session is required' });
@@ -40,13 +40,13 @@ router.use('/two-factor', (_req, res, next) => {
     next();
 });
 
-/** The second step of signing in: the ticket from the first, and a code. */
+/** Completes sign-in with the ticket from the first step and a two-factor code. */
 router.post('/two-factor/verify', loginRateLimiter, async (req: Request, res: Response) => {
     let key = '';
     try {
         const ticket = text(req.body?.ticket, 2000);
         key = `two-factor:${ticketUser(ticket)}`;
-        // Wrong codes slow the next try down, as wrong passwords do.
+        // Wrong codes delay the next attempt, as wrong passwords do.
         await sleep(delayMsForAttempt(getLoginFailureEntry(key)?.attempts ?? 0));
         const result = await completeTwoFactor(ticket, text(req.body?.code));
         clearLoginFailures(key);

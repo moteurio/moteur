@@ -1,7 +1,8 @@
 /**
- * Many changes saved as one: inside a batch, what would be committed, sent to webhooks, scanned
- * by Radar or written to the activity log one change at a time is held instead, and the batch's
- * owner (an import) commits it all at once, or undoes it.
+ * Groups many content changes into one batch, such as an import. While a batch is open, each
+ * change's git commit, webhooks, Radar scan and activity log entry are held back instead of
+ * happening one change at a time. The code that opened the batch then commits everything at once,
+ * or undoes it.
  */
 import { AsyncLocalStorage } from 'node:async_hooks';
 
@@ -11,19 +12,19 @@ export type ContentBatch = {
     paths: Set<string>;
     /** Webhooks held back, by event. */
     held: Map<string, number>;
-    /** Once over, work it started late (image variants…) saves as usual. */
+    /** False once the batch has ended. Work it started that finishes later (such as image variants) is saved normally. */
     open: boolean;
 };
 
 const current = new AsyncLocalStorage<ContentBatch>();
 
-/** The batch the running work belongs to, when it is one for this project. */
+/** The open batch the running work belongs to, if it is for this project. */
 export function batchFor(projectId: string): ContentBatch | undefined {
     const batch = current.getStore();
     return batch?.open && batch.projectId === projectId ? batch : undefined;
 }
 
-/** Runs `work` in a new batch for the project; the batch closes when it ends. */
+/** Runs `work` inside a new batch for the project. The batch closes when `work` finishes. */
 export function runInBatch<T>(
     projectId: string,
     work: (batch: ContentBatch) => Promise<T>

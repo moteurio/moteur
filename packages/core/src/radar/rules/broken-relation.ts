@@ -8,7 +8,7 @@ export const brokenRelation: RuleEvaluator = ctx => {
     const violations: RadarViolation[] = [];
     const now = new Date().toISOString();
     for (const { path, id: refId } of entryRelations(ctx)) {
-        if (refId === entry.slug) continue; // self-reference handled by relation-self-reference rule
+        if (refId === entry.slug) continue; // The relation-self-reference rule reports self-references.
         if (graph.entries.has(refId)) continue;
         violations.push({
             id: makeViolationId('broken-relation', entry.slug, `${path}:${refId}`),

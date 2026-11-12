@@ -1,4 +1,3 @@
-// utils/eventBus.ts
 import type { ActivityEvent } from '@moteurio/types/Activity.js';
 import type { BlueprintSchema } from '@moteurio/types/Blueprint.js';
 import type { Comment } from '@moteurio/types/Comment.js';
@@ -12,29 +11,36 @@ import { StructureSchema } from '@moteurio/types/Structure.js';
 import type { TemplateSchema } from '@moteurio/types/Template.js';
 import type { PageNode } from '@moteurio/types/Page.js';
 import { User } from '@moteurio/types/User.js';
+import type { Workspace } from '@moteurio/types/Workspace.js';
 import type { Asset } from '@moteurio/types/Asset.js';
 import type { FormSchema, FormSubmission } from '@moteurio/types/Form.js';
 import { eventReachesSites, touchProject } from '../deliveryCache.js';
 import type { Schedule } from '@moteurio/types/Schedule.js';
 
-// Event context uses explicit resource keys (like { project, user }) for clarity.
+// Event contexts use explicit resource keys such as { project, user }.
 export interface EventMap {
     'auth.sessions.revoked': { userId: string; sessionIds?: string[] };
-    /** Someone changed the email they sign in with (they proved the new one). */
+    /** A user changed the email they sign in with, after verifying the new address. */
     'auth.email.changed': { userId: string };
-    /** Someone deleted their own account: a billing plugin can cancel what it charged for. */
+    /** A user deleted their own account. A billing plugin can use this to cancel their charges. */
     'auth.account.deleted': { userId: string; email: string };
-    /** A passkey was added to the account, removed from it, or signed it in. */
+    /** A passkey was added to an account, removed from it, or used to sign in. */
     'auth.passkey.added': { userId: string; passkeyId: string };
     'auth.passkey.removed': { userId: string; passkeyId: string };
     'auth.passkey.used': { userId: string; passkeyId: string };
+    // Workspaces
+    'workspace.afterCreate': { workspace: Workspace; user: User };
+    'workspace.afterUpdate': { workspace: Workspace; user?: User };
+    'workspace.afterDelete': { workspace: Workspace; user: User };
     // Projects
     'project.beforeCreate': { project: ProjectSchema; user: User };
     'project.afterCreate': { project: ProjectSchema; user: User };
-    /** Someone's copy of the demo made (`demo` on it): a host may give it a plan to try. */
+    /** A user copied the demo project, which is marked with `demo`. A host can use this to give the copy a trial plan. */
     'project.demoCopied': { project: ProjectSchema; user: User };
     'project.beforeUpdate': { project: ProjectSchema; user: User };
     'project.afterUpdate': { project: ProjectSchema; user: User };
+    /** The project moved to another workspace. `project.workspaceId` is the new workspace and `from` is the previous one. */
+    'project.afterMove': { project: ProjectSchema; from: string; user: User };
     'project.beforeDelete': { project: ProjectSchema; user: User };
     'project.afterDelete': { project: ProjectSchema; user: User };
 
@@ -50,7 +56,7 @@ export interface EventMap {
     // Entries (projectId and modelId for activity log)
     'entry.beforeCreate': { entry: Entry; user: User; modelId: string; projectId: string };
     'entry.afterCreate': { entry: Entry; user: User; modelId: string; projectId: string };
-    /** Taken out of the bin, back as a draft. */
+    /** The entry was restored from the bin as a draft. */
     'entry.afterRestore': { entry: Entry; user: User; modelId: string; projectId: string };
     'entry.beforeUpdate': { entry: Entry; user: User; modelId: string; projectId: string };
     'entry.afterUpdate': { entry: Entry; user: User; modelId: string; projectId: string };
@@ -76,7 +82,7 @@ export interface EventMap {
     // Pages (projectId for activity log)
     'page.beforeCreate': { page: PageNode; user: User; projectId: string };
     'page.afterCreate': { page: PageNode; user: User; projectId: string };
-    /** Taken out of the bin, back as a draft. */
+    /** The page was restored from the bin as a draft. */
     'page.afterRestore': { page: PageNode; user: User; projectId: string };
     'page.beforeUpdate': { page: PageNode; user: User; projectId: string };
     'page.afterUpdate': { page: PageNode; user: User; projectId: string };
@@ -112,10 +118,10 @@ export interface EventMap {
         projectId: string;
         asset: Asset;
         user: User;
-        /** Alt text supplied on upload; when set, hosts skip automatic image analysis. */
+        /** Alt text supplied at upload. When set, hosts skip automatic image analysis. */
         uploadAlt?: string;
     };
-    /** A new file in an existing asset (same id); plugins may describe it again. */
+    /** An existing asset received a new file under the same id. Plugins may describe the new file again. */
     'asset.afterReplace': {
         projectId: string;
         asset: Asset;
@@ -190,7 +196,7 @@ export interface EventMap {
     'asset:updated': { asset: Asset };
     'asset:deleted': { id: string };
 
-    // Git-native: emitted after content files are written or removed; listener commits and optionally pushes
+    // Emitted after content files are written or removed. The listener commits the change and optionally pushes it.
     'content.saved': { projectId: string; paths: string[]; message: string; user: User };
     'content.deleted': { projectId: string; paths: string[]; message: string; user: User };
 }
@@ -203,7 +209,7 @@ const listeners: {
     [K in keyof EventMap]?: EventCallback<EventMap[K]>[];
 } = {};
 
-// Register an event listener
+/** Registers a listener for an event. */
 export function onEvent<K extends keyof EventMap>(
     eventName: K,
     callback: EventCallback<EventMap[K]>
@@ -214,17 +220,18 @@ export function onEvent<K extends keyof EventMap>(
     listeners[eventName]!.push(callback);
 }
 
-// Trigger an event with context
-/** The project an event is about, whatever its shape. */
+/** Returns the id of the project an event is about, whatever the shape of its context. */
 function projectOf(context: unknown): string | undefined {
     const c = context as { projectId?: unknown; project?: { id?: unknown } } | null;
     const id = c?.projectId ?? c?.project?.id;
     return typeof id === 'string' && id ? id : undefined;
 }
 
+/** Runs all listeners of an event with its context. */
 export async function triggerEvent<K extends keyof EventMap>(eventName: K, context: EventMap[K]) {
-    // Any event about a project changes what its sites may be sent: before the handlers (a
-    // `.before` event precedes its write) and after them (what they wrote).
+    // An event about a project can change what its sites receive. Mark the project as changed both
+    // before the handlers run (a `.before` event precedes its write) and after them (to cover what
+    // they wrote).
     const projectId = eventReachesSites(String(eventName)) ? projectOf(context) : undefined;
     if (projectId) touchProject(projectId);
     try {

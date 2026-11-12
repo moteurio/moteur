@@ -1,6 +1,6 @@
 /**
- * Strips the `ui` hint from field definitions before returning to public API consumers.
- * The ui hint is for Studio/frontend rendering only and must never appear in public API responses.
+ * Strips the `ui` hint from field definitions before they are returned to public API consumers.
+ * The `ui` hint is meant for admin clients and must never appear in public API responses.
  */
 
 export function stripUiFromFieldSchema<T extends Record<string, unknown>>(schema: T): T {

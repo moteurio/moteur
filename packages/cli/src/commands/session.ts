@@ -1,6 +1,6 @@
 /**
- * Commands only the command line has: signing in and out (prompts, the config file), accounts made
- * straight in a local server's files, and checking the setup.
+ * Commands that exist only in the command line: signing in and out (interactive prompts and the
+ * config file), creating accounts directly in a local server's files, and checking the setup.
  */
 import { URL, URLSearchParams } from 'node:url';
 import { password as passwordPrompt, text, isCancel, log } from '@clack/prompts';
@@ -15,7 +15,6 @@ import {
     saveOperatorSession,
     UsageError
 } from '@moteurio/commands';
-import { createUserCommand, resetPasswordCommand } from './local.js';
 import { doctorChecks } from './doctor.js';
 
 async function ask(message: string, secret = false): Promise<string> {
@@ -27,7 +26,7 @@ async function ask(message: string, secret = false): Promise<string> {
 
 type Ask = typeof ask;
 
-/** The email and token after the `#` of a code email's sign-in link, when that's what was pasted. */
+/** Extracts the email and token from the `#` fragment of a sign-in link pasted from a code email. Returns undefined if the value is not such a link. */
 export function readSignInLink(value: string): { email: string; token: string } | undefined {
     if (!/^https?:\/\//i.test(value)) return undefined;
     try {
@@ -45,25 +44,25 @@ type AuthApi = Pick<
     'login' | 'verifyTwoFactor' | 'signup' | 'emailCode' | 'verifyEmailCode'
 >;
 
-/** A line of progress while signing in ("Sending…"), apart from the questions. */
+/** Prints a progress line while signing in (for example "Sending…"). Progress lines are separate from prompts. */
 type Say = (line: string) => void;
 const say: Say = line => log.message(line);
 
 export interface SignInGiven {
     email?: string;
     password?: string;
-    /** The authenticator's code, with two-step sign-in. */
+    /** The authenticator code, used when the account has two-step sign-in. */
     code?: string;
-    /** Skip the password: get a code by email. */
+    /** Skips the password and signs in with a code sent by email. */
     emailCode?: boolean;
 }
 
-/** A wait in seconds as whole minutes, at least one. */
+/** Converts a wait in seconds to whole minutes, rounding up, with a minimum of one. */
 function minutes(seconds: number): number {
     return Math.max(1, Math.ceil(seconds / 60));
 }
 
-/** The machine code and the wait (seconds) of a refusal from the API, when it has them. */
+/** Reads the machine-readable error code and the retry delay in seconds from an API refusal, when present. */
 function refusal(err: unknown): { code?: string; wait?: number } {
     const e = err as { code?: unknown; data?: { retryAfter?: unknown }; retryAfter?: unknown };
     const wait = Number(e?.data?.retryAfter ?? e?.retryAfter);
@@ -74,8 +73,8 @@ function refusal(err: unknown): { code?: string; wait?: number } {
 }
 
 /**
- * What to tell someone when the server refuses a step of signing in: the web sign-in page's
- * words for the same refusal, with the wait the server gave. Undefined for anything else.
+ * Returns the message to show when the server refuses a sign-in step. The wording matches the web
+ * sign-in page and includes the retry delay the server gave. Returns undefined for any other error.
  */
 export function signInWords(err: unknown): string | undefined {
     const { code, wait } = refusal(err);
@@ -121,25 +120,26 @@ export function signInWords(err: unknown): string | undefined {
     }
 }
 
-/** The refusal in the sign-in page's words, when it has some; else the error as it came. */
+/** Converts a known sign-in refusal to a UsageError with the sign-in page's wording. Any other error is returned unchanged. */
 function plainly(err: unknown): unknown {
     const words = signInWords(err);
     return words ? new UsageError(words) : err;
 }
 
-/** Refusals at the code prompt that leave the person there, to try again or send another. */
+/** Refusal codes after which the code prompt stays open so the user can retry or request another code. */
 const RETRY_CODE = [
     'EMAIL_CODE_WRONG',
     'EMAIL_CODE_EXPIRED',
     'EMAIL_CODE_TRIES',
     'EMAIL_LINK_EXPIRED'
 ];
-/** Refusals of another code that leave the person at the prompt with the one they have. */
+/** Refusal codes for a request to resend the code. The prompt stays open and the code already sent remains valid. */
 const WAIT_FOR_CODE = ['EMAIL_CODE_WAIT', 'EMAIL_CODE_LIMIT', 'EMAIL_CODE_BUSY', 'rate_limited'];
 
 /**
- * The email-code steps, as on the web sign-in page: send the code, then ask for it (or the
- * email's link) until it is right. `r` sends another; an empty answer points at the spam folder.
+ * Signs in with an emailed code, following the same steps as the web sign-in page. It sends the
+ * code, then prompts for the code or the email's link until one is accepted. Answering `r` sends
+ * another code, and an empty answer reminds the user to check the spam folder.
  */
 async function codeSignIn(
     auth: AuthApi,
@@ -182,10 +182,10 @@ async function codeSignIn(
 }
 
 /**
- * Signs in with a password or, left empty, a code sent by email (or the email's link pasted in
- * its place): accounts made with a code have no password. Two-step sign-in follows either way.
- * On a server open to sign-ups, a code for a new address makes the account (`isNew`). The steps
- * and refusals use the web sign-in page's words.
+ * Signs in with a password or, when the password is left empty, with a code sent by email (or the
+ * link from that email). Accounts created with a code have no password. Two-step verification
+ * follows either method. On a server that allows sign-ups, a code for an unknown address creates
+ * the account and sets `isNew`. Prompts and error messages use the wording of the web sign-in page.
  */
 export async function signIn(
     auth: AuthApi,
@@ -196,7 +196,7 @@ export async function signIn(
     const email = given.email ?? (await prompt('Email:'));
     let password = given.emailCode ? '' : given.password;
     if (password === undefined) {
-        // A server without email (or from before codes) answers false, or not at all.
+        // A server that cannot send email, or that does not support codes, answers false or fails.
         const codes = await auth.signup().then(
             s => s.emailCodes,
             () => false
@@ -231,7 +231,7 @@ export async function signIn(
                 result = await auth.verifyTwoFactor(ticket, code);
                 break;
             } catch (err) {
-                // A code given on the command line is not asked again.
+                // Do not prompt again for a code that was passed on the command line.
                 if (given.code || refusal(err).code !== 'TWO_FACTOR_INVALID') throw plainly(err);
                 tell(signInWords(err)!);
             }
@@ -241,8 +241,9 @@ export async function signIn(
 }
 
 /**
- * Operators sign in apart from people: password and authenticator code, an hour long, kept in
- * ~/.moteur/operator.json (only you can read it). Operator commands use it, never `auth login`.
+ * Operator sign-in, separate from the regular user session. It uses a password and an authenticator
+ * code, lasts one hour, and is stored in ~/.moteur/operator.json, which only the current user can
+ * read. Operator commands use this session and never the one from `auth login`.
  */
 export const operatorSession = group('operator', [
     {
@@ -370,7 +371,7 @@ export const session = group('auth', [
                 emailCode: ctx.args['email-code'] === true
             });
             const { token, isNew } = signedIn;
-            // A code's answer carries no user: ask with the new session.
+            // The response to a code sign-in has no user, so fetch it with the new session.
             const user =
                 signedIn.user ??
                 (
@@ -405,36 +406,6 @@ export const session = group('auth', [
             return null;
         },
         done: () => 'Signed out.'
-    },
-    {
-        name: 'create-user',
-        summary: 'Create an account straight in a local server’s files (no API)',
-        description:
-            'Runs where the server’s data is (DATA_ROOT / AUTH_USERS_FILE). To add someone through the API, use moteur invites send. Operators are not users: add them with moteur-operators on the server.',
-        args: [
-            { name: 'email', description: 'Their email', in: 'none' },
-            { name: 'password', description: 'Their password', in: 'none' },
-            { name: 'name', description: 'Their name', in: 'none' },
-            { name: 'project', description: 'Add them to this project', in: 'none' }
-        ],
-        offline: true,
-        run: async ctx => {
-            await createUserCommand(ctx.args);
-            return '';
-        }
-    },
-    {
-        name: 'reset-password',
-        summary: 'Set a password straight in a local server’s files (no API)',
-        args: [
-            { name: 'user', description: 'Email or user id', in: 'none' },
-            { name: 'password', description: 'The new password', in: 'none' }
-        ],
-        offline: true,
-        run: async ctx => {
-            await resetPasswordCommand(ctx.args);
-            return '';
-        }
     }
 ]);
 

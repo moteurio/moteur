@@ -1,5 +1,6 @@
 /**
- * Test, build, pnpm pack (resolves workspace:* to registry versions), then npm stage publish.
+ * Tests and builds a package, packs it with pnpm (which replaces workspace:* with registry
+ * versions), and then stage-publishes it with npm.
  * Usage: node scripts/stage-publish.mjs @moteurio/types
  */
 import { execFileSync } from 'node:child_process';
@@ -27,7 +28,7 @@ function versionFromTgz(tgzPath) {
     return JSON.parse(pkgJson).version;
 }
 
-/** Semver prerelease (`2026.3.28-2`) or mistaken four-part (`2026.3.28.2`). */
+/** True for a semver prerelease such as `2026.3.28-2`, or for a four-part version such as `2026.3.28.2`, which is not valid semver. Either needs a dist tag. */
 function needsDistTag(version) {
     return version.includes('-') || /^\d+\.\d+\.\d+\.\d+/.test(version);
 }

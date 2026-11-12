@@ -34,7 +34,7 @@ const baseSchemas: OpenAPIV3.ComponentsObject['schemas'] = {
     /** Project-scoped list entry for `/projects/{projectId}/users` (no secrets). */
     ProjectMemberUser: {
         type: 'object',
-        required: ['id', 'email', 'roles', 'isActive', 'online'],
+        required: ['id', 'email', 'roles', 'isActive', 'online', 'viaWorkspace'],
         properties: {
             id: { type: 'string' },
             name: { type: 'string', nullable: true },
@@ -52,6 +52,17 @@ const baseSchemas: OpenAPIV3.ComponentsObject['schemas'] = {
                 type: 'boolean',
                 description:
                     'True when the user has active Studio presence in this project within ONLINE_PRESENCE_MAX_IDLE_MS (default 90000 ms)'
+            },
+            workspaceRole: {
+                type: 'string',
+                enum: ['owner', 'admin', 'billing', 'member'],
+                description:
+                    'Their role in the project’s workspace, when they are in its team (a client never is)'
+            },
+            viaWorkspace: {
+                type: 'boolean',
+                description:
+                    'True when only the workspace puts them in the project: they are taken out of it in the workspace, not here'
             }
         }
     },
@@ -142,6 +153,36 @@ const baseSchemas: OpenAPIV3.ComponentsObject['schemas'] = {
             requestId: {
                 type: 'string',
                 description: 'Correlation id (also in x-request-id response header)'
+            },
+            code: {
+                type: 'string',
+                description:
+                    'A stable name for the error that clients can test, such as `API_KEY_EXPIRED`, `ENTRY_INCOMPLETE` or `plan_limit`. Not every error has one.'
+            },
+            missing: {
+                type: 'array',
+                items: { type: 'string' },
+                description: 'With `ENTRY_INCOMPLETE`, the required fields that are still empty.'
+            },
+            issues: {
+                type: 'array',
+                items: { type: 'object', additionalProperties: true },
+                description:
+                    'One item per problem when a request is checked as a whole, such as form answers (`ANSWERS_INVALID`) or an import.'
+            },
+            limit: {
+                type: 'string',
+                description:
+                    'With `plan_limit`, which allowance would be exceeded, such as `projects`, `storage` or `submissions`.'
+            },
+            max: {
+                type: 'number',
+                description: 'With `plan_limit`, the most the plan allows.'
+            },
+            retryAfter: {
+                type: 'integer',
+                description:
+                    'Seconds to wait before trying again. Also sent in the Retry-After header.'
             },
             details: {
                 type: 'string',
@@ -685,7 +726,6 @@ const baseSchemas: OpenAPIV3.ComponentsObject['schemas'] = {
     }
 };
 
-// You can dynamically generate this if needed
 export const baseSpec: OpenAPIV3.Document = {
     openapi: '3.0.0',
     info: {
@@ -699,6 +739,7 @@ export const baseSpec: OpenAPIV3.Document = {
                 summary: 'Health check',
                 description:
                     'Liveness probe for load balancers, container orchestrators, and uptime monitoring. No authentication.',
+                tags: ['Server'],
                 security: [],
                 responses: {
                     '200': {
@@ -712,6 +753,25 @@ export const baseSpec: OpenAPIV3.Document = {
                                         status: { type: 'string', example: 'ok' }
                                     }
                                 }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        '/openapi.json': {
+            get: {
+                summary: 'This API description',
+                description:
+                    'The OpenAPI 3 document of this server, including the routes of the plugins it runs. A browsable copy is at `/docs`. Each channel has its own, narrower document at `/projects/{projectId}/channels/{channelId}/openapi`.',
+                tags: ['Server'],
+                security: [],
+                responses: {
+                    '200': {
+                        description: 'OpenAPI 3 document',
+                        content: {
+                            'application/json': {
+                                schema: { type: 'object', additionalProperties: true }
                             }
                         }
                     }

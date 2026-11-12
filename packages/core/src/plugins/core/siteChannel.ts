@@ -31,7 +31,7 @@ export const SITE_CHANNEL = {
 export function init(ctx: PluginContext): void {
     ctx.onEvent('project.afterCreate', async ({ project, user }) => {
         try {
-            // A project cloned from a Git remote may come with channels of its own.
+            // A project cloned from a Git remote may already have channels, so don't add another.
             if ((await listChannels(project.id)).length > 0) return;
             await createChannel(project.id, user, SITE_CHANNEL);
         } catch (err) {

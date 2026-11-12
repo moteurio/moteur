@@ -1,19 +1,19 @@
 /**
  * Configuration and shared types for @moteurio/client.
- * Entities (Project, Model, Entry, etc.) are left as generic records so the client
- * can be used without depending on @moteurio/types; consumers can cast or extend.
+ * Entities such as Project, Model and Entry are typed as generic records so the client can be used
+ * without depending on @moteurio/types. Consumers can cast or extend them.
  */
 
 export type MoteurAuth =
     { type: 'bearer'; token: string } | { type: 'apiKey'; apiKey: string; projectId?: string };
 
-/** Default HTTP timeout in ms when `timeout` is omitted (axios). */
+/** Default HTTP request timeout in milliseconds, used when `timeout` is omitted. */
 export const DEFAULT_REQUEST_TIMEOUT_MS = 60_000;
 
 export interface MoteurClientConfig {
     baseURL: string;
     auth?: MoteurAuth;
-    /** Optional preview token header for public channel reads. */
+    /** Preview token sent with public channel reads. */
     previewToken?: string;
     /**
      * Per-request timeout in milliseconds. Defaults to {@link DEFAULT_REQUEST_TIMEOUT_MS}.
@@ -21,46 +21,46 @@ export interface MoteurClientConfig {
      */
     timeout?: number;
     /**
-     * Called with every failed request before it rejects (e.g. to show "out of credits" or "slow
-     * down" once for the whole app). Must not throw.
+     * Called with every failed request before the promise rejects. Use it, for example, to show an
+     * "out of credits" or "slow down" message once for the whole app. It must not throw.
      */
     onError?: (error: import('./client.js').MoteurApiError) => void;
 }
 
-/** Public client: API key auth, for one project. */
+/** Authentication for the public client: an API key for a single project. */
 export type MoteurPublicAuth = { type: 'apiKey'; apiKey: string; projectId?: string };
 
-/** Where the public client reads from when no `baseURL` is given. */
+/** API URL the public client uses when no `baseURL` is given. */
 export const DEFAULT_API_URL = 'https://api.moteur.io';
 
 /**
- * A site's key is enough: `createMoteurPublicClient({ apiKey })`. The key's project and channel
- * are asked of the API once, on the first read (`GET /keys/me`).
+ * Configuration of the public client. An API key is enough: `createMoteurPublicClient({ apiKey })`.
+ * The client looks up the key's project and channel once, on the first read (`GET /keys/me`).
  */
 export interface MoteurPublicClientConfig {
-    /** The project key (read-only). Or `auth: { type: 'apiKey', apiKey }`. */
+    /** The project's read-only API key. Equivalent to `auth: { type: 'apiKey', apiKey }`. */
     apiKey?: string;
     auth?: MoteurPublicAuth;
-    /** Default `https://api.moteur.io`; set it for a server of your own. */
+    /** API base URL. Defaults to `https://api.moteur.io`. Set it when using your own server. */
     baseURL?: string;
-    /** Skips asking the API which project the key belongs to. */
+    /** Project ID. When set, the client does not look up the key's project from the API. */
     projectId?: string;
-    /** What `channel()` reads when given no id. Default: the key's only channel, or `site`. */
+    /** Channel that `channel()` reads when called without an ID. Defaults to the key's only channel, or `site`. */
     channel?: string;
-    /** Same as {@link MoteurClientConfig.timeout}. */
+    /** See {@link MoteurClientConfig.timeout}. */
     timeout?: number;
     previewToken?: string;
 }
 
-/** What a project key is (`GET /keys/me`). */
+/** Information about a project API key, as returned by `GET /keys/me`. */
 export interface KeyInfo {
     projectId: string;
     keyId: string;
-    /** The channels it reads. */
+    /** IDs of the channels the key can read. */
     channels: string[];
-    /** The one to read when there's no doubt: its only channel, or `site`. */
+    /** The channel to read by default: the key's only channel, or `site`. */
     channel?: string;
-    /** Whether it also reads the sitemap, navigation, urls, breadcrumb and Radar. */
+    /** True when the key can also read the sitemap, navigation, urls, breadcrumb and Radar endpoints. */
     siteWide: boolean;
 }
 
@@ -69,7 +69,7 @@ export interface SignedIn {
     user: Record<string, unknown>;
 }
 
-/** Two-step sign-in is on: no session yet. Send the ticket with a code to `verifyTwoFactor`. */
+/** Returned when two-factor authentication is enabled and no session exists yet. Send the ticket and an authentication code to `verifyTwoFactor`. */
 export interface TwoFactorRequired {
     twoFactor: true;
     ticket: string;

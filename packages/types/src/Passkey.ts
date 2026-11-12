@@ -1,51 +1,52 @@
 /**
- * A passkey (a WebAuthn credential) as it is kept on the account, in `users.json`. The public key
- * is no secret, but none of this leaves the server as it is: the account page gets a
- * `PasskeySummary`.
+ * A passkey (a WebAuthn credential) as stored on the user account in `users.json`. The public key
+ * is not secret, but this record is never sent to clients as it is. Account endpoints return a
+ * `PasskeySummary` instead.
  */
 export interface StoredPasskey {
-    /** The credential's id, base64url. */
+    /** Credential ID, base64url-encoded. */
     id: string;
-    /** Its COSE public key, base64url. */
+    /** The credential's COSE public key, base64url-encoded. */
     publicKey: string;
-    /** The authenticator's signature counter (0 for most synced passkeys). */
+    /** The authenticator's signature counter. It is 0 for most synced passkeys. */
     counter: number;
-    /** How the browser can reach it: `internal`, `hybrid`, `usb`, `nfc`, `ble`… */
+    /** Transports the browser can use to reach the authenticator, such as `internal`, `hybrid`, `usb`, `nfc` or `ble`. */
     transports?: string[];
-    /** `multiDevice`: synced (iCloud Keychain, Google Password Manager…); `singleDevice`: kept on one key or device. */
+    /** `multiDevice` for a passkey that is synced between devices (for example iCloud Keychain or Google Password Manager). `singleDevice` for one stored on a single security key or device. */
     deviceType: 'singleDevice' | 'multiDevice';
-    /** Whether it is backed up (synced) now. */
+    /** Whether the passkey is currently backed up (synced). */
     backedUp: boolean;
-    /** The authenticator model's id, when it said. */
+    /** AAGUID identifying the authenticator model. Set only when the authenticator reports it. */
     aaguid?: string;
-    /** What the person calls it. */
+    /** Name the user gave the passkey. */
     name: string;
     createdAt: string;
     lastUsedAt?: string;
-    /** The browser and system it was made on, from the user agent ("Safari on macOS"). */
+    /** Browser and operating system the passkey was created on, derived from the user agent (for example "Safari on macOS"). */
     createdOn?: string;
 }
 
-/** A passkey as the account page lists it. */
+/** A passkey as returned in account listings. */
 export interface PasskeySummary {
     id: string;
     name: string;
     createdAt: string;
     lastUsedAt?: string;
-    /** Synced across the person's devices (`multiDevice` and backed up). */
+    /** True when the passkey is synced across the user's devices (`multiDevice` and backed up). */
     synced: boolean;
     deviceType: 'singleDevice' | 'multiDevice';
-    /** Where it lives, when the authenticator is a known one ("iCloud Keychain", "1Password"…). */
+    /** The service that holds the passkey, when the authenticator is a known one (for example "iCloud Keychain" or "1Password"). */
     provider?: string;
-    /** The browser and system it was made on ("Chrome on Windows"). */
+    /** Browser and operating system the passkey was created on (for example "Chrome on Windows"). */
     createdOn?: string;
     transports?: string[];
 }
 
 /**
- * What the browser needs to make a passkey: `navigator.credentials.create()`'s options, as JSON
- * (binary values in base64url). Pass it to `PublicKeyCredential.parseCreationOptionsFromJSON()` or
- * a library such as `@simplewebauthn/browser`.
+ * The options for creating a passkey, in the form of `navigator.credentials.create()` options
+ * serialized as JSON (binary values are base64url-encoded). Pass them to
+ * `PublicKeyCredential.parseCreationOptionsFromJSON()` or to a library such as
+ * `@simplewebauthn/browser`.
  */
 export interface PasskeyCreationOptionsJSON {
     rp: { id?: string; name: string };
@@ -65,7 +66,7 @@ export interface PasskeyCreationOptionsJSON {
     extensions?: Record<string, unknown>;
 }
 
-/** What the browser needs to sign in with a passkey: `navigator.credentials.get()`'s options, as JSON. */
+/** The options for signing in with a passkey, in the form of `navigator.credentials.get()` options serialized as JSON. */
 export interface PasskeyRequestOptionsJSON {
     challenge: string;
     timeout?: number;
@@ -76,7 +77,7 @@ export interface PasskeyRequestOptionsJSON {
     extensions?: Record<string, unknown>;
 }
 
-/** The browser's answer to `create()`, as JSON (`PublicKeyCredential.toJSON()`). */
+/** The browser's response to `create()`, serialized as JSON with `PublicKeyCredential.toJSON()`. */
 export interface PasskeyRegistrationJSON {
     id: string;
     rawId: string;
@@ -93,7 +94,7 @@ export interface PasskeyRegistrationJSON {
     clientExtensionResults: Record<string, unknown>;
 }
 
-/** The browser's answer to `get()`, as JSON (`PublicKeyCredential.toJSON()`). */
+/** The browser's response to `get()`, serialized as JSON with `PublicKeyCredential.toJSON()`. */
 export interface PasskeyAuthenticationJSON {
     id: string;
     rawId: string;

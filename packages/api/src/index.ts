@@ -1,10 +1,10 @@
 import { startWebhookWorker, stopWebhookWorker } from '@moteurio/core/webhooks/webhookService.js';
 /**
- * Moteur API — Express server entry point.
+ * Moteur API: Express server entry point.
  *
  * AUTH MODEL
  * ==========
- * - JWT (Bearer token): Required for all routes by default. Used by Studio and
+ * - JWT (Bearer token): Required for all routes by default. Used by admin clients and
  *   operators. Middleware: requireAuth, requireProjectAccess, requireOperator.
  *
  * - API Key (x-api-key header only; query keys are not supported — they leak in logs/referrers): Used by public
@@ -27,7 +27,7 @@ import { fileURLToPath } from 'url';
 import { dirname, resolve } from 'path';
 import dotenv from 'dotenv';
 
-// Load env
+// Load environment variables.
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 dotenv.config({ path: resolve(__dirname, '../../../.env') });
@@ -48,6 +48,7 @@ import activityGlobalRoute from './activity/index.js';
 import operatorRoute from './operator/index.js';
 import operatorAuthRoute from './operator/auth.js';
 import invitesRoute from './invites/index.js';
+import workspacesRoute from './workspaces/index.js';
 import keysRoute from './keys/index.js';
 import { mcpRouter } from './mcp/index.js';
 import { commandsRouter } from './commands/index.js';
@@ -61,6 +62,7 @@ import webhooksAssetsRouter from './webhooks/assets.js';
 import { storageConfig, validateStorageConfig } from '@moteurio/core';
 import { schedulerEngine, startSnapshotScheduler, stopSnapshotScheduler } from '@moteurio/core';
 import { startUsageAlerts, stopUsageAlerts } from '@moteurio/core/usageAlerts.js';
+import { startServerNews, stopServerNews } from '@moteurio/core/serverNews.js';
 import { startDemoSweeper, stopDemoSweeper } from '@moteurio/core/demoCopies.js';
 import { globalErrorHandler } from './middlewares/errorHandler.js';
 import { registerSocketEventBridge } from './bootstrap/socketEventBridge.js';
@@ -75,7 +77,7 @@ import {
     setMeteringStore
 } from '@moteurio/core/metering.js';
 
-// Load core runtime. External plugins are discovered by host config (MOTEUR_HOST_PLUGINS / MOTEUR_ENABLED_PLUGINS).
+// Load the core runtime. Host configuration (MOTEUR_HOST_PLUGINS / MOTEUR_ENABLED_PLUGINS) determines which external plugins are discovered.
 import '@moteurio/core';
 import { securityHeaders } from './middlewares/security.js';
 import { logUnloggedErrors, requestIdMiddleware } from './middlewares/requestId.js';
@@ -87,11 +89,11 @@ import { fairShare } from './middlewares/fairShare.js';
 import { gitVersion } from '@moteurio/core/git/gitService.js';
 import { bootstrapApi } from './openapi/bootstrapApi.js';
 import { trustProxySetting } from './utils/trustProxy.js';
-// Ensure asset storage adapters (e.g. local) are registered before any asset routes run
+// Register the asset storage adapters (for example local) before any asset route runs.
 import '@moteurio/core/assets/index.js';
-// Video provider config (Mux/Vimeo) is set by video-mux and video-vimeo plugins when enabled
+// The video-mux and video-vimeo plugins set the video provider configuration (Mux/Vimeo) when enabled.
 
-/** Log and exit on fatal process errors (before server listen and during runtime). */
+/** Logs fatal process errors and exits. Installed before the server listens and stays active at runtime. */
 function registerProcessFatalHandlers(): void {
     process.on('unhandledRejection', (reason: unknown) => {
         const message =
@@ -115,7 +117,7 @@ function registerProcessFatalHandlers(): void {
 }
 registerProcessFatalHandlers();
 
-// Every project is a Git repository: without git, making a project fails, and so does every save.
+// Every project is a Git repository. Without git, creating a project fails, and so does every save.
 if (!gitVersion()) {
     console.error(
         '[API fatal] Git is not installed, or not on PATH. Every Moteur project is a Git repository: install git (apt-get install git, apk add git) and start the API again.'
@@ -123,7 +125,7 @@ if (!gitVersion()) {
     process.exit(1);
 }
 
-// CORS: only origins in CORS_ORIGINS (comma-separated) are allowed. Unset = none — set explicitly for every environment.
+// CORS: only origins listed in CORS_ORIGINS (comma-separated) are allowed. When unset, no origin is allowed, so set it explicitly in every environment.
 function getCorsOrigin(): string | string[] {
     const env = process.env.CORS_ORIGINS?.trim();
     if (!env) return [];
@@ -133,14 +135,14 @@ function getCorsOrigin(): string | string[] {
         .filter(Boolean);
 }
 
-// Create Express app
+// Create the Express app.
 const app = express();
-// Behind a proxy (TRUST_PROXY=1 on Fly), each visitor's own address, for rate limits and logs.
+// Behind a proxy (for example TRUST_PROXY=1 on Fly), use each visitor's own address for rate limits and logs.
 app.set('trust proxy', trustProxySetting(process.env.TRUST_PROXY));
 
 const basePath = process.env.API_BASE_PATH || '';
 
-// Every request gets an id (in its answer and in the log), and no server error goes unlogged.
+// Give every request an id (included in the response and the log) and make sure no server error goes unlogged.
 app.use(requestIdMiddleware);
 app.use(logUnloggedErrors);
 app.use(securityHeaders);
@@ -151,7 +153,7 @@ app.use(
             req.path === basePath + '/mcp' ||
             req.path === basePath + '/mcp/';
         callback(null, {
-            // Protocol clients use bearer tokens; Studio verification uses its browser cookie.
+            // MCP protocol clients use bearer tokens. Admin client verification uses a browser cookie, so credentials are needed there.
             origin: mcp ? '*' : getCorsOrigin(),
             credentials: !mcp,
             methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
@@ -170,8 +172,8 @@ app.use(
     })
 );
 
-// Request counts and AI credits survive restarts. Set before plugins load: a host plugin may
-// replace the store (e.g. a database for several API instances) in its init.
+// Persist request counts and AI credits across restarts. Set this before plugins load, because a
+// host plugin may replace the store in its init (for example with a database shared by several API instances).
 setMeteringStore(
     createFileMeteringStore(
         process.env.MOTEUR_METERING_DIR?.trim() ||
@@ -183,7 +185,7 @@ const { mergedApiSpecs, serverUrl, hostPlugins, pluginRouteContributions, authPr
     await bootstrapApi();
 
 const webhookContribs = pluginRouteContributions.filter(c => c.path === '/webhooks');
-// Mount webhooks before JSON body parser so signature verification gets raw body
+// Mount webhooks before the JSON body parser so signature verification receives the raw body.
 const bodyLimit = process.env.API_BODY_LIMIT || '1mb';
 
 app.use(
@@ -197,20 +199,20 @@ app.use(
     ...webhookContribs.map(c => c.router)
 );
 
-// Assistants send files inline (base64) over MCP, as they have no other way in: a larger body.
+// AI assistants send files inline (base64) over MCP because they have no other way to upload, so allow a larger body.
 app.use(basePath + '/mcp', express.json({ limit: process.env.MOTEUR_MCP_BODY_LIMIT || '20mb' }));
-// A bundle can hold its files inline (base64).
+// An import bundle can contain its files inline (base64).
 app.use(
     basePath + '/projects/:projectId/imports',
     express.json({ limit: process.env.MOTEUR_IMPORT_BODY_LIMIT || '50mb' })
 );
 app.use(express.json({ limit: bodyLimit }));
 
-// Request classification (studio vs public), usage logging, and rate limiting
+// Request classification (admin client vs public), usage logging and rate limiting.
 app.use(basePath, requestClassifier);
 app.use(basePath, usageLogging);
 app.use(basePath + '/studio', studioRateLimiter);
-// What sites ask for: each project its fair share of the server, a burst waiting its turn.
+// Public site requests: give each project a fair share of the server and queue bursts instead of rejecting them.
 app.use(basePath, fairShare);
 app.use(basePath, requestQuota);
 
@@ -231,7 +233,7 @@ app.use(
     })
 );
 
-// Merge plugin contributions by path: /auth, /projects, /webhooks get merged with core routers; others grouped by path
+// Merge plugin contributions by path. Plugin routers for /auth, /projects and /webhooks are merged with the core routers; the others are grouped by path.
 const authContribs = pluginRouteContributions.filter(c => c.path === '/auth');
 const projectContribs = pluginRouteContributions.filter(c => c.path === '/projects');
 const otherContribs = pluginRouteContributions.filter(
@@ -257,7 +259,7 @@ for (const [p, contribs] of otherByPath) {
 
 // Mount models and entries before the generic projects router so that
 // GET /projects/:projectId/models and GET /projects/:projectId/models/:modelId/entries
-// are matched here instead of 404ing in the projects router.
+// match here instead of returning 404 from the projects router.
 app.use(basePath + '/projects/:projectId/models/:modelId/entries', entriesRoute);
 app.use(basePath + '/projects/:projectId/models', modelsRoute);
 
@@ -268,13 +270,14 @@ app.use(basePath + '/projects', studioRateLimiter, mergedProjectsRouter);
 
 app.use(basePath + '/blueprints', blueprintsRoutes);
 app.use(basePath + '/activity', activityGlobalRoute);
-// Operators' own sign-in first: everything else under /operator needs its token.
+// Mount operator sign-in first, because every other route under /operator requires an operator token.
 app.use(basePath + '/operator/auth', operatorAuthRoute);
 app.use(basePath + '/operator', operatorRoute);
 app.use(basePath + '/invites', invitesRoute);
+app.use(basePath + '/workspaces', studioRateLimiter, workspacesRoute);
 app.use(basePath + '/keys', keysRoute);
 app.use(basePath + '/commands', commandsRouter);
-// MCP for remote AI clients; its tools call this API itself. MOTEUR_MCP=off leaves it out.
+// MCP for remote AI clients. Its tools call this API itself. Set MOTEUR_MCP=off to disable it.
 if (process.env.MOTEUR_MCP?.trim().toLowerCase() !== 'off') {
     const publicUrl = process.env.MOTEUR_MCP_PUBLIC_URL?.trim();
     const studioUrl = process.env.STUDIO_URL?.trim();
@@ -287,7 +290,7 @@ if (process.env.MOTEUR_MCP?.trim().toLowerCase() !== 'off') {
               })
             : undefined;
     if (oauth) {
-        // Discovery and OAuth protocol endpoints live at the origin root, even with API_BASE_PATH.
+        // Discovery and OAuth protocol endpoints are served at the origin root, even when API_BASE_PATH is set.
         app.use(oauth.router);
         app.use(basePath + '/auth/mcp', oauth.consent);
     } else {
@@ -314,7 +317,7 @@ app.use(basePath + '/moteur/blocks', blocksRouter);
 mountStaticAssets(app, basePath);
 mountResizedImages(app, basePath);
 
-/** Studio user avatars from `data/avatars` (paths like `/avatars/64/lion.png` in users.json). */
+/** Serves user avatars from `data/avatars` (paths such as `/avatars/64/lion.png` in users.json). */
 const studioAvatarsDir = path.join(storageConfig.dataRoot, 'data', 'avatars');
 if (fs.existsSync(studioAvatarsDir)) {
     app.use(basePath + '/avatars', express.static(studioAvatarsDir, { maxAge: '7d' }));
@@ -322,10 +325,10 @@ if (fs.existsSync(studioAvatarsDir)) {
 
 app.use(globalErrorHandler);
 
-// 🔧 Create HTTP server wrapper
+// Create the HTTP server around the Express app.
 const httpServer = createServer(app);
 
-// Host plugins may attach to the server (e.g. presence Socket.IO on app.locals.io)
+// Host plugins may attach to the HTTP server (for example presence over Socket.IO on app.locals.io).
 for (const plugin of hostPlugins) {
     try {
         const attach = plugin.attachServer;
@@ -342,14 +345,14 @@ for (const plugin of hostPlugins) {
 
 registerSocketEventBridge(app);
 
-// Validate storage paths before accepting connections
+// Validate the storage paths before accepting connections.
 validateStorageConfig();
 
 const PORT = process.env.PORT || 3000;
 httpServer.requestTimeout = 120_000;
 httpServer.headersTimeout = 30_000;
-// A crash or a killed machine can leave Git's lock files behind, and one would stop every later
-// commit in its project: before any Git work of this process, they go.
+// A crash or a killed machine can leave Git lock files behind, and a stale lock blocks every later
+// commit in its project. Remove them before this process does any Git work.
 for (const project of loadProjects()) {
     const removed = removeStaleLocks(projectDir(project.id));
     if (removed.length)
@@ -365,18 +368,20 @@ httpServer.listen(PORT, async () => {
     }
     await startWebhookWorker();
     startSnapshotScheduler(60_000);
-    // Billing and Admin hear when a monthly allowance reaches 80%, then all of it.
+    // Notify billing and admin contacts when a monthly allowance reaches 80% and again when it is used up.
     startUsageAlerts();
-    // Demo copies left 30 days without a change go to the trash.
+    // Notify operators about new accounts, projects and workspaces, according to their notification settings.
+    startServerNews();
+    // Move demo copies to the trash after 30 days without a change.
     startDemoSweeper();
-    // Images uploaded just before a restart still need their resized copies.
+    // Resume generating resized copies for images that were uploaded just before a restart.
     try {
         const queued = await resumeImageCopies(loadProjects());
         if (queued) console.log(`[Moteur] Making copies for ${queued} image(s) left processing`);
     } catch (err) {
         console.error('[Moteur] Resuming image copies failed:', err);
     }
-    // Videos on their way to a host (Mux, Vimeo…), or still processing there.
+    // Resume videos that were being uploaded to a host (Mux, Vimeo…) or were still processing there.
     try {
         const resumed = await resumeVideoUploads(loadProjects());
         if (resumed) console.log(`[Moteur] Following ${resumed} video(s) at their host`);
@@ -385,7 +390,7 @@ httpServer.listen(PORT, async () => {
     }
 });
 
-/** How long a stop may take (`MOTEUR_SHUTDOWN_SECONDS`, 25): keep it under the host's kill timeout. */
+/** Returns how long shutdown may take (`MOTEUR_SHUTDOWN_SECONDS`, default 25). Keep it below the hosting platform's kill timeout. */
 function shutdownMs(): number {
     const n = Number(process.env.MOTEUR_SHUTDOWN_SECONDS);
     return (Number.isFinite(n) && n > 0 ? n : 25) * 1000;
@@ -394,9 +399,10 @@ function shutdownMs(): number {
 let stopping = false;
 
 /**
- * Stopping (a deploy, a restart): no new requests, those in progress finish, then the commits
- * queued and the pushes waiting go out, so nothing saved is left uncommitted or unpushed and Git
- * isn't cut off mid-commit. Past the time allowed, it stops anyway.
+ * Shuts the server down gracefully, for example on a deploy or restart. It stops accepting new
+ * requests, lets requests in progress finish, then flushes queued commits and pending pushes so that
+ * nothing saved stays uncommitted or unpushed and Git is not interrupted mid-commit. If this takes
+ * longer than the allowed time, the process exits anyway.
  */
 async function gracefulShutdown(signal: string): Promise<void> {
     if (stopping) return;
@@ -410,15 +416,16 @@ async function gracefulShutdown(signal: string): Promise<void> {
     stopWebhookWorker();
     stopSnapshotScheduler();
     stopUsageAlerts();
+    stopServerNews();
     stopDemoSweeper();
     await new Promise<void>(resolve => {
         httpServer.close(() => resolve());
         httpServer.closeIdleConnections();
-        // Long-lived connections (live presence) don't end by themselves.
+        // Long-lived connections such as live presence do not close on their own, so force them closed after a delay.
         globalThis.setTimeout(() => httpServer.closeAllConnections(), 10_000).unref();
     });
     try {
-        // A scheduled publish under way finishes, then its commit and push go.
+        // Let a scheduled publish that is running finish, then flush its commit and push.
         await schedulerEngine.executionsIdle();
         await gitIdle();
         await flushPushes();

@@ -15,26 +15,26 @@ export const CODE_MINUTES = 15;
 export const VERIFY_MINUTES = 10;
 
 export interface EmailData {
-    /** A code to sign in, with a sign-in link when the server knows the Studio's address. */
+    /** A sign-in code, with a sign-in link when the server knows the address of the admin app. */
     signin: { email: string; code: string; link?: string };
-    /** A code to make an account, and the link that does the same. */
+    /** A sign-up code, and a link that does the same thing. */
     signup: { email: string; code: string; link?: string };
-    /** Too many wrong codes today: only the link, which still works. */
+    /** Sent instead of a code after too many wrong codes in a day. Only the link is included. */
     'signin-link': { email: string; link: string; purpose: 'signin' | 'signup' };
-    /** A code to confirm the address someone gave when signing in with a provider. */
+    /** A code to confirm the email address given when signing in with an external provider. */
     verify: { email: string; code: string };
-    /** A code to make this address the account's sign-in email. */
+    /** A code to confirm this address as the account's sign-in email. */
     'email-change': { email: string; code: string };
-    /** To the old address: the account signs in with another one now. */
+    /** Sent to the old address to say the account now signs in with a different address. */
     'email-changed': { email: string; to: string };
     welcome: {
         email: string;
-        /** Their name, when they gave one. */
+        /** The new user's name, if they gave one. */
         name?: string;
         studioUrl?: string;
-        /** They made a password (an account made from an invitation's form). */
+        /** The user chose a password, which happens when an account is created from an invitation form. */
         password?: boolean;
-        /** They came by invitation: the project they joined. */
+        /** Set when the user joined through an invitation: the project they joined. */
         joined?: {
             project: string;
             projectId?: string;
@@ -46,26 +46,32 @@ export interface EmailData {
     invite: {
         email: string;
         inviter: string;
-        /** The inviter's address, so the reader can tell who it is. */
+        /** The inviter's email address, so the recipient can tell who invited them. */
         inviterEmail?: string;
         project: string;
         projectDescription?: string;
         /** The project's site address (`siteUrl`). */
         projectSite?: string;
-        /** The roles they are invited with. */
+        /** The roles the recipient is invited with. */
         roles?: string[];
-        /** A few words from the inviter, plain text. */
+        /** An optional plain-text note from the inviter. */
         note?: string;
         url: string;
         days: number;
-        /** When the link stops working (ISO date). */
+        /** When the invitation link expires (ISO date). */
         expiresAt?: string;
-        /** Replies go to the person who invited. */
+        /** Send replies to the inviter instead of the server's address. */
         replyToInviter?: boolean;
+        /**
+         * Set when the invitation is to a workspace team rather than a single project. `project`
+         * then holds the workspace name, and `roles` is not used.
+         */
+        team?: { role: 'owner' | 'admin' | 'billing' | 'member'; access?: 'all' | 'chosen' };
     };
     /**
-     * A project used 80% or all of a monthly allowance: a limit (`fairUse` false), past which
-     * something stops until the month turns, or a fair use level, past which nothing stops.
+     * Sent when a project has used 80% or all of a monthly allowance. With `fairUse` false the
+     * allowance is a hard limit and something stops working until the next month. With `fairUse`
+     * true it is a fair-use level and nothing stops.
      */
     'usage-alert': {
         project: string;
@@ -74,21 +80,33 @@ export interface EmailData {
         used: number;
         limit: number;
         fairUse: boolean;
-        /** The first day of next month (UTC), `2026-12-01`: when the count starts again. */
+        /** The first day of next month (UTC), such as `2026-12-01`, when the count resets. */
         resets: string;
         url?: string;
         unsubscribeUrl?: string;
     };
+    /**
+     * Sent to an operator to report new accounts, projects and workspaces on the server, either
+     * as each one happens or in a daily summary (`daily`). `more` counts the items that were
+     * left out for space.
+     */
+    'server-news': {
+        daily: boolean;
+        items: ServerNewsLine[];
+        more: number;
+        /** Link to the operator page in the admin app. */
+        url?: string;
+    };
     review: {
         type: 'review_requested' | 'approved' | 'rejected';
-        /** Who asked (requested) or who decided (approved, rejected). */
+        /** Who requested the review, or who approved or rejected it. */
         person?: string;
         project: string;
         resource: 'entry' | 'page';
         url?: string;
         unsubscribeUrl?: string;
     };
-    /** A form's answers, to the project's team. */
+    /** The answers to a form submission, sent to the project's team. */
     'form-notice': {
         project: string;
         form: string;
@@ -97,22 +115,38 @@ export interface EmailData {
         text: string;
         canReply: boolean;
     };
-    /** Words a project wrote, to whoever a form's email action names. */
+    /** A message written by the project, sent to the recipients named in a form's email action. */
     'form-message': { project: string; subject: string; body: string };
-    /** A form's confirmation to whoever filled it in: the project's words, then their answers. */
+    /** A confirmation sent to the person who submitted a form: the project's message, then their answers. */
     'form-confirm': {
         project: string;
         /** The project's site address (`siteUrl`). */
         site?: string;
         form: string;
         subject: string;
-        /** The project's own words. */
+        /** The message written by the project. */
         body: string;
         rows: { label: string; value: string }[];
     };
-    /** The operator's check that mail goes out. */
+    /** A test email an operator sends to check that outgoing mail works. */
     test: { from: string; server: string; at: string; signedBy?: string };
 }
+
+/** One new item on the server, as reported by the server news email (see ../serverNews.ts). */
+export type ServerNewsLine =
+    | {
+          kind: 'account';
+          email: string;
+          name?: string;
+          method: 'email' | 'provider' | 'invite' | 'added';
+          provider?: string;
+          invitedBy?: string;
+          invitedTo?: string;
+          from?: string;
+      }
+    | { kind: 'project'; label: string; by: string; workspace?: string; personal?: boolean }
+    | { kind: 'workspace'; name: string; by: string }
+    | { kind: 'account-deleted'; email: string };
 
 export type EmailKind = keyof EmailData;
 export const EMAIL_KINDS = [
@@ -126,6 +160,7 @@ export const EMAIL_KINDS = [
     'invite',
     'review',
     'usage-alert',
+    'server-news',
     'form-notice',
     'form-message',
     'form-confirm',
@@ -135,7 +170,7 @@ export const EMAIL_KINDS = [
 type Ctx = {
     locale: EmailLocale;
     product: string;
-    /** What the product is, in a sentence or two. */
+    /** A sentence or two describing the product. */
     tagline: string;
     supportUrl?: string;
 };
@@ -143,7 +178,7 @@ type Template<K extends EmailKind> = (data: EmailData[K], ctx: Ctx) => EmailCont
 
 const strong = (s: string) => ({ strong: s });
 
-/** The line about the product when the operator wrote none. */
+/** The product description used when the operator has not written one. */
 export function defaultTagline(locale: EmailLocale, P: string): string {
     return locale === 'fr'
         ? `${P} est l’endroit où les équipes rédigent, traduisent et publient le contenu de leurs sites. Chaque changement est conservé, et le contenu leur appartient.`
@@ -156,13 +191,13 @@ const aboutProduct = ({ locale, product: P, tagline }: Ctx): Block => ({
     text: tagline
 });
 
-/** A site's address as a link showing its host; plain text unless it is http(s). */
+/** Formats a site address as a link that shows its host. Non-http(s) values are returned as plain text. */
 function siteLink(url: string): RichPart {
     const host = url.replace(/^https?:\/\//, '').replace(/\/$/, '');
     return /^https?:\/\//.test(url) ? { href: url, text: host } : host;
 }
 
-/** A day, as the reader's language writes it: "Sat, Nov 7", « sam. 7 nov. ». */
+/** Formats a date the way the reader's language writes it: "Sat, Nov 7", « sam. 7 nov. ». */
 function dayOf(iso: string, locale: EmailLocale): string | undefined {
     const at = new Date(iso);
     if (Number.isNaN(at.getTime())) return undefined;
@@ -184,7 +219,7 @@ const ROLE_NAMES: Record<string, { en: string; fr: string }> = {
     admin: { en: 'Admin', fr: 'Admin' },
     developer: { en: 'Developer', fr: 'Développement' }
 };
-/** What each role lets someone do, from the widest down: the first one held is said. */
+/** What each role lets someone do, ordered from broadest to narrowest. The first role the user holds is the one described. */
 const ROLE_CAN: [string, { en: string; fr: string }][] = [
     [
         'admin',
@@ -244,14 +279,14 @@ const ROLE_CAN: [string, { en: string; fr: string }][] = [
     ]
 ];
 
-/** The roles' names, and what the widest one lets them do, in one sentence. */
+/** Returns the role names and a sentence describing what the broadest role allows. */
 function roleOf(
     roles: string[] | undefined,
     locale: EmailLocale,
     now = false
 ): { names: string; can: string } {
     const known = (roles ?? []).filter(r => ROLE_NAMES[r]);
-    // An account given no role is a Writer.
+    // An account with no role is treated as a Writer.
     const held = known.length ? known : ['writer'];
     const names = held.map(r => ROLE_NAMES[r][locale]).join(' · ');
     const can = ROLE_CAN.find(([r]) => held.includes(r))![1][locale];
@@ -264,7 +299,47 @@ function roleOf(
     };
 }
 
-/** A project's words as paragraphs: a blank line starts a new one. */
+/** Returns a workspace team role's name and what it allows, worded for an invitation. */
+function teamRoleOf(
+    team: NonNullable<EmailData['invite']['team']>,
+    locale: EmailLocale
+): { names: string; can: string } {
+    const fr = locale === 'fr';
+    const said = {
+        owner: {
+            en: ['Owner', 'run the workspace, its people and its billing, in every project'],
+            fr: ['Propriétaire', `gérer l’espace, son équipe et sa facturation, dans chaque projet`]
+        },
+        admin: {
+            en: ['Admin', 'run every project of the workspace and its people'],
+            fr: ['Admin', `gérer chaque projet de l’espace et son équipe`]
+        },
+        billing: {
+            en: ['Billing', 'see and pay for the workspace’s plans'],
+            fr: ['Facturation', `voir et payer les forfaits de l’espace`]
+        },
+        member: {
+            en: [
+                'Member',
+                team.access === 'all'
+                    ? 'work in every project of the workspace, and start new ones'
+                    : 'work in the projects you are added to, and start new ones'
+            ],
+            fr: [
+                'Membre',
+                team.access === 'all'
+                    ? `travailler dans chaque projet de l’espace, et en lancer de nouveaux`
+                    : `travailler dans les projets où l’on vous ajoute, et en lancer de nouveaux`
+            ]
+        }
+    }[team.role][fr ? 'fr' : 'en'];
+    return {
+        names: said[0]!,
+        can: fr ? `Vous pourrez ${said[1]}.` : `You’ll be able to ${said[1]}.`
+    };
+}
+
+/** Splits text into paragraphs. A blank line starts a new paragraph. */
 function paragraphs(body: string): Block[] {
     return body
         .split(/\n\s*\n/)
@@ -343,7 +418,7 @@ const signin: Template<'signin'> = ({ email, code, link }, { locale, product: P 
 
 const signup: Template<'signup'> = ({ email, code, link }, ctx) => {
     const { locale, product: P } = ctx;
-    // Often the very first email someone gets from the server: it says what the product is too.
+    // This is often the first email someone gets from the server, so it also says what the product is.
     return locale === 'fr'
         ? {
               subject: `${code} est votre code ${P}`,
@@ -511,12 +586,12 @@ const verify: Template<'verify'> = ({ email, code }, { locale, product: P }) =>
               ]
           };
 
-/** The first email of someone who joins a project: who invited them, to what, as what. */
+/** The first email for someone who joins a project: who invited them, to which project, and with which role. */
 const invite: Template<'invite'> = (d, ctx) => {
     const { locale, product: P } = ctx;
     const fr = locale === 'fr';
     const first = d.inviter.split(/\s+/)[0] || d.inviter;
-    const role = roleOf(d.roles, locale);
+    const role = d.team ? teamRoleOf(d.team, locale) : roleOf(d.roles, locale);
     const until = d.expiresAt ? dayOf(d.expiresAt, locale) : undefined;
     const site = d.projectSite ? siteLink(d.projectSite) : undefined;
     const project: Block[] = [
@@ -535,9 +610,13 @@ const invite: Template<'invite'> = (d, ctx) => {
             ? `Si le bouton ne fonctionne pas, ouvrez cette adresse${N}:`
             : 'If the button doesn’t work, open this address:'
     };
-    const already = fr
-        ? `Vous avez déjà un compte avec cette adresse${N}? Connectez-vous, et ${d.project} s’y ajoute.`
-        : `Already have an account with this address? Sign in, and ${d.project} is added to it.`;
+    const already = d.team
+        ? fr
+            ? `Vous avez déjà un compte avec cette adresse${N}? Connectez-vous, et vous rejoignez l’équipe de ${d.project}.`
+            : `Already have an account with this address? Sign in, and you join the ${d.project} team.`
+        : fr
+          ? `Vous avez déjà un compte avec cette adresse${N}? Connectez-vous, et ${d.project} s’y ajoute.`
+          : `Already have an account with this address? Sign in, and ${d.project} is added to it.`;
     const inviter = d.inviterEmail ? `${d.inviter} (${d.inviterEmail})` : d.inviter;
     const base = {
         subject: fr
@@ -560,7 +639,13 @@ const invite: Template<'invite'> = (d, ctx) => {
             { t: 'kicker', text: fr ? `Invitation · ${P}` : `Invitation · ${P}` },
             {
                 t: 'h',
-                text: fr ? `Invitation à rejoindre ${d.project}` : `You’re invited to ${d.project}`
+                text: d.team
+                    ? fr
+                        ? `Invitation à rejoindre l’équipe de ${d.project}`
+                        : `You’re invited to join the ${d.project} team`
+                    : fr
+                      ? `Invitation à rejoindre ${d.project}`
+                      : `You’re invited to ${d.project}`
             },
             {
                 t: 'panel',
@@ -590,7 +675,8 @@ const invite: Template<'invite'> = (d, ctx) => {
                     },
                     {
                         label: fr ? 'Le lien' : 'The link',
-                        // A French date can end in an abbreviation's own full stop (« nov. »).
+                        // A French date can end with the full stop of an abbreviation (« nov. »),
+                        // so don't add another.
                         value: (fr
                             ? `Une seule fois, ${until ? `jusqu’au ${until}` : `pendant ${d.days}${S}jours`}.`
                             : `Works once, ${until ? `until ${until}` : `for ${d.days}${S}days`}.`
@@ -1000,7 +1086,7 @@ const formMessage: Template<'form-message'> = d => ({
     blocks: paragraphs(d.body)
 });
 
-/** Answers shown back to whoever sent them: a few, each kept short. */
+/** Limits the answers echoed back to the sender: only a few, each truncated. */
 export const CONFIRM_ROWS = 6;
 export const CONFIRM_VALUE = 280;
 function summary(rows: { label: string; value: string }[]) {
@@ -1019,8 +1105,8 @@ function summary(rows: { label: string; value: string }[]) {
 }
 
 /**
- * A visitor's first contact with a project: the project's own words first, then what they sent,
- * under the project's name. Nothing of the server's operator.
+ * The confirmation a site visitor receives after submitting a form: the project's message, then
+ * what the visitor sent, under the project's name. It carries no operator branding.
  */
 const formConfirm: Template<'form-confirm'> = (d, { locale }) => {
     const fr = locale === 'fr';
@@ -1060,7 +1146,7 @@ const formConfirm: Template<'form-confirm'> = (d, { locale }) => {
             { t: 'h2', text: sent },
             { t: 'facts', rows: shown },
             ...moreNote,
-            // Who it is from: the project, and its site when it has one.
+            // The sender is the project, with its site when it has one.
             ...(site ? [{ t: 'note' as const, text: [`${d.project} · `, site] }] : [])
         ]
     };
@@ -1214,7 +1300,7 @@ const USAGE_WHAT = {
     submissions: { en: 'form submissions', fr: 'envois de formulaires' }
 } as const;
 
-/** What stops when a limit is reached, until the month turns. */
+/** What stops working once a limit is reached, until the next month starts. */
 const USAGE_STOPS = {
     requests: {
         en: 'its sites get no answer from the API',
@@ -1314,6 +1400,155 @@ const usageAlert: Template<'usage-alert'> = (d, { locale }) => {
     };
 };
 
+const PROVIDERS: Record<string, string> = {
+    github: 'GitHub',
+    google: 'Google',
+    microsoft: 'Microsoft',
+    oidc: 'OpenID Connect'
+};
+
+/** Counts of each kind as a phrase, such as "2 accounts, 1 project". */
+function newsCounts(lines: ServerNewsLine[], more: number, fr: boolean): string {
+    const n = { account: 0, project: 0, workspace: 0, 'account-deleted': 0 };
+    for (const l of lines) n[l.kind]++;
+    const words = {
+        account: fr ? ['compte', 'comptes'] : ['account', 'accounts'],
+        project: fr ? ['projet', 'projets'] : ['project', 'projects'],
+        workspace: fr ? ['espace de travail', 'espaces de travail'] : ['workspace', 'workspaces'],
+        'account-deleted': fr
+            ? ['compte supprimé', 'comptes supprimés']
+            : ['account deleted', 'accounts deleted']
+    } as const;
+    const parts = (Object.keys(n) as (keyof typeof n)[])
+        .filter(k => n[k])
+        .map(k => `${n[k]} ${words[k][n[k] > 1 ? 1 : 0]}`);
+    if (more) parts.push(fr ? `${more} de plus` : `${more} more`);
+    return parts.join(', ');
+}
+
+/** One news item: what it is in bold, then who did it and how. */
+function newsLine(l: ServerNewsLine, fr: boolean): Rich {
+    switch (l.kind) {
+        case 'account': {
+            const who = l.name ? [strong(l.name), ` (${l.email})`] : [strong(l.email)];
+            const provider = l.provider ? (PROVIDERS[l.provider] ?? l.provider) : undefined;
+            const how =
+                l.method === 'invite'
+                    ? fr
+                        ? `, invité·e${l.invitedBy ? ` par ${l.invitedBy}` : ''}${l.invitedTo ? ` dans ${l.invitedTo}` : ''}`
+                        : `, invited${l.invitedBy ? ` by ${l.invitedBy}` : ''}${l.invitedTo ? ` to ${l.invitedTo}` : ''}`
+                    : l.method === 'provider'
+                      ? fr
+                          ? ` avec ${provider ?? 'un fournisseur'}`
+                          : ` with ${provider ?? 'a sign-in provider'}`
+                      : l.method === 'added'
+                        ? fr
+                            ? `, ajouté·e par ${l.invitedBy ?? 'le serveur'}`
+                            : `, added by ${l.invitedBy ?? 'the server'}`
+                        : fr
+                          ? ' avec un code par courriel'
+                          : ' with an email code';
+            const from = l.from ? (fr ? ` (venu·e de ${l.from})` : ` (came from ${l.from})`) : '';
+            return [fr ? `Nouveau compte${N}: ` : 'New account: ', ...who, how, from];
+        }
+        case 'project': {
+            const where = l.personal
+                ? fr
+                    ? ', dans son propre espace'
+                    : ', in their own workspace'
+                : l.workspace
+                  ? fr
+                      ? `, dans ${l.workspace}`
+                      : `, in ${l.workspace}`
+                  : '';
+            return fr
+                ? [`Nouveau projet${N}: `, strong(l.label), `, par ${l.by}${where}`]
+                : ['New project: ', strong(l.label), `, by ${l.by}${where}`];
+        }
+        case 'workspace':
+            return fr
+                ? [`Nouvel espace de travail${N}: `, strong(l.name), `, par ${l.by}`]
+                : ['New workspace: ', strong(l.name), `, by ${l.by}`];
+        case 'account-deleted':
+            return fr
+                ? [strong(l.email), ' a supprimé son compte']
+                : [strong(l.email), ' deleted their account'];
+    }
+}
+
+/** The subject line for a single item, such as "New account: Louise Tremblay". */
+function newsSubject(l: ServerNewsLine, fr: boolean): string {
+    switch (l.kind) {
+        case 'account':
+            return fr
+                ? `Nouveau compte${N}: ${l.name ?? l.email}`
+                : `New account: ${l.name ?? l.email}`;
+        case 'project':
+            return fr ? `Nouveau projet${N}: ${l.label}` : `New project: ${l.label}`;
+        case 'workspace':
+            return fr ? `Nouvel espace de travail${N}: ${l.name}` : `New workspace: ${l.name}`;
+        case 'account-deleted':
+            return fr ? `Compte supprimé${N}: ${l.email}` : `Account deleted: ${l.email}`;
+    }
+}
+
+const serverNews: Template<'server-news'> = (d, { locale, product: P }) => {
+    const fr = locale === 'fr';
+    const counts = newsCounts(d.items, d.more, fr);
+    const one = !d.daily && d.items.length === 1 && !d.more;
+    const subject = one
+        ? newsSubject(d.items[0], fr)
+        : d.daily
+          ? fr
+              ? `La journée sur ${P}${N}: ${counts}`
+              : `The day on ${P}: ${counts}`
+          : fr
+            ? `Du nouveau sur ${P}${N}: ${counts}`
+            : `New on ${P}: ${counts}`;
+    return {
+        subject,
+        preheader: one ? (fr ? `Sur votre serveur ${P}.` : `On your ${P} server.`) : `${counts}.`,
+        blocks: [
+            {
+                t: 'h',
+                text: d.daily
+                    ? fr
+                        ? 'Les dernières 24 heures'
+                        : 'The last 24 hours'
+                    : fr
+                      ? `Du nouveau sur ${P}`
+                      : `New on ${P}`
+            },
+            { t: 'list', items: d.items.map(l => newsLine(l, fr)) },
+            ...(d.more
+                ? [
+                      {
+                          t: 'note' as const,
+                          text: fr
+                              ? `Et ${d.more} de plus sur l’écran Opérateur.`
+                              : `And ${d.more} more on the Operator screen.`
+                      }
+                  ]
+                : []),
+            ...(d.url
+                ? [
+                      {
+                          t: 'button' as const,
+                          label: fr ? 'Ouvrir l’écran Opérateur' : 'Open the Operator screen',
+                          href: d.url,
+                          fallback: fr
+                              ? `Si le bouton ne fonctionne pas, ouvrez cette adresse${N}:`
+                              : 'If the button doesn’t work, open this address:'
+                      }
+                  ]
+                : [])
+        ],
+        why: fr
+            ? `Vous recevez ces courriels parce que vous êtes opérateur de ce serveur ${P}. Sur l’écran Opérateur, choisissez de les recevoir un à un, en résumé quotidien ou plus du tout.`
+            : `You get these emails because you are an operator of this ${P} server. On the Operator screen, choose to get them one by one, as a daily summary, or not at all.`
+    };
+};
+
 export const TEMPLATES: { [K in EmailKind]: Template<K> } = {
     signin,
     signup,
@@ -1325,22 +1560,24 @@ export const TEMPLATES: { [K in EmailKind]: Template<K> } = {
     invite,
     review,
     'usage-alert': usageAlert,
+    'server-news': serverNews,
     'form-notice': formNotice,
     'form-message': formMessage,
     'form-confirm': formConfirm,
     test
 };
 
-/** Who a kind is for: sign-in mail is never something to unsubscribe from. */
-export const NOTIFICATION_KINDS: EmailKind[] = ['review', 'usage-alert'];
+/** Email kinds that are notifications and can be unsubscribed from. Sign-in mail cannot be unsubscribed from. */
+export const NOTIFICATION_KINDS: EmailKind[] = ['review', 'usage-alert', 'server-news'];
 
 /**
- * A project's own mail, to its site's visitors: in the project's design, under its name, logo and
- * colour. (The form notice goes to the project's people: it is the server's, in their look.)
+ * Email kinds a project sends to its site's visitors. They use the project's design, name, logo
+ * and colour. The form notice is not one of them: it goes to the project's team and uses the
+ * server's branding.
  */
 export const PROJECT_KINDS: EmailKind[] = ['form-confirm', 'form-message'];
 
-/** Made-up data for each email: previews, the lab and the render tests. */
+/** Sample data for each email kind, used by previews and render tests. */
 export function samples(locale: EmailLocale): { [K in EmailKind]: EmailData[K] } {
     const fr = locale === 'fr';
     const studio = 'https://studio.example.com';
@@ -1401,6 +1638,41 @@ export function samples(locale: EmailLocale): { [K in EmailKind]: EmailData[K] }
             url: `${studio}/projects/journal/setup/billing`,
             unsubscribeUrl:
                 'https://api.example.com/auth/email/unsubscribe?u=user%3A42&t=usage&s=Kp3m8Wc1y0NnU5dS'
+        },
+        'server-news': {
+            daily: true,
+            items: [
+                {
+                    kind: 'account',
+                    email: 'louise@agence.example',
+                    name: 'Louise Tremblay',
+                    method: 'email',
+                    from: '/for/agencies'
+                },
+                { kind: 'workspace', name: 'Agence Nord', by: 'Louise Tremblay' },
+                {
+                    kind: 'project',
+                    label: 'Journal de Montréal',
+                    by: 'Louise Tremblay',
+                    workspace: 'Agence Nord'
+                },
+                {
+                    kind: 'account',
+                    email: 'marc@client.example',
+                    name: 'Marc Gagnon',
+                    method: 'invite',
+                    invitedBy: 'Louise Tremblay',
+                    invitedTo: 'Journal de Montréal'
+                },
+                {
+                    kind: 'account',
+                    email: 'sam@studio.example',
+                    method: 'provider',
+                    provider: 'github'
+                }
+            ],
+            more: 0,
+            url: `${studio}/operator`
         },
         'form-notice': {
             project: 'Journal de Montréal',

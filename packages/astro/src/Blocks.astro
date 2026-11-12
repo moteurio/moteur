@@ -1,13 +1,14 @@
 ---
 /**
- * Render a list of Moteur blocks with the components from `defineBlocks`.
+ * Renders a list of Moteur blocks with the components from `defineBlocks`.
  *
  *     import Blocks from '@moteurio/astro/Blocks.astro';
  *     <Blocks blocks={page.fields.blocks} components={components} />
  *
- * Each component gets `data` (the block's fields), `block`, and what the page shares with every
- * block (`shared`: its address, the site's words…), as `defineBlocks<Schema, Shared>` typed it.
- * A block type without a component is skipped, with a warning in dev.
+ * Each component receives `data` (the block's fields), `block`, and the values the page shares
+ * with every block (`shared`, for example the page's URL or the site's texts), typed by
+ * `defineBlocks<Schema, Shared>`. A block type without a component is skipped, and a warning is
+ * logged in development.
  */
 import type { AnyBlock, DefinedBlocks } from '@moteurio/astro';
 

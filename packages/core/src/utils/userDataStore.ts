@@ -65,8 +65,9 @@ export async function saveSubmission(
 }
 
 /**
- * Hard delete a submission: file removed, no recovery. Deletion logged to activity, with a copy
- * of what was deleted unless `keepCopy` is false (a person asked to be forgotten).
+ * Permanently deletes a submission. The file is removed and cannot be recovered. The deletion is
+ * logged to the activity log together with a copy of the deleted submission, unless `keepCopy`
+ * is false, which is used when a person asked to be forgotten.
  */
 export async function deleteSubmission(
     projectId: string,
@@ -94,7 +95,8 @@ export async function deleteSubmission(
 }
 
 /**
- * Delete spam: no log, nobody asked for it. Spam is kept 30 days so a mistake can be undone.
+ * Permanently deletes a spam submission without logging it, because no user requested the
+ * deletion. Spam is kept for 30 days before it is purged, so a mistake can be undone.
  */
 export async function purgeSubmission(
     projectId: string,
@@ -132,7 +134,7 @@ export async function exportCollection(
     submissions.forEach(s => {
         if (s.data && typeof s.data === 'object') Object.keys(s.data).forEach(k => keys.add(k));
     });
-    // Where each letter came from: the page, the referrer and the campaign, when any letter has one.
+    // Add columns for where each submission came from (page, referrer and campaign fields), but only the ones that at least one submission has.
     const sourceColumns = (
         [
             ['page', s => s.metadata?.page],
@@ -148,7 +150,7 @@ export async function exportCollection(
     const headers = ['id', 'status', 'receivedAt', ...fieldKeys, ...sourceColumns.map(([h]) => h)];
     function escapeCsvCell(val: unknown): string {
         if (val == null) return '';
-        // Several choices, or an address's parts, as one readable cell.
+        // Flatten arrays and objects (several choices, or the parts of an address) into one readable cell.
         let s = Array.isArray(val)
             ? val.join(', ')
             : typeof val === 'object'
@@ -156,7 +158,7 @@ export async function exportCollection(
                     .filter(v => v != null && v !== '')
                     .join(', ')
               : String(val);
-        // A visitor's answer must never run as a spreadsheet formula.
+        // Prefix values that spreadsheets treat as formulas, so a visitor's answer is never run as one.
         if (/^[=+\-@\t\r]/.test(s)) s = `'${s}`;
         if (/[",\n\r]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
         return s;

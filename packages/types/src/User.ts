@@ -6,89 +6,94 @@ export interface User {
     email: string;
     name?: string;
     passwordHash?: string;
-    /** Public path or absolute URL served by the frontend (e.g. `/avatars/64/lion.png`). */
+    /** Public path or absolute URL of the avatar image (for example `/avatars/64/lion.png`). */
     avatar?: string;
 
     roles: string[];
     projects: string[];
     auth?: Record<string, any>;
-    /** Incremented when credentials change; invalidates all previous user sessions. */
+    /** Incremented when credentials change. Incrementing it invalidates all existing sessions for the user. */
     authVersion?: number;
-    /** ISO 8601 — updated on successful sign-in (password or OAuth). */
+    /** ISO 8601 timestamp of the last successful sign-in (password or OAuth). */
     lastLoginAt?: string;
     /**
-     * Two-step sign-in: an authenticator app's secret (sealed with MOTEUR_ENCRYPTION_KEY), the
-     * last code step used (no code works twice), and recovery codes as SHA-256 digests. Never sent.
+     * Two-factor authentication settings: the authenticator app secret (encrypted with
+     * MOTEUR_ENCRYPTION_KEY), the last time step accepted (so a code cannot be used twice), and
+     * recovery codes stored as SHA-256 digests. Never returned by the API.
      */
     twoFactor?: { secret: string; lastStep?: number; enabledAt: string; recoveryCodes: string[] };
-    /** A secret shown to set two-step sign-in up, until a first code confirms it. Never sent. */
+    /** Secret issued during two-factor setup. It stays here until the user confirms it with a first valid code. Never returned by the API. */
     twoFactorPending?: { secret: string; createdAt: string };
-    /** Passkeys (WebAuthn credentials) that sign this person in. Never sent as they are. */
+    /** Passkeys (WebAuthn credentials) registered for signing in. Never returned by the API in this form. */
     passkeys?: StoredPasskey[];
     /**
-     * The random handle passkeys know this account by (base64url), made with the first one: not
-     * the account id, so an authenticator holds nothing that names the person. Never sent.
+     * Random base64url handle that passkeys use to identify this account. It is generated when the
+     * first passkey is registered and differs from the account id, so authenticators store nothing
+     * that identifies the user. Never returned by the API.
      */
     passkeyUserId?: string;
     /**
-     * Set when an agent (an AI client such as Claude) makes the request on this person's behalf.
-     * Comes from the token, never stored: `name` then reads "Louise via Claude".
+     * Set when an agent (an AI client such as Claude) makes the request on this user's behalf.
+     * Derived from the access token and never stored. When set, `name` reads "<name> via <agent>".
      */
     agent?: AgentActor;
-    /** How the account was made, and the page and campaign that brought them (attribution). */
+    /** How the account was created, plus the page and campaign that led to the sign-up (attribution). */
     signup?: SignupRecord;
-    /** What they said they came for, and how far they are in getting started. */
+    /** The user's stated purpose for signing up and their progress through onboarding. */
     onboarding?: OnboardingState;
-    /** Their look, language and which emails they want, for what the server sends them. */
+    /** The user's theme, language and email preferences. The server uses them for the emails it sends. */
     preferences?: UserPreferences;
 }
 
-/** What a person chose, kept on the server so its emails can follow it. */
+/** User choices stored on the server so that outgoing emails can follow them. */
 export interface UserPreferences {
-    /** `discotheque` or `folio`. */
+    /** Interface theme: `discotheque` or `folio`. */
     look?: 'discotheque' | 'folio';
-    /** Interface language (`en`, `fr`…): their emails use it when the server has it. */
+    /** Interface language code (`en`, `fr`, ...). Emails use it when the server has a translation for it. */
     locale?: string;
-    /** Notification emails they turned off (`false`). Sign-in mail can't be turned off. */
+    /** Notification email categories. A value of `false` turns that category off. Sign-in emails cannot be turned off. */
     emails?: { reviews?: boolean; usage?: boolean };
 }
 
-/** Why someone came, as they said on their first screen. */
+/** The purpose a user selected on the first onboarding screen. */
 export type OnboardingIntent = 'agency' | 'own' | 'developer' | 'team';
 
 export interface OnboardingState {
     intent?: OnboardingIntent;
-    /** Their copy of the demo project, once they asked to be shown around. */
+    /** ID of the user's copy of the demo project. Set when they request a tour. */
     demoProjectId?: string;
-    /** Demo copies they have made (a few at most). */
+    /** Number of demo project copies the user has created. The server limits this count. */
     demoCopies?: number;
-    /** When they finished (or skipped) the welcome screens. */
+    /** ISO 8601 timestamp of when the user finished or skipped onboarding. */
     finishedAt?: string;
 }
 
 export interface SignupRecord {
     at: string;
     method: 'email' | 'provider' | 'invite';
-    /** The site page they came from (`/for/agencies`). */
+    /** Marketing site page the user came from (for example `/for/agencies`). */
     from?: string;
-    /** The site's goal on that link (`start`, `agency-demo`). */
+    /** Goal parameter on the sign-up link (for example `start` or `agency-demo`). */
     goal?: string;
-    /** `utm_*` from the visit, without the prefix. */
+    /** `utm_*` query parameters from the visit, keyed without the `utm_` prefix. */
     campaign?: Record<string, string>;
     locale?: string;
+    /** Set when `method` is `invite`: who sent the invite and the project or workspace it was for. */
+    invite?: { by: string; projectId?: string; workspaceId?: string };
 }
 
-/** An agent acting for a person. */
+/** An agent acting on behalf of a user. */
 export interface AgentActor {
-    /** What the agent calls itself: "Claude", "claude-code"… */
+    /** Name the agent identifies itself with, such as "Claude" or "claude-code". */
     name: string;
-    /** Changes it makes go live only once a person approves or publishes them (default true). */
+    /** When true, the agent's changes go live only after a person approves or publishes them. Defaults to true. */
     reviewOnly: boolean;
 }
 
 /**
- * Public member row from `GET /projects/:projectId/users` (no `passwordHash`, `auth`, or `projects`).
- * `online` uses Studio presence heartbeats; window length is configurable via `ONLINE_PRESENCE_MAX_IDLE_MS` on the API host.
+ * Public member row returned by `GET /projects/:projectId/users`. It omits `passwordHash`, `auth`
+ * and `projects`. `online` is derived from presence heartbeats sent by admin clients; the idle
+ * window is set by `ONLINE_PRESENCE_MAX_IDLE_MS` on the API host.
  */
 export interface ProjectMemberUser {
     id: string;
@@ -99,4 +104,12 @@ export interface ProjectMemberUser {
     isActive: boolean;
     lastLoginAt?: string;
     online: boolean;
+    /** The user's role in the project's workspace. Absent when they are not a workspace member (for example a client). */
+    workspaceRole?: 'owner' | 'admin' | 'billing' | 'member';
+    /**
+     * True when the user has access only through the workspace and is not listed on the project
+     * itself. Such a user loses access by leaving the workspace or, if they are a Member, by being
+     * given access to chosen projects only.
+     */
+    viaWorkspace: boolean;
 }

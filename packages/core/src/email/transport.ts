@@ -3,8 +3,8 @@ import { randomUUID } from 'node:crypto';
 import { resolveEmailSettings, type ResolvedEmailSettings } from './settings.js';
 
 /**
- * Getting mail out: the SMTP server from the environment (SMTP_*), an optional DKIM key the
- * engine signs with itself (MOTEUR_DKIM_*), and the headers every automated email carries.
+ * Sends mail: the SMTP server comes from the environment (SMTP_*), an optional DKIM key lets
+ * the engine sign mail itself (MOTEUR_DKIM_*), and every automated email carries the headers set here.
  */
 
 export type MailCategory = 'auth' | 'notification' | 'project' | 'test';
@@ -15,15 +15,15 @@ export interface OutgoingMail {
     text: string;
     html?: string;
     replyTo?: string;
-    /** A different display name on the operator's address (a project's own mail). */
+    /** A different display name on the operator's address (used for mail a project sends). */
     fromName?: string;
     /**
-     * A project's own From address. Used only when its domain is on the operator's
-     * `sendingDomains`; else the server's address goes out, with the project's name.
+     * A project's own From address. It is used only when its domain is in the operator's
+     * `sendingDomains`; otherwise mail is sent from the server's address with the project's name.
      */
     fromAddress?: string;
     category: MailCategory;
-    /** Notifications only: one-click unsubscribe (RFC 8058). */
+    /** For notifications only: one-click unsubscribe (RFC 8058). */
     unsubscribe?: string;
     attachments?: { filename: string; content: Buffer; cid: string; contentType: string }[];
 }
@@ -39,7 +39,7 @@ export function smtpPort(): number {
     return Number.isNaN(port) ? 587 : port;
 }
 
-/** DKIM signing by the engine, when the operator gave a key; else the mail service signs (or nobody). */
+/** DKIM signing by the engine when the operator provided a key. Otherwise the mail service signs the mail, or it is unsigned. */
 export function dkimConfig(): DkimConfig | null {
     const domainName = process.env.MOTEUR_DKIM_DOMAIN?.trim();
     const keySelector = process.env.MOTEUR_DKIM_SELECTOR?.trim();
@@ -53,12 +53,12 @@ export function dkimConfig(): DkimConfig | null {
         }
     }
     if (!domainName || !keySelector || !privateKey) return null;
-    // A key pasted into one line of an environment variable, with \n for its line breaks.
+    // The key may be set on one line of an environment variable, with \n for line breaks.
     privateKey = privateKey.replace(/\\n/g, '\n');
     return { domainName, keySelector, privateKey };
 }
 
-/** Why mail can't go out, or null. */
+/** Returns the reason mail can't be sent, or null when it can. */
 export function mailUnavailable(settings = resolveEmailSettings()): string | null {
     if (!process.env.SMTP_HOST?.trim())
         return 'Email is not set up on this server (SMTP_HOST and SMTP_FROM).';
@@ -69,10 +69,10 @@ export function mailUnavailable(settings = resolveEmailSettings()): string | nul
 
 export const domainOf = (address: string) => address.split('@').pop()?.toLowerCase() ?? '';
 
-/** A display name safe in a header: no quotes or angle brackets to break out of it. */
+/** Sanitizes a display name for use in a header by removing quotes and angle brackets. */
 const displayName = (name: string) => `"${name.replace(/["\\<>\r\n]/g, '').trim()}"`;
 
-/** The message as nodemailer takes it: headers for automated mail, the logo attached inline. */
+/** Builds the message in the shape nodemailer expects: automated-mail headers and the logo attached inline. */
 export function buildMessage(mail: OutgoingMail, settings: ResolvedEmailSettings) {
     const fromAddress =
         mail.fromAddress && settings.sendingDomains.includes(domainOf(mail.fromAddress))
@@ -80,7 +80,8 @@ export function buildMessage(mail: OutgoingMail, settings: ResolvedEmailSettings
             : settings.fromAddress;
     const domain = domainOf(fromAddress);
     const headers: Record<string, string> = {
-        // Automated: out-of-office replies and auto-responders should not answer it (RFC 3834).
+        // Mark the mail as automated so out-of-office replies and auto-responders don't answer it
+        // (RFC 3834).
         'Auto-Submitted': 'auto-generated',
         'X-Auto-Response-Suppress': 'OOF, AutoReply'
     };
@@ -120,7 +121,7 @@ export async function createTransport() {
         host: process.env.SMTP_HOST,
         port,
         secure: port === 465,
-        // A slow mail server must not hold requests open.
+        // Time out so a slow mail server can't hold requests open.
         connectionTimeout: 10_000,
         greetingTimeout: 10_000,
         socketTimeout: 20_000,
@@ -131,7 +132,7 @@ export async function createTransport() {
     });
 }
 
-/** Sends one email. Throws with a readable reason (not set up, refused by the server). */
+/** Sends one email. Throws with a readable reason, such as mail not being configured or the server refusing it. */
 export async function deliver(mail: OutgoingMail): Promise<{ messageId: string }> {
     const settings = resolveEmailSettings();
     const unavailable = mailUnavailable(settings);

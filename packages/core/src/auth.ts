@@ -31,7 +31,7 @@ function getJwtSecret(): string {
     return secret;
 }
 
-/** One rule wherever a password is set or checked, so any password that can be set can sign in. */
+/** The single password rule, applied wherever a password is set or checked, so any password that can be set can also be used to sign in. */
 export const PASSWORD_MIN_LENGTH = 8;
 export const PASSWORD_MAX_LENGTH = 200;
 
@@ -49,10 +49,10 @@ export async function hashPassword(plain: string): Promise<string> {
     return bcrypt.hash(plain, 10);
 }
 
-/** A user as a sign-in sends it back: no password hash or two-step secrets. */
+/** A user as returned by sign-in, without the password hash or two-step secrets. */
 export type SignedInUser = ReturnType<typeof withoutSecrets<User>>;
 
-/** With two-step sign-in on, a password (or a provider) gives a ticket; a code makes the session. */
+/** With two-step sign-in enabled, a password or provider sign-in returns a ticket, and the two-step code exchanges it for a session. */
 export type TwoFactorStep = { twoFactor: { ticket: string } };
 
 export async function loginUser(
@@ -63,14 +63,15 @@ export async function loginUser(
         throw new Error('Missing email or password');
     }
 
-    // CLI (or another process) may write users.json; this process keeps an in-memory cache — reload so login sees latest users/passwords.
+    // CLI (or another process) may write users.json; this process keeps an in-memory cache — reload
+    // so login sees latest users/passwords.
     reloadUsers();
     const user = getUserByEmail(email);
     // If user is not found, throw an error
     if (!user) {
         throw new Error('Invalid credentials');
     }
-    // Someone who signs in by email code has no password: none matches.
+    // An account that signs in by email code has no password, so no password can match.
     const isValid = user.passwordHash ? await bcrypt.compare(password, user.passwordHash) : false;
     if (!isValid) {
         throw new Error('Invalid credentials');
@@ -82,9 +83,9 @@ export async function loginUser(
 }
 
 /**
- * Once someone has proved who they are: a ticket for their two-step code if they use one, else a
- * session. A passkey skips this and goes to `startSession`: it is two steps in one (the device,
- * and the face, finger or PIN that unlocks it).
+ * Called after a user has authenticated. Returns a ticket for their two-step code if they use
+ * one, otherwise a session. Passkeys skip this and call `startSession` directly, because a
+ * passkey already covers two factors (the device and the biometric or PIN that unlocks it).
  */
 export async function finishSignIn(
     user: User
@@ -93,7 +94,7 @@ export async function finishSignIn(
     return startSession(user);
 }
 
-/** A session for someone who has proved everything their sign-in asks for. */
+/** Starts a session for a user who has completed every step their sign-in requires. */
 export async function startSession(user: User): Promise<{ token: string; user: SignedInUser }> {
     const loginAt = await recordUserLogin(user.id);
     const displayUser: User = {
@@ -104,7 +105,7 @@ export async function startSession(user: User): Promise<{ token: string; user: S
     return { token: generateJWT(displayUser), user: withoutSecrets(displayUser) };
 }
 
-/** Someone an OAuth provider vouches for. Only pass an address the provider has verified. */
+/** A user identity asserted by an OAuth provider. Only pass an email address the provider has verified. */
 export type ProviderIdentity = {
     /** Stored under `user.auth`, e.g. `{ githubId: 123 }`. */
     auth: Record<string, string | number>;
@@ -145,7 +146,7 @@ export async function loginWithProvider(
         if (listUsers().some(candidate => candidate.email?.toLowerCase() === email.toLowerCase())) {
             throw new Error('Sign in with your existing method to link this provider');
         }
-        // A server that doesn't take new accounts still lets invited people in.
+        // A server that is closed to new accounts still lets invited people sign up.
         if (!signupOpen() && !hasLiveInvite(email))
             throw Object.assign(new Error('This server only takes invited people.'), {
                 status: 403,
@@ -174,7 +175,7 @@ export function generateJWT(user: User): string {
     return tokenForSession(user, createAuthSession(user));
 }
 
-/** Credential maintenance rotates tokens without resetting the original authentication time. */
+/** Rotates tokens during credential maintenance while keeping the original authentication time. */
 export function rotatePersonalSession(user: User, previous: AuthSession): string {
     if (
         previous.kind !== 'person' ||
@@ -193,8 +194,9 @@ export function rotatePersonalSession(user: User, previous: AuthSession): string
 
 function tokenForSession(user: User, session: AuthSession, ttlSeconds?: number): string {
     const secret = getJwtSecret();
-    // No project list: every request reads the person's memberships from the server, and a list
-    // here grew with each project until the header was too large to send (431).
+    // The token carries no project list. Every request reads the user's memberships from the
+    // server, because a list in the token grew with each project until the header was too large
+    // (HTTP 431).
     const payload: JwtPayload = {
         sub: user.id,
         id: user.id,
@@ -220,7 +222,10 @@ function tokenForSession(user: User, session: AuthSession, ttlSeconds?: number):
     return token;
 }
 
-/** Generate a short-lived session token (e.g. for web Atelier). TTL in seconds; max 8 hours. */
+/**
+ * Generates a short-lived session token, used for example by the MCP endpoint. The TTL is in
+ * seconds and is clamped between 1 minute and 8 hours.
+ */
 export function generateSessionToken(
     user: User,
     ttlSeconds: number,
@@ -271,8 +276,8 @@ export function agentOf(payload: JwtPayload | Record<string, unknown>): AgentAct
 }
 
 /**
- * The person a request acts as: the stored account, plus the agent from the token when one
- * acts for them ("Louise via Claude" wherever the name is recorded).
+ * The user a request acts as: the stored account, plus the agent named in the token when an
+ * agent acts for them (recorded as, for example, "Louise via Claude").
  */
 export function actingUser(user: User, payload: JwtPayload | Record<string, unknown>): User {
     const agent = agentOf(payload);

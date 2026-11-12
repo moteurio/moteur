@@ -1,6 +1,7 @@
 /**
- * Pictures written into the site at build (`<MoteurImage>`, `from="site"`): Astro downloads and
- * resizes only from hosts its config allows, so `moteur()` allows Moteur's.
+ * Support for writing pictures into the site at build time (`<MoteurImage>` with `from="site"`).
+ * Astro only downloads and resizes images from hosts that its config allows, so `moteur()` adds
+ * Moteur's host to that list.
  *
  *     // astro.config.mjs
  *     import { moteur } from '@moteurio/astro/integration';
@@ -13,11 +14,11 @@ import { env } from './env.js';
 const DEFAULT_API_URL = 'https://api.moteur.io';
 
 export type MoteurIntegrationOptions = {
-    /** The API the site reads (default `MOTEUR_API_URL`, else api.moteur.io). */
+    /** The API the site reads from. Defaults to `MOTEUR_API_URL`, then to api.moteur.io. */
     apiUrl?: string;
 };
 
-/** Lets the build turn Moteur's pictures into the site's own files. */
+/** Allows Astro to download Moteur's pictures during the build and write them into the site as its own files. */
 export function moteur(options: MoteurIntegrationOptions = {}): AstroIntegration {
     return {
         name: '@moteurio/astro',
@@ -37,7 +38,7 @@ export function moteur(options: MoteurIntegrationOptions = {}): AstroIntegration
     };
 }
 
-/** The picture as uploaded: its own file, before any resizing. */
+/** Returns the URL of the picture as uploaded, before any resizing. */
 export function originalOf(image: ImageSource): string | undefined {
     if (!image) return undefined;
     const resolved = (image as { _resolved?: { url?: string } | null })._resolved;
@@ -46,7 +47,7 @@ export function originalOf(image: ImageSource): string | undefined {
 
 const warned = new Set<string>();
 
-/** Said once per host: the build couldn't make the site's own files, so Moteur serves them. */
+/** Warns once per host that the build could not write the pictures into the site, so Moteur serves them instead. */
 export function warnNotAllowed(url: string): void {
     const host = new URL(url).host;
     if (warned.has(host)) return;

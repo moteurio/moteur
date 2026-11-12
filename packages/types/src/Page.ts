@@ -1,20 +1,20 @@
 export type PageNodeType = 'static' | 'collection' | 'folder';
 export type PageStatus = 'published' | 'draft';
 
-/** Shared fields across all page node types */
+/** Fields shared by all page node types. */
 export interface PageNodeBase {
     id: string;
     projectId: string;
     type: PageNodeType;
     label: string;
-    /** The address segment in the project's default language. */
+    /** URL segment in the project's default locale. */
     slug: string;
-    /** The address segment in other languages, by locale. A language left out uses `slug`. */
+    /** URL segments in other locales, keyed by locale code. A locale that is not listed uses `slug`. */
     slugs?: Record<string, string>;
     /**
-     * The languages it is in, besides the default (always). Left out: every language of the
-     * project. A language not listed has no address, sitemap line or hreflang, and links to it
-     * there lead to the default language's address.
+     * Locales the page exists in. The default locale is always included. When omitted, the page
+     * exists in every locale of the project. A locale that is not listed gets no URL, sitemap entry
+     * or hreflang, and links to the page in that locale point to the default locale's URL.
      */
     languages?: string[];
     parentId: string | null;
@@ -28,35 +28,37 @@ export interface PageNodeBase {
     updatedAt: string;
 }
 
-/** Static page — authored content, resolves to one URL */
+/** A static page: authored content that resolves to one URL. */
 export interface StaticPage extends PageNodeBase {
     type: 'static';
     templateId: string;
     status: PageStatus;
     fields: Record<string, unknown>;
     /**
-     * The commit holding the page as published: sites are served that version. Edits saved
-     * since by someone who needs a review wait in the page until it is published again.
+     * The commit that holds the published version of the page. Sites are served this version.
+     * Edits saved afterwards by a user who needs review stay unpublished on the page until it is
+     * published again.
      */
     publishedCommit?: string;
     publishedAt?: string;
-    /** In the members' API answers only (never stored): a live page with edits waiting to go live. */
+    /** Included only in API responses to project members and never stored. True when a published page has saved edits that are not yet live. */
     waitingChanges?: boolean;
 }
 
-/** Collection page — bound to a model, resolves to N URLs (one per entry) */
+/** A collection page: bound to a model, it resolves to one URL per entry. */
 export interface CollectionPage extends PageNodeBase {
     type: 'collection';
     templateId: string;
     status: PageStatus;
     fields: Record<string, unknown>;
     /**
-     * The commit holding the page as published: sites are served that version. Edits saved
-     * since by someone who needs a review wait in the page until it is published again.
+     * The commit that holds the published version of the page. Sites are served this version.
+     * Edits saved afterwards by a user who needs review stay unpublished on the page until it is
+     * published again.
      */
     publishedCommit?: string;
     publishedAt?: string;
-    /** In the members' API answers only (never stored): a live page with edits waiting to go live. */
+    /** Included only in API responses to project members and never stored. True when a published page has saved edits that are not yet live. */
     waitingChanges?: boolean;
     modelId: string;
     urlPattern?: string;
@@ -64,7 +66,7 @@ export interface CollectionPage extends PageNodeBase {
     sitemapIncludeEntries?: boolean;
 }
 
-/** Folder — structural grouping, no content of its own */
+/** A folder: a structural grouping of pages with no content of its own. */
 export interface FolderPage extends PageNodeBase {
     type: 'folder';
 }

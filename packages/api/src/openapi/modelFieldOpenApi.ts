@@ -25,7 +25,7 @@ const PRIMITIVE_NUMBER = new Set(['core/number']);
 
 const PRIMITIVE_BOOLEAN = new Set(['core/boolean']);
 
-/** Labels and descriptions may be stored as a locale map ({ fr, en }); OpenAPI needs a string. */
+/** Labels and descriptions may be stored as a locale map ({ fr, en }), but OpenAPI needs a string. */
 export function plainText(value: unknown, fallback = ''): string {
     if (typeof value === 'string') return value.trim() || fallback;
     if (value && typeof value === 'object' && !Array.isArray(value)) {
@@ -71,7 +71,7 @@ function referenceStub(description?: string): OpenAPIV3.SchemaObject {
     };
 }
 
-/** A page as a page relation delivers it. */
+/** A page as it is delivered through a page relation. */
 function pageSummarySchema(description: string): OpenAPIV3.SchemaObject {
     return {
         type: 'object',
@@ -91,7 +91,7 @@ function pageSummarySchema(description: string): OpenAPIV3.SchemaObject {
 }
 
 /**
- * Map a model field definition to a JSON Schema fragment for `entry.data.<key>`.
+ * Maps a model field definition to a JSON Schema fragment for `entry.data.<key>`.
  */
 export function openApiSchemaForModelField(
     field: Field,

@@ -1,4 +1,4 @@
-/** Shapes many groups share: create/read/update/delete, and schema history. */
+/** Command shapes that many groups share: create, read, update and delete, and revision history. */
 import {
     BODY_ARGS,
     id as idArg,
@@ -11,29 +11,29 @@ import { localized } from './format.js';
 
 type Spec = Omit<CommandSpec, 'group'>;
 
-/** `a layout`, `an entry`. */
+/** Helpers for messages: `cap` capitalizes a word and `a` adds the right article, as in `a layout` or `an entry`. */
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 const a = (noun: string) => `${/^[aeiou]/i.test(noun) ? 'an' : 'a'} ${noun}`;
 
 export interface CrudOptions {
-    /** Singular, for messages: `layout`. */
+    /** The singular noun used in messages, for example `layout`. */
     noun: string;
-    /** `/projects/{project}/layouts`. */
+    /** The collection path, for example `/projects/{project}/layouts`. */
     base: string;
-    /** The id's name in the path: `{id}`, `{layoutId}`. */
+    /** The name of the id placeholder in the path, such as `{id}` or `{layoutId}`. */
     idName?: string;
     table?: Column[];
-    /** The list's property in the response (`layouts`), when it isn't a bare array. */
+    /** The response property that holds the list (for example `layouts`), when the response is not a bare array. */
     pick?: string;
-    /** Commands to leave out: `replace`, `create`… */
+    /** Commands to omit, such as `replace` or `create`. */
     skip?: ('list' | 'get' | 'create' | 'update' | 'replace' | 'delete')[];
-    /** Extra arguments for list. */
+    /** Extra arguments for the list command. */
     listArgs?: ArgSpec[];
-    /** Offer PUT (replace) as well as PATCH (update). */
+    /** Also offers a PUT (replace) command in addition to PATCH (update). */
     replace?: boolean;
 }
 
-/** The usual five (or six) commands for a resource kept as JSON. */
+/** Declares the usual five commands (six with replace) for a resource stored as JSON. */
 export function crud(o: CrudOptions): Spec[] {
     const key = o.idName ?? 'id';
     const one = `${o.base}/{${key}}`;
@@ -107,7 +107,7 @@ const REVISION_TABLE: Column[] = [
     { key: 'message', header: 'message' }
 ];
 
-/** history / version / restore for anything git keeps revisions of. */
+/** Declares the history, version and restore commands for anything that git keeps revisions of. */
 export function revisions(o: { noun: string; path: string; ids: ArgSpec[] }): Spec[] {
     const max: ArgSpec = {
         name: 'max',
@@ -115,7 +115,7 @@ export function revisions(o: { noun: string; path: string; ids: ArgSpec[] }): Sp
         description: 'How many versions',
         in: 'query'
     };
-    // After the ids: `moteur entries version <model> <id> <revision>`.
+    // The revision comes after the ids, as in `moteur entries version <model> <id> <revision>`.
     const after = o.ids.filter(a => a.positional !== undefined).length;
     const revision: ArgSpec = {
         name: 'revision',
@@ -150,7 +150,7 @@ export function revisions(o: { noun: string; path: string; ids: ArgSpec[] }): Sp
     ];
 }
 
-/** `--set title.en="Hello" --set readingTime=5` as an object (values read as JSON when they are). */
+/** Converts `--set title.en="Hello" --set readingTime=5` to an object. Values that parse as JSON are parsed. */
 export function setPairs(pairs: unknown): Record<string, unknown> {
     const out: Record<string, unknown> = {};
     for (const pair of (pairs as string[] | undefined) ?? []) {
@@ -161,7 +161,7 @@ export function setPairs(pairs: unknown): Record<string, unknown> {
         try {
             value = JSON.parse(raw);
         } catch {
-            // Plain text.
+            // The value is not JSON, so keep it as plain text.
         }
         const parts = pair.slice(0, at).split('.');
         let node = out;
@@ -172,8 +172,8 @@ export function setPairs(pairs: unknown): Record<string, unknown> {
 }
 
 /**
- * A value from --set laid over what a field holds now: objects merge key by key (title.en
- * changes English, French stays), anything else replaces.
+ * Applies a --set value on top of the field's current value. Objects are merged key by key, so
+ * setting title.en changes English and keeps French. Any other value replaces the current one.
  */
 export function layOver(now: unknown, value: unknown): unknown {
     const isObject = (v: unknown): v is Record<string, unknown> =>

@@ -15,20 +15,17 @@ export function projectTemplatesApi(client: MoteurClient) {
                         : (data as { templates: Record<string, unknown>[] })
                 );
         },
-        get(projectId: string, templateId: string): Promise<{ template: Record<string, unknown> }> {
+        get(projectId: string, templateId: string): Promise<Record<string, unknown>> {
             return client.get(`${base(projectId)}/${encodeURIComponent(templateId)}`);
         },
-        create(
-            projectId: string,
-            body: Record<string, unknown>
-        ): Promise<{ template: Record<string, unknown> }> {
+        create(projectId: string, body: Record<string, unknown>): Promise<Record<string, unknown>> {
             return client.post(base(projectId), body);
         },
         update(
             projectId: string,
             templateId: string,
             body: Record<string, unknown>
-        ): Promise<{ template: Record<string, unknown> }> {
+        ): Promise<Record<string, unknown>> {
             return client.patch(`${base(projectId)}/${encodeURIComponent(templateId)}`, body);
         },
         delete(projectId: string, templateId: string): Promise<void> {

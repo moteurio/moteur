@@ -1,5 +1,3 @@
-// src/core/PluginManager.ts
-
 import { PluginModule } from '@moteurio/types/Plugin.js';
 import { pluginRegistry } from '../registry/PluginRegistry.js';
 import { loadPluginsForProject } from '../utils/loadPlugins.js';

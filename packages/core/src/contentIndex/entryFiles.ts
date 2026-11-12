@@ -14,7 +14,7 @@ export type EntryFileRef = { modelId: string; entryId: string; file: string };
 async function subdirectories(dir: string): Promise<string[]> {
     try {
         const items = await fsp.readdir(dir, { withFileTypes: true });
-        // Dot-directories are not content.
+        // Directories starting with a dot are not content.
         return items.filter(d => d.isDirectory() && !d.name.startsWith('.')).map(d => d.name);
     } catch (err) {
         if ((err as NodeJS.ErrnoException).code === 'ENOENT') return [];
@@ -30,7 +30,7 @@ export async function listEntryFiles(projectId: string, modelId?: string): Promi
     for (const m of modelIds) {
         const entriesDir = path.join(modelsDir, m, 'entries');
         for (const entryId of await subdirectories(entriesDir)) {
-            // Plain concatenation: path.join per file is measurable with tens of thousands.
+            // Use plain string concatenation: calling path.join per file is measurably slower with tens of thousands of files.
             const file = `${entriesDir}${path.sep}${entryId}${path.sep}entry.json`;
             refs.push({ modelId: m, entryId, file });
         }
@@ -38,7 +38,7 @@ export async function listEntryFiles(projectId: string, modelId?: string): Promi
     return refs;
 }
 
-/** Longest stretch of synchronous file work before yielding to the event loop. */
+/** The longest stretch of synchronous file work before yielding to the event loop. */
 const SLICE_MS = 10;
 
 /**
@@ -59,7 +59,7 @@ export async function mapSliced<T, R>(items: T[], fn: (item: T) => R): Promise<R
     return results;
 }
 
-/** mtime and size of a file, or null when it is missing. */
+/** Returns the modification time and size of a file, or null when it is missing. */
 export function statEntryFile(file: string): { mtimeMs: number; size: number } | null {
     try {
         const s = fs.statSync(file);
@@ -69,7 +69,7 @@ export function statEntryFile(file: string): { mtimeMs: number; size: number } |
     }
 }
 
-/** Parse an entry file, or null when it is missing or not valid JSON. */
+/** Parses an entry file. Returns null when it is missing or not valid JSON. */
 export function readEntryFile(file: string): Entry | null {
     try {
         return JSON.parse(fs.readFileSync(file, 'utf-8')) as Entry;
@@ -98,7 +98,7 @@ export async function readPublishedSnapshots(
                 found.set(spec, JSON.parse(cached) as Entry);
                 continue;
             } catch {
-                /* re-read from git */
+                /* Ignore the error; the snapshot is read from git instead. */
             }
         }
         missing.push(spec);
@@ -112,7 +112,7 @@ export async function readPublishedSnapshots(
                 const sep = spec.indexOf(':');
                 publishedCache.set(spec.slice(0, sep), spec.slice(sep + 1), raw);
             } catch {
-                /* corrupt snapshot: the entry file is served instead */
+                /* Corrupt snapshot: serve the entry file instead. */
             }
         }
     }

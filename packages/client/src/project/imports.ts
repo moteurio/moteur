@@ -7,9 +7,10 @@ const base = (projectId: string) => `/projects/${encodeURIComponent(projectId)}`
 export function projectImportsApi(client: MoteurClient) {
     return {
         /**
-         * Imports a bundle, all of it or nothing. Answers with the job: finished (`done`,
-         * `failed`, `awaiting_approval`), or still `running` after `wait` seconds (follow it with
-         * `get`). A failed import is an answer, not an error: its `issues` say why.
+         * Imports a bundle as a single all-or-nothing operation. Resolves with the import job. The
+         * job has either finished (`done`, `failed` or `awaiting_approval`) or is still `running`
+         * after `wait` seconds, in which case follow it with `get`. A failed import is returned as
+         * a result rather than thrown as an error, and its `issues` explain why it failed.
          */
         run(
             projectId: string,
@@ -33,13 +34,14 @@ export function projectImportsApi(client: MoteurClient) {
         get(projectId: string, id: string): Promise<ImportJob> {
             return client.get(`${base(projectId)}/imports/${encodeURIComponent(id)}`);
         },
-        /** Puts a waiting import live (a person who can publish). */
+        /** Publishes an import that is awaiting approval. The caller must be allowed to publish. */
         approve(projectId: string, id: string): Promise<ImportJob> {
             return client.post(`${base(projectId)}/imports/${encodeURIComponent(id)}/approve`);
         },
         /**
-         * The project as a bundle, to import elsewhere. `inlineFiles` carries each file in it
-         * (base64) instead of its address, for a server that can't reach this one.
+         * Exports the project as a bundle that can be imported elsewhere. With `inlineFiles`, each
+         * file is embedded as base64 instead of referenced by URL, which is needed when the
+         * importing server cannot reach this one.
          */
         export(projectId: string, options: { inlineFiles?: boolean } = {}): Promise<ImportBundle> {
             return client.get(

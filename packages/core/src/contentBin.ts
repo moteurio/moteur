@@ -14,10 +14,10 @@ import {
 } from './utils/pathUtils.js';
 
 /**
- * The bin for entries, pages and models: what someone deleted waits here, outside the project's
- * repository, with who deleted it and when, until it is taken out (back as a draft) or an admin
- * deletes it for good. Each deletion is its own file, so deleting the same id twice keeps both.
- * A deleted model is a folder instead: the model's own, moved whole, entries and all.
+ * The bin for entries, pages and models. A deleted item is stored here, outside the project's
+ * repository, with who deleted it and when. It stays until someone restores it (as a draft) or an
+ * admin deletes it permanently. Each deletion is a separate file, so deleting the same id twice
+ * keeps both copies. A deleted model is stored as a whole folder, including its entries.
  *
  * Bin ids name what they hold: `entry.<modelId>.<entryId>.<ms>`, `page.<pageId>.<ms>` and
  * `model.<modelId>.<ms>`.
@@ -48,7 +48,7 @@ function modelBinDir(projectId: string, modelId: string, ms: number): string {
     return path.join(trashSchemasDir(projectId), `${modelId}-${ms}`);
 }
 
-/** Not in the bin (or never was): the API answers 404. */
+/** The requested item is not in the bin. The API responds with 404. */
 function notInBin(): Error {
     return Object.assign(new Error('Nothing in the bin has this id.'), { statusCode: 404 });
 }
@@ -84,7 +84,7 @@ function stamp(user: User): Binned {
     return { at: new Date().toISOString(), by: user.id, byName: user.name ?? undefined };
 }
 
-/** Keeps a deleted entry in the bin. Its file in the project is the caller's to remove. */
+/** Stores a deleted entry in the bin. The caller removes the entry's file from the project. */
 export function binEntry(
     projectId: string,
     modelId: string,
@@ -135,7 +135,7 @@ export function unbinModel(projectId: string, binId: string, folder: string): vo
     fs.rmSync(dir, { recursive: true, force: true });
 }
 
-/** Keeps a deleted page in the bin. Its file in the project is the caller's to remove. */
+/** Stores a deleted page in the bin. The caller removes the page's file from the project. */
 export function binPage(projectId: string, page: PageNode, user: User): void {
     const file = fileOf(projectId, { kind: 'page', itemId: page.id, ms: Date.now() });
     fs.mkdirSync(path.dirname(file), { recursive: true });
@@ -229,7 +229,7 @@ export function listBinItems(projectId: string): BinItem[] {
         .sort((a, b) => b.binned.at.localeCompare(a.binned.at));
 }
 
-/** Takes it out of the bin for good (once restored, or deleted forever). */
+/** Removes an item from the bin, after it has been restored or deleted permanently. */
 export function removeFromBin(projectId: string, binId: string): void {
     const where = parse(binId);
     const file = fileOf(projectId, where);

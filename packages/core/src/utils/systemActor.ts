@@ -1,12 +1,12 @@
 import type { User } from '@moteurio/types/User.js';
 
 /**
- * Marks the engine's own actors (the scheduler, form actions). A symbol can't come from a
- * token, a login or JSON, so nobody can pass as one from outside.
+ * Marks the engine's own actors (the scheduler and form actions). A symbol cannot come from a
+ * token, a login or JSON, so a client cannot pose as a system actor.
  */
 const SYSTEM_ACTOR = Symbol('moteur.systemActor');
 
-/** A user for work the engine does by itself: it may act in every project. */
+/** Creates a user for work the engine does by itself. It may act in every project. */
 export function systemActor(id: string, name: string): User {
     return Object.assign(
         {

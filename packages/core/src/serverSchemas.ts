@@ -21,7 +21,7 @@ export type ServerSchemaKind = 'blocks' | 'structures';
 export type ServerSchema = {
     type: string;
     schema: BlockSchema | StructureSchema;
-    /** `shipped`: as it comes. `file`: added on this server. `changed`: a shipped one, changed here. */
+    /** `shipped`: provided by the engine or a plugin. `file`: added on this server. `changed`: a shipped schema overridden on this server. */
     origin: 'shipped' | 'file' | 'changed';
 };
 

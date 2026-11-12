@@ -1,36 +1,39 @@
 /**
- * Commands are declared, not hand-written: each says its arguments (with types), what it sends,
- * and the API call it makes. Help, argument checking, `--json` output, the coverage check against
- * the API's OpenAPI document, and (later) MCP tools all come from these declarations.
+ * Commands are declared as data rather than written by hand. Each declaration lists the command's
+ * typed arguments, what it sends and the API call it makes. Help text, argument checking, `--json`
+ * output, the coverage check against the API's OpenAPI document and the MCP tools are all derived
+ * from these declarations.
  */
 import type { MoteurAdminClient } from '@moteurio/client';
 
 export type ArgType = 'string' | 'number' | 'boolean' | 'list' | 'json';
 
 export interface ArgSpec {
-    /** The flag, kebab-case: `--reading-time`. */
+    /** The flag name in kebab-case, for example `--reading-time`. */
     name: string;
     type?: ArgType;
     description: string;
     required?: boolean;
-    /** Also accepted as the nth word after the command: `moteur entries get <id>`. */
+    /** Also accepts the value as the nth word after the command, as in `moteur entries get <id>`. */
     positional?: number;
     choices?: readonly string[];
-    /** A list whose values may hold commas (`--set excerpt.en=Ice, then fire`): repeat it, never split. */
+    /** Marks a list whose values may contain commas (`--set excerpt.en=Ice, then fire`). The flag is repeated for each value and a value is never split on commas. */
     whole?: boolean;
     default?: unknown;
-    /** Older or shorter spellings that still work: `projectId`, `id`. */
+    /** Alternative names that are also accepted, such as `projectId` or `id`. */
     aliases?: string[];
     /**
-     * Where an HTTP command puts it: a `{name}` in the path (automatic), the query string, or the
-     * JSON body. `none` keeps it for the command's own use.
+     * Where an HTTP command sends the value: the query string or the JSON body. An argument that
+     * matches a `{name}` placeholder in the path is substituted there automatically. `none` means
+     * the value is only used by the command itself and is not sent.
      */
     in?: 'query' | 'body' | 'none';
-    /** Its name in the query or body when it differs: `filter.author`, `data`. */
+    /** The name used in the query or body when it differs from the flag name, for example `filter.author` or `data`. */
     key?: string;
     /**
-     * A path on the machine running the command (a file to read or write). Only offered where
-     * that machine is the person's own: never by a hosted server, whose disk is the server's.
+     * Marks a path on the machine that runs the command, such as a file to read or write. It is
+     * only offered when that machine belongs to the caller. A hosted server never offers it,
+     * because its disk is not the caller's.
      */
     local?: boolean;
 }
@@ -38,70 +41,71 @@ export interface ArgSpec {
 export interface Column {
     key: string;
     header: string;
-    /** Turns the value into text for the table. */
+    /** Converts the value to the text shown in the table. */
     format?: (value: unknown, row: Record<string, unknown>) => string;
 }
 
 export interface RunContext {
     args: Record<string, unknown>;
     client: () => Promise<MoteurAdminClient>;
-    /** The project: --project, MOTEUR_PROJECT, .moteur.json, or the default from `moteur projects use`. */
+    /** Resolves the project id from --project, MOTEUR_PROJECT, .moteur.json, or the default set by `moteur projects use`. */
     project: () => Promise<string>;
-    /** The JSON body from --file, --data or stdin, with body arguments laid over it. */
+    /** Returns the JSON body from --file, --data or stdin, with the body arguments applied on top. */
     body: () => Promise<Record<string, unknown>>;
-    /** Prints a line unless --quiet or --json. */
+    /** Prints a line, unless --quiet or --json is set. */
     say: (message: string) => void;
-    /** Whether the command runs on the person's own machine, so `local` paths are theirs. */
+    /** True when the command runs on the caller's own machine, so `local` paths refer to the caller's disk. */
     local: boolean;
 }
 
 export interface CommandSpec {
-    /** First word: `entries`. */
+    /** The first word of the command, for example `entries`. */
     group: string;
-    /** Second word: `publish`. Empty for a group's own action (`moteur status`). */
+    /** The second word of the command, for example `publish`. It is empty for a group's own action, as in `moteur status`. */
     name: string;
     summary: string;
-    /** More detail for `--help`. */
+    /** Longer description shown by `--help`. */
     description?: string;
     args?: ArgSpec[];
     /**
-     * The call, as `METHOD /path` with `{project}` and `{argName}` placeholders. Arguments that
-     * aren't in the path go where their `in` says.
+     * The API call as `METHOD /path`, with `{project}` and `{argName}` placeholders. Arguments that
+     * are not in the path are sent where their `in` property says.
      */
     http?: string;
-    /** `json`: the body comes from --file/--data/stdin (body arguments are laid over it). */
+    /** With `json`, the body comes from --file, --data or stdin and the body arguments are applied on top. */
     body?: 'json';
-    /** The route takes the project as `projectId` in the body (AI routes). */
+    /** True when the route expects the project as `projectId` in the body, as the AI routes do. */
     projectInBody?: boolean;
-    /** The response property the table shows (`entries` of `{ entries, total }`); --json prints it all. */
+    /** The response property shown in the table, such as `entries` in `{ entries, total }`. --json prints the whole response. */
     pick?: string;
-    /** For list results: the table shown without --json. */
+    /** The columns of the table that list results are shown in when --json is not set. */
     table?: Column[];
-    /** The line shown after an action without --json. */
+    /** Builds the message printed after an action when --json is not set. */
     done?: (result: unknown, args: Record<string, unknown>) => string;
-    /** Asks before running (unless --yes); MCP marks it destructive. */
+    /** Asks for confirmation before running, unless --yes is set. MCP marks the tool as destructive. */
     destructive?: boolean;
-    /** Reads only; MCP marks it read-only. */
+    /** Marks a command that only reads data. MCP marks the tool as read-only. */
     readOnly?: boolean;
-    /** Runs instead of `http` when a command needs more than one call, a file, or a prompt. */
+    /** Runs in place of `http` when a command needs more than one API call, a file or a prompt. */
     run?: (ctx: RunContext) => Promise<unknown>;
     /**
-     * Runs as an operator (see OPERATOR_ROUTES): with the operator session from
-     * `moteur operator login`, never the person's sign-in. Never offered to agents.
+     * Runs as an operator (see OPERATOR_ROUTES). It uses the operator session from
+     * `moteur operator login` and never the user's own sign-in. It is never offered to agents.
      */
     operator?: boolean;
-    /** API operations a `run` command covers, as `METHOD /path` (for the coverage check). */
+    /** The API operations that a `run` command covers, as `METHOD /path`. The coverage check uses this. */
     covers?: string[];
-    /** Doesn't need a signed-in API (local checks, login). */
+    /** Marks a command that does not need the API, such as local checks and login. */
     offline?: boolean;
     examples?: string[];
 }
 
 /**
- * Commands a host plugin serves, not the engine: they work against a host that has the plugin
- * (api.moteur.io has them all). By group, or by `group name` for single commands, and `''` for a
- * command of such a group the engine serves itself. The open command reference lists them by
- * name only, and the host's docs describe them.
+ * Commands that a host plugin serves instead of the engine. They only work against a host that has
+ * the plugin installed (api.moteur.io has them all). Keys are a group name, or `group name` for a
+ * single command. An empty string marks a command in such a group that the engine serves itself.
+ * The public command reference lists these commands by name only, and the host's own docs
+ * describe them.
  */
 export const PLUGIN_COMMANDS: Record<string, string> = {
     ai: 'AI helpers',
@@ -115,23 +119,23 @@ export const PLUGIN_COMMANDS: Record<string, string> = {
     'operator grant-plan': 'billing',
     'operator end-grant': 'billing',
     'operator revenue': 'billing',
-    // Served by the engine (the AI audit trail) and by the open oEmbed plugin.
+    // The engine serves the AI audit trail and the open oEmbed plugin serves the oEmbed commands.
     'ai audit': '',
     'ai audit-event': '',
     'play oembed': ''
 };
 
-/** The host plugin a command needs, if any (see PLUGIN_COMMANDS). */
+/** Returns the host plugin that a command needs, if any (see PLUGIN_COMMANDS). */
 export const pluginOf = (c: Pick<CommandSpec, 'group' | 'name'>): string | undefined =>
     (PLUGIN_COMMANDS[`${c.group} ${c.name}`] ?? PLUGIN_COMMANDS[c.group]) || undefined;
 
-/** Lists a group's commands. */
+/** Declares a group of commands by setting the group name on each one. */
 export const group = (name: string, commands: Omit<CommandSpec, 'group'>[]): CommandSpec[] =>
     commands.map(c => ({ ...c, group: name }));
 
 // ---- Arguments most commands share --------------------------------------------------------
 
-/** The project; `{project}` in paths. Optional because a default usually exists. */
+/** The project argument, used for `{project}` in paths. It is optional because a default project is usually set. */
 export const project: ArgSpec = {
     name: 'project',
     description: 'Project id (default: MOTEUR_PROJECT, .moteur.json, or `moteur projects use`)',
@@ -146,7 +150,7 @@ export const model: ArgSpec = {
     aliases: ['modelId']
 };
 
-/** The thing a command is about: `moteur entries get <id>`. */
+/** The positional id of the resource a command acts on, as in `moteur entries get <id>`. */
 export const id = (what: string, name = 'id'): ArgSpec => ({
     name,
     description: `${what} id`,
@@ -154,13 +158,13 @@ export const id = (what: string, name = 'id'): ArgSpec => ({
     positional: 0
 });
 
-/** --file, --data and stdin, for commands whose body is JSON. */
+/** The --file and --data arguments for commands that take a JSON body (stdin is read as well). */
 export const BODY_ARGS: ArgSpec[] = [
     { name: 'file', description: 'Read the JSON body from this file', in: 'none' },
     { name: 'data', description: 'The JSON body, inline', in: 'none' }
 ];
 
-/** Paging and search for list commands. */
+/** The limit and offset arguments for list commands. */
 export const paging = (defaultLimit?: number): ArgSpec[] => [
     {
         name: 'limit',

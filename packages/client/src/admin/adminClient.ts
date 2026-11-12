@@ -28,15 +28,17 @@ import { blueprintsApi } from './blueprints.js';
 import { activityApi } from './activity.js';
 import { aiApi } from './ai.js';
 import { operatorApi } from './operator.js';
+import { workspacesApi } from './workspaces.js';
 import type { MoteurClientConfig } from '../types.js';
 
-/** Full SDK for JWT (or bearer): auth, projects, all `/projects/:id/...` resources, `/blueprints`, `instance` (deployment maintenance), optional global `/activity`. */
+/** Creates the full SDK client for JWT (bearer) authentication. It covers auth, workspaces, projects, all `/projects/:id/...` resources, `/blueprints`, `instance` (deployment maintenance) and the optional global `/activity`. */
 export function createMoteurAdminClient(config: MoteurClientConfig) {
     const client = createMoteurClientInternal(config);
     return {
         ...client,
         auth: authApi(client),
         projects: projectsApi(client),
+        workspaces: workspacesApi(client),
         models: modelsApi(client),
         entries: entriesApi(client),
         pages: projectPagesApi(client),

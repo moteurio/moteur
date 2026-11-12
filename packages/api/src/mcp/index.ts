@@ -1,9 +1,10 @@
 /**
- * Moteur over MCP, hosted: `POST /mcp` speaks the Model Context Protocol (Streamable HTTP), so
- * claude.ai, ChatGPT and other remote MCP clients can use this API's tools. Every request stands
- * alone (no session kept here). The person signs in with their token; the tools act as an agent
- * for them ("Louise via Claude", review-only unless their token allows more) and call this API
- * itself, so its permissions, plan limits and quotas apply as to any other call.
+ * Hosted MCP server: `POST /mcp` speaks the Model Context Protocol (Streamable HTTP), so remote MCP
+ * clients such as claude.ai and ChatGPT can use this API's tools. Every request is self-contained
+ * and no session is kept. The user authenticates with their token, and the tools act as an agent on
+ * the user's behalf (for example "Louise via Claude"), restricted to review unless the token allows
+ * more. The tools call this API itself, so its permissions, plan limits and quotas apply exactly as
+ * they do for any other call.
  */
 import type { Request, Response, RequestHandler } from 'express';
 import { Router } from 'express';
@@ -17,7 +18,7 @@ import type { OpenAPIV3 } from 'openapi-types';
 import { requireAuth } from '../middlewares/auth.js';
 import { scopedServerOptions, restrictClient, type McpConnection } from './access.js';
 
-/** Who the client is, from its User-Agent, until OAuth gives each client its own name. */
+/** Guesses the client's name from its User-Agent. Used until OAuth supplies a name for each client. */
 export function agentFromUserAgent(ua: string | undefined): string {
     const s = ua ?? '';
     if (/claude[- ]code/i.test(s)) return 'Claude Code';
@@ -27,7 +28,7 @@ export function agentFromUserAgent(ua: string | undefined): string {
     return 'an AI agent';
 }
 
-/** `?groups=entries,media&readOnly=1&compact=1&project=demo` as the stdio server's flags. */
+/** Converts query parameters such as `?groups=entries,media&readOnly=1&compact=1&project=demo` into the options of the stdio MCP server. */
 export function optionsFromQuery(query: Request['query']): ServerOptions {
     const argv: string[] = [];
     const yes = (k: string) => ['1', 'true', 'yes'].includes(String(query[k] ?? '').toLowerCase());
@@ -46,7 +47,7 @@ export function optionsFromQuery(query: Request['query']): ServerOptions {
     };
 }
 
-/** The tools for the signed-in person, calling the API at `self` (whose routes `spec` lists). */
+/** Creates the MCP router. Its tools act for the signed-in user and call this API at `self`; `spec` lists the API's routes. */
 export function mcpRouter(
     self: () => string,
     spec?: OpenAPIV3.Document,
@@ -58,13 +59,13 @@ export function mcpRouter(
         const person = req.user!;
         const account = getUserById(person.id);
         if (!account) return void res.status(401).json({ error: 'Invalid or expired token' });
-        // A token already given to an agent keeps its agent; a person's token acts as one, review-only.
+        // A token already issued to an agent keeps that agent. A user's own token acts as an agent restricted to review.
         const agent = person.agent ?? {
             name: agentFromUserAgent(req.get('user-agent')),
             reviewOnly: true
         };
         const connection = res.locals.mcpConnection as McpConnection | undefined;
-        // OAuth authentication already checked its opaque token; JWT sessions retain ancestry.
+        // OAuth authentication has already validated its opaque token. For JWT sessions, pass the original payload so the new token is tied to the session it derives from.
         const payload = connection
             ? undefined
             : verifyJWT(req.headers.authorization!.replace(/^Bearer\s+/i, ''));
@@ -78,7 +79,7 @@ export function mcpRouter(
         const commands = withPluginCommands(listPluginCommands({ surface: 'mcp' }));
         const server = createServer({
             ...options,
-            // The disk here is the server's: no tool reads or writes paths a caller gives.
+            // The local disk belongs to the server, so no tool may read or write paths supplied by the caller.
             local: false,
             commands,
             ...(connection ? scopedServerOptions(connection, options.project, commands) : {}),
@@ -113,7 +114,7 @@ export function mcpRouter(
         }
     });
 
-    // No server-sent stream or session to end: each POST stands alone.
+    // There is no server-sent stream or session to close, because each POST is self-contained.
     const notHere = (_req: Request, res: Response) =>
         void res
             .status(405)
@@ -127,6 +128,42 @@ export function mcpRouter(
     router.delete('/', notHere);
 
     return router;
+}
+
+/** The transport defines GET and DELETE, so clients try them. Each POST stands alone, so both answer 405. */
+function notAllowedSpec(method: 'GET' | 'DELETE'): OpenAPIV3.OperationObject {
+    return {
+        summary: `${method} is not used: send every message with POST`,
+        description:
+            method === 'GET'
+                ? 'Moteur does not open a server-sent stream. The answer is a JSON-RPC error with the Allow header set to POST.'
+                : 'There is no session to end, because each POST stands alone. The answer is a JSON-RPC error with the Allow header set to POST.',
+        tags: ['MCP'],
+        security: [],
+        responses: {
+            '405': {
+                description: 'Method not allowed',
+                content: {
+                    'application/json': {
+                        schema: {
+                            type: 'object',
+                            properties: {
+                                jsonrpc: { type: 'string', enum: ['2.0'] },
+                                error: {
+                                    type: 'object',
+                                    properties: {
+                                        code: { type: 'integer' },
+                                        message: { type: 'string' }
+                                    }
+                                },
+                                id: { type: 'string', nullable: true }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    };
 }
 
 export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
@@ -152,6 +189,8 @@ export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
                 },
                 '401': { description: 'Not signed in' }
             }
-        }
+        },
+        get: notAllowedSpec('GET'),
+        delete: notAllowedSpec('DELETE')
     }
 };

@@ -1,7 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import sharp from 'sharp';
-import type { ProjectSchema } from '@moteurio/types/Project.js';
+import type { NewProject } from '@moteurio/types/Project.js';
 import type { BlockSchema } from '@moteurio/types/Block.js';
 import type { PageNode } from '@moteurio/types/Page.js';
 import type { NavItem } from '@moteurio/types/Navigation.js';
@@ -35,7 +35,7 @@ const bot: Persona = {
     roles: ['admin']
 };
 
-const project: ProjectSchema = {
+const project: NewProject = {
     id: FIXTURES_ID,
     label: 'Fixtures — edge cases',
     description:
@@ -46,9 +46,9 @@ const project: ProjectSchema = {
     isActive: true,
     workflow: { enabled: false, mode: 'auto_publish', requireReview: false },
     git: { enabled: false }
-} as ProjectSchema;
+} as NewProject;
 
-/** Images at the edges: tiny, huge, very tall, transparent, every format, awkward names. */
+/** Images that test edge cases: tiny, huge, very tall, transparent, in every format, and with awkward file names. */
 function art(): ArtSpec[] {
     const svgImage = (w: number, h: number, label: string, alpha = false) =>
         `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}"><rect width="${w}" height="${h}" fill="${alpha ? 'none' : '#2f5d8a'}"/><circle cx="${w / 2}" cy="${h / 2}" r="${Math.min(w, h) / 3}" fill="#f2c230" fill-opacity="${alpha ? 0.6 : 1}"/><text x="10" y="${Math.min(40, h - 4)}" font-size="${Math.max(6, Math.min(32, h / 4))}" fill="#fff" font-family="DejaVu Sans">${label}</text></svg>`;
@@ -194,7 +194,7 @@ export async function buildFixtures(opts: {
     log(`schemas: ${models.length} models`);
 
     const uploaded = await uploadArt(FIXTURES_ID, asUser(bot), art());
-    // An asset whose files are gone from disk.
+    // Delete the files of one asset from disk, so the asset record points at missing files.
     const { projectDir } = await import('@moteurio/core/utils/pathUtils.js');
     const gone = uploaded.get('deleted-file')!;
     for (const variant of ['original', 'thumb', 'medium', 'large']) {
@@ -225,7 +225,7 @@ export async function buildFixtures(opts: {
     for (const [modelId, list] of entries)
         for (const e of list) timeline.entry(modelId, { daysAgo: 20, ...e });
 
-    // Pages: a deep tree, a crowded level, and a page using every field type.
+    // Create pages that cover a deep tree, a level with many siblings, and a page that uses every field type.
     const user = asUser(bot);
     timeline.at(15, 'pages', async () => {
         const { createPage } = await import('@moteurio/core/pages.js');
@@ -362,7 +362,7 @@ export async function buildFixtures(opts: {
                     choice: ['a', 'b', 'c'][i % 3],
                     choices: ['x', 'z'],
                     agree: i % 2 === 0,
-                    // The longest message the server takes (10,000 characters without a maxLength).
+                    // 10,000 characters is the longest message the server accepts when the field has no maxLength.
                     message:
                         i === 7 ? STRINGS.injection : i === 8 ? 'x'.repeat(10000) : `Message ${i}`
                 },
@@ -378,7 +378,7 @@ export async function buildFixtures(opts: {
     await timeline.run();
     present();
 
-    // Raw files: formats core no longer writes (and some it never should).
+    // Write raw files in formats that core cannot produce today, and some that it should never produce.
     for (const raw of RAW_ENTRIES) {
         const dir = path.join(projectDir(FIXTURES_ID), 'models', raw.model, 'entries', raw.id);
         fs.mkdirSync(dir, { recursive: true });
@@ -399,7 +399,7 @@ export async function buildFixtures(opts: {
     }
     return {
         ...report,
-        // Only surprises count as invalid for the build's exit code.
+        // Count only unexpected results as invalid for the build's exit code.
         invalid: unexpected.length + nowValid.length,
         errors: report.errors.filter(e => unexpected.includes(`${e.model}/${e.entry}`))
     };

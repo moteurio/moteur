@@ -51,7 +51,7 @@ const commits = (id: string) => Number(git(id, 'rev-list', '--count', 'HEAD'));
 /** Saves made outside an import are committed by a hook, a moment later. */
 const settled = (id: string) => vi.waitFor(() => expect(changed(id)).toBe(''));
 /**
- * Files changed and not committed. Not counted: the workspace, uploaded files themselves (kept
+ * Files changed and not committed. Not counted: the project state, uploaded files themselves (kept
  * beside the content, not in its history) and project.json, which reading the project fills in.
  */
 const changed = (id: string) =>

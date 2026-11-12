@@ -29,7 +29,7 @@ function normalizeAssetList(data: unknown): StudioAssetListItem[] {
     return out;
 }
 
-/** List project media library entries (requires Studio host `fetchProject`). */
+/** Lists the project's media library entries. It needs `fetchProject` on the Studio host and returns an empty list without it. */
 export async function listProjectAssets(projectId: string): Promise<StudioAssetListItem[]> {
     const host = getStudioHost();
     if (!host.fetchProject) return [];
@@ -45,7 +45,7 @@ function pickUrl(value: unknown): string | undefined {
     return loc || undefined;
 }
 
-/** Resolve a core/url, core/asset, or model-3d-shaped value to a fetchable URL. */
+/** Resolves a `core/url`, `core/asset` or `model-3d` value to a URL that can be fetched. */
 export async function resolveMediaRef(
     projectId: string | undefined,
     ref: unknown

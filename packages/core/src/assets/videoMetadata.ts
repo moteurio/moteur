@@ -6,7 +6,7 @@ import path from 'path';
 let ffprobeWarned = false;
 
 /**
- * Detect video duration via ffprobe. Returns null if ffprobe is missing or on error.
+ * Detects a video's duration with ffprobe. Returns null if ffprobe is missing or fails.
  * Logs a one-time warning when ffprobe is not found.
  */
 export async function detectVideoDuration(buffer: Buffer): Promise<number | null> {

@@ -1,25 +1,25 @@
 /**
  * The asset index: fast library pages on top of `assets.json`.
  *
- * `assets.json` (tracked by git) stays the source of truth; this is a rebuildable copy in
- * SQLite, at `.moteur/cache/assets.sqlite`, for paging, filtering, search and counts without
- * reading the whole file on every request. It follows MOTEUR_CONTENT_INDEX like the content
- * index: `sqlite` (default) or `files` (no index: every request reads the file).
+ * `assets.json` (tracked by git) stays the source of truth. The index is a rebuildable SQLite
+ * copy at `.moteur/cache/assets.sqlite` that supports paging, filtering, search and counts
+ * without reading the whole file on every request. It follows MOTEUR_CONTENT_INDEX like the
+ * content index: `sqlite` (default) or `files` (no index: every request reads the file).
  *
- * It stays in step by itself: before answering, it looks at the file (inode, size, time). When
- * the file changed (a save here, a git pull, an edit by hand), it reads it once and updates the
- * rows that differ. Deleting the database is always safe.
+ * It keeps itself in sync: before answering a query, it checks the file's inode, size and
+ * modification time. When the file changed (a save through the API, a git pull, a manual edit),
+ * it reads the file once and updates the rows that differ. Deleting the database is always safe.
  */
 import fs from 'fs';
 import path from 'path';
 import type { DatabaseSync, StatementSync, SQLInputValue } from 'node:sqlite';
 import type { Asset } from '@moteurio/types/Asset.js';
-import { projectDir, workspaceDir } from '../utils/pathUtils.js';
+import { projectDir, stateDir } from '../utils/pathUtils.js';
 import { ASSETS_KEY } from '../utils/storageKeys.js';
 import { busy, closeWhenIdle, INDEX_PRAGMAS } from '../utils/idleIndexes.js';
 import { ASSET_KINDS, fold, kindOf, searchText } from './assetFacts.js';
 
-/** Bump when the table layout changes: an index with another version is rebuilt. */
+/** Increase this when the table layout changes. An index with a different version is rebuilt. */
 const SCHEMA_VERSION = '1';
 
 const SCHEMA = `
@@ -41,12 +41,12 @@ CREATE INDEX IF NOT EXISTS assets_hash ON assets (hash);
 `;
 
 export type AssetIndexQuery = {
-    /** A kind of file, or `unused` (then `used` must be given). */
+    /** A file kind, or `unused` (in which case `used` must be given). */
     kind?: string;
-    /** `''` for files in no folder. */
+    /** Use `''` for files that are in no folder. */
     folder?: string;
     search?: string;
-    /** Ids of assets content uses: for the `unused` tab and its count. */
+    /** Ids of assets that content references, used for the `unused` filter and its count. */
     used?: Set<string>;
     limit: number;
     offset: number;
@@ -54,7 +54,7 @@ export type AssetIndexQuery = {
 };
 
 export type AssetIndexPage = {
-    /** As stored in assets.json (addresses not yet made absolute). */
+    /** The asset as stored in assets.json, with URLs not yet resolved to absolute addresses. */
     assets: Asset[];
     total: number;
     facets?: { total: number; kinds: Record<string, number>; folders: string[] };
@@ -62,7 +62,7 @@ export type AssetIndexPage = {
 
 export interface AssetIndex {
     page(projectId: string, query: AssetIndexQuery): Promise<AssetIndexPage>;
-    /** Every asset with this fingerprint, bin included. */
+    /** Every asset with this content hash, including those in the bin. */
     byHash(projectId: string, hash: string): Promise<Asset[]>;
     close(): void;
 }
@@ -75,12 +75,12 @@ type Open = {
     remove: StatementSync;
     /** Serializes syncs for one project. */
     tail: Promise<unknown>;
-    /** When it was last used, and what's queued on it: idle ones are closed (idleIndexes.ts). */
+    /** When the index was last used and what is queued on it. Idle indexes are closed (see idleIndexes.ts). */
     used: number;
     pending: number;
 };
 
-/** The file's identity: a save (written aside, then renamed) always changes the inode. */
+/** Identifies the file's version. A save writes a temporary file and renames it, which always changes the inode. */
 function stampOf(file: string): string {
     try {
         const s = fs.statSync(file);
@@ -90,7 +90,7 @@ function stampOf(file: string): string {
     }
 }
 
-/** LIKE pattern finding `words` anywhere, with LIKE's own characters taken literally. */
+/** Builds a LIKE pattern that matches `words` anywhere, escaping LIKE's own special characters. */
 const contains = (words: string) => `%${words.replace(/[\\%_]/g, c => `\\${c}`)}%`;
 
 class SqliteAssetIndex implements AssetIndex {
@@ -192,7 +192,7 @@ class SqliteAssetIndex implements AssetIndex {
         this.projects.clear();
     }
 
-    /** The project's index, brought in step with assets.json first. */
+    /** Returns the project's index after syncing it with assets.json. */
     private async ready(projectId: string): Promise<Open | null> {
         const p = this.open(projectId);
         if (!p) return null;
@@ -218,7 +218,7 @@ class SqliteAssetIndex implements AssetIndex {
             const parsed = JSON.parse(fs.readFileSync(file, 'utf8'));
             if (Array.isArray(parsed)) list = parsed;
         } catch {
-            // Missing or half-written: an empty library until it reads well.
+            // The file is missing or half-written: treat the library as empty until it parses.
         }
         const stored = new Map(
             (
@@ -257,11 +257,11 @@ class SqliteAssetIndex implements AssetIndex {
         }
     }
 
-    /** Opens (or reopens, when the file was deleted underneath) a project's database. */
+    /** Opens a project's database, reopening it if the file was deleted while open. */
     private open(projectId: string): Open | null {
         const dir = projectDir(projectId);
         if (!fs.existsSync(dir)) return null;
-        const dbFile = path.join(workspaceDir(projectId), 'cache', 'assets.sqlite');
+        const dbFile = path.join(stateDir(projectId), 'cache', 'assets.sqlite');
         const existing = this.projects.get(dir);
         if (existing) {
             let inode = -1;
@@ -282,7 +282,8 @@ class SqliteAssetIndex implements AssetIndex {
         try {
             db = this.connect(dbFile);
         } catch (err) {
-            // Corrupt or unreadable: only a copy, start over.
+            // The database is corrupt or unreadable. It is only a cache, so rebuild it from
+            // assets.json.
             console.warn(
                 `[Moteur] Rebuilding the asset index of project "${projectId}":`,
                 err instanceof Error ? err.message : err
@@ -358,13 +359,13 @@ async function create(): Promise<AssetIndex | null> {
     }
 }
 
-/** The asset index, or null to read assets.json instead (MOTEUR_CONTENT_INDEX=files). */
+/** Returns the asset index, or null when assets.json should be read directly (MOTEUR_CONTENT_INDEX=files). */
 export function getAssetIndex(): Promise<AssetIndex | null> {
     current ??= create();
     return current;
 }
 
-/** Close the index and pick again from the environment (tests). */
+/** Closes the index and chooses the adapter again from the environment (for tests). */
 export async function resetAssetIndex(): Promise<void> {
     if (current) (await current)?.close();
     current = null;

@@ -1,14 +1,18 @@
+import { isInProject } from '@moteurio/types';
 import { User } from '@moteurio/types/User.js';
 import { ProjectSchema } from '@moteurio/types/Project.js';
 import { isSystemActor } from './systemActor.js';
+import { workspaceOf } from '../workspaces.js';
 
+/**
+ * Throws if the user has no access to the project. A user has access as a project member (guests
+ * included) or as a member of the project's workspace when the workspace gives its members access
+ * to every project.
+ */
 export function assertUserCanAccessProject(user: User, project: ProjectSchema): void {
-    // The engine's own work (scheduled publishing, form actions) is not a person's.
+    // Work done by the engine itself, such as scheduled publishing and form actions, is allowed.
     if (isSystemActor(user)) return;
-    if (!project.users || project.users.length === 0) {
-        throw new Error(`Project "${project.id}" has no specific users defined.`);
-    }
-    if (!project.users.includes(user.id)) {
+    if (!isInProject(user.id, project, workspaceOf(project))) {
         throw new Error(`User "${user.id}" does not have access to project "${project.id}".`);
     }
 }
@@ -19,5 +23,4 @@ export function assertUserCanCreateProject(user: User): void {
             `User "${user?.id || 'unknown'}" does not have permission to create projects.`
         );
     }
-    // @todo: limit the number of projects per user?
 }

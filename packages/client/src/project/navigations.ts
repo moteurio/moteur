@@ -15,23 +15,17 @@ export function projectNavigationsApi(client: MoteurClient) {
                         : (data as { navigations: Record<string, unknown>[] })
                 );
         },
-        get(
-            projectId: string,
-            navigationId: string
-        ): Promise<{ navigation: Record<string, unknown> }> {
+        get(projectId: string, navigationId: string): Promise<Record<string, unknown>> {
             return client.get(`${base(projectId)}/${encodeURIComponent(navigationId)}`);
         },
-        create(
-            projectId: string,
-            body: Record<string, unknown>
-        ): Promise<{ navigation: Record<string, unknown> }> {
+        create(projectId: string, body: Record<string, unknown>): Promise<Record<string, unknown>> {
             return client.post(base(projectId), body);
         },
         update(
             projectId: string,
             navigationId: string,
             body: Record<string, unknown>
-        ): Promise<{ navigation: Record<string, unknown> }> {
+        ): Promise<Record<string, unknown>> {
             return client.patch(`${base(projectId)}/${encodeURIComponent(navigationId)}`, body);
         },
         delete(projectId: string, navigationId: string): Promise<void> {

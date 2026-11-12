@@ -1,4 +1,4 @@
-/** MCP's OAuth server. Studio owns sign-in, account creation, and explicit consent. */
+/** OAuth server for MCP. Sign-in, account creation and explicit consent are handled by an admin client. */
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { URL } from 'node:url';
 import type { RequestHandler, Response } from 'express';
@@ -61,7 +61,7 @@ function webUrl(value: string): URL {
 }
 
 export interface McpOAuthOptions {
-    /** Canonical public MCP URL, including API_BASE_PATH when present. Never inferred from Host. */
+    /** Canonical public MCP URL, including API_BASE_PATH when set. It is never derived from the Host header. */
     resourceUrl: string;
     studioUrl: string;
     directory: string;
@@ -123,7 +123,7 @@ export class McpOAuthProvider implements OAuthServerProvider {
             };
             await this.store.update(data => {
                 room(data.clients);
-                // Clients outlive their refresh grants. Reconnecting registers a fresh client.
+                // A client record is kept longer than its refresh grants. A reconnecting client registers a new one.
                 data.clients[client.client_id] = { client, expires: Date.now() + 365 * 24 * HOUR };
             });
             return client;
@@ -131,7 +131,7 @@ export class McpOAuthProvider implements OAuthServerProvider {
     };
 
     private checkResource(resource?: URL): void {
-        // Query parameters select tools/project; they don't designate a different MCP audience.
+        // Query parameters select the tools and project. They do not change the MCP audience, so they are ignored here.
         if (
             resource &&
             (resource.origin !== this.resource.origin ||
@@ -370,7 +370,7 @@ export class McpOAuthProvider implements OAuthServerProvider {
             )
                 return null;
             if (saved.used) {
-                // Commit revocation before returning an error: replay invalidates the entire family.
+                // A reused refresh token invalidates the whole grant family. Save the revocation before returning the error.
                 grant.revoked = true;
                 return null;
             }
@@ -420,7 +420,7 @@ export class McpOAuthProvider implements OAuthServerProvider {
         });
     }
 
-    /** OAuth tokens are accepted only at MCP, never as general Studio/API or operator sessions. */
+    /** Authenticates OAuth tokens. They are accepted only on MCP routes, never as general API sessions or operator sessions. */
     readonly authenticate: RequestHandler = async (req, res, next) => {
         const challenge = `Bearer resource_metadata="${getOAuthProtectedResourceMetadataUrl(this.resource)}"`;
         res.setHeader('WWW-Authenticate', challenge);
@@ -456,7 +456,7 @@ export function createMcpOAuth(options: McpOAuthOptions): {
             resourceName: 'Moteur projects'
         })
     );
-    // Legacy clients may probe the origin-level protected-resource metadata endpoint.
+    // Older clients may request the protected-resource metadata at the origin root.
     router.get('/.well-known/oauth-protected-resource', (_req, res) =>
         res.json({
             resource: provider.resource.href,

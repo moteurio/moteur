@@ -1,6 +1,6 @@
 /**
- * Separate audit trail for AI calls (not content activity).
- * Full prompts/responses are stored on disk but only exposed to operators via API.
+ * Audit trail for AI calls, kept separate from content activity.
+ * Full prompts and responses are stored on disk, and the API exposes them to operators only.
  */
 
 export interface AiAuditEvent {
@@ -9,25 +9,25 @@ export interface AiAuditEvent {
     userId: string;
     userName: string;
     timestamp: string;
-    /** e.g. generate.entry, write.draft, translate.field */
+    /** The AI action performed, for example `generate.entry`, `write.draft` or `translate.field`. */
     action: string;
-    /** Provider id from env, e.g. openai, anthropic, mock */
+    /** Provider ID taken from the environment configuration, for example `openai`, `anthropic` or `mock`. */
     provider: string;
-    /** Optional concrete model id when known */
+    /** ID of the specific AI model used, when known. */
     providerModel?: string;
     creditsUsed: number;
     creditsRemainingAfter: number;
     success: boolean;
     errorMessage?: string;
-    /** Content model id when applicable */
+    /** ID of the content model the call applied to, when applicable. */
     modelId?: string;
     entryId?: string | null;
     fieldPath?: string;
     locale?: string;
-    /** Operator-only in API responses */
+    /** Included in API responses for operators only. */
     systemPrompt?: string;
     userPrompt?: string;
-    /** Raw model output (text or stringified) */
+    /** The raw model output, as text or a stringified value. Included in API responses for operators only. */
     response?: string;
 }
 

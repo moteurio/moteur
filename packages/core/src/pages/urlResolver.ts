@@ -8,10 +8,10 @@ import type {
 import type { Entry } from '@moteurio/types/Model.js';
 import type { LocalePrefix } from '@moteurio/types/Project.js';
 
-/** One language to resolve addresses in. Without it, addresses use the default slugs, unprefixed. */
+/** A language to resolve addresses in. When none is given, addresses use the default slugs and no language prefix. */
 export type UrlLanguage = { locale: string; defaultLocale: string; prefix?: LocalePrefix };
 
-/** Every language of a project, to resolve each address once per language. */
+/** All languages of a project. Each address is resolved once per language. */
 export type UrlLanguages = { locales: string[]; defaultLocale: string; prefix?: LocalePrefix };
 
 export type ResolvedUrl = {
@@ -26,13 +26,13 @@ export type ResolvedUrl = {
     sitemapChangefreq?: string;
     entryId?: string;
     modelId?: string;
-    /** Set when the project's languages were given: the language of this address. */
+    /** The language of this address. Set only when the project's languages were given. */
     locale?: string;
-    /** The same page or entry in every language, by locale (this address included). */
+    /** The addresses of the same page or entry in every language, keyed by locale. Includes this address. */
     alternates?: Record<string, string>;
 };
 
-/** A page's address segment in a language: its translated slug, or the default one. */
+/** Returns a page's address segment in a language: its translated slug, or the default slug if it has none. */
 export function slugIn(node: PageNode, lang?: UrlLanguage): string {
     if (!lang || lang.locale === lang.defaultLocale) return node.slug;
     const translated = node.slugs?.[lang.locale];
@@ -40,8 +40,9 @@ export function slugIn(node: PageNode, lang?: UrlLanguage): string {
 }
 
 /**
- * Whether a page or entry is in this language: the default always; another when it lists no
- * languages (every one) or lists this one.
+ * Whether a page or entry exists in this language. It always exists in the default language. It
+ * exists in another language when it has no `languages` list (meaning every language) or the list
+ * includes that language.
  */
 export function inLanguage(
     item: { languages?: string[] } | undefined,
@@ -52,7 +53,7 @@ export function inLanguage(
     return !Array.isArray(languages) || languages.length === 0 || languages.includes(lang.locale);
 }
 
-/** This language when the item is in it, else the default: where a link to it should lead. */
+/** Returns this language if the item exists in it, otherwise the default language. This is the language a link to the item should use. */
 export function languageFor(
     item: { languages?: string[] } | undefined,
     lang?: UrlLanguage
@@ -60,14 +61,14 @@ export function languageFor(
     return !lang || inLanguage(item, lang) ? lang : { ...lang, locale: lang.defaultLocale };
 }
 
-/** Add the language prefix the project asks for: /fr/a-propos, or /a-propos with `none`. */
+/** Adds the language prefix that the project's `localePrefix` setting requires, for example `/fr/a-propos`, or `/a-propos` with `none`. */
 export function withLocale(path: string, lang?: UrlLanguage): string {
     if (!lang) return path;
     const prefix = lang.prefix ?? 'others';
     if (prefix === 'none' || (prefix === 'others' && lang.locale === lang.defaultLocale))
         return path;
-    // The locale as the project spells it (`/zh-Hans`, `/pt-BR`): addresses a site already has
-    // keep working.
+    // Use the locale exactly as configured in the project (`/zh-Hans`, `/pt-BR`), so existing
+    // site addresses keep working.
     const code = `/${lang.locale}`;
     return path === '/' || path === '' ? code : `${code}${path}`;
 }
@@ -230,7 +231,7 @@ export async function resolveAllUrls(
                 if (node.type === 'static') {
                     const sp = node as StaticPage;
                     const finalUrl = prefix || '/';
-                    // A page not in this language has no address in it.
+                    // A page that does not exist in this language has no address in it.
                     if (sp.status === 'published' && inLanguage(sp, lang)) emit(node, finalUrl);
                 } else if (node.type === 'folder') {
                     walk(node.id, prefix);
@@ -264,7 +265,7 @@ export async function resolveAllUrls(
     const defaultUrls = new Map(byLanguage[0].map(r => [key(r), r.url]));
     for (const [i, rows] of byLanguage.entries()) {
         for (const row of rows) {
-            // Same address as the default language: the same page, listed once.
+            // The address equals the default language's, so it is the same page and is listed only once.
             if (i > 0 && defaultUrls.get(key(row)) === row.url) continue;
             results.push(row);
         }
@@ -297,7 +298,7 @@ export function resolveBreadcrumb(
 ): { url: string; breadcrumb: BreadcrumbItem[] } {
     const node = nodeMap.get(nodeId);
     if (!node || !isShown(node)) return { url: '', breadcrumb: [] };
-    // Not in this language: its trail is the default language's.
+    // If the item does not exist in this language, use the default language for its trail.
     lang = languageFor(entry ?? node, lang);
 
     const ancestors = getAncestors(nodeId, nodeMap);

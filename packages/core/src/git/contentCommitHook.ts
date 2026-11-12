@@ -1,6 +1,6 @@
 /**
- * Core behaviour: commit and optionally push when content is saved or deleted.
- * Gated by project.git.enabled (default true when git config is present).
+ * Commits, and optionally pushes, when content is saved or deleted.
+ * Controlled by project.git.enabled (default true when a git config is present).
  */
 import { onEvent } from '../utils/eventBus.js';
 import { getProjectById } from '../projects.js';
@@ -21,9 +21,9 @@ import { batchFor } from '../contentBatch.js';
 type ContentEventPayload = { projectId: string; paths: string[]; message: string; user: User };
 
 /**
- * Events may list workspace files (e.g. .moteur/reviews.json) next to content. Those are
- * gitignored, and `git add` fails outright when given an ignored path, which would leave the
- * content change uncommitted too.
+ * Events may list project state files (for example .moteur/reviews.json) alongside content.
+ * Those files are gitignored, and `git add` fails outright when given an ignored path, which
+ * would leave the content change uncommitted too.
  */
 function trackedPaths(paths: string[]): string[] {
     return paths.filter(p => {
@@ -35,26 +35,27 @@ function trackedPaths(paths: string[]): string[] {
 async function handleContentChange(payload: ContentEventPayload): Promise<void> {
     const batch = batchFor(payload.projectId);
     if (batch) {
-        // Held: the batch is committed as one (or undone).
+        // Inside a batch, collect the paths so the whole batch is committed as one commit (or
+        // discarded).
         for (const p of trackedPaths(payload.paths)) batch.paths.add(p.replace(/\\/g, '/'));
         return;
     }
-    // The save is on disk, which is its record: its commit follows in the background, so a save
-    // never waits for Git (a commit grows with the project: 0.4 s at 100,000 entries). What reads
-    // the latest history waits for it; a failed commit is taken along by the next one.
+    // The file on disk is the record of the save. Commit in the background so a save never waits
+    // for Git (a commit takes about 0.4 s at 100,000 entries). Code that reads the latest history
+    // waits for the commit, and a failed commit is retried with the next one.
     inBackground(projectDir(payload.projectId), handOver(payload));
 }
 
 type Waiting = ContentEventPayload & { done: () => void };
 
-/** Saves waiting for their commit, per project, and the projects whose commits are under way. */
+/** Saves waiting for their commit, per project, and the projects with a commit in progress. */
 const waitingSaves = new Map<string, Waiting[]>();
 const committing = new Set<string>();
 
 /**
- * A save's commit, in turn. With nothing under way it commits at once; saves that arrive while a
- * commit runs wait, then go in together, so a busy project makes one commit per author for a
- * batch of saves instead of one each. Resolves once this save is in history.
+ * Queues a save's commit. With no commit in progress it commits immediately. Saves that arrive
+ * while a commit runs wait and are committed together, so a busy project makes one commit per
+ * author for a batch of saves instead of one per save. Resolves once this save is in history.
  */
 function handOver(payload: ContentEventPayload): Promise<void> {
     const { projectId } = payload;
@@ -68,7 +69,7 @@ function handOver(payload: ContentEventPayload): Promise<void> {
             for (;;) {
                 const batch = waitingSaves.get(projectId);
                 if (!batch?.length) {
-                    // Checked and cleared in the same turn: a save arriving next starts a new run.
+                    // Check and clear in the same tick, so a save arriving next starts a new run.
                     committing.delete(projectId);
                     return;
                 }
@@ -89,13 +90,13 @@ function handOver(payload: ContentEventPayload): Promise<void> {
     });
 }
 
-/** Who a commit is by, as its message says it (`… — Ada`, `… — Ada via Claude`). */
+/** Formats the author suffix of a commit message (`… — Ada`, `… — Ada via Claude`). */
 const attribution = (save: ContentEventPayload) =>
     `${save.user?.id ?? ''}\0${save.message.split(' — ').slice(1).join(' — ')}`;
 
 /**
- * Waiting saves as one commit per author, in the order they came. A file saved by several goes
- * with the last of them: what is on disk is theirs.
+ * Groups waiting saves into one commit per author, in the order they arrived. A file saved by
+ * several authors goes into the last author's commit, because the content on disk is theirs.
  */
 function byAuthor(saves: ContentEventPayload[]): ContentEventPayload[] {
     const lastSaver = new Map<string, ContentEventPayload>();
@@ -120,12 +121,13 @@ function byAuthor(saves: ContentEventPayload[]): ContentEventPayload[] {
 }
 
 /**
- * Paths a commit failed for (a full disk, a lock), per project: saved on disk but not in history.
- * The project's next commit takes them along, so a failure costs a delay, not a lost change.
+ * Paths whose commit failed (for example a full disk or a lock), per project. They are saved on
+ * disk but not in history. The project's next commit includes them, so a failure causes a delay
+ * rather than a lost change.
  */
 const uncommitted = new Map<string, Set<string>>();
 
-/** Commits (and pushes) a change now: what a content event does outside a batch. The commit, if any. */
+/** Commits (and pushes) a change immediately, as a content event does outside a batch. Returns the commit, if any. */
 export async function commitContentChange(
     payload: ContentEventPayload
 ): Promise<string | undefined> {
@@ -172,9 +174,10 @@ export async function commitContentChange(
         await runGitCommitHooks({ projectId, paths, message, user, commitHash });
     }
 
-    // A project without a remote keeps its history locally; there is nothing to push or report.
+    // A project without a remote keeps its history locally, so there is nothing to push or report.
     if (!hasRemote(dir)) return commitHash || undefined;
-    // Pushed in the background, with any commits that follow soon: the save doesn't wait on it.
+    // Push in the background, together with any commits made shortly after, so the save doesn't
+    // wait on the network.
     schedulePush(dir, pushed => {
         if (pushed) return;
         console.warn(

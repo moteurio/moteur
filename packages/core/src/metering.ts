@@ -5,17 +5,17 @@ import { writeJsonAtomic } from './utils/fileUtils.js';
 /**
  * Metering: API requests, image traffic and AI credits, per project and per calendar month (UTC).
  *
- * Credits are spent against a monthly allowance that the host decides (a billing plugin sets it
- * per plan with `setCreditAllowance`; otherwise `MOTEUR_AI_MONTHLY_CREDITS`, default 1000, or
- * `unlimited`). `MOTEUR_AI_CREDITS_DISABLED=1` makes every project unlimited. Every spend and grant
- * is a ledger entry, so a balance can always be explained.
+ * Credits are spent against a monthly allowance set by the host. A billing plugin can set it per
+ * plan with `setCreditAllowance`; otherwise it comes from `MOTEUR_AI_MONTHLY_CREDITS` (default
+ * 1000, or `unlimited`). `MOTEUR_AI_CREDITS_DISABLED=1` makes every project unlimited. Every
+ * spend and grant is recorded as a ledger entry, so a balance can always be explained.
  *
- * The store is swappable (`setMeteringStore`): in memory by default, files under
- * `data/metering` when the API server starts (`createFileMeteringStore`), or a database from a
- * host plugin for several API instances.
+ * The storage backend can be replaced with `setMeteringStore`. The default is in memory; the API
+ * server switches to files under `data/metering` on startup (`createFileMeteringStore`); a host
+ * plugin can provide a database store for deployments with several API instances.
  */
 
-/** `submission`: a form submission received (honeypot catches left out). */
+/** `public`: a public API request. `studio`: an admin-client request not tied to a project. `submission`: a form submission received (honeypot catches are not counted). */
 export type RequestKind = 'public' | 'studio' | 'submission';
 
 export type CreditEntry = {
@@ -31,7 +31,7 @@ export type CreditEntry = {
 };
 
 export type RequestTotals = {
-    /** Studio-scoped requests not tied to a project. */
+    /** Admin-client requests that are not tied to a project. */
     studio: number;
     projects: Record<
         string,
@@ -135,7 +135,7 @@ function cloneTotals(t: RequestTotals): RequestTotals {
     };
 }
 
-/** Lost on restart; for tests and the CLI. */
+/** In-memory store. Its data is lost on restart, so use it only for tests and the CLI. */
 export function createMemoryMeteringStore(): MeteringStore {
     const requests = new Map<string, RequestTotals>();
     const credits: CreditEntry[] = [];
@@ -204,7 +204,7 @@ export function createFileMeteringStore(dir: string, flushMs = 5000): MeteringSt
                 }
             }
         } catch {
-            // No entries yet this month.
+            // A missing file means there are no entries yet this month.
         }
         credits.set(period, entries);
         return entries;
@@ -220,7 +220,7 @@ export function createFileMeteringStore(dir: string, flushMs = 5000): MeteringSt
             }
             dirty.delete(period);
         }
-        // Months that ended stay on disk; keep only this month in memory.
+        // Past months stay on disk. Keep only the current month in memory.
         const now = currentPeriod();
         for (const period of requests.keys()) {
             if (period !== now && !dirty.has(period)) requests.delete(period);

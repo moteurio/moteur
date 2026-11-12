@@ -2,7 +2,7 @@ import { request as httpsRequest } from 'node:https';
 import { request as httpRequest, type ClientRequest, type IncomingMessage } from 'node:http';
 import { validateUrl } from './networkPolicy.js';
 
-/** One POST to a validated, pinned address. Redirects are deliberately never followed. */
+/** Sends one POST to a validated, pinned IP address. Redirects are deliberately never followed. */
 export function postWebhook(
     url: string,
     headers: Record<string, string>,
@@ -23,7 +23,7 @@ export function postWebhook(
             response?.destroy();
             request?.destroy();
         };
-        // Covers DNS, connection, response headers and the entire bounded response body.
+        // The timeout covers DNS, the connection, the response headers and the entire size-limited response body.
         const timer = setTimeout(() => finish(new Error('Webhook request timed out')), timeoutMs);
         void (async () => {
             const target = await validateUrl(url);
@@ -44,7 +44,7 @@ export function postWebhook(
                     headers: { ...safeHeaders, 'Content-Length': Buffer.byteLength(body) },
                     agent: false,
                     family: target.family,
-                    // Keep the original hostname for Host/TLS verification, without a second DNS lookup.
+                    // Keep the original hostname for the Host header and TLS verification, without a second DNS lookup.
                     lookup: (_hostname, _options, callback) =>
                         callback(null, target.address, target.family)
                 },

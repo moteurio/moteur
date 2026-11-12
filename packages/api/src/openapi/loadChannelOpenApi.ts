@@ -33,7 +33,7 @@ export function channelPublicApiPaths(
     return { openApiJson: `${base}/projects/${projectId}/channels/${channelId}/openapi` };
 }
 
-/** Load generated OpenAPI for one channel, or null if the channel does not exist. */
+/** Loads the generated OpenAPI document for one channel, or null if the channel does not exist. */
 export async function loadChannelOpenApiDocument(
     projectId: string,
     channelId: string

@@ -29,7 +29,13 @@ vi.mock('../../src/middlewares/auth', () => ({
 
 vi.mock('@moteurio/core/invites.js', () => ({
     findInviteByToken: vi.fn(() => ctx.invite),
-    consumeInvite: vi.fn()
+    consumeInvite: vi.fn(),
+    isWorkspaceInvite: (i: object) => 'workspaceId' in i
+}));
+
+vi.mock('@moteurio/core/workspaces.js', () => ({
+    getWorkspace: vi.fn(),
+    addWorkspaceMember: vi.fn()
 }));
 
 vi.mock('@moteurio/core/users.js', () => ({

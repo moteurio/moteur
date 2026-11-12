@@ -1,4 +1,4 @@
-/** Who you are, the server around the projects, and the escape hatch for everything else. */
+/** Commands for the current user, for server-level settings outside any project, and `moteur api` for calling any endpoint directly. */
 import { group, id, project, type ArgSpec, type CommandSpec } from '../spec.js';
 import { localized } from '../format.js';
 import { fillPath, UsageError } from '../execute.js';
@@ -200,9 +200,63 @@ export const operator = group('operator', [
         done: () => 'Removed.'
     },
     {
+        name: 'news',
+        summary: 'New accounts, projects and workspaces (90 days), newest first',
+        args: [
+            {
+                name: 'since',
+                description: 'Only what came after this time (ISO)',
+                in: 'query'
+            }
+        ],
+        http: 'GET /operator/news',
+        pick: 'items',
+        table: [
+            { key: 'at', header: 'when' },
+            { key: 'kind', header: 'what' },
+            {
+                key: 'id',
+                header: 'who or which',
+                format: (_v, r) =>
+                    String(r.label ?? r.name ?? r.email ?? '') +
+                    (r.by ? ` (by ${r.by as string})` : '')
+            }
+        ],
+        readOnly: true
+    },
+    {
+        name: 'news-seen',
+        summary: 'Mark what’s new as seen (for you)',
+        http: 'POST /operator/news/seen',
+        done: () => 'Seen. What comes next shows as new.'
+    },
+    {
+        name: 'news-email',
+        summary: 'How you hear about new accounts, projects and workspaces by email',
+        args: [
+            {
+                name: 'news',
+                description:
+                    'each (as it happens), daily (a summary when something happened) or off',
+                choices: ['each', 'daily', 'off'],
+                required: true,
+                positional: 0,
+                in: 'body'
+            }
+        ],
+        http: 'PATCH /operator/me',
+        done: r => `News by email: ${(r as { operator: { news: string } }).operator.news}.`
+    },
+    {
         name: 'summary',
         summary: 'The whole server at a glance',
         http: 'GET /operator/summary',
+        readOnly: true
+    },
+    {
+        name: 'server',
+        summary: 'What the server runs with: version, sign-in, AI, MCP, email, variables set',
+        http: 'GET /operator/server',
         readOnly: true
     },
     {
@@ -246,6 +300,39 @@ export const operator = group('operator', [
         http: 'PATCH /operator/users/{id}'
     },
     {
+        name: 'create-user',
+        summary: 'Create an account, with a password or for email-code sign-in',
+        args: [
+            { name: 'email', description: 'Their email', required: true, in: 'body' },
+            { name: 'name', description: 'Their name', required: true, in: 'body' },
+            {
+                name: 'password',
+                description: 'Their password (leave out to sign in with an email code)',
+                in: 'body'
+            },
+            {
+                name: 'project',
+                description: 'Add them to this project',
+                in: 'body',
+                key: 'projectId'
+            },
+            { name: 'roles', type: 'list', description: 'Their roles in that project', in: 'body' }
+        ],
+        http: 'POST /operator/users',
+        done: result => `Created ${(result as { user?: { email?: string } }).user?.email}.`
+    },
+    {
+        name: 'set-password',
+        summary: 'Set an account’s password and end its sessions',
+        args: [
+            id('User'),
+            { name: 'password', description: 'The new password', required: true, in: 'body' }
+        ],
+        http: 'PUT /operator/users/{id}/password',
+        destructive: true,
+        done: () => 'The password is set, and their sessions have ended.'
+    },
+    {
         name: 'projects',
         summary: 'Every project on the server',
         http: 'GET /operator/projects',
@@ -253,6 +340,24 @@ export const operator = group('operator', [
         table: [
             { key: 'id', header: 'id' },
             { key: 'label', header: 'label', format: localized }
+        ],
+        readOnly: true
+    },
+    {
+        name: 'workspaces',
+        summary: 'Every workspace on the server',
+        http: 'GET /operator/workspaces',
+        pick: 'workspaces',
+        table: [
+            { key: 'id', header: 'id' },
+            { key: 'name', header: 'name' },
+            {
+                key: 'owners',
+                header: 'owners',
+                format: v => ((v as { email?: string }[]) ?? []).map(o => o.email).join(', ')
+            },
+            { key: 'members', header: 'people' },
+            { key: 'projects', header: 'projects' }
         ],
         readOnly: true
     },
@@ -707,7 +812,7 @@ export const status = group('status', [
     }
 ]);
 
-/** `moteur api GET /projects/demo/models`: any call, signed in. */
+/** Makes any authenticated API call, as in `moteur api GET /projects/demo/models`. */
 export const api = group('api', [
     {
         name: '',

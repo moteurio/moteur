@@ -1,18 +1,18 @@
 #!/usr/bin/env node
 /**
- * The server's email, from the server itself.
+ * Command line for the server's email settings, run on the server itself.
  *
- *   moteur-email settings                    who mail comes from, how it looks, how it is sent
+ *   moteur-email settings                    show the sender, look and sending settings
  *   moteur-email set <key> <value>           change a setting (see docs/Email.md)
- *   moteur-email unset <key>                 back to its default
+ *   moteur-email unset <key>                 reset a setting to its default
  *   moteur-email check [--to you@example.com] [--selector s1]
  *                                            SMTP, SPF, DMARC, DKIM, MX, links; --to sends a test
  *   moteur-email check --domain example.com | --project <id>
- *                                            whether projects can send their mail from a domain
+ *                                            check whether projects can send mail from a domain
  *   moteur-email preview <kind|all> [--locale fr] [--look folio] [--text] [--out path]
  *
  * Reads the same settings as the API (DATA_ROOT, SMTP_*, MOTEUR_DKIM_*, STUDIO_URL). Run it
- * where the API's data is.
+ * on the machine that holds the API's data.
  */
 import fs from 'node:fs';
 import path from 'node:path';
@@ -40,11 +40,11 @@ import { getProjectById } from '@moteurio/core/projects.js';
 try {
     process.loadEnvFile();
 } catch {
-    // No .env here: the environment has the settings.
+    // There is no .env file, so the settings come from the environment.
 }
 
 const [command, ...args] = process.argv.slice(2);
-/** `--name value` pairs, and the words that are not flags. `--text` takes no value. */
+/** Splits the arguments into `--name value` pairs and the remaining words that are not flags. `--text` takes no value. */
 const named: [string, string][] = [];
 const positional: string[] = [];
 for (let i = 0; i < args.length; i++) {
@@ -136,7 +136,7 @@ async function main() {
                           : key === 'productTagline' && raw.trim().startsWith('{')
                             ? (JSON.parse(raw) as unknown)
                             : raw;
-            // A new sending domain must pass the check first: projects' mail has to arrive.
+            // A new sending domain must pass the DNS check first, so that projects' mail reaches the inbox.
             if (key === 'sendingDomains' && value !== null) {
                 const asked = (validateEmailSettings({ sendingDomains: value }).sendingDomains ??
                     []) as string[];
@@ -190,7 +190,7 @@ async function main() {
             if (which === 'all') {
                 if (!out) throw new Error('preview all needs --out <folder>');
                 fs.mkdirSync(out, { recursive: true });
-                // A project's own mail has one design whatever the look: written once.
+                // A project's own mail looks the same in every look, so write it only once.
                 const written = new Set<string>();
                 for (const kind of EMAIL_KINDS)
                     for (const l of look ? [look] : EMAIL_LOOKS)

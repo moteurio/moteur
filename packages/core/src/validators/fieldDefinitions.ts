@@ -1,16 +1,18 @@
 /**
- * A schema's field definitions, checked when the schema is saved (models, templates, blocks,
- * structures, forms): every option a field is given is one its type has (a type this server
- * doesn't have, a plugin's, is left alone). An option a type doesn't have used to be stored without a word, and did nothing
- * (`allowedBlocks` for `allowedBlockTypes`): now it's refused, with the option meant if it's close.
+ * Checks a schema's field definitions when the schema is saved (models, templates, blocks,
+ * structures and forms). Every option on a field must be an option its type has. Fields whose type
+ * this server does not have, such as a plugin's, are not checked. An unknown option is rejected,
+ * and the message suggests the intended option when one is close (for example `allowedBlocks`
+ * instead of `allowedBlockTypes`), because an unknown option would otherwise be stored and silently
+ * do nothing.
  */
 import type { ValidationIssue } from '@moteurio/types/ValidationResult.js';
 import fieldRegistry from '../registry/FieldRegistry.js';
 
-/** Options every field may have, whatever its type. */
+/** Options that every field may have, whatever its type. */
 const EVERY_FIELD = new Set(['required', 'multilingual', 'ui']);
 
-/** What goes beside `type`, not in `options`: a list's item field, an object's fields. */
+/** The property that sits beside `type` instead of inside `options`: a list's `items` and an object's `fields`. */
 const BESIDE_TYPE: Record<string, string> = {
     'core/list': 'items',
     'core/object': 'fields'
@@ -23,7 +25,7 @@ type FieldLike = {
     items?: FieldLike;
 };
 
-/** Edits from a to b, for "did you mean". */
+/** The edit distance between two strings, used for "did you mean" suggestions. */
 function distance(a: string, b: string): number {
     const d = Array.from({ length: a.length + 1 }, (_, i) => [i, ...Array(b.length).fill(0)]);
     for (let j = 1; j <= b.length; j++) d[0]![j] = j;
@@ -37,7 +39,7 @@ function distance(a: string, b: string): number {
     return d[a.length]![b.length]!;
 }
 
-/** The option this one is probably meant to be: close in spelling, or one contains the other. */
+/** Returns the known option this one was probably meant to be: one that is close in spelling, or that contains it or is contained by it. */
 function closest(option: string, known: string[]): string | undefined {
     const lower = option.toLowerCase();
     const scored = known
@@ -51,7 +53,7 @@ function closest(option: string, known: string[]): string | undefined {
     return best && best.score <= Math.max(2, Math.floor(option.length / 3)) ? best.k : undefined;
 }
 
-/** Every problem with these field definitions, found all at once. */
+/** Returns every problem in these field definitions, all at once. */
 export function fieldDefinitionIssues(
     fields: Record<string, FieldLike> | undefined,
     prefix = 'fields'
@@ -60,8 +62,8 @@ export function fieldDefinitionIssues(
     const walk = (field: FieldLike, path: string) => {
         if (!field || typeof field !== 'object') return;
         const type = typeof field.type === 'string' ? field.type : undefined;
-        // A type this server doesn't have (a plugin's, not installed here) can't be checked: its
-        // options are its own.
+        // Skip a type this server does not have, such as a plugin's field type that is not
+        // installed here. Its options cannot be checked.
         if (type && fieldRegistry.has(type)) {
             const own = Object.keys(fieldRegistry.get(type).optionsSchema ?? {});
             for (const option of Object.keys(field.options ?? {})) {
@@ -93,7 +95,7 @@ export function fieldDefinitionIssues(
         for (const [key, sub] of Object.entries(field.fields ?? {}))
             walk(sub, `${path}.fields.${key}`);
         if (field.items) walk(field.items, `${path}.items`);
-        // A map's value is a field too.
+        // The value of a map is itself a field definition.
         const value = field.options?.value as FieldLike | undefined;
         if (type === 'core/map' && value && typeof value === 'object')
             walk(value, `${path}.options.value`);
@@ -109,7 +111,7 @@ export function fieldDefinitionIssues(
     return issues;
 }
 
-/** Refuses a schema whose fields have problems (400), saying them all. */
+/** Throws a 400 error that lists every problem if the schema's fields have any. */
 export function assertFieldDefinitions(
     fields: Record<string, FieldLike> | undefined,
     what: string

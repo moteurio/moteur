@@ -2,7 +2,7 @@ import type { User } from '@moteurio/types/User.js';
 import { render, type RenderFormat } from '../art/render.js';
 import type { UploadedArt } from './prepare.js';
 
-/** A generated file for the media library, referenced from content as `{ art: key }`. */
+/** A generated file for the media library. Content references it as `{ art: key }`. */
 export type ArtSpec = {
     key: string;
     filename: string;
@@ -16,7 +16,7 @@ export type ArtSpec = {
 
 const MIME: Record<string, string> = { png: 'image/png', jpeg: 'image/jpeg' };
 
-/** Render and upload every spec through core's asset service. */
+/** Renders every spec and uploads it through core's asset service. */
 export async function uploadArt(
     projectId: string,
     user: User,

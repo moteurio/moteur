@@ -4,8 +4,8 @@ import { formText, localizeFields } from '@moteurio/core/formText.js';
 import { stripUiFromFieldOptions } from './stripUiFromFields.js';
 
 /**
- * What a site needs to render and submit a form: no actions, recipients, secrets or Studio hints.
- * With a `locale`, every label, hint, choice and message is in that language.
+ * Returns what a site needs to render and submit a form, without actions, recipients, secrets or admin client hints.
+ * With a `locale`, every label, hint, choice and message is returned in that language.
  */
 export function toPublicForm(form: FormSchema, locale?: string): Record<string, unknown> {
     const stripped = form.fields
@@ -32,7 +32,7 @@ export function toPublicForm(form: FormSchema, locale?: string): Record<string, 
     };
     if (locale) out.locale = locale;
     if (form.redirectUrl != null && form.redirectUrl !== '') out.redirectUrl = form.redirectUrl;
-    // What the site shows: the provider and its site key, never the secret.
+    // Expose only the captcha provider and its site key, never the secret.
     const captcha = formCaptcha(form);
     if (captcha) out.captcha = { provider: captcha.provider, siteKey: captcha.siteKey };
     if (form.timeTrap) out.timeTrap = form.timeTrap;

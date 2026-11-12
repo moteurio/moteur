@@ -1,4 +1,4 @@
-// Articles from issues 01–05 (the original demo), carried over with their prose.
+// Articles from issues 01 to 05 with their full prose.
 import type { SourceEntry } from '../../runtime/types.js';
 
 export const archiveArticles: SourceEntry[] = [

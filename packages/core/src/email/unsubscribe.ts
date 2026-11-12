@@ -3,8 +3,9 @@ import type { User, UserPreferences } from '@moteurio/types/User.js';
 import { getUserById, updateStoredUser } from '../users.js';
 
 /**
- * Turning off a kind of notification email from the email itself: a signed link, and the
- * one-click header mail apps show as "Unsubscribe" (RFC 8058). Sign-in mail has none.
+ * Lets a recipient turn off a kind of notification email from the email itself, using a signed
+ * link and the one-click header that mail apps show as "Unsubscribe" (RFC 8058). Sign-in mail
+ * has no unsubscribe option.
  */
 
 export const EMAIL_TOPICS = ['reviews', 'usage'] as const;
@@ -23,13 +24,13 @@ function sign(userId: string, topic: EmailTopic): string | null {
         : null;
 }
 
-/** The API's own public address (MOTEUR_API_URL, with API_BASE_PATH), when the server knows it. */
+/** The API's public URL (MOTEUR_API_URL with API_BASE_PATH), when the server knows it. */
 export function apiUrl(): string | undefined {
     const url = process.env.MOTEUR_API_URL?.trim().replace(/\/+$/, '');
     return url && /^https?:\/\//.test(url) ? url : undefined;
 }
 
-/** The link that turns this topic off for this person, or undefined when it can't be made. */
+/** Returns the link that turns this topic off for this person, or undefined when it can't be built. */
 export function unsubscribeUrl(userId: string, topic: EmailTopic): string | undefined {
     const base = apiUrl();
     const s = sign(userId, topic);
@@ -45,7 +46,7 @@ export function checkUnsubscribe(userId: string, topic: string, signature: strin
     return a.length === b.length && timingSafeEqual(a, b);
 }
 
-/** Whether this person still gets this topic's emails (on unless they turned it off). */
+/** Whether this person still receives this topic's emails. They do unless they turned it off. */
 export function wantsEmail(user: User, topic: EmailTopic): boolean {
     return user.preferences?.emails?.[topic] !== false;
 }
@@ -58,7 +59,7 @@ export async function setEmailTopic(userId: string, topic: EmailTopic, on: boole
     }));
 }
 
-/** Changes what someone chose: look, language, and which notification emails they get. */
+/** Updates a person's email preferences: look, language, and which notification emails they receive. */
 export async function updatePreferences(userId: string, patch: Record<string, unknown>) {
     const next: UserPreferences = {};
     const problem = (m: string) => Object.assign(new Error(m), { status: 400 });

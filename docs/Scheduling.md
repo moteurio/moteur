@@ -1,6 +1,6 @@
 # Scheduling publication
 
-Schedules publish or unpublish one entry or page at a future instant. They are workspace records under the project, separate from Git workspace/user-data snapshot scheduling.
+Schedules publish or unpublish one entry or page at a future instant. They are project state records under the project, separate from Git state/user-data snapshot scheduling.
 
 ## Create and manage
 
@@ -44,4 +44,4 @@ Statuses are `pending`, `processing`, `done`, `failed` and `cancelled`. Failure 
 
 The scheduler uses timers and periodic sweeps inside the API process. Keep a single writer running continuously if publication time matters; a host scaled to zero cannot execute a timer until it wakes again. Sweeps recover interrupted processing records, with at-least-once status assignment after a crash. This is not a distributed job queue or an atomic release of several documents.
 
-Persist the workspace store and review failed schedules after a restart or restore. [Operations](Operations.md) covers storage and deployment; [Git](Git.md) covers the separate snapshot scheduler.
+Persist the project state store and review failed schedules after a restart or restore. [Operations](Operations.md) covers storage and deployment; [Git](Git.md) covers the separate snapshot scheduler.

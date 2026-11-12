@@ -35,10 +35,10 @@ export async function buildRadarGraph(projectId: string): Promise<RadarGraph> {
         });
     }
 
-    // Relations at any depth, stored as a plain id or as { id }.
+    // Collect relations at any depth. A relation is stored as a plain id or as { id }.
     const references = await projectReferences(projectId, records);
 
-    // Who points to each entry: other entries, or pages.
+    // Map each entry to the ids of the entries and pages that reference it.
     const referrers = new Map<string, string[]>();
     for (const ref of references) {
         if (ref.to.kind !== 'entry') continue;

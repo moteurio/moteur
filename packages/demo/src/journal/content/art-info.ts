@@ -10,7 +10,7 @@ const PALETTES: PaletteName[] = [
     'archive'
 ];
 
-/** Portrait art for every author that has one, with a palette chosen per author. */
+/** Portrait art for every author that has one, with a palette chosen for each author. */
 export const AUTHOR_ART = authors
     .filter(a => a.data.portrait)
     .map((a, i) => ({

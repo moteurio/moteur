@@ -17,7 +17,7 @@ import { AUTHOR_ART } from './content/art-info.js';
 import { ISSUES } from './content/issues.js';
 import { EVENTS } from './content/events.js';
 
-/** Every generated file in the Journal's media library, by key. */
+/** Returns every generated file in the Journal's media library, keyed by art key. */
 export function art(): ArtSpec[] {
     const specs: ArtSpec[] = [];
     const palette = (seriesId: string): PaletteName =>

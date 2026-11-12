@@ -1,8 +1,8 @@
-/** Small SVG toolkit for the demo's generated artwork. Deterministic: same seed, same image. */
+/** A small SVG toolkit for the demo's generated artwork. It is deterministic, so the same seed always produces the same image. */
 
 export type Rng = () => number;
 
-/** mulberry32: tiny seeded PRNG. */
+/** A seeded pseudo-random number generator (mulberry32). */
 export function rng(seed: string): Rng {
     let h = 1779033703 ^ seed.length;
     for (let i = 0; i < seed.length; i++) {
@@ -22,7 +22,7 @@ export function rng(seed: string): Rng {
 export const pick = <T>(r: Rng, list: readonly T[]): T => list[Math.floor(r() * list.length)];
 export const between = (r: Rng, min: number, max: number) => min + r() * (max - min);
 
-/** Print palettes of the Moteur Journal years (paper, ink, two spot colours, a shadow). */
+/** Print palettes for the Moteur Journal years. Each has paper, ink, two spot colours and a shadow colour. */
 export const PALETTES = {
     maison: { paper: '#efe3cc', ink: '#2b1d14', a: '#d8622b', b: '#e9b44c', shade: '#9b4a22' },
     industrie: { paper: '#e4e6e1', ink: '#1c2229', a: '#2f5d8a', b: '#f2c230', shade: '#5b6b78' },
@@ -50,7 +50,7 @@ export function svg(width: number, height: number, body: string, defs = ''): str
     return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}"><defs>${defs}</defs>${body}</svg>`;
 }
 
-/** Halftone dot pattern, the texture of cheap 1970s print. */
+/** A halftone dot pattern that imitates cheap 1970s print. */
 export function halftone(
     id: string,
     color: string,
@@ -61,17 +61,17 @@ export function halftone(
     return `<pattern id="${id}" width="${size}" height="${size}" patternUnits="userSpaceOnUse" patternTransform="rotate(30)"><circle cx="${size / 2}" cy="${size / 2}" r="${radius}" fill="${color}" fill-opacity="${opacity}"/></pattern>`;
 }
 
-/** Fine grid (blueprint paper). */
+/** A fine grid that imitates blueprint paper. */
 export function grid(id: string, color: string, step = 32, opacity = 0.25): string {
     return `<pattern id="${id}" width="${step}" height="${step}" patternUnits="userSpaceOnUse"><path d="M ${step} 0 L 0 0 0 ${step}" fill="none" stroke="${color}" stroke-opacity="${opacity}" stroke-width="1"/></pattern>`;
 }
 
-/** Paper grain: a light turbulence overlay. */
+/** A paper grain texture made from a light turbulence overlay. */
 export function grain(id: string, opacity = 0.18): string {
     return `<filter id="${id}" x="0" y="0" width="100%" height="100%"><feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" stitchTiles="stitch"/><feColorMatrix type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 ${opacity} 0"/></filter>`;
 }
 
-/** Text wrapped to a maximum number of characters per line. */
+/** Wraps text to a maximum number of characters per line. */
 export function wrap(text: string, maxChars: number): string[] {
     const lines: string[] = [];
     let line = '';

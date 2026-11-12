@@ -37,7 +37,7 @@ export async function updateOnboarding(
 
 /** Copies a person may make in all (deleting one and asking again counts). */
 const DEMO_COPIES = 3;
-/** One copy at a time per person: asking twice at once gives one copy. */
+/** Copies are made one at a time per user, so two simultaneous requests produce one copy. */
 const copying = new Map<string, Promise<string>>();
 
 /**
@@ -57,8 +57,7 @@ async function copyDemo(userId: string): Promise<string> {
     if (!user) throw Object.assign(new Error('User not found'), { status: 404 });
     const existing = user.onboarding?.demoProjectId;
     if (existing && isExistingProjectId(existing)) return existing;
-    // Only a project the server names as its demo (DEMO_PROJECT_ID), never one that happens to be
-    // called "demo".
+    // Use only the project named by DEMO_PROJECT_ID, never one that merely has the id "demo".
     const source = process.env.DEMO_PROJECT_ID?.trim() ? getDemoProjectId() : '';
     if (!source || !isExistingProjectId(source))
         throw Object.assign(new Error('This server has no demo project.'), {
@@ -74,7 +73,7 @@ async function copyDemo(userId: string): Promise<string> {
     const short = userId.replace(/^user:/, '').slice(0, 8);
     let id = `demo-${short}`;
     for (let n = 2; isExistingProjectId(id); n++) id = `demo-${short}-${n}`;
-    // Counted before the copy: a copy that fails half-way still counts.
+    // Count the copy before making it, so a copy that fails half-way still uses up an attempt.
     await updateStoredUser(userId, u => ({
         ...u,
         onboarding: { ...u.onboarding, demoProjectId: id, demoCopies: made + 1 }
@@ -94,7 +93,8 @@ export interface JoinedBy {
 }
 
 async function joinedProject(user: User, joined?: JoinedBy) {
-    // Made from an invitation's link, or by a code while an invitation waits for this address.
+    // The user joined through an invitation link, or signed up by code while an invitation was
+    // pending for their address.
     const by = joined ?? liveInviteFor(user.email);
     if (!by) return undefined;
     const project = await getProjectById(by.projectId).catch(() => null);
@@ -120,7 +120,8 @@ export async function sendWelcome(
     page: { look?: EmailLook } = {}
 ): Promise<void> {
     if (!user.email || emailUnavailable()) return;
-    // A name they gave; an account made by code is named after its address, which isn't one.
+    // Use the name the user gave. Accounts created by code are named after the email's local part,
+    // which is not a real name.
     const given = user.name?.trim();
     const name = given && given !== user.email.split('@')[0] ? given.split(/\s+/)[0] : undefined;
     const email = renderEmail(

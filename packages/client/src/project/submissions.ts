@@ -4,17 +4,17 @@ const base = (projectId: string, formId: string) =>
     `/projects/${encodeURIComponent(projectId)}/forms/${encodeURIComponent(formId)}/submissions`;
 
 export type SubmissionListParams = {
-    /** `received`, `processed` or `spam`. */
+    /** Status to filter by: `received`, `processed` or `spam`. */
     status?: string;
-    /** Only submissions nobody has opened (spam left out). */
+    /** When true, returns only submissions that nobody has opened. Spam is excluded. */
     unread?: boolean;
     offset?: number;
-    /** At most 500. */
+    /** Page size, at most 500. */
     limit?: number;
 };
 
 export type SubmissionListResult = {
-    /** Newest first. */
+    /** Submissions, newest first. */
     submissions: Record<string, unknown>[];
     total: number;
     unread: number;
@@ -41,7 +41,7 @@ export function projectSubmissionsApi(client: MoteurClient) {
         ): Promise<{ submission: Record<string, unknown> }> {
             return client.get(`${base(projectId, formId)}/${encodeURIComponent(submissionId)}`);
         },
-        /** Mark read or unread, spam or not spam. */
+        /** Marks a submission as read or unread, and as spam or not spam. */
         update(
             projectId: string,
             formId: string,
@@ -53,7 +53,7 @@ export function projectSubmissionsApi(client: MoteurClient) {
                 patch
             );
         },
-        /** Every submission of the form, as CSV text (or a JSON string). */
+        /** Exports every submission of the form as CSV text, or as a JSON string when `format` is `json`. */
         export(projectId: string, formId: string, format: 'csv' | 'json' = 'csv'): Promise<string> {
             return client.request<string>({
                 method: 'GET',

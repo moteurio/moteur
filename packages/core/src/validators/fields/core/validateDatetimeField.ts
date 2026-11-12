@@ -3,7 +3,7 @@ import { Field } from '@moteurio/types/Field.js';
 import { isLikelyLocaleStringMap, isPlainObject } from '../../fieldValueUtils.js';
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
-/** 24h HH:MM (00–23). */
+/** A time in 24-hour HH:MM format (hours 00 to 23). */
 const TIME_HHMM = /^([01]\d|2[0-3]):[0-5]\d$/;
 
 function collectDateStrings(value: unknown): { suffix: string; str: string }[] | 'invalid' {

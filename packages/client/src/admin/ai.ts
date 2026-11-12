@@ -18,7 +18,7 @@ export interface GenerateEntryResult {
 export interface AiProjectOverview {
     textAi: {
         enabled: boolean;
-        /** Env `MOTEUR_AI_PROVIDER` when set (e.g. openai, anthropic, mock). */
+        /** Provider ID from the `MOTEUR_AI_PROVIDER` environment variable when set (for example `openai`, `anthropic` or `mock`). */
         provider: string | null;
     };
     credits: {
@@ -27,19 +27,19 @@ export interface AiProjectOverview {
     };
 }
 
-/** Per helper: usable, off for the project, or not for this person's role. */
+/** Availability of a helper: `ok` (usable), `off` (disabled for the project) or `role` (not allowed for the user's role). */
 export type AiHelperState = 'ok' | 'off' | 'role';
 export type AiHelperName = 'write' | 'translate' | 'alt' | 'notes' | 'images' | 'audio' | 'model3d';
 
 export interface AiHelpers {
-    /** A provider is set up on the server. */
+    /** True when an AI provider is configured on the server. */
     ready: boolean;
     provider: string | null;
     helpers: Record<AiHelperName, AiHelperState>;
     describeUploads: boolean;
     provenanceForAll: boolean;
     credits: { remaining: number; unlimited: boolean };
-    /** Credits per action, e.g. `write.shorten`, `translate.field`, `analyse.image`. */
+    /** Credit cost per action, keyed by action name such as `write.shorten`, `translate.field` or `analyse.image`. */
     costs: Record<string, number>;
 }
 
@@ -60,7 +60,7 @@ export interface AiTextResult {
 }
 
 export interface AiAudioResult {
-    /** Each take: the sound as base64, and its MIME type (usually audio/mpeg). */
+    /** The generated audio variants: each has the audio as base64 and its MIME type (usually `audio/mpeg`). */
     variants: { audioBase64: string; mimeType: string }[];
     prompt: string;
     creditsUsed: number;
@@ -68,7 +68,7 @@ export interface AiAudioResult {
 }
 
 export interface AiModel3dResult {
-    /** Each model: the provider's (expiring) link, its format and a preview picture. */
+    /** The generated models: each has the provider's download URL (which expires), its format and an optional preview image URL. */
     variants: { url: string; format: string; thumbnailUrl?: string }[];
     prompt: string;
     creditsUsed: number;
@@ -76,16 +76,17 @@ export interface AiModel3dResult {
 }
 
 /**
- * AI help (`/ai/*`). These routes come from the AI plugin (Moteur Cloud): on a server without it
- * these calls fail with 404, except `activity` (the engine's audit log), which comes back empty.
+ * AI helpers (`/ai/*`). These routes are provided by the AI plugin. On a server without the
+ * plugin, these calls fail with 404, except `activity` (the engine's audit log), which returns an
+ * empty log.
  */
 export function aiApi(client: MoteurClient) {
     return {
-        /** What this person may ask for in a project, with credits and costs. */
+        /** Returns which helpers the current user can use in a project, with the remaining credits and the cost of each action. */
         helpers(projectId: string): Promise<AiHelpers> {
             return client.get<AiHelpers>(`/ai/helpers/${encodeURIComponent(projectId)}`);
         },
-        /** A suggestion for one field; nothing is saved. */
+        /** Returns AI-written text for one field. Nothing is saved. */
         write(params: {
             projectId: string;
             action: WritingAction;
@@ -98,7 +99,7 @@ export function aiApi(client: MoteurClient) {
         }): Promise<AiTextResult> {
             return client.post<AiTextResult>('/ai/write', params);
         },
-        /** A field's text in another language; nothing is saved. */
+        /** Translates a field's text into another locale. Nothing is saved. */
         translateField(params: {
             projectId: string;
             value: string;
@@ -110,7 +111,7 @@ export function aiApi(client: MoteurClient) {
         }): Promise<AiTextResult> {
             return client.post<AiTextResult>('/ai/translate/field', params);
         },
-        /** Suggested alt text and caption for a picture; nothing is saved. */
+        /** Returns suggested alt text and caption for an image. Nothing is saved. */
         analyseImage(params: {
             projectId: string;
             assetId: string;
@@ -124,7 +125,7 @@ export function aiApi(client: MoteurClient) {
         }> {
             return client.post('/ai/analyse/image', params);
         },
-        /** Speech from text (ElevenLabs or another audio provider); nothing is saved. */
+        /** Generates speech from text with ElevenLabs or another audio provider. Nothing is saved. */
         generateAudio(params: {
             projectId: string;
             prompt: string;
@@ -134,7 +135,7 @@ export function aiApi(client: MoteurClient) {
         }): Promise<AiAudioResult> {
             return client.post<AiAudioResult>('/ai/generate-audio', params);
         },
-        /** A 3D model from a description (Meshy or another provider). Can take minutes; nothing is saved. */
+        /** Generates a 3D model from a text description with Meshy or another provider. This can take minutes. Nothing is saved. */
         generateModel3d(params: {
             projectId: string;
             prompt: string;
@@ -143,7 +144,7 @@ export function aiApi(client: MoteurClient) {
             entryId?: string;
             fieldPath?: string;
         }): Promise<AiModel3dResult> {
-            // Providers build the model while the request waits: allow ten minutes, not one.
+            // Providers generate the model while the request waits, so allow ten minutes instead of the default timeout.
             return client.request<AiModel3dResult>({
                 method: 'post',
                 url: '/ai/generate-3d',
@@ -151,7 +152,7 @@ export function aiApi(client: MoteurClient) {
                 timeout: 10 * 60_000
             });
         },
-        /** Keeps a generated model: the server fetches it from the provider into the media library. */
+        /** Saves a generated model by having the server download it from the provider into the media library. */
         saveGeneratedModel(params: {
             projectId: string;
             url: string;
@@ -173,7 +174,7 @@ export function aiApi(client: MoteurClient) {
                 timeout: 3 * 60_000
             });
         },
-        /** What the helpers did in a project, newest first (at most 200 at a time). */
+        /** Lists the AI helper activity in a project, newest first, at most 200 entries per call. */
         activity(
             projectId: string,
             params: { limit?: number; before?: string } = {}

@@ -7,28 +7,31 @@ import type {
 } from './Form.js';
 
 /**
- * What plugins can add to forms: actions run when a letter arrives (a row in a sheet, a contact in
- * a CRM), field types whose answers the server checks, a spam check after the engine's own, and a
- * hold that keeps a letter's actions waiting (double opt-in).
+ * Extension points that plugins can add to forms:
+ * - Actions that run when a submission arrives, such as adding a row to a spreadsheet or a contact
+ *   to a CRM.
+ * - Field types whose submitted values the server validates.
+ * - A spam check that runs after the engine's own checks.
+ * - A hold that keeps a submission's actions waiting, for example for a double opt-in.
  */
 
-/** One setting of a plugin action, as the Studio asks for it. */
+/** One setting of a plugin action, which admin clients ask the user to fill in. */
 export interface FormActionSetting {
-    /** core/text, core/url, core/email, core/boolean or core/select. */
+    /** Field type of the setting: `core/text`, `core/url`, `core/email`, `core/boolean` or `core/select`. */
     type: string;
     label: string;
     description?: string;
     required?: boolean;
-    /** core/select: the values offered. */
+    /** The values offered when `type` is `core/select`. */
     choices?: string[];
-    /** Write-only (a token): stored, never shown back. */
+    /** When true, the value is write-only (for example a token): it is stored but never returned. */
     secret?: boolean;
 }
 
-/** What an action did with one letter, kept in its `actionResults`. */
+/** The result of running an action on one submission, stored in the submission's `actionResults`. */
 export interface FormActionOutcome {
     status: 'success' | 'failed';
-    /** For people: "Row 42 added to Leads". */
+    /** Human-readable description of what the action did, for example "Row 42 added to Leads". */
     detail?: string;
     error?: string;
 }
@@ -37,54 +40,54 @@ export interface FormActionContext {
     projectId: string;
     form: FormSchema;
     submission: FormSubmission;
-    /** This form's settings for the action. */
+    /** The form's settings for this action. */
     config: Record<string, unknown>;
 }
 
 export interface PluginFormAction {
-    /** Kept in a form's `actions` as `type`. Name it after the plugin: `sheets:append`. */
+    /** Action type, stored as `type` in a form's `actions`. Prefix it with the plugin name, for example `sheets:append`. */
     type: string;
     label: string;
     description?: string;
-    /** What a form sets for it, by key. */
+    /** The settings a form can configure for this action, keyed by setting name. */
     settings?: Record<string, FormActionSetting>;
-    /** Checks a form's settings when it is saved: a sentence saying what's wrong, or nothing. */
+    /** Validates the form's settings when the form is saved. Returns a message describing the problem, or nothing when the settings are valid. */
     check?(config: Record<string, unknown>): string | undefined | void;
-    /** Does the work for one letter. Throwing counts as failed; it never stops the others. */
+    /** Runs the action for one submission. Throwing marks the action as failed without stopping the form's other actions. */
     run(context: FormActionContext): Promise<FormActionOutcome | void>;
 }
 
-/** What a field check says about one answer. */
+/** The result of checking one submitted value: either the accepted value or an issue. */
 export type FormFieldCheck =
     | { value: unknown }
     | { issue: { code: FormIssueCode; params?: Record<string, string | number> } };
 
 export interface PluginFormField {
-    /** The field type it checks, as registered with registerFieldSchema: `geo/location`. */
+    /** The field type being checked, as registered with `registerFieldSchema`, for example `geo/location`. */
     type: string;
-    /** Turns what a visitor sent into the value kept, or says what's wrong. Runs on the server. */
+    /** Converts the value a visitor submitted into the value to store, or reports an issue. Runs on the server. */
     check(value: unknown, field: FormField): FormFieldCheck;
 }
 
 export interface SubmissionScreenContext {
     projectId: string;
     form: FormSchema;
-    /** The answers, already checked against the form. */
+    /** The submitted values, already validated against the form. */
     data: Record<string, unknown>;
     meta: FormSubmissionMeta;
 }
 
 export interface SubmissionScreenVerdict {
     spam?: boolean;
-    /** 0 (a person) to 1 (a bot), when the check scores. */
+    /** Spam score from 0 (likely a person) to 1 (likely a bot), for checks that produce a score. */
     score?: number;
-    /** Kept with the letter for the team: "Akismet: spam". */
+    /** Note stored with the submission for the team, for example "Akismet: spam". */
     note?: string;
 }
 
 export interface PluginSubmissionScreen {
     id: string;
-    /** Runs after the honeypot, the time trap and the captcha. A slow or failing check is skipped. */
+    /** Runs after the honeypot, time trap and captcha checks. A check that is slow or fails is skipped. */
     screen(context: SubmissionScreenContext): Promise<SubmissionScreenVerdict | void>;
 }
 
@@ -97,8 +100,9 @@ export interface SubmissionHoldContext {
 export interface PluginSubmissionHold {
     id: string;
     /**
-     * Whether this letter's actions wait: true keeps it `held` until the plugin calls
-     * releaseSubmission (or erases it). A failing hold lets the letter through.
+     * Returns true to hold the submission's actions. The submission stays `held` until the plugin
+     * calls `releaseSubmission` or the submission is erased. If the hold throws, the submission
+     * is not held.
      */
     hold(context: SubmissionHoldContext): Promise<boolean | void>;
 }

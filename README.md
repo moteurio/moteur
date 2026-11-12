@@ -56,11 +56,13 @@ pnpm install
 pnpm run build
 ```
 
-3. Create your first user (required for JWT login and admin routes):
+3. Create your first user (required for JWT login and admin routes). This runs on the server's machine and writes to its data folder:
 
 ```bash
-pnpm run cli -- auth create-user
+node packages/api/dist/operator/cli.js create-user you@example.com --name "Your Name" --password "a long password"
 ```
+
+On an installed server, the same command is `moteur-operators create-user`. Once someone can sign in as an operator, `moteur operator create-user` does the same through the API from any machine.
 
 4. Start the API:
 

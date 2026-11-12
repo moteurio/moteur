@@ -1,7 +1,7 @@
 /**
- * Operators' own sign-in, apart from users': password plus an authenticator code, and the one-time
- * link that sets both up. Mounted at /operator/auth, before the operator routes (which need an
- * operator token from here).
+ * Operator sign-in, which is separate from user sign-in. It uses a password plus an authenticator
+ * code, and a one-time link that sets both up. Mounted at /operator/auth, before the operator
+ * routes, which require the operator token issued here.
  */
 import type { NextFunction, Request, Response } from 'express';
 import { Router } from 'express';
@@ -19,7 +19,7 @@ import { limitReached } from '../middlewares/rateLimit.js';
 
 const router: Router = Router();
 
-/** Ten tries per address every 15 minutes, on top of the per-email lockout. */
+/** Allows ten attempts per address every 15 minutes, in addition to the per-email lockout. */
 const strict = rateLimit({
     windowMs: 15 * 60 * 1000,
     max: 10,
@@ -57,7 +57,7 @@ router.post('/login', strict, async (req: Request, res: Response) => {
 router.get('/enroll/:token', strict, async (req: Request, res: Response) => {
     try {
         const enrollment = startEnrollment((req.params as Record<string, string>).token);
-        // The QR code an authenticator app scans, drawn here so the secret goes nowhere else.
+        // Render the QR code an authenticator app scans on the server, so the secret is not sent to any third-party service.
         const qr = await QRCode.toString(enrollment.otpauth, { type: 'svg', margin: 1 });
         res.set('Cache-Control', 'no-store').json({ ...enrollment, qr });
     } catch (err) {

@@ -17,7 +17,7 @@ import { checkBundle } from './imports/importBundle.js';
 
 const BLUEPRINT_KINDS: BlueprintKind[] = ['project', 'model', 'structure', 'template'];
 
-/** In-memory blueprints registered by plugins (e.g. default core blueprints). Merged with file-based. */
+/** In-memory blueprints registered by plugins (for example the default core blueprints). Merged with file-based blueprints. */
 const pluginBlueprintRegistry: Partial<Record<BlueprintKind, Map<string, BlueprintSchema>>> = {};
 
 /**
@@ -29,7 +29,7 @@ export function registerBlueprint(blueprint: BlueprintSchema): void {
     try {
         validateBlueprintPayload(blueprint);
     } catch (err) {
-        // A plugin's broken blueprint is left out, not the server stopped.
+        // Skip a plugin blueprint that fails to load instead of stopping the server.
         console.warn(`[Moteur] Blueprint "${blueprint.id}" left out: ${(err as Error).message}`);
         return;
     }

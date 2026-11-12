@@ -28,7 +28,7 @@ async function present(
 
 const jsonFiles = (names: string[]) => names.filter(n => n.endsWith('.json')).length;
 
-/** The project's own models (ids). */
+/** IDs of the project's own models. */
 export function projectModelIds(projectId: string): Promise<string[]> {
     return present(projectId, modelListPrefix(), modelKey);
 }
@@ -64,7 +64,7 @@ export async function countOf(projectId: string, kind: CountKind): Promise<numbe
     }
 }
 
-/** Project block files (sync: block creation is). */
+/** Counts the project's block files. This is synchronous because block creation is synchronous. */
 export function countProjectBlocks(projectId: string): number {
     const dir = path.join(storageConfig.projectsDir, projectId, 'blocks');
     try {
@@ -74,7 +74,7 @@ export function countProjectBlocks(projectId: string): number {
     }
 }
 
-/** Every count, for usage. */
+/** All counts, used for usage reporting. */
 export async function projectCounts(projectId: string): Promise<Record<CountKind, number>> {
     const counts = await Promise.all(COUNT_KINDS.map(k => countOf(projectId, k)));
     return Object.fromEntries(COUNT_KINDS.map((k, i) => [k, counts[i]])) as Record<

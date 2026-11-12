@@ -19,8 +19,8 @@ router.post('/', requireAuth, (req: Request, res: Response) => {
         typeof req.body?.ttlSeconds === 'number'
             ? Math.min(Math.max(Math.floor(req.body.ttlSeconds), 60), MAX_TTL_SECONDS)
             : DEFAULT_TTL_SECONDS;
-    // An agent's token: changes go to review unless the person allows more. A token minted by
-    // an agent keeps its agent, and can't loosen review-only.
+    // A token for an agent sends changes to review unless the user allows more. A token issued
+    // by an agent keeps that agent and cannot lift the review-only restriction.
     const asked = req.body?.agent as { name?: unknown; reviewOnly?: unknown } | undefined;
     const agent =
         user.agent ??
@@ -40,7 +40,7 @@ router.post('/', requireAuth, (req: Request, res: Response) => {
 export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
     '/auth/session-token': {
         post: {
-            summary: 'Exchange user token for a short-lived session token (web Atelier, agents)',
+            summary: 'Exchange user token for a short-lived session token (for agents)',
             tags: ['Auth'],
             security: [{ bearerAuth: [] }],
             requestBody: {

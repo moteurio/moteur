@@ -26,7 +26,7 @@ const handler = async (req: Request, res: Response) => {
     const projectLocales = proj
         ? ([proj.defaultLocale, ...(proj.supportedLocales ?? [])].filter(Boolean) as string[])
         : undefined;
-    // A new draft may leave required fields empty; they are checked on review and publish.
+    // A new draft may leave required fields empty. Review and publishing check them.
     const status = (req.body?.status ?? 'draft') as string;
     const validation = await validateEntry(projectId, req.body, modelSchema, {
         projectLocales: projectLocales?.length ? projectLocales : undefined,
@@ -37,7 +37,7 @@ const handler = async (req: Request, res: Response) => {
     if (!validation.valid) {
         return void res.status(400).json({
             valid: false,
-            // What stops the save; a draft's empty required fields are only warnings.
+            // Only errors block the save. Empty required fields on a draft are warnings.
             errors: validation.issues
                 .filter((issue: any) => issue.type === 'error')
                 .map((issue: any) => ({

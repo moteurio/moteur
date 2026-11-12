@@ -1,6 +1,5 @@
 import type { Request, Response } from 'express';
 import { Router } from 'express';
-import { URL } from 'url';
 import type { OpenAPIV3 } from 'openapi-types';
 import { hasRole } from '@moteurio/types';
 import {
@@ -20,32 +19,9 @@ import { emailUnavailable, sendEmail } from '@moteurio/core/emailNotifier.js';
 import { assertPeopleRoom } from '@moteurio/core/planLimits.js';
 import { requireProjectAdmin } from '../middlewares/auth.js';
 import { sendApiError } from '../utils/apiError.js';
+import { studioOrigin } from '../utils/studioOrigin.js';
 
 const router: Router = Router({ mergeParams: true });
-
-function allowedOrigins(): Set<string> {
-    return new Set(
-        [process.env.STUDIO_URL, process.env.CORS_ORIGINS]
-            .flatMap(v => (v ?? '').split(','))
-            .map(s => s.trim().replace(/\/$/, ''))
-            .filter(Boolean)
-    );
-}
-
-/** The Studio to link to: the caller's, when it is one we serve, else STUDIO_URL; null when unknown. */
-function studioOrigin(appUrl: unknown): string | null {
-    const allowed = allowedOrigins();
-    if (typeof appUrl === 'string') {
-        try {
-            const origin = new URL(appUrl).origin;
-            if (allowed.has(origin)) return origin;
-        } catch {
-            // fall through
-        }
-    }
-    const configured = process.env.STUDIO_URL?.split(',')[0]?.trim().replace(/\/$/, '');
-    return configured || null;
-}
 
 function toDto(invite: ProjectInvite) {
     const by = getUserById(invite.invitedBy);
@@ -60,7 +36,7 @@ function toDto(invite: ProjectInvite) {
     };
 }
 
-/** Send the link if the server can; says why not otherwise. Never throws. */
+/** Emails the invite link if the server can, and otherwise reports why not. Never throws. */
 async function deliver(
     req: Request,
     invite: ProjectInvite,
@@ -83,7 +59,7 @@ async function deliver(
     const inviter = req.account?.name || req.account?.email || 'Someone';
     const project = req.project?.label || invite.projectId;
     const site = req.project?.siteUrl?.trim();
-    // Their language if they have an account, else the one the inviter asks for, else theirs.
+    // Use the invitee's language if they have an account, otherwise the language the inviter asked for, otherwise the inviter's.
     const known = getUserByEmail(invite.email);
     const locale =
         readerOf(known).locale ??
@@ -146,7 +122,7 @@ router.post('/:projectId/invites', requireProjectAdmin, async (req: Request, res
     const roles = Array.isArray(body.roles)
         ? body.roles.filter((r): r is string => typeof r === 'string')
         : [];
-    // As for members (users.ts): Developer and Billing are given only by someone who has them.
+    // As for members (see users.ts), only someone who already has the Developer or Billing role can grant it.
     const withheld = (['developer', 'billing'] as const).find(
         role => roles.includes(role) && !hasRole(req.user, role)
     );

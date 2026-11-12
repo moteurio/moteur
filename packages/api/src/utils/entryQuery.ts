@@ -12,7 +12,7 @@ export const MAX_ENTRY_PAGE_SIZE = 1000;
 const STATUSES: ReadonlySet<string> = new Set(['draft', 'in_review', 'published', 'unpublished']);
 
 const LOCALE = /^[A-Za-z]{2,3}(-[A-Za-z0-9]{2,8})*$/;
-/** Most values a single filter, group order or field list may hold. */
+/** The maximum number of values a single filter, group order or field list may hold. */
 const MAX_LIST = 500;
 
 function single(value: unknown): string | undefined {
@@ -26,7 +26,7 @@ function nonNegativeInt(raw: string | undefined, name: string): number | undefin
     return Number(raw);
 }
 
-/** Every value of a repeatable, comma-separated parameter. */
+/** Returns every value of a parameter that may be repeated and may be comma-separated. */
 function list(value: unknown, name: string): string[] | undefined {
     const raw = (Array.isArray(value) ? value : [value]).filter(
         (v): v is string => typeof v === 'string'
@@ -58,11 +58,11 @@ function fieldLocales(raw: string | undefined, name: string) {
 }
 
 /**
- * Parse `limit`, `offset`, `sort` (`updatedAt` or `-updatedAt`) and, when allowed, `status`
- * (comma-separated) from the query string. With `allowList` (the Studio's entry lists), also
+ * Parses `limit`, `offset`, `sort` (`updatedAt` or `-updatedAt`) and, when allowed, `status`
+ * (comma-separated) from the query string. With `allowList` (the entry lists used by admin clients), also
  * `q`, `filter.<key>`, `missing`, `data.<field>` sorts with `sortLocale`, `group` with
  * `groupOrder`, `facets`, `missingCounts`, `fields`, and `limit=0` for counts only.
- * Throws an Error with a 400-worthy message.
+ * Throws an Error whose message is suitable for a 400 response.
  */
 export function parseEntryQuery(
     req: Request,
@@ -150,7 +150,7 @@ export function parseEntryQuery(
     return query;
 }
 
-/** OpenAPI parameters for parseEntryQuery. */
+/** Returns the OpenAPI parameters for parseEntryQuery. */
 export function entryQueryParameters(options: {
     allowStatus: boolean;
     allowList?: boolean;

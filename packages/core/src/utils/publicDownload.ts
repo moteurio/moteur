@@ -8,17 +8,17 @@ export type DownloadedFile = { buffer: Buffer; mimeType: string; name: string };
 export type DownloadOptions = {
     maxBytes: number;
     timeoutMs?: number;
-    /** Each one is checked like the first address. */
+    /** Maximum number of redirects to follow. Each redirect target is checked like the first address. */
     maxRedirects?: number;
 };
 
-/** The file's name: the address's last segment, or "download". */
+/** Returns the file name: the last segment of the address, or "download" if there is none. */
 function nameOf(url: URL): string {
     const last = decodeURIComponent(path.posix.basename(url.pathname || '')).trim();
     return last && last !== '/' ? last : 'download';
 }
 
-/** One GET to a checked, pinned address; a redirect comes back as its location. */
+/** Makes one GET request to a validated address pinned to the resolved IP. A redirect is returned as its location. */
 function getOnce(
     url: URL,
     maxBytes: number,
@@ -42,7 +42,7 @@ function getOnce(
             Math.max(0, deadline - Date.now())
         );
         void (async () => {
-            // Private and restricted networks are refused here, for every hop.
+            // Refuse private and restricted networks. This runs for every redirect hop.
             const target = await validateUrl(url.href);
             if (settled) return;
             request = (url.protocol === 'https:' ? httpsRequest : httpRequest)(
@@ -51,7 +51,7 @@ function getOnce(
                     method: 'GET',
                     agent: false,
                     family: target.family,
-                    // The checked address, without a second DNS lookup (no rebinding).
+                    // Connect to the address that was already validated instead of doing a second DNS lookup, which prevents DNS rebinding.
                     lookup: (_hostname, _options, callback) =>
                         callback(null, target.address, target.family)
                 },
@@ -93,9 +93,9 @@ function getOnce(
 }
 
 /**
- * Downloads a file a client named by its address (a picture to add to the library): HTTPS only,
- * never a private or restricted network address (checked again after each redirect), within a
- * size and a time.
+ * Downloads a file from an address a client supplied, for example a picture to add to the library.
+ * Only HTTPS is allowed, and private or restricted network addresses are refused (this is checked
+ * again after each redirect). The download is limited in size and time.
  */
 export async function downloadPublicFile(
     address: string,

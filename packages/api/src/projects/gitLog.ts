@@ -11,7 +11,7 @@ import { sendApiError } from '../utils/apiError.js';
 
 const router: Router = Router({ mergeParams: true });
 
-/** A remote's address without any password or token Git may have been given. */
+/** Returns a remote's address with any password or token removed. */
 function withoutCredentials(url: string | null): string | null {
     if (!url) return url;
     try {
@@ -33,7 +33,7 @@ function statusOf(projectId: string) {
     };
 }
 
-/** Where the history stands: branch, last commit, and how many commits the remote lacks. */
+/** Reports the state of the history: the branch, the last commit, and how many commits the remote is missing. */
 router.get('/status', requireProjectAccess, async (req: Request, res: Response) => {
     const { projectId } = req.params as Record<string, string>;
     try {
@@ -51,7 +51,7 @@ router.get('/status', requireProjectAccess, async (req: Request, res: Response) 
     }
 });
 
-/** Push now (developers): after fixing the remote's access, without waiting for the next save. */
+/** Pushes immediately (developers), for example after fixing access to the remote, without waiting for the next save. */
 router.post('/push', requireDeveloper, async (req: Request, res: Response) => {
     const { projectId } = req.params as Record<string, string>;
     try {
@@ -69,7 +69,7 @@ router.post('/push', requireDeveloper, async (req: Request, res: Response) => {
     }
 });
 
-/** The token pushes use (developers): kept encrypted outside Git, never sent back. */
+/** Sets the token used for pushes (developers). It is stored encrypted outside Git and never returned. */
 router.put('/token', requireDeveloper, async (req: Request, res: Response) => {
     const { projectId } = req.params as Record<string, string>;
     try {
@@ -88,7 +88,7 @@ router.delete('/token', requireDeveloper, async (req: Request, res: Response) =>
     }
 });
 
-/** Query: path (optional, relative to project root), max (default 50, max 200). */
+/** Query parameters: `path` (optional, relative to the project root) and `max` (default 50, at most 200). */
 router.get('/log', requireProjectAccess, async (req: Request, res: Response) => {
     const { projectId } = req.params as Record<string, string>;
     const dir = projectDir(projectId);
@@ -175,7 +175,7 @@ export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
         put: {
             summary: 'Set the token pushes use (developers)',
             description:
-                'For a private repository: a token with write access to it (GitHub: a fine-grained token with Contents read and write; GitLab: a project access token). Kept encrypted with MOTEUR_ENCRYPTION_KEY in the gitignored workspace, sent to Git only as a header during a push, and never returned. `username` is optional (default `x-access-token`; Bitbucket needs `x-token-auth` or the account name).',
+                'For a private repository: a token with write access to it (GitHub: a fine-grained token with Contents read and write; GitLab: a project access token). Kept encrypted with MOTEUR_ENCRYPTION_KEY in the gitignored project state, sent to Git only as a header during a push, and never returned. `username` is optional (default `x-access-token`; Bitbucket needs `x-token-auth` or the account name).',
             tags: ['Git'],
             parameters: [
                 { name: 'projectId', in: 'path', required: true, schema: { type: 'string' } }

@@ -1,4 +1,4 @@
-/** Resolve a multilingual field for a locale. */
+/** Returns the text of a multilingual field for a locale, falling back to `fallbackLocale`. Returns an empty string when neither exists. */
 export function t(value: unknown, locale: string, fallbackLocale = 'en'): string {
     if (value == null) return '';
     if (typeof value === 'string') return value;
@@ -12,7 +12,8 @@ export function t(value: unknown, locale: string, fallbackLocale = 'en'): string
 }
 
 /**
- * Swap locale prefix in a pathname and optional localized slug segments.
+ * Returns the pathname for the other locale (`fr` and `en` are swapped), replacing the locale
+ * prefix and, when `segments` are given, the localized slug segment.
  */
 export function siblingPath(
     pathname: string,

@@ -1,4 +1,4 @@
-/** Small colour sums for email accents: WCAG contrast, and a shade that reads in the dark. */
+/** Color helpers for email accents: WCAG contrast, and a lighter shade that stays readable on dark backgrounds. */
 
 export const isHex = (v: unknown): v is string =>
     typeof v === 'string' && /^#[0-9a-f]{6}$/i.test(v.trim());
@@ -22,7 +22,7 @@ export function contrast(a: string, b: string): number {
     return (x + 0.05) / (y + 0.05);
 }
 
-/** `a` moved toward `b` by `t` (0 to 1). */
+/** Mixes `a` toward `b` by the fraction `t` (0 to 1). */
 export function mix(a: string, b: string, t: number): string {
     const [p, q] = [rgb(a), rgb(b)];
     return (
@@ -35,7 +35,7 @@ export function mix(a: string, b: string, t: number): string {
     );
 }
 
-/** The accent lightened until it reads at 4.5:1 on a dark ground: links and buttons in dark mode. */
+/** Lightens the accent until it has a 4.5:1 contrast on a dark background, for links and buttons in dark mode. */
 export function forDark(accent: string, ground: string): string {
     for (let t = 0; t <= 1; t += 0.05) {
         const shade = mix(accent, '#FFFFFF', t);
@@ -44,7 +44,7 @@ export function forDark(accent: string, ground: string): string {
     return '#FFFFFF';
 }
 
-/** Black-ish or white text, whichever reads better on this fill. */
+/** Returns near-black or white text, whichever has better contrast on this fill. */
 export function textOn(fill: string, dark = '#111111'): string {
     return contrast(fill, '#FFFFFF') >= contrast(fill, dark) ? '#FFFFFF' : dark;
 }

@@ -6,7 +6,7 @@ import { validateTextField } from '../../validators/fields/core/validateTextFiel
  * - Auto-generated on entry creation
  * - Never accepted in create/update payloads — ignored if provided
  * - Always returned in API responses
- * - Studio renders as read-only, non-editable
+ * - Editor clients should show it as read-only
  */
 fieldRegistry.register({
     type: 'core/id',

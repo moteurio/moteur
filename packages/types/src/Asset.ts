@@ -18,7 +18,7 @@ export type ImageVariant = {
     generatedAt: string;
 };
 
-/** Text describing an asset: one string, or one per language code. */
+/** Text describing an asset: a single string, or a map from locale code to string. */
 export type AssetText = string | Record<string, string>;
 
 export type Asset = {
@@ -30,11 +30,11 @@ export type Asset = {
     type: AssetType;
     status: AssetStatus;
     adapter: string; // 'local' | 's3' | 'r2' | 'minio' | 'cloudinary'
-    /** SHA-256 of the file as uploaded (before a photo's metadata is removed): the same file uploaded again has the same one. */
+    /** SHA-256 hash of the file as uploaded, before any image metadata is stripped. Uploading the same file again produces the same hash. */
     hash?: string;
 
     // ── Asset-level metadata ──
-    /** A string, or one per language: `{ "fr": "…", "en": "…" }`. Fields may override alt and caption. */
+    /** A string, or a map from locale code to string such as `{ "fr": "...", "en": "..." }`. Fields can override `alt` and `caption`. */
     title?: AssetText;
     alt?: AssetText;
     caption?: AssetText;
@@ -48,7 +48,7 @@ export type Asset = {
     variants?: ImageVariant[];
 
     // ── Video-only ──
-    duration?: number; // seconds; null if ffprobe unavailable
+    duration?: number; // Duration in seconds; null when ffprobe is unavailable
     provider?: VideoProviderId;
     providerId?: string;
     providerStatus?: VideoProviderStatus;
@@ -61,8 +61,9 @@ export type Asset = {
     };
     keepLocalCopy?: boolean;
     /**
-     * While a video moves to another host: where it still is. Cleared once the new host has it
-     * ready; deleted there then when `remove` is set.
+     * Set while a video is being moved to another host, and identifies where the video currently
+     * is. It is cleared once the new host reports the video as ready. At that point the old copy is
+     * deleted if `remove` is true.
      */
     previousHost?: { provider: VideoProviderId; providerId: string; remove?: boolean };
 
@@ -72,7 +73,7 @@ export type Asset = {
 
     // ── Computed (set at read time via resolveAssetUrl) ──
     url: string;
-    /** Images only: serves any size; add `&w=640`, optionally `&ar=1:1` and `&fmt=avif`. */
+    /** Images only. URL that serves the image at any size. Append `&w=640` for the width, and optionally `&ar=1:1` for the aspect ratio and `&fmt=avif` for the format. */
     resizeUrl?: string;
 
     // ── Organisation ──
@@ -86,16 +87,16 @@ export type Asset = {
     updatedAt: string;
 
     // ── Bin ──
-    /** Set while the asset is in the bin: hidden from the library and from content, restorable. */
+    /** ISO 8601 timestamp set while the asset is in the bin. A binned asset is hidden from the library and from content, and can be restored. */
     deletedAt?: string;
     deletedBy?: string;
     deletedByName?: string;
 
     // ── AI-generated image metadata ──
-    /** Prompt sent to the image generation provider (stored when asset was created via Generate). */
+    /** Prompt sent to the image generation provider. Stored when the asset was created by AI generation. */
     generationPrompt?: string;
-    /** Provider identifier e.g. 'openai/dall-e-3'. */
+    /** Provider and model identifier, for example `openai/dall-e-3`. */
     aiProvider?: string;
-    /** When true, this asset was created from AI image generation. */
+    /** True when the asset was created by AI image generation. */
     aiGenerated?: boolean;
 };

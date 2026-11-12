@@ -14,8 +14,8 @@ import { sendApiError } from '../utils/apiError.js';
 const router: Router = Router();
 
 /**
- * Who a project key is: its project and the channels it reads, so a site needs its key alone.
- * `channel` is the one to read when there's no doubt: the key's only channel, or `site`.
+ * The identity of a project key: its project and the channels it can read, so a site needs only its key.
+ * `channel` is the channel to read by default: the key's only channel, or `site` when the key can read that channel.
  */
 router.get('/me', async (req: Request, res: Response) => {
     const rawKey = (req.headers['x-api-key'] as string | undefined)?.trim() ?? '';
@@ -73,7 +73,7 @@ export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
             description:
                 "Send a project key in `x-api-key`; the answer says its project and the channels it reads. `channel` is the one to read when there's no doubt: the key's only channel, or `site`. What lets a site be configured with its key alone.",
             tags: ['Public API — Channels'],
-            security: [{ ApiKeyAuth: [] }],
+            security: [{ apiKeyAuth: [] }],
             responses: {
                 '200': {
                     description: 'The key',

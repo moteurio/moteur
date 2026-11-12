@@ -1,12 +1,12 @@
 /**
  * Imports as jobs: started, followed (progress), and, when they wait for it, approved. A job is
- * kept in the project's workspace (.moteur/imports.json), the last few of them.
+ * kept in the project's state (.moteur/imports.json), the last few of them.
  */
 import { randomUUID } from 'crypto';
 import type { User } from '@moteurio/types/User.js';
 import type { ImportBundle, ImportJob } from '@moteurio/types/Import.js';
 import { hasRole, needsApproval } from '@moteurio/types';
-import { read, write } from '../utils/workspaceStore.js';
+import { read, write } from '../utils/stateStore.js';
 import { restoreProjectFile } from '../utils/projectStorage.js';
 import { projectDir } from '../utils/pathUtils.js';
 import { show } from '../git/gitService.js';
@@ -17,16 +17,16 @@ import { afterImport, countItems, importBundle, publishImport } from './importBu
 const KEY = '.moteur/imports.json';
 const KEEP = 30;
 
-/** A job as kept: with the files it changed so far, to undo them if the server stops mid-way. */
+/** A stored job. It also records the files changed so far, so they can be restored if the server stops mid-import. */
 type StoredJob = ImportJob & { touched?: string[] };
 
-/** Jobs running in this process. One still "running" in the file but not here was cut short. */
+/** Jobs running in this process. A job stored as "running" that is not in this map was interrupted. */
 const running = new Map<string, Promise<ImportJob>>();
 /** Imports being approved right now. */
 const approving = new Set<string>();
 const queues = new Map<string, Promise<unknown>>();
 
-/** One change to a project's jobs at a time. */
+/** Applies changes to a project's stored jobs one at a time. */
 function change<T>(projectId: string, work: (jobs: StoredJob[]) => T | Promise<T>): Promise<T> {
     const run = (queues.get(projectId) ?? Promise.resolve()).then(async () => {
         const jobs = await read<StoredJob[]>(projectId, KEY, []);
@@ -50,7 +50,7 @@ async function save(projectId: string, id: string, patch: Partial<StoredJob>): P
     });
 }
 
-/** A job the server stopped during: its files back as they were, and marked failed. */
+/** Restores the files of a job that was interrupted by a server stop and marks it as failed. */
 async function recover(projectId: string, job: StoredJob): Promise<void> {
     const dir = projectDir(projectId);
     for (const key of job.touched ?? []) {
@@ -67,7 +67,7 @@ async function recover(projectId: string, job: StoredJob): Promise<void> {
     });
 }
 
-/** Starts an import; the job is returned at once, and `finished` when it ends. */
+/** Starts an import. The job is returned immediately and `finished` resolves when the import ends. */
 export async function startImport(
     user: User,
     projectId: string,
@@ -76,7 +76,7 @@ export async function startImport(
 ): Promise<{ job: ImportJob; finished: Promise<ImportJob> }> {
     await getProject(user, projectId);
     assertProjectAdmin(user, 'import');
-    // What changes how the project is built is a builder's, by import as by hand.
+    // Importing schemas requires the same role as editing them directly.
     const builds = ['models', 'structures', 'blocks', 'templates'] as const;
     if (builds.some(k => bundle[k]?.length) && !hasRole(user, 'builder'))
         throw contentForbidden(
@@ -95,7 +95,7 @@ export async function startImport(
     };
     await change(projectId, jobs => void jobs.push(job));
 
-    // Progress is written now and then, not on every item.
+    // Throttle progress writes instead of writing after every item.
     let lastWrite = 0;
     const finished = (async () => {
         const outcome = await importBundle(user, projectId, bundle, {
@@ -142,14 +142,14 @@ export async function getImport(projectId: string, id: string): Promise<ImportJo
 }
 
 /**
- * A person puts a waiting import live: its pages and entries are published. An agent, or anyone
- * who needs approval themselves, can't.
+ * Publishes the pages and entries of an import that is waiting for approval. Agents, and users who
+ * need approval for their own changes, cannot approve an import.
  */
 export async function approveImport(user: User, projectId: string, id: string): Promise<ImportJob> {
     const project = await getProject(user, projectId);
     assertProjectAdmin(user, 'approve an import');
     assertNotReviewOnly(user, 'approve an import');
-    // One approval at a time: a second click doesn't publish it twice.
+    // Allow one approval at a time so a repeated request cannot publish the import twice.
     if (approving.has(id))
         throw Object.assign(new Error('This import is already being approved.'), {
             statusCode: 409

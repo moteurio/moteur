@@ -1,6 +1,6 @@
 /**
- * Drafts on a static site: one on-demand route renders a page as it is now, through the same
- * views as the built site. Studio's Preview opens it with a short-lived token.
+ * Draft previews on a static site. One on-demand route renders the current draft of a page through
+ * the same views as the built site. The preview link carries a short-lived token.
  *
  *     // src/pages/preview/[...path].astro
  *     export const prerender = false;
@@ -13,24 +13,25 @@ import type { DeliveredPage, MoteurPublicClient, SchemaShape } from '@moteurio/c
 import { createMoteur } from './index.js';
 import type { SitePage } from './templates.js';
 
-/** What `previewPage` reads of Astro's global. */
+/** The part of Astro's global object that `previewPage` reads. */
 type AstroLike = { url: URL; response: { headers: Headers } };
 
 export type PreviewOptions<S extends SchemaShape> = {
-    /** The client to read with (default: `createMoteur()`, from `MOTEUR_API_KEY`). */
+    /** The client to read with. Defaults to `createMoteur()`, which uses `MOTEUR_API_KEY`. */
     client?: MoteurPublicClient<S>;
-    /** Where the preview route lives (default `/preview`; Astro skips folders starting with `_`). */
+    /** The path of the preview route. Defaults to `/preview`. Astro skips folders whose names start with `_`. */
     base?: string;
-    /** Pictures come with their files and sizes, as the loaders give them (default true). */
+    /** Includes each picture's files and sizes, as the loaders do. Defaults to true. */
     resolveAssets?: boolean;
 };
 
 const status = (err: unknown) => (err as { status?: number }).status;
 
 /**
- * The page at this address, drafts included, shaped as the `moteurPages` loader shapes it, so
- * `views.for(page)` renders it. Null without a token, with an expired one, or when no page lives
- * at the address. The answer is never cached, never indexed, and never sends its address on.
+ * Returns the page at the current URL, including its drafts, in the same shape that the
+ * `moteurPages` loader produces, so `views.for(page)` can render it. It returns null when there is
+ * no token, the token has expired, or no page exists at that URL. The response is never cached or
+ * indexed, and the URL is not passed on to other sites as a referrer.
  */
 export async function previewPage<S extends SchemaShape>(
     astro: AstroLike,
@@ -38,7 +39,7 @@ export async function previewPage<S extends SchemaShape>(
 ): Promise<SitePage<S> | null> {
     astro.response.headers.set('Cache-Control', 'private, no-store');
     astro.response.headers.set('X-Robots-Tag', 'noindex');
-    // The token is in the address: never sent on to the page's fonts, analytics or links.
+    // The token is in the URL, so keep it from reaching the page's fonts, analytics and outgoing links.
     astro.response.headers.set('Referrer-Policy', 'no-referrer');
     const token = astro.url.searchParams.get('preview');
     if (!token) return null;
@@ -58,7 +59,7 @@ export async function previewPage<S extends SchemaShape>(
         }
         return null;
     } catch (err) {
-        // An expired or unknown token: the link is stale, not the site broken.
+        // An expired or unknown token means the preview link is stale, which is not a site error.
         if (status(err) === 401 || status(err) === 403) return null;
         throw err;
     }

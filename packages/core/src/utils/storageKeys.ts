@@ -4,7 +4,7 @@ import { safeId } from './idUtils.js';
  * Storage key convention for project-scoped data.
  * All keys are relative to the project root.
  * - Content (Git tracked): project.json, models/, layouts/, pages/, etc.
- * - Workspace (gitignored): .moteur/ — comments, activity, radar, reviews, schedules, etc.
+ * - Project state (gitignored): .moteur/ — comments, activity, radar, reviews, schedules, etc.
  * - User data (gitignored): user-data/ — form submissions, etc.
  */
 export const PROJECT_KEY = 'project.json';
@@ -13,15 +13,15 @@ export const ASSETS_KEY = 'assets.json';
 
 export const CHANNELS_KEY = 'channels.json';
 
-/** Workspace store — gitignored, not committed. Snapshot to orphan branch. */
-const WORKSPACE = '.moteur/';
-export const ACTIVITY_KEY = `${WORKSPACE}activity.json`;
-/** AI call audit (prompts/responses on disk; API redacts for non-operators). */
-export const AI_AUDIT_KEY = `${WORKSPACE}ai-audit.json`;
-export const COMMENTS_KEY = `${WORKSPACE}comments.json`;
-export const REVIEWS_KEY = `${WORKSPACE}reviews.json`;
-export const NOTIFICATIONS_KEY = `${WORKSPACE}notifications.json`;
-export const WEBHOOK_LOG_KEY = `${WORKSPACE}webhook-log.json`;
+/** Project state. It is gitignored and not committed, but snapshots save it to an orphan branch. */
+const STATE = '.moteur/';
+export const ACTIVITY_KEY = `${STATE}activity.json`;
+/** AI call audit, with prompts and responses stored on disk. The API redacts them for users who are not operators. */
+export const AI_AUDIT_KEY = `${STATE}ai-audit.json`;
+export const COMMENTS_KEY = `${STATE}comments.json`;
+export const REVIEWS_KEY = `${STATE}reviews.json`;
+export const NOTIFICATIONS_KEY = `${STATE}notifications.json`;
+export const WEBHOOK_LOG_KEY = `${STATE}webhook-log.json`;
 
 export function modelKey(modelId: string): string {
     return `models/${safeId(modelId)}/model.json`;
@@ -75,7 +75,7 @@ export const NAVIGATIONS_KEY = 'navigations.json';
 
 export const WEBHOOKS_KEY = 'webhooks.json';
 
-/** Old addresses and where they go, kept in Git with the pages. */
+/** Redirects from old addresses to new ones. They are stored in Git alongside the pages. */
 export const REDIRECTS_KEY = 'redirects.json';
 
 export function formKey(formId: string): string {
@@ -86,7 +86,7 @@ export function formListPrefix(): string {
     return 'forms/';
 }
 
-/** User data store — gitignored. Form submissions, etc. */
+/** User data store, which is gitignored. It holds form submissions and similar data. */
 const USERDATA = 'user-data/';
 export function submissionKey(formId: string, submissionId: string): string {
     return `${USERDATA}forms/${safeId(formId)}/${safeId(submissionId)}.json`;
@@ -96,17 +96,17 @@ export function submissionListPrefix(formId: string): string {
     return `${USERDATA}forms/${safeId(formId)}/`;
 }
 
-/** Schedules live in workspace (operational, not content). */
+/** Schedules are stored in project state because they are operational data, not content. */
 export function scheduleKey(scheduleId: string): string {
-    return `${WORKSPACE}schedules/${safeId(scheduleId)}.json`;
+    return `${STATE}schedules/${safeId(scheduleId)}.json`;
 }
 
 export function scheduleListPrefix(): string {
-    return `${WORKSPACE}schedules/`;
+    return `${STATE}schedules/`;
 }
 
-/** Radar violations (derived data, in workspace). */
-export const RADAR_KEY = `${WORKSPACE}radar.json`;
+/** Radar violations. They are derived data, so they are stored in project state. */
+export const RADAR_KEY = `${STATE}radar.json`;
 
 /** Snapshot scheduler config: { enabled: boolean, cron?: string }. */
-export const SNAPSHOT_SCHEDULE_KEY = `${WORKSPACE}snapshot-schedule.json`;
+export const SNAPSHOT_SCHEDULE_KEY = `${STATE}snapshot-schedule.json`;

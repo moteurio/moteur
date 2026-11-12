@@ -4,7 +4,8 @@ import { isPlainObject } from '../../fieldValueUtils.js';
 import { validateFieldValue } from '../../validateFieldValue.js';
 
 /**
- * Normalize stored table: legacy array-of-rows, or `{ rows: [...] }` from `storeDirect: false` + `value.rows`.
+ * Extracts the rows of a stored table. A table is stored either as a plain array of rows, or as
+ * `{ rows: [...] }` when the field sets `storeDirect: false` and uses `value.rows`.
  */
 function extractRows(value: unknown): { rows: unknown[][]; error?: ValidationIssue } {
     if (Array.isArray(value)) {
@@ -100,7 +101,7 @@ export function validateTableField(
             }
 
             if (cellSchema) {
-                // Cells that may not be empty are required ones: checked even when empty.
+                // When empty cells are not allowed, validate the cell as required so that an empty value is reported.
                 const cellField = allowEmpty
                     ? cellSchema
                     : { ...cellSchema, options: { ...cellSchema.options, required: true } };

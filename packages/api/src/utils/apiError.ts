@@ -7,10 +7,10 @@ export function getMessage(err: unknown): string {
 }
 
 /**
- * Machine-readable parts of a client error, for the response body: a `code`, the `missing`
- * required fields (ENTRY_INCOMPLETE), the `issues` with form answers (ANSWERS_INVALID), which
- * `limit` and its `max` (plan_limit), and `retryAfter`, the whole seconds to wait (also sent as
- * the `Retry-After` header).
+ * Extracts the machine-readable parts of a client error for the response body: a `code`, the `missing`
+ * required fields (ENTRY_INCOMPLETE), the `issues` with form answers (ANSWERS_INVALID), the `limit` and
+ * its `max` (plan_limit), and `retryAfter`, the whole number of seconds to wait (also sent as the
+ * `Retry-After` header).
  */
 export function errorFields(err: unknown): {
     code?: string;
@@ -35,7 +35,7 @@ export function errorFields(err: unknown): {
 }
 
 /**
- * Map thrown errors to HTTP status. Core uses plain Error messages; this keeps routes consistent.
+ * Maps thrown errors to HTTP statuses. Core throws plain Error messages, and this keeps the routes consistent.
  */
 export function getHttpStatusForError(err: unknown): number {
     if (typeof err === 'object' && err !== null) {
@@ -67,21 +67,21 @@ export function getHttpStatusForError(err: unknown): number {
 }
 
 export type SendApiErrorOptions = {
-    /** When the inferred status is 5xx, still log this message (defaults to full error). */
+    /** The message to log when the inferred status is 5xx. Defaults to the full error. */
     logContext?: string;
 };
 
 /**
- * Whether answers may say what went wrong inside the server (a 5xx's message, the stack): only
- * while developing (`NODE_ENV=development`, or `test`). A server that never sets NODE_ENV, as a
- * self-hosted one may not, says nothing more than "Internal server error".
+ * Whether responses may include internal details of a server error (a 5xx's message and the stack).
+ * This is true only in development (`NODE_ENV=development` or `test`). A server that never sets
+ * NODE_ENV, as a self-hosted one may not, returns only "Internal server error".
  */
 export const developing = () =>
     process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'test';
 
 /**
- * Send a JSON error body and log server-side. For a 5xx, the client sees a generic message unless
- * developing (see `developing`).
+ * Sends a JSON error body and logs the error on the server. For a 5xx, the client receives a generic
+ * message unless the server is in development mode (see `developing`).
  */
 export function sendApiError(
     res: Response,

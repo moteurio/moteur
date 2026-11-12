@@ -47,7 +47,7 @@ export function stripEditorialBlocksFromPayload<T>(
             item => item != null && typeof item === 'object' && 'type' in item && 'data' in item
         );
         if (isBlockArray && arr.length > 0) {
-            // A kept block can hold blocks of its own.
+            // A block that is kept can contain further blocks, so filter them recursively.
             return stripEditorialBlocks(arr as Block[], blockSchemas).map(b =>
                 stripEditorialBlocksFromPayload(b, blockSchemas)
             ) as T;

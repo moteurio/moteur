@@ -52,13 +52,13 @@ async function create(): Promise<ContentIndex> {
     }
 }
 
-/** The configured content index (created on first use). */
+/** Returns the configured content index, creating it on first use. */
 export function getContentIndex(): Promise<ContentIndex> {
     current ??= create();
     return current;
 }
 
-/** Close the current index and pick the adapter again from the environment (tests). */
+/** Closes the current index and chooses the adapter again from the environment (for tests). */
 export async function resetContentIndex(): Promise<void> {
     if (current) (await current).close();
     current = null;
@@ -66,7 +66,7 @@ export async function resetContentIndex(): Promise<void> {
 
 const ENTRY_KEY = /^models\/([^/]+)\/entries\/([^/]+)\/entry\.json$/;
 
-/** Model and entry ids when a storage key is an entry file, else null. */
+/** Returns the model and entry ids when a storage key is an entry file, otherwise null. */
 export function parseEntryKey(key: string): { modelId: string; entryId: string } | null {
     const m = ENTRY_KEY.exec(key.replace(/\\/g, '/'));
     return m ? { modelId: m[1], entryId: m[2] } : null;

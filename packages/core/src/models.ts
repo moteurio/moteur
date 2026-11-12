@@ -153,7 +153,7 @@ export async function deleteModelSchema(
     const entryIds = await listProjectKeys(projectId, entryListPrefix(schemaId));
     const paths = [modelKey(schemaId), ...entryIds.map(eid => entryKey(schemaId, eid))];
 
-    // The model's folder goes to the bin whole, its entries with it, until taken out again.
+    // Move the whole model folder, with its entries, to the bin until it is restored.
     binModel(projectId, current, modelDir(projectId, schemaId), entryIds.length, user);
     await (await getContentIndex()).modelRemoved(projectId, schemaId);
 
@@ -166,7 +166,7 @@ export async function deleteModelSchema(
     triggerEvent('model.afterDelete', { model: current, user, projectId });
 }
 
-/** A refusal the API turns into HTTP 409: the project changed since it went in the bin. */
+/** Thrown when restoring from the bin fails because the project changed since the item was deleted. The API returns HTTP 409. */
 function binConflict(message: string): Error {
     return Object.assign(new Error(message), { statusCode: 409 });
 }

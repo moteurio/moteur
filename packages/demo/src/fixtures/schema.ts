@@ -3,13 +3,13 @@ import type { Field } from '@moteurio/types/Field.js';
 import { f } from '../runtime/fields.js';
 
 /**
- * Fixtures: models built to stress the Studio and the API, not to look good. Every core field
- * type, extreme sizes, odd relations, legacy formats and empty states.
+ * Fixture models built to stress the CMS and the API, not to look realistic. They cover every core
+ * field type, extreme sizes, unusual relations, old storage formats and empty states.
  */
 
 const ml = { multilingual: true };
 
-/** One field of every core type, all optional. */
+/** Defines one field of every core type, all optional. */
 export const everyField: Record<string, Field> = {
     title: f.text('Title', { required: true, maxLength: 120 }),
     text: f.text('Text', ml),

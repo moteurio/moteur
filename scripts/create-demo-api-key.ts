@@ -1,5 +1,5 @@
 /**
- * Create a read-only API key for the Journal demo (project demo, channel public).
+ * Creates a read-only API key for the Journal demo (project `demo`, channel `public`).
  *
  * Usage (API must be running):
  *   pnpm exec tsx --tsconfig tsconfig.server-dev.json scripts/create-demo-api-key.ts \

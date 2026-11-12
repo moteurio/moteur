@@ -89,7 +89,7 @@ export function fillTextLinks(
             for (const item of v) {
                 const page = kind === 'dast' ? dastLinkPage(item) : null;
                 if (page && !addressOf(page, locale)) {
-                    // Not followable: the words stay, the link goes.
+                    // The reader cannot follow the link, so keep its text and drop the link.
                     const children = (item as { children?: unknown }).children;
                     if (Array.isArray(children)) out.push(...children.map(c => walk(c, locale)));
                     continue;
@@ -105,7 +105,7 @@ export function fillTextLinks(
             out[key] = walk(sub, isLocale(key) ? key : locale);
         const page = kind === 'dast' ? dastLinkPage(obj) : null;
         if (page) {
-            // The page's address now, with the anchor the link was written with.
+            // Use the page's current address, with the anchor or query the link was written with.
             const url = addressOf(page, locale);
             out.url = url ? url + suffixOf(obj.url) : obj.url;
         }

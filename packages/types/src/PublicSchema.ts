@@ -1,17 +1,17 @@
-/** Text as stored: one string, or one per language (`{ en, fr }`). */
+/** Text as stored: a single string, or a map from locale code to string such as `{ en, fr }`. */
 export type Localizable = string | Record<string, string>;
 
 /**
- * A field as a channel shows it: its type, what it's called, and only the options that explain
- * its value (required, multilingual, choices, what a relation points at, limits). Studio's
- * presentation options and plugins' settings are left out. Same shape as a stored field.
+ * A field as exposed by a channel: its type, its label, and only the options that describe its
+ * value (required, multilingual, choices, relation target, limits). Presentation options for
+ * editing UIs and plugin settings are omitted. It has the same shape as a stored field.
  */
 export interface PublicField {
     type: string;
     label?: Localizable;
     description?: Localizable;
     options?: Record<string, unknown>;
-    /** An object's fields. */
+    /** The fields of an object field. */
     fields?: Record<string, PublicField>;
 }
 
@@ -21,7 +21,7 @@ export interface PublicModel {
     description?: Localizable;
     modelType?: string;
     urlPattern?: string;
-    /** Only the fields the channel delivers. */
+    /** Only the fields that the channel delivers. */
     fields: Record<string, PublicField>;
 }
 
@@ -49,22 +49,22 @@ export interface PublicStructure {
 }
 
 /**
- * What a channel delivers, described: its models, the templates of its pages, and the blocks and
- * structures they use. Readable with the channel's key (`GET …/channels/:id/schema`).
+ * A description of what a channel delivers: its models, its page templates, and the blocks and
+ * structures they use. It can be read with the channel's key at `GET …/channels/:id/schema`.
  */
 export interface PublicSchema {
-    /** Changes whenever anything here does (also the `ETag`). */
+    /** Changes whenever any other part of the schema changes. It is also used as the `ETag`. */
     version: string;
     projectId: string;
     channelId: string;
     defaultLocale: string;
     locales: string[];
-    /** By model id. */
+    /** Models keyed by model ID. */
     models: Record<string, PublicModel>;
-    /** By template id. */
+    /** Templates keyed by template ID. */
     templates: Record<string, PublicTemplate>;
-    /** By block type (`www-moteur/hero`). */
+    /** Blocks keyed by block type, for example `www-moteur/hero`. */
     blocks: Record<string, PublicBlock>;
-    /** By structure type. */
+    /** Structures keyed by structure type. */
     structures: Record<string, PublicStructure>;
 }

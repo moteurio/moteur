@@ -9,6 +9,7 @@
 import type { ProjectSchema } from '@moteurio/types/Project.js';
 import type { User } from '@moteurio/types/User.js';
 import { rolesInProject } from '@moteurio/types';
+import { workspaceOf } from './workspaces.js';
 import { assertProjectRoom } from './planLimits.js';
 import { deleteProject, getProject, loadProjects } from './projects.js';
 import { getUserById, updateStoredUser } from './users.js';
@@ -49,7 +50,7 @@ export async function keepDemoCopy(user: User, projectId: string): Promise<Proje
             statusCode: 409,
             code: 'NOT_DEMO_COPY'
         });
-    if (!rolesInProject(user, project).includes('admin'))
+    if (!rolesInProject(user, project, workspaceOf(project)).includes('admin'))
         throw Object.assign(new Error('Only the copy’s Admin can keep it.'), {
             status: 403,
             statusCode: 403
@@ -59,7 +60,7 @@ export async function keepDemoCopy(user: User, projectId: string): Promise<Proje
     if (!stored) throw Object.assign(new Error('Project not found'), { status: 404 });
     const { demo: _demo, ...kept } = stored;
     await putProjectJson(projectId, PROJECT_KEY, kept);
-    // No longer their demo: the new-project page may offer them another (within their copies).
+    // Clear the user's demo project id so the new-project page can offer them another demo copy.
     await updateStoredUser(user.id, u =>
         u.onboarding?.demoProjectId === projectId
             ? { ...u, onboarding: { ...u.onboarding, demoProjectId: undefined } }
@@ -106,7 +107,7 @@ export async function sweepIdleDemoCopies(now = Date.now()): Promise<string[]> {
 
 let timer: ReturnType<typeof globalThis.setInterval> | undefined;
 
-/** Looks every `intervalMs` (six hours by default) until stopped. */
+/** Checks for idle demo copies every `intervalMs` (six hours by default) until stopped. */
 export function startDemoSweeper(intervalMs = 6 * 3_600_000): void {
     stopDemoSweeper();
     const run = () =>

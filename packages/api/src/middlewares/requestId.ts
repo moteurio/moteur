@@ -17,8 +17,8 @@ export function requestIdMiddleware(req: Request, res: Response, next: NextFunct
 }
 
 /**
- * A server error no route logged (some answer 500 by hand): logged here, with the request, so no
- * failure goes unseen in the server's log.
+ * Logs a server error that no route logged (some routes respond 500 by hand), together with the request,
+ * so that no failure goes missing from the server log.
  */
 export function logUnloggedErrors(req: Request, res: Response, next: NextFunction): void {
     res.on('finish', () => {

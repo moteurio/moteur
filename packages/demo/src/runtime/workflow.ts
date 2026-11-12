@@ -5,9 +5,9 @@ import { setDaysAgo, tick, present, isoInDays } from './clock.js';
 import { asUser } from './boot.js';
 
 /**
- * Plays every entry's history on one timeline, oldest action first, through core's own
- * services: the result has real revisions, publish commits, reviews, comments, notifications
- * and activity, exactly as if people had used the Studio.
+ * Plays every entry's history on one timeline, oldest action first, through core's own services.
+ * The result has real revisions, publish commits, reviews, comments, notifications and activity,
+ * exactly as if people had made the changes through the API.
  */
 
 type Step = { at: number; seq: number; label: string; run: () => Promise<void> };
@@ -15,15 +15,15 @@ type Step = { at: number; seq: number; label: string; run: () => Promise<void> }
 export type WorkflowOptions = {
     projectId: string;
     personas: Persona[];
-    /** Persona who publishes directly (an admin). */
+    /** The persona who publishes directly, which is an admin. */
     lead: string;
-    /** Default reviewer persona. */
+    /** The default reviewer persona. */
     reviewer: string;
-    /** Convert source data to stored data for a model. */
+    /** Converts source data to stored data for a model. */
     prepare: (modelId: string, data: Record<string, unknown>) => Record<string, unknown>;
 };
 
-/** Let core's background work (git commit hook, activity log) finish before time moves on. */
+/** Waits for core's background work, such as the git commit hook and the activity log, to finish before time moves on. */
 export async function settle(): Promise<void> {
     for (let i = 0; i < 3; i++) await new Promise(resolve => setTimeout(resolve, 2));
 }
@@ -44,17 +44,17 @@ export class Timeline {
         return u;
     }
 
-    /** Queue an arbitrary action at a point in time. */
+    /** Queues an arbitrary action at a point in time. */
     at(daysAgo: number, label: string, run: () => Promise<void>): void {
         this.steps.push({ at: daysAgo, seq: this.seq++, label, run });
     }
 
-    /** Queue an action for the end, in real time (schedules must be in the future). */
+    /** Queues an action for the end, in real time, because schedules must be in the future. */
     atPresent(run: () => Promise<void>): void {
         this.schedules.push(run);
     }
 
-    /** Queue the whole history of one entry. */
+    /** Queues the whole history of one entry. */
     entry(modelId: string, src: SourceEntry): void {
         const { projectId } = this.opts;
         const state = src.state ?? 'published';
@@ -83,7 +83,7 @@ export class Timeline {
             'unpublished',
             'scheduled-unpublish'
         ].includes(state);
-        // In review / rejected / approved entries may be brand new: publish only if edited later.
+        // Entries in review, rejected or approved may be brand new, so publish them first only if they are edited later.
         const publishFirst =
             wasPublished && !(['in-review', 'rejected', 'approved'].includes(state) && !src.edits);
         if (publishFirst) {
@@ -113,8 +113,8 @@ export class Timeline {
         }
 
         // With requireReview, a publish can only be scheduled for an entry that has an approved
-        // review, and approving publishes at once: so a scheduled entry is approved, taken
-        // down, then scheduled to come back.
+        // review, and approving publishes the entry at once. A scheduled entry is therefore
+        // approved, then taken down, and then scheduled to be published again.
         if (['in-review', 'rejected', 'approved', 'scheduled'].includes(state)) {
             const submitted = Math.max(0.3, last - 0.5);
             const reviewer = src.review?.reviewer ?? this.opts.reviewer;
@@ -197,7 +197,7 @@ export class Timeline {
         }
     }
 
-    /** Run every queued step in time order, then the present-time steps. */
+    /** Runs every queued step in time order, then the steps that run at the present time. */
     async run(log: (line: string) => void = () => {}): Promise<void> {
         const steps = [...this.steps].sort((a, b) => b.at - a.at || a.seq - b.seq);
         for (const step of steps) {

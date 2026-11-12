@@ -1,29 +1,40 @@
 #!/usr/bin/env node
 /**
- * Operators, from the server itself: the only way to add the first one.
+ * Command line for managing operators, run on the server itself. It is the only way to add the first operator.
  *
  *   moteur-operators list
- *   moteur-operators add you@example.com [--name "Your Name"]   prints their one-time link
- *   moteur-operators reset you@example.com                      new link; sign-in starts again
+ *   moteur-operators add you@example.com [--name "Your Name"]   prints the operator's one-time link
+ *   moteur-operators reset you@example.com                      issues a new link and restarts sign-in setup
  *   moteur-operators remove you@example.com
+ *   moteur-operators news you@example.com each|daily|off           how the operator is emailed about news
+ *   moteur-operators create-user you@example.com --name "Your Name" [--password …]   a user account
+ *
+ * create-user makes the first account on a new server, before anyone can sign in. After that, use
+ * `moteur operator create-user`, which goes through the API and works from any machine.
  *
  * Reads the same settings as the API (DATA_ROOT, OPERATORS_FILE, JWT_SECRET or OPERATOR_SECRET,
- * STUDIO_URL for the link). Run it where the API's data is, as the user the API runs as.
+ * STUDIO_URL for the link). Run it on the machine that holds the API's data, as the user the API runs as.
  */
 import {
     addOperator,
     listOperators,
     OperatorAuthError,
     removeOperator,
-    resetOperator
+    resetOperator,
+    setOperatorNews,
+    OPERATOR_NEWS_MODES,
+    type OperatorNewsMode
 } from '@moteurio/core/operators.js';
 import { storageConfig } from '@moteurio/core/config/storageConfig.js';
+import { createUser, getUserByEmail } from '@moteurio/core/users.js';
+import { hashPassword, passwordProblem } from '@moteurio/core/auth.js';
+import { randomUUID } from 'node:crypto';
 
-// The API's .env, when run from where it lives.
+// Load the API's .env file when run from the directory that contains it.
 try {
     process.loadEnvFile();
 } catch {
-    // No .env here: the environment has the settings.
+    // There is no .env file, so the settings come from the environment.
 }
 
 const [command, target, ...rest] = process.argv.slice(2);
@@ -52,6 +63,13 @@ const HELP = `moteur-operators: the people who run this server (not users).
   add <email> [--name <name>]  add one; prints their one-time link (24 hours)
   reset <email>                their sign-in starts again; prints a new link
   remove <email>               their sessions end at once
+  news <email> each|daily|off  how they hear about new accounts, projects and workspaces:
+                               an email each time (default), a daily summary, or none
+
+  create-user <email> --name <name> [--password <password>]
+                               a user account, for the first one on a new server; without
+                               a password they sign in with an email code. Afterwards, use
+                               moteur operator create-user from any machine.
 
 Operators file: ${storageConfig.operatorsFile}`;
 
@@ -65,7 +83,7 @@ try {
                     ? `signed in ${o.lastLoginAt ?? 'never'}`
                     : 'link not used yet';
                 console.log(
-                    `${o.email}  ${o.name}  (${state}, ${o.recoveryCodesLeft} recovery codes)`
+                    `${o.email}  ${o.name}  (${state}, ${o.recoveryCodesLeft} recovery codes, news: ${o.news})`
                 );
             }
             break;
@@ -98,6 +116,54 @@ try {
             const o = find(target);
             removeOperator(o.id);
             console.log(`Removed ${o.email}.`);
+            break;
+        }
+        case 'news': {
+            const o = find(target);
+            const mode = rest[0] as OperatorNewsMode;
+            if (!OPERATOR_NEWS_MODES.includes(mode))
+                throw new OperatorAuthError(
+                    `How? moteur-operators news ${o.email} ${OPERATOR_NEWS_MODES.join('|')}`,
+                    400
+                );
+            setOperatorNews(o.id, mode);
+            console.log(
+                mode === 'off'
+                    ? `${o.email} gets no news by email.`
+                    : mode === 'daily'
+                      ? `${o.email} gets a daily summary, when something happened.`
+                      : `${o.email} gets an email for each new account, project and workspace.`
+            );
+            break;
+        }
+        case 'create-user': {
+            if (!target)
+                throw new OperatorAuthError(
+                    'Which email? moteur-operators create-user you@example.com --name "Your Name"',
+                    400
+                );
+            const email = target.trim();
+            const name = flag('name')?.trim();
+            const password = flag('password') ?? '';
+            if (!name) throw new OperatorAuthError('A name is required: --name "Your Name"', 400);
+            const weak = password ? passwordProblem(password) : null;
+            if (weak) throw new OperatorAuthError(weak, 400);
+            if (getUserByEmail(email))
+                throw new OperatorAuthError(`There is already an account for ${email}.`, 409);
+            const user = await createUser({
+                id: `user:${randomUUID()}`,
+                email,
+                name,
+                ...(password && { passwordHash: await hashPassword(password) }),
+                roles: [],
+                projects: [],
+                isActive: true
+            });
+            console.log(
+                password
+                    ? `Created ${user.email}. They can sign in with their password.`
+                    : `Created ${user.email}. They sign in with a code sent by email.`
+            );
             break;
         }
         default:

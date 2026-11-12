@@ -1,4 +1,4 @@
-/** Entries and the models they follow. */
+/** Commands for entries and for the models that define them. */
 import { group, id, model, project, type ArgSpec, type Column } from '../spec.js';
 import { crud, layOver, revisions, setPairs, SET_ARG } from '../kit.js';
 import { localized } from '../format.js';
@@ -6,7 +6,7 @@ import { fillPath } from '../execute.js';
 
 const ENTRY = '/projects/{project}/models/{model}/entries/{id}';
 
-/** A row's title: its title, name or label field, else its id. */
+/** Returns a row's title from its title, name or label field, falling back to its id. */
 const titleOf = (_: unknown, row: Record<string, unknown>) => {
     const data = (row.data ?? {}) as Record<string, unknown>;
     for (const k of ['title', 'name', 'label', 'headline', 'question'])
@@ -14,7 +14,7 @@ const titleOf = (_: unknown, row: Record<string, unknown>) => {
     return String(row.id ?? '');
 };
 
-/** published + newer saves reads as "published · edits". */
+/** Returns the status for the table. A published entry that has newer saved revisions is shown as "published · edits". */
 const stateOf = (_: unknown, row: Record<string, unknown>) => {
     const audit = (
         (row.meta ?? {}) as { audit?: { revision?: number; publishedRevision?: number } }
@@ -34,11 +34,11 @@ const ENTRY_TABLE: Column[] = [
     { key: 'meta.audit.updatedAt', header: 'updated' }
 ];
 
-/** `moteur entries get <model> <id>`. */
+/** The model and entry id as the first two positionals, as in `moteur entries get <model> <id>`. */
 const modelFirst: ArgSpec = { ...model, positional: 0 };
 const entryId: ArgSpec = { ...id('Entry'), positional: 1 };
 
-/** `--filter author=sophie --filter status=…` as the engine's `filter.<key>=a,b`. */
+/** Converts `--filter author=sophie --filter status=…` to the engine's `filter.<key>=a,b` query parameters. */
 function filters(values: unknown): Record<string, string> {
     const out: Record<string, string> = {};
     for (const pair of (values as string[] | undefined) ?? []) {
@@ -203,8 +203,8 @@ export const entries = group('entries', [
             const client = await ctx.client();
             const url = fillPath(ENTRY, ctx.args, await ctx.project());
             if (!Object.keys(set).length) return client.patch(url, body);
-            // The API replaces a field whole, so `title.en=…` is laid over the title the entry
-            // has now: English changes, the other languages stay.
+            // The API replaces a field as a whole, so merge `title.en=…` into the entry's current
+            // title. This changes English and keeps the other languages.
             type Saved = { data?: Record<string, unknown> };
             const got = await client.get<{ entry?: Saved } & Saved>(url);
             const now = (got.entry ?? got).data ?? {};

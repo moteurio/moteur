@@ -1,8 +1,8 @@
 import type { SourceEntry } from '../runtime/types.js';
 
 /**
- * Fixture entries. Strings here are deliberately awkward: they are what real content looks
- * like at its worst, and what the Studio and API must survive.
+ * Fixture entries. The strings are deliberately awkward. They imitate the worst real content,
+ * which the CMS and the API must handle without failing.
  */
 
 export const STRINGS = {
@@ -268,7 +268,7 @@ const requiredEverything: SourceEntry[] = [
             )
         )
     },
-    // A draft: drafts may leave required fields empty; review and publishing refuse it.
+    // A draft may leave required fields empty, but review and publishing reject it.
     {
         id: 'missing-everything',
         state: 'draft',
@@ -325,7 +325,7 @@ const categories: SourceEntry[] = [
     { id: 'self-parent', data: { name: 'Its own parent', parent: 'self-parent' } }
 ];
 
-/** Entries written straight to disk: formats core would never produce today. */
+/** Entries written directly to disk in formats that core would not produce today. */
 export const RAW_ENTRIES: Array<{ model: string; id: string; json: string }> = [
     {
         model: 'legacy',
@@ -402,14 +402,14 @@ export const RAW_ENTRIES: Array<{ model: string; id: string; json: string }> = [
     }
 ];
 
-/** Entries that must fail validation (anything else failing is a regression). */
+/** Entries that must fail validation. Any other entry that fails validation is a regression. */
 export const EXPECTED_INVALID = [
     'all-required/missing-everything',
     'kitchen-sink/wrong-types',
     'kitchen-sink/injection',
-    // A missing layout is detected; missing relations and assets are not (yet).
+    // Validation detects a missing layout but does not detect missing relations or assets.
     'kitchen-sink/broken-references',
-    // Slugs are ASCII only, so a Japanese slug is rejected.
+    // Slugs must be ASCII, so a Japanese slug is rejected.
     'kitchen-sink/unicode',
     'legacy/plain-string-rich-text',
     'legacy/string-slug',

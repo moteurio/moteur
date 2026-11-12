@@ -16,11 +16,11 @@ export interface ValidateFieldsAgainstSchemaOptions {
     projectId?: string;
     allowHtmlIframe?: boolean;
     allowHtmlEmbed?: boolean;
-    /** The project's structures, so core/structure fields find them (see FieldValidationContext). */
+    /** The project's structures, which core/structure fields use to look up their schema (see FieldValidationContext). */
     structures?: Record<string, StructureSchema>;
     /**
-     * Report missing required fields as warnings (drafts may be incomplete; they are enforced
-     * when the entry goes to review or live).
+     * Report missing required fields as warnings. Drafts may be incomplete, and the requirement is
+     * enforced when the entry goes to review or live.
      */
     requiredAsWarning?: boolean;
 }
@@ -80,9 +80,10 @@ export function validateFieldsAgainstSchema(
 }
 
 /**
- * Values for fields the schema doesn't have (`kicker` on a block with no kicker): kept, never
- * delivered, so a typo or a renamed field goes unnoticed. A warning when content is saved (data
- * from before a field was removed stays editable); an import refuses them (FIELD_UNKNOWN).
+ * Reports values for fields the schema does not define (for example `kicker` on a block that has
+ * no kicker field). Such values are stored but never delivered, so a typo or a renamed field would
+ * otherwise go unnoticed. When content is saved this is a warning, so data from before a field was
+ * removed stays editable. An import rejects these values (FIELD_UNKNOWN).
  */
 export function unknownFieldIssues(
     data: unknown,

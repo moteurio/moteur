@@ -82,7 +82,7 @@ export async function sendTemplateEmail<K extends EmailKind>(
     });
 }
 
-/** A code by email, within the same small budget as verification mail: never a mail cannon. */
+/** Sends a code by email. It shares the verification-mail rate limit so it cannot be used to flood an address. */
 export function sendCodeEmail(message: {
     to: string[];
     subject: string;
@@ -95,7 +95,7 @@ export function sendCodeEmail(message: {
     });
 }
 
-/** Verification must fail visibly if delivery is unavailable; never silently mark mail verified. */
+/** Verification email must fail visibly when delivery is unavailable, so an address is never marked verified without a sent mail. */
 export async function sendVerificationEmail(
     email: string,
     code: string,
@@ -159,7 +159,7 @@ export async function sendReviewEmail(
                 )
             );
         } catch {
-            // ignore logging failure
+            // A failure to log must not affect the caller.
         }
     }
 }

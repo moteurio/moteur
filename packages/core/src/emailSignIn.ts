@@ -66,9 +66,16 @@ export type SignupContext = Pick<SignupRecord, 'from' | 'goal' | 'campaign' | 'l
 const file = () => privateStatePath('email-codes.json');
 const normalise = (email: string) => email.trim().toLowerCase();
 
-/** A keyed hash: a stolen store tells nothing without the server's secret. */
+/**
+ * HMAC-SHA256 of the parts joined with `:`, keyed with JWT_SECRET, else MOTEUR_ENCRYPTION_KEY.
+ * Codes, link tokens and addresses are stored only in this form, so a copy of the store reveals
+ * none of them without the key. Throws when neither secret is set: with a key written in this
+ * code, anyone could recover a short code from its hash by trying every value.
+ */
 function keyed(...parts: string[]): string {
-    const key = process.env.JWT_SECRET || process.env.MOTEUR_ENCRYPTION_KEY || 'moteur-email-codes';
+    const key = process.env.JWT_SECRET?.trim() || process.env.MOTEUR_ENCRYPTION_KEY?.trim();
+    if (!key)
+        throw new Error('JWT_SECRET (or MOTEUR_ENCRYPTION_KEY) must be set for email sign-in.');
     return createHmac('sha256', key).update(parts.join(':')).digest('hex');
 }
 const addressId = (email: string) => keyed('address', email);
@@ -109,7 +116,7 @@ function hourlyCap(): number {
     return Number.isFinite(n) && n > 0 ? n : 300;
 }
 
-/** Codes printed to the server's log instead of mailed: a developer's machine only, said explicitly. */
+/** True when codes are printed to the server log instead of emailed. Only for development, and must be enabled explicitly. */
 function codesToLog(): boolean {
     return process.env.MOTEUR_EMAIL_CODES_TO_LOG === '1';
 }
@@ -123,7 +130,7 @@ export function emailCodesAvailable(): boolean {
     return !emailUnavailable() || codesToLog();
 }
 
-/** Where the link opens: the Studio's page, with what it needs after `#`, so it reaches no server log. */
+/** The sign-in link, pointing at STUDIO_URL. The email and token go after `#` so they are never sent to a server and cannot appear in its logs. */
 function signInLink(email: string, token: string): string | undefined {
     const studio = studioUrl();
     if (!studio) return undefined;
@@ -213,7 +220,7 @@ function checkLimits(
             secondsUntil(previous.sentAt + RESEND_SECONDS * 1000, now)
         );
     if (sends.length >= SENDS_PER_HOUR)
-        // Another code once the oldest of the hour's drops off.
+        // A new code is allowed once the oldest request in the past hour expires.
         throw problem(
             'Too many codes for this address. Try again in an hour.',
             429,
@@ -295,7 +302,7 @@ export async function requestEmailCode(
     const previous = store.pending.find(p => p.id === id);
     const sends = previous?.sends ?? [];
     const wrong = previous?.wrong ?? [];
-    // Codes are off for the day; the link still goes when there can be one.
+    // Codes are disabled for the day. A sign-in link is still sent when links are available.
     const codesOff = wrong.length >= WRONG_PER_DAY;
     checkLimits(store, previous, now, { linkInstead: Boolean(studioUrl()) });
 
@@ -317,7 +324,8 @@ export async function requestEmailCode(
         id,
         purpose: purpose ?? 'signin',
         salt,
-        // No purpose: a code nobody can use, kept only so limits and timing look alike.
+        // When the address cannot use a code (no purpose) or codes are off, store an empty hash
+        // that nothing matches. This keeps limits and timing identical for every address.
         codeHash: purpose && !codesOff ? keyed(salt, email, code) : '',
         links: [
             ...(previous?.links ?? []),
@@ -332,7 +340,7 @@ export async function requestEmailCode(
         attempts: 0,
         ...(purpose === 'signup' && { context: cleanContext(context) })
     };
-    // Kept before sending: a failing mail server must not allow unlimited tries.
+    // Store the code before sending, so a failing mail server cannot allow unlimited attempts.
     writePrivateState(file(), {
         pending: [...store.pending.filter(p => p.id !== id), next],
         sent: purpose ? [...store.sent, now] : store.sent
@@ -418,7 +426,7 @@ async function useCode(
     now: number,
     options: { name?: string; onNewUser?: (user: User) => Promise<void> }
 ): Promise<EmailCodeResult> {
-    // Used: gone, whatever happens next.
+    // Delete the code now so it cannot be reused, whatever happens next.
     item.codeHash = '';
     item.links = [];
     item.expiresAt = now;
@@ -460,7 +468,8 @@ export async function requestEmailChange(
     locale?: string
 ): Promise<void> {
     const email = validAddress(rawEmail);
-    // Not tied to MOTEUR_EMAIL_SIGNIN: the code proves the new mailbox, it signs nobody in.
+    // Independent of MOTEUR_EMAIL_SIGNIN: the code only proves ownership of the new mailbox and
+    // signs nobody in.
     if (emailUnavailable() && !codesToLog())
         throw problem('This server cannot send email.', 503, 'EMAIL_UNAVAILABLE');
     reloadUsers();
@@ -515,7 +524,7 @@ export async function confirmEmailChange(
     const now = Date.now();
     const store = load(now);
     const found = store.pending.find(p => p.id === changeId(email));
-    // Someone else's change to this address is no code for this account.
+    // A code issued for another account's email change cannot be used for this account.
     const item = found?.userId === userId ? found : undefined;
     checkCode(email, code, item, store, now);
     item.codeHash = '';

@@ -1,5 +1,3 @@
-// src/registry/PluginRegistry.ts
-
 import type { PluginContributions, PluginManifest } from '@moteurio/types/Plugin.js';
 import { mergeContributions } from '@moteurio/types/Plugin.js';
 

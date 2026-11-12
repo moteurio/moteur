@@ -11,13 +11,13 @@ import { resizedFolder } from './assetService.js';
 import { generateVariants } from './imageTransformer.js';
 
 /**
- * Sizes made on request (`?w=`): a width is rounded up to the next one, so a site asking for
- * 600 and another asking for 610 share one file, and nobody can make the server produce
- * endless sizes.
+ * Sizes generated on request (`?w=`). A requested width is rounded up to the next allowed width,
+ * so sites asking for 600 and 610 share one file, and nobody can make the server generate an
+ * unlimited number of sizes.
  */
 export const RESIZE_WIDTHS = [160, 320, 480, 640, 800, 1024, 1280, 1600, 2048, 2560];
 
-/** Proportions a crop can take (`?ar=`), cropped around the focal point. */
+/** Aspect ratios a crop can take (`?ar=`). Crops are made around the focal point. */
 export const RESIZE_RATIOS: Record<string, number> = {
     '1:1': 1,
     '4:3': 4 / 3,
@@ -36,7 +36,7 @@ export type ResizeRequest = { width: number; ratio?: string; format: ResizeForma
 
 const QUALITY = 80;
 
-/** Reads `w`, `ar` and `fmt` from a query; throws a readable message for anything else. */
+/** Reads `w`, `ar` and `fmt` from a query. Throws an error with a readable message for invalid values. */
 export function parseResizeRequest(query: Record<string, unknown>): ResizeRequest {
     const w = Number(query.w);
     if (!Number.isFinite(w) || w <= 0) throw new Error('"w" must be a width in pixels.');
@@ -52,10 +52,10 @@ export function parseResizeRequest(query: Record<string, unknown>): ResizeReques
 
 export class ResizeNotFound extends Error {}
 
-/** A size ready to send: its bytes and a tag naming them (`ETag`), so browsers can ask again for free. */
+/** A size ready to send: its bytes and an `ETag`, so browsers can revalidate cheaply. */
 export type ResizedImage = { buffer: Buffer; format: ResizeFormat; etag: string };
 
-/** What a resize needs to know of an image, read from the project's asset list. */
+/** The image details a resize needs, read from the project's asset list. */
 type ImageFacts = {
     path: string;
     width: number;
@@ -65,8 +65,8 @@ type ImageFacts = {
 };
 
 /**
- * Each project's images, parsed once while its asset list stays the same (the file cache says
- * when it changes), for the projects asked about most recently.
+ * Each project's images, parsed once and reused while its asset list is unchanged (the file
+ * cache signals when it changes). Only the most recently requested projects are kept.
  */
 const indexes = new Map<string, { text: string; images: Map<string, ImageFacts> }>();
 const INDEXES_KEPT = 256;
@@ -81,7 +81,7 @@ async function imageFacts(projectId: string, assetId: string): Promise<ImageFact
         try {
             list = JSON.parse(text);
         } catch {
-            // Damaged: nothing to serve until it's fixed.
+            // The asset list is damaged, so there is nothing to serve until it is fixed.
         }
         for (const a of Array.isArray(list) ? list : []) {
             if (a.type !== 'image' || !a.path || a.deletedAt) continue;
@@ -91,7 +91,7 @@ async function imageFacts(projectId: string, assetId: string): Promise<ImageFact
                 width: a.width ?? 0,
                 mimeType: a.mimeType,
                 focal: a.focalPoint ?? { x: 0.5, y: 0.5 },
-                // Changes when the file is replaced or its copies rebuilt.
+                // Changes when the file is replaced or its variants are rebuilt.
                 version: `${a.path}|${a.size}|${a.updatedAt}|${made ?? ''}`
             });
         }
@@ -103,7 +103,7 @@ async function imageFacts(projectId: string, assetId: string): Promise<ImageFact
     return kept.images.get(assetId);
 }
 
-/** Sizes kept in memory, most recently sent last, within `imageCacheBytes()`. */
+/** Sizes kept in memory, ordered with the most recently sent last, within `imageCacheBytes()`. */
 const ready = new Map<string, ResizedImage>();
 let readyBytes = 0;
 
@@ -121,7 +121,7 @@ function keep(key: string, image: ResizedImage) {
     }
 }
 
-/** Forget the sizes kept in memory (tests). */
+/** Clears the sizes kept in memory (for tests). */
 export function clearResizedImages(): void {
     ready.clear();
     indexes.clear();
@@ -131,15 +131,16 @@ export function clearResizedImages(): void {
 const tagOf = (buffer: Buffer) =>
     `"${createHash('sha1').update(buffer).digest('base64url').slice(0, 22)}"`;
 
-/** Making a size waits behind other image work; this many may wait before a request is told to retry. */
+/** Generating a size waits behind other image work. This many may wait before a request is told to retry. */
 const MAKE_QUEUE = 64;
 
 const inFlight = new Map<string, Promise<ResizedImage>>();
 
 /**
- * An image at a requested size, made once and kept in the project's storage next to its other
- * copies, and the sizes asked for most in memory. The file name holds the focal point, so moving
- * it makes new crops. Only making a size waits for image work: one already made is just read.
+ * Returns an image at the requested size. A size is generated once and stored in the project's
+ * storage next to the image's other variants, and the most requested sizes are also kept in
+ * memory. The file name includes the focal point, so moving it produces new crops. Only
+ * generating a size waits for image work; a size that already exists is simply read.
  */
 export async function getResizedImage(
     projectId: string,
@@ -149,7 +150,7 @@ export async function getResizedImage(
     const facts = await imageFacts(projectId, assetId);
     if (!facts) throw new ResizeNotFound('Not found');
 
-    // Never wider than the original: a small picture is served at its own width.
+    // Never wider than the original: a small image is served at its own width.
     const width = Math.min(request.width, facts.width || request.width);
     const f = (n: number) => Math.round(n * 100);
     const name = [
@@ -181,7 +182,7 @@ export async function getResizedImage(
         try {
             buffer = await adapter.download(storedPath);
         } catch {
-            // Not made yet.
+            // The size has not been generated yet.
         }
         buffer ??= await imageWork(async () => {
             const original = await adapter.download(facts.path);

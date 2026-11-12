@@ -14,7 +14,7 @@ const PERSIST_EVERY_MS = 60_000;
 
 const file = () => privateStatePath('api-key-usage.json');
 
-/** Uses not yet compared with what is on disk, and when each key was last written. */
+/** Uses recorded in memory but not yet merged with the file on disk, and when each key was last written. */
 let memory: { file: string; uses: Store; writtenAt: Map<string, number> } | null = null;
 
 function inMemory() {
@@ -28,14 +28,14 @@ function readStore(): Store {
         const raw = readPrivateState<Store>(file(), {});
         return raw && typeof raw === 'object' && !Array.isArray(raw) ? raw : {};
     } catch {
-        // Unreadable usage never stops a key from working; the next write starts it again.
+        // An unreadable usage file must not stop a key from working. The next write recreates it.
         return {};
     }
 }
 
 const later = (a?: string, b?: string) => (!a ? b : !b ? a : a > b ? a : b);
 
-/** Everything known: what is on disk, with newer uses from memory. */
+/** All known last-use times: the values on disk, overridden by newer uses held in memory. */
 function merged(): Store {
     const store = readStore();
     for (const [projectId, keys] of Object.entries(inMemory().uses)) {
@@ -56,7 +56,7 @@ function save(store: Store): void {
     }
 }
 
-/** A request was authenticated with this key. */
+/** Records that a request was authenticated with this key. */
 export function noteApiKeyUse(projectId: string, keyId: string, now = Date.now()): void {
     const state = inMemory();
     (state.uses[projectId] ??= {})[keyId] = new Date(now).toISOString();
@@ -71,7 +71,7 @@ export function apiKeyLastUses(projectId: string): Record<string, string> {
     return { ...(merged()[projectId] ?? {}) };
 }
 
-/** A key was rotated or revoked: its last use was the old secret's. */
+/** Clears a key's last-use time when the key is rotated or revoked, since it described the old secret. */
 export function forgetApiKeyUse(projectId: string, keyId: string): void {
     const state = inMemory();
     delete state.uses[projectId]?.[keyId];

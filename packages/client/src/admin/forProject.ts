@@ -33,7 +33,7 @@ import {
 import { projectPreviewTokensApi, type PreviewTokenCreateBody } from '../project/previewTokens.js';
 import type { CreateScheduleInput, ListSchedulesOptions } from '@moteurio/types';
 
-/** Project-scoped API: same HTTP routes as the root client, with `projectId` fixed. */
+/** Creates a project-scoped API. It uses the same HTTP routes as the root client, with `projectId` fixed. */
 export function createProjectClient(client: MoteurClient, projectId: string) {
     const pid = projectId;
     const projects = projectsApi(client);
@@ -289,7 +289,7 @@ export function createProjectClient(client: MoteurClient, projectId: string) {
             moveStorage: (body: StorageSettings) => mediaSettings.moveStorage(pid, body)
         },
 
-        /** The project's own mail to its site's visitors: who it comes from, how it looks. */
+        /** Email settings for the emails the project sends to its site's visitors: the sender and the appearance. */
         email: {
             get: () => email.get(pid),
             update: (body: ProjectEmailUpdate) => email.update(pid, body),

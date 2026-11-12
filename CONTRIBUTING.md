@@ -1,53 +1,68 @@
 # Contributing to Moteur
 
-✅ Use feature branches (`feature/*`, `bugfix/*`, `docs/*`).  
-✅ All work should be done through Pull Requests (PRs).  
-✅ PRs must pass CI (build, lint, and tests green).
+## Workflow
 
----
+- Work on a branch (`feat/*`, `fix/*`, `docs/*`) and open a pull request.
+- A pull request must pass CI: build, lint and tests.
+- For larger changes, open an issue first.
 
-## 💻 Code Style & Tooling
+## Setup
 
-✅ This project uses **ESNext TypeScript** as the primary language (ESM modules).  
-✅ Linting and formatting are handled by **ESLint** and **Prettier** (see root `eslint.config.js` and per-package configs).  
-✅ Husky pre-commit hooks run `npm run lint:fix`, `npm run build`, and `npm run test` automatically.
-
-**Conventions:** 4 spaces (tabWidth), semicolons, single quotes. Public API boundaries should have explicit return types (ESLint `@typescript-eslint/explicit-module-boundary-types`). Run `pnpm -r lint:fix` from the repo root to format and fix across all packages.
-
----
-
-## 🚀 Setup
-
-> This project uses pnpm to handle multiple packages in a monorepo.
-> `npm install -g pnpm`
-
-1. Clone the repo:
+Moteur is a pnpm monorepo.
 
 ```bash
 git clone git@github.com:moteurio/moteur.git
 cd moteur
 pnpm install
+pnpm run prepare   # installs the Husky hooks
 ```
 
-2. Install Husky hooks:
+The pre-commit hook runs lint-staged. The pre-push hook runs `pnpm check:all`.
 
-```bash
-npm run prepare
+| Command             | Description                 |
+| ------------------- | --------------------------- |
+| `pnpm run build`    | Build every package         |
+| `pnpm run lint:fix` | Lint and fix every package  |
+| `pnpm run test`     | Run the unit tests (Vitest) |
+
+## Code style
+
+- TypeScript, ESM. ESLint and Prettier enforce formatting: 4-space indent, semicolons, single quotes.
+- Exported functions have explicit return types.
+
+## Writing: commits, comments, tests
+
+Write for an engineer who has never seen the project. Be concrete, plain and complete.
+
+### Commit messages
+
+Use [Conventional Commits](https://www.conventionalcommits.org/) with an imperative summary that says what the code now does.
+
+```
+fix(workspaces): restrict a personal workspace to its owner
+feat(operator): list workspaces in the accounts summary
+perf(git): batch queued saves into one commit per author
 ```
 
-## 🔥 Making Changes
+Avoid:
 
-✅ Follow Conventional Commits.
-✅ Keep commits small and focused.
-✅ For larger changes, open an issue first to discuss!
+- Summaries that describe an outcome without the change: ~~`someone's own workspace is only theirs`~~.
+- Internal ticket codes or private references (`c192`, names of other projects). Put context in the PR description.
+- Several unrelated changes in one commit.
 
-## 📦 Scripts
+The body, when needed, explains why the change was made and anything a reviewer would not guess.
 
-Command Description
-`pnpm -r build` TypeScript build (ESNext, ESM)
-`pnpm -r lint:fix` Lint and auto-fix code
-`pnpm -r test` Run unit tests (Vitest, single-run)
+### Comments
 
-## 🤝 Thank You!
+A comment explains **why** the code does something that is not obvious: a constraint, an edge case, a decision. Don't comment what the code already says.
 
-Thanks for helping make Moteur awesome 🚀
+- Write full sentences with a subject and a verb.
+    - Good: `// Use the system font stack so emails don't depend on web fonts.`
+    - Avoid: `// The reader's own system font: nothing of the Studio's.`
+- Describe the code as it is now. History (`used to`, `no longer`, `now`) belongs in commits.
+- Moteur is open source and Moteur Studio is not. Comments and docs describe the API contract, not how Studio uses it.
+- Use JSDoc (`/** ... */`) on exported functions and types. Use `//` inside function bodies.
+
+### Test names
+
+A test name states the behaviour under test: `it('returns 404 when the project has no remote')`, not `it('says nothing is owed without a remote')`.

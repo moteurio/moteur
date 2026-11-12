@@ -39,9 +39,10 @@ function canSchedule(
     user: User,
     project: { workflow?: { enabled?: boolean; requireReview?: boolean } }
 ): boolean {
-    // A review-only agent may schedule; publishing still waits for a person's approval (below).
+    // A review-only agent may schedule. Publishing still waits for a person's approval (see below).
     if (user.agent?.reviewOnly) return true;
-    // Scheduling changes what's live: translators and billing can't publish, so they can't either.
+    // Scheduling changes what is live, so roles that cannot publish (translators, billing) cannot
+    // schedule.
     if (!canWrite(user)) return false;
     if (!project.workflow?.enabled || !project.workflow?.requireReview) {
         return true;
@@ -157,8 +158,8 @@ export async function createSchedule(
             statusCode: 403
         });
 
-    // The same rule as publishing now: with reviews required, an approved review first (admins
-    // can always publish, so they can always schedule a publish).
+    // Apply the same rule as immediate publishing: when reviews are required, an approved review must
+    // exist first. Admins can always publish, so they can always schedule a publish.
     if (input.action === 'publish') {
         if (needsApproval(user, project)) {
             if (input.resourceType === 'entry' && input.modelId) {

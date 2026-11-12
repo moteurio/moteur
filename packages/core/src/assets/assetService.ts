@@ -2,6 +2,7 @@ import { createHash } from 'crypto';
 import type { Asset, AssetText, AssetType, ImageVariant } from '@moteurio/types/Asset.js';
 import type { VideoProviderId } from '@moteurio/types/Asset.js';
 import { hasRole, inProject, translatorOnly } from '@moteurio/types';
+import { workspaceOf } from '../workspaces.js';
 import type { User } from '@moteurio/types/User.js';
 import {
     assertCanEdit,
@@ -40,12 +41,13 @@ import { assertStorageRoom } from '../planLimits.js';
 
 export const DEFAULT_MAX_SIZE_MB = 50;
 
-/** Where one asset's on-request sizes are stored (a folder of its own, removed with it). */
+/** The storage folder holding one asset's on-request sizes. It is deleted together with the asset. */
 export const resizedFolder = (assetId: string) => `r-${assetId}`;
 
 /**
- * The address that serves an image at any size: add `&w=640` (and `&ar=1:1`, `&fmt=avif`).
- * Its `v` changes when the crops change, so caches can keep each answer for good.
+ * The URL that serves an image at any size. Append `&w=640`, and optionally `&ar=1:1` or
+ * `&fmt=avif`. The `v` parameter changes when the crops change, so caches can keep each
+ * response indefinitely.
  */
 export function resizeUrlOf(asset: Asset): string | undefined {
     if (asset.type !== 'image' || !asset.path) return undefined;
@@ -58,8 +60,9 @@ const STATIC_ASSETS = '/static/assets/';
 const isLocal = (asset: Asset) => !asset.adapter || asset.adapter === 'local';
 
 /**
- * A local file's address as stored: `/static/assets/…`, without the server, so the data keeps
- * working when the API moves (another host, port or base path). Other storages keep theirs.
+ * The stored form of a local file's URL: `/static/assets/…` without the server address, so the
+ * data keeps working when the API moves to another host, port or base path. URLs from other
+ * storages are stored unchanged.
  */
 function storedUrl(asset: Asset, url: string | undefined): string | undefined {
     if (!url || !isLocal(asset)) return url;
@@ -67,15 +70,15 @@ function storedUrl(asset: Asset, url: string | undefined): string | undefined {
     return at < 0 ? url : url.slice(at);
 }
 
-/** A local file's address as served now, whether it was stored with a server or without. */
+/** Builds the URL a local file is served at, whether it was stored with a server address or without. */
 function liveUrl(asset: Asset, url: string | undefined): string | undefined {
     if (!url || !isLocal(asset)) return url;
     const at = url.indexOf(STATIC_ASSETS);
-    // staticBaseUrl() ends with `/static`: add what follows it.
+    // staticBaseUrl() already ends with `/static`, so append only the rest of the path.
     return at < 0 ? url : `${staticBaseUrl()}${url.slice(at + '/static'.length)}`;
 }
 
-/** An asset with its local addresses as served now. */
+/** Returns the asset with its local file URLs resolved against the current server address. */
 function withLiveUrls(asset: Asset): Asset {
     return {
         ...asset,
@@ -86,7 +89,7 @@ function withLiveUrls(asset: Asset): Asset {
     };
 }
 
-/** An asset as read: its URL, and for images the on-request size address. */
+/** Returns the asset as clients read it: resolved URLs and, for images, the on-request size URL. */
 function withUrls(stored: Asset): Asset {
     const asset = withLiveUrls(stored);
     const out: Asset = { ...asset, url: resolveAssetUrl(asset) };
@@ -96,8 +99,9 @@ function withUrls(stored: Asset): Asset {
 }
 
 /**
- * A variant's URL with its version: rebuilt copies keep their file name, so the version is
- * what tells browsers and caches that the picture changed (and lets them keep it for good).
+ * A variant's URL with a version parameter. Rebuilt variants keep their file name, so the
+ * version is what tells browsers and caches that the image changed, and lets them cache it
+ * indefinitely otherwise.
  */
 function versionedUrl(url: string, generatedAt: string): string {
     const v = Date.parse(generatedAt).toString(36);
@@ -127,7 +131,7 @@ async function loadAssetsIndex(projectId: string): Promise<Asset[]> {
     return Array.isArray(list) ? list : [];
 }
 
-/** Bytes a project's files take, as uploaded (the copies made from images aren't counted). */
+/** Total bytes of the files a project uploaded. Variants generated from images are not counted. */
 export async function storageUsed(projectId: string): Promise<number> {
     const assets = await loadAssetsIndex(projectId);
     return assets.reduce((n, a) => n + (Number.isFinite(a.size) ? a.size : 0), 0);
@@ -155,14 +159,15 @@ async function saveAssetsIndex(projectId: string, assets: Asset[], user?: User):
     });
 }
 
-// ── One change at a time per project, each on the list as it stands then ──
+// ── Serialized changes: one at a time per project, each applied to the latest list ──
 const writing = new Map<string, Promise<unknown>>();
 
 /**
- * Changes a project's asset list. Changes run one at a time per project, each reading the list
- * just before saving it, so an upload, a finished image and an edit never overwrite each other.
- * `change` must stay quick and synchronous: do slow work (storage, providers) before or after.
- * Throwing in it saves nothing; so does a change that leaves the list as it was.
+ * Applies a change to a project's asset list. Changes run one at a time per project, and each
+ * reads the list immediately before saving, so concurrent uploads, finished images and edits
+ * never overwrite each other. `change` must be quick and synchronous: do slow work (storage,
+ * providers) before or after calling this. If `change` throws, or leaves the list unchanged,
+ * nothing is saved.
  */
 async function changeAssets<T>(
     projectId: string,
@@ -189,22 +194,22 @@ async function changeAssets<T>(
     }
 }
 
-/** Puts `asset` in place of the one with its id (if it is still there). */
+/** Replaces the list entry with the same id as `asset`, if it is still in the list. */
 const replaceIn = (list: Asset[], asset: Asset) => {
     const idx = list.findIndex(a => a.id === asset.id);
     if (idx >= 0) list[idx] = { ...asset };
 };
 
-/** Takes the asset with that id out of the list. */
+/** Removes the asset with this id from the list. */
 const removeFrom = (list: Asset[], id: string) => {
     const idx = list.findIndex(a => a.id === id);
     if (idx >= 0) list.splice(idx, 1);
 };
 
-/** The fingerprint of a file as uploaded, to recognise the same file uploaded again. */
+/** The content hash of an uploaded file, used to detect the same file being uploaded again. */
 export const fileHash = (buffer: Buffer) => createHash('sha256').update(buffer).digest('hex');
 
-/** What every upload must pass: media on, size, room left on the plan, an allowed kind. */
+/** Checks every upload must pass: media enabled, file size, remaining storage on the plan, and an allowed file kind. */
 function assertUploadAllowed(
     project: ProjectSchema,
     size: number,
@@ -245,9 +250,9 @@ export type UploadOptions = {
 };
 
 /**
- * Lets plugins act on a new or replaced file (the AI plugin describes images), then reads the
- * asset again for what they changed. Whatever they do, the file is saved: a failing listener is
- * logged, not passed on.
+ * Lets plugins react to a new or replaced file (for example, a plugin that writes image
+ * descriptions), then re-reads the asset to pick up their changes. The file is always saved:
+ * an error thrown by a listener is logged, not rethrown.
  */
 async function afterFile(
     event: 'asset.afterCreate' | 'asset.afterReplace',
@@ -269,9 +274,10 @@ function generateId(): string {
 }
 
 /**
- * Whether this file may be added to the project, as an upload would decide: its type, its size,
- * the project's storage (plus `alsoStoring` bytes about to be added) and, for a picture, that it
- * reads as one. Throws what the upload would; stores nothing. An import's dry run uses it.
+ * Checks whether a file may be added to the project, using the same rules as an upload: its
+ * type, its size, the project's storage quota (plus `alsoStoring` bytes about to be added) and,
+ * for an image, that it can be decoded. Throws the same errors an upload would and stores
+ * nothing. Import dry runs use it.
  */
 export async function checkUpload(
     projectId: string,
@@ -304,7 +310,7 @@ export async function uploadAsset(
     const safeOriginalName = nameForType(sanitizeUploadFilename(file.originalName), file.mimeType);
     const project = await getProject(user, projectId);
     const hash = fileHash(buffer);
-    // Photos carry where they were taken: keep the picture, not that.
+    // Strip camera and location metadata (EXIF GPS etc.) so uploads don't leak where a photo was taken.
     if (assetType === 'image') buffer = await stripImageMetadata(buffer, file.mimeType);
 
     const adapter = getProjectAdapter(project);
@@ -321,9 +327,9 @@ export async function uploadAsset(
             projectVideoConfig?.keepLocalCopy ??
             getVideoProvidersConfig()?.keepLocalCopy ??
             false;
-        // Stored here first, so the upload answers at once and nothing is lost if the host
-        // refuses it or the server restarts: the copy goes when the host has the video ready
-        // (unless it is kept).
+        // Store the file locally first so the upload responds immediately and nothing is lost if
+        // the host refuses the video or the server restarts. The local copy is deleted once the
+        // host reports the video ready, unless the project keeps local copies.
         const stored = await adapter.upload(
             projectId,
             `${id}-${safeOriginalName}`,
@@ -375,13 +381,13 @@ export async function uploadAsset(
                 { projectId, source: 'api' }
             );
         } catch {
-            // never fail the operation
+            // A failing event listener must not fail the operation.
         }
         void queueVideoUpload(project, id, buffer);
         return afterFile('asset.afterCreate', projectId, user, withUrls(initial), options?.alt);
     }
 
-    // Image, document, 3D model, or video without provider
+    // Image, document, 3D model, or a video when no video host is configured.
     const initial: Asset = {
         id,
         projectId,
@@ -403,7 +409,7 @@ export async function uploadAsset(
 
     let queueCopies = false;
     if (assetType === 'image') {
-        // Store the original now; the copies are made after the response (see imageQueue).
+        // Store the original now; variants are generated after the response (see imageQueue).
         const result = await adapter.upload(
             projectId,
             `${id}-${safeOriginalName}`,
@@ -418,7 +424,7 @@ export async function uploadAsset(
             initial.width = shape.width;
             initial.height = shape.height;
         } catch {
-            // Unreadable image: the copies will fail and mark it.
+            // Unreadable image: variant generation will fail and mark the asset.
         }
         initial.variants = [
             {
@@ -470,13 +476,13 @@ export async function uploadAsset(
             { projectId, source: 'api' }
         );
     } catch {
-        // never fail the operation
+        // A failing event listener must not fail the operation.
     }
     if (queueCopies) void queueImageCopies(project, id, buffer);
     return afterFile('asset.afterCreate', projectId, user, withUrls(initial), options?.alt);
 }
 
-/** Verify webhook signature against project-level provider config. */
+/** Verifies a video host webhook signature against the project's provider config. */
 export async function verifyProviderWebhookSignature(
     providerId: VideoProviderId,
     rawBody: string,
@@ -502,10 +508,10 @@ export async function handleProviderWebhook(
     await applyHostReport(projectId, result);
 }
 
-// ── Videos at a host (Mux, Vimeo…): sent after the upload answers, then watched ──
+// ── Videos at a host (Mux, Vimeo…): sent after the upload responds, then polled ──
 
 const videoJobs = new Map<string, Promise<void>>();
-/** Videos sent to hosts at once: a move of hundreds goes two by two. */
+/** How many videos are sent to hosts at once. A bulk move of hundreds runs two at a time. */
 const VIDEO_CONCURRENCY = 2;
 let videosSending = 0;
 const videosWaiting: (() => void)[] = [];
@@ -522,7 +528,7 @@ function videoSlotDone(): void {
     else videosSending--;
 }
 const watched = new Set<string>();
-/** How long to keep asking a host about one video before leaving it to webhooks. */
+/** How long to poll a host about one video before relying on webhooks alone. */
 const WATCH_FOR_MS = 6 * 60 * 60 * 1000;
 const isSettled = (status: string | undefined) => status === 'ready' || status === 'error';
 
@@ -533,9 +539,10 @@ const pause = (ms: number) =>
     });
 
 /**
- * Records what a host says about a video: from a webhook, an upload or a status check. The
- * video is found by `correlationId` (our id, sent along with the upload), else by its id at the
- * host. Once ready, the copy kept here is deleted unless the project keeps copies.
+ * Records the status a video host reports, from a webhook, an upload response or a status
+ * check. The video is found by `correlationId` (our asset id, sent with the upload) or, failing
+ * that, by its id at the host. Once the video is ready, the local copy is deleted unless the
+ * project keeps local copies.
  */
 async function applyHostReport(projectId: string, report: VideoHostReport): Promise<Asset | null> {
     let dropPath: string | undefined;
@@ -557,7 +564,7 @@ async function applyHostReport(projectId: string, report: VideoHostReport): Prom
             delete found.path;
             delete found.localUrl;
         }
-        // Moved here from another host: done, so that one can let it go.
+        // The move to this host has finished, so the previous host's copy can be deleted.
         if (report.providerStatus === 'ready' && found.previousHost) {
             leaving = found.previousHost;
             delete found.previousHost;
@@ -588,9 +595,9 @@ async function applyHostReport(projectId: string, report: VideoHostReport): Prom
 }
 
 /**
- * Sends a stored video to its host, after the upload has answered. A refusal is recorded on
- * the video (`providerStatus: 'error'`, the reason in `providerMetadata.error`); the copy here
- * stays, so `retryVideoUpload` can send it again.
+ * Sends a stored video to its host after the upload request has responded. If the host refuses
+ * it, the failure is recorded on the asset (`providerStatus: 'error'`, with the reason in
+ * `providerMetadata.error`) and the local copy is kept so `retryVideoUpload` can send it again.
  */
 export function queueVideoUpload(
     project: ProjectSchema,
@@ -641,12 +648,12 @@ async function sendVideo(project: ProjectSchema, id: string, buffer?: Buffer): P
     }
 }
 
-/** Resolves once a video's upload to its host is done (at once when none is running). */
+/** Resolves when a video's upload to its host has finished, or immediately if none is running. */
 export function whenVideoSent(projectId: string, id: string): Promise<void> {
     return videoJobs.get(`${projectId}/${id}`) ?? Promise.resolve();
 }
 
-/** Asks the host where one video stands, and records it. Null when the host can't say. */
+/** Asks the host for one video's status and records it. Returns null when the host can't report a status. */
 async function askHost(projectId: string, id: string): Promise<Asset | null> {
     const asset = (await loadAssetsIndex(projectId)).find(a => a.id === id && !a.deletedAt);
     if (!asset?.provider || !asset.providerId) return null;
@@ -658,9 +665,9 @@ async function askHost(projectId: string, id: string): Promise<Asset | null> {
 }
 
 /**
- * Keeps asking the host about a video until it is ready or failed: every 5 seconds at first,
- * then up to every minute, for six hours. Webhooks still work alongside; hosts that can't be
- * asked (no `getStatus`) are left to them.
+ * Polls the host about a video until it is ready or has failed: every 5 seconds at first, then
+ * backing off to once a minute, for up to six hours. Webhooks still work alongside polling.
+ * Hosts that cannot be polled (no `getStatus`) rely on webhooks only.
  */
 async function watchVideo(projectId: string, id: string): Promise<void> {
     const key = `${projectId}/${id}`;
@@ -688,7 +695,7 @@ async function watchVideo(projectId: string, id: string): Promise<void> {
     }
 }
 
-/** Asks the host now where a video stands ("Check now"); the video as it is after that. */
+/** Polls the host immediately for a video's status and returns the asset as updated by the result. */
 export async function checkVideoStatus(projectId: string, user: User, id: string): Promise<Asset> {
     await getProject(user, projectId);
     const current = await getAsset(projectId, id);
@@ -699,7 +706,7 @@ export async function checkVideoStatus(projectId: string, user: User, id: string
     return (await getAsset(projectId, id)) ?? current;
 }
 
-/** Sends a video the host refused once more, from the copy kept here. */
+/** Sends a video the host refused again, using the local copy. */
 export async function retryVideoUpload(projectId: string, user: User, id: string): Promise<Asset> {
     assertCanWrite(user);
     const project = await getProject(user, projectId);
@@ -717,7 +724,7 @@ export async function retryVideoUpload(projectId: string, user: User, id: string
                     statusCode: 409
                 }
             );
-        // A file the host's processing failed on: start from a new upload there.
+        // The host failed to process the file, so start over with a new upload.
         found.providerId = '';
         found.providerStatus = 'uploading';
         found.providerMetadata = {};
@@ -728,7 +735,7 @@ export async function retryVideoUpload(projectId: string, user: User, id: string
     return withUrls(asset);
 }
 
-/** Deletes a video at a host it has left (best effort: it may be gone already). */
+/** Deletes a video from a host it was moved away from. Best effort: it may already be gone. */
 async function removeFromHost(
     projectId: string,
     at: { provider: VideoProviderId; providerId: string }
@@ -742,15 +749,16 @@ async function removeFromHost(
     }
 }
 
-/** Where a video is: a host, or this server. */
+/** Where a video is stored: a video host, or this server. */
 export type VideoHome = VideoProviderId | 'local';
 
 /**
- * Moves a project's videos to where new ones go: its video host, or this server when it has
- * none. Admins. Each video is sent from the copy kept here, in the background, two at a time;
- * it keeps playing from its old host (or here) until the new one has it ready. Videos with no
- * copy here stay where they are (still playable: the old host's keys are kept). With
- * `removeFromOld`, each is deleted at its old host once ready at the new one.
+ * Moves a project's videos to wherever new videos are stored: its video host, or this server
+ * when no host is configured. Admins only. Each video is sent from its local copy in the
+ * background, two at a time, and keeps playing from its old location until the new host reports
+ * it ready. Videos without a local copy stay where they are and remain playable, because the
+ * old host's keys are kept. With `removeFromOld`, each video is deleted from its old host once
+ * it is ready at the new one.
  */
 export async function moveVideosToHost(
     projectId: string,
@@ -817,8 +825,8 @@ export async function moveVideosToHost(
 }
 
 /**
- * Picks up videos left between steps by a restart: sent to the host again when the upload had
- * not finished, watched when the host was still processing. Call once at startup.
+ * Resumes videos interrupted by a restart: re-sends those whose upload to the host had not
+ * finished and resumes polling those the host was still processing. Call once at startup.
  */
 export async function resumeVideoUploads(projects: ProjectSchema[]): Promise<number> {
     let resumed = 0;
@@ -839,10 +847,10 @@ export async function resumeVideoUploads(projects: ProjectSchema[]): Promise<num
 }
 
 /**
- * The old instance-wide move (POST /studio/assets/migrate-provider), now one project at a time
- * on top of `moveVideosToHost`: `projectIds` is required, the person must be an admin of each,
+ * Moves videos for several projects (POST /studio/assets/migrate-provider), one project at a
+ * time on top of `moveVideosToHost`: `projectIds` is required, the person must be an admin of each,
  * and `toProvider` must be where that project's new videos go (Setup › Media). Kept for
- * scripts; the Studio uses `moveVideosToHost`.
+ * scripts; new code should use `moveVideosToHost`.
  */
 export async function migrateProvider(
     user: User,
@@ -863,7 +871,7 @@ export async function migrateProvider(
     for (const projectId of options.projectIds) {
         try {
             const project = await getProject(user, projectId);
-            const there = inProject(user, project);
+            const there = inProject(user, project, workspaceOf(project));
             if ((project.videoProviders?.active ?? 'local') !== options.toProvider)
                 throw new Error(
                     `${projectId}: new videos go to "${project.videoProviders?.active ?? 'local'}", not "${options.toProvider}"; change it in Setup › Media first`
@@ -883,8 +891,9 @@ export async function migrateProvider(
 }
 
 /**
- * Makes and stores an image's copies (every variant but the original), turned upright, never
- * enlarged and cropped around the focal point. Their URLs carry the time they were made.
+ * Generates and stores an image's variants (every variant except the original). Variants are
+ * rotated upright, never enlarged, and cropped around the focal point. Their URLs include the
+ * time they were generated.
  */
 async function makeCopies(
     project: ProjectSchema,
@@ -925,7 +934,7 @@ async function makeCopies(
     return { variants, width: original.width, height: original.height };
 }
 
-/** Writes a finished (or failed) image back, over whatever was saved meanwhile. */
+/** Saves the result of variant generation (success or failure), merging with changes saved in the meantime. */
 async function storeCopies(
     projectId: string,
     id: string,
@@ -933,7 +942,7 @@ async function storeCopies(
 ): Promise<Asset | null> {
     const next = await changeAssets(projectId, undefined, list => {
         const idx = list.findIndex(a => a.id === id);
-        if (idx < 0) return null; // deleted while its copies were being made
+        if (idx < 0) return null; // The asset was deleted while its variants were being generated.
         const current = list[idx];
         const kept = current.variants?.find(v => v.key === 'original');
         const made: Asset = result
@@ -954,7 +963,8 @@ async function storeCopies(
     return next;
 }
 
-// ── Background copies: uploads answer at once, copies follow, two images at a time ──
+// ── Background copies: uploads respond immediately and variants are generated afterwards, two
+// images at a time ──
 const IMAGE_CONCURRENCY = 2;
 const imageJobs = new Map<string, Promise<void>>();
 const waiting: Array<() => void> = [];
@@ -975,8 +985,8 @@ function release(): void {
 }
 
 /**
- * Makes an uploaded image's copies after the response. `buffer` is the original when the
- * upload still holds it; otherwise it is read back from storage.
+ * Generates an uploaded image's variants after the response has been sent. `buffer` is the
+ * original file if the upload still holds it; otherwise it is read back from storage.
  */
 export function queueImageCopies(
     project: ProjectSchema,
@@ -1008,14 +1018,14 @@ export function queueImageCopies(
     return job;
 }
 
-/** Resolves once an image's copies are made (at once when nothing is running for it). */
+/** Resolves when an image's variants have been generated, or immediately if none are being generated. */
 export function whenAssetReady(projectId: string, id: string): Promise<void> {
     return imageJobs.get(`${projectId}/${id}`) ?? Promise.resolve();
 }
 
 /**
- * Picks up images left processing by a restart: their originals are stored, only the copies
- * are missing. Call once at startup.
+ * Resumes images left in processing by a restart. Their originals are already stored; only the
+ * variants are missing. Call once at startup.
  */
 export async function resumeImageCopies(projects: ProjectSchema[]): Promise<number> {
     let queued = 0;
@@ -1067,8 +1077,8 @@ export async function regenerateVariants(
 }
 
 /**
- * Same as regenerateVariants, but answers at once: the images are remade in the background,
- * two at a time, each one's copies replaced as it is done.
+ * Same as regenerateVariants, but returns immediately. The images are regenerated in the
+ * background, two at a time, and each image's variants are replaced as soon as it is done.
  */
 export async function queueRegenerateVariants(
     projectId: string,
@@ -1087,8 +1097,9 @@ const PATCHABLE = ['title', 'alt', 'caption', 'description', 'credit', 'folder',
 const LOCALIZED = ['title', 'alt', 'caption'];
 
 /**
- * Keeps only the metadata a person may edit, in the shapes the engine understands. Texts in
- * several languages drop empty languages; an all-empty map clears the text.
+ * Keeps only the metadata a user may edit, normalized to the shapes the engine expects.
+ * Multi-language texts drop empty languages, and a map where every language is empty clears
+ * the text.
  */
 function checkAssetPatch(patch: Record<string, unknown>): Record<string, unknown> {
     if (!patch || typeof patch !== 'object' || Array.isArray(patch))
@@ -1133,12 +1144,12 @@ export async function listAssets(
         type?: AssetType;
         folder?: string;
         search?: string;
-        /** The same file, by fingerprint (see `fileHash`); assets in the bin are included. */
+        /** An asset with the same content hash (see `fileHash`). Assets in the bin are included. */
         hash?: string;
         includeBinned?: boolean;
     }
 ): Promise<Asset[]> {
-    // The same file again: one lookup in the index rather than the whole list.
+    // Detect a duplicate upload with one index lookup instead of scanning the whole list.
     if (options?.hash && !options.type && options.folder == null && !options.search) {
         const index = await getAssetIndex();
         if (index) return (await index.byHash(projectId, options.hash)).map(withUrls);
@@ -1164,10 +1175,10 @@ export async function listAssets(
     return out;
 }
 
-/** The library's tabs: a kind of file, or `unused` for files no entry or page uses. */
+/** A library filter: a file kind, or `unused` for files that no entry or page references. */
 export type AssetKindFilter = AssetType | 'unused';
 
-/** What the library shows overall: how many files of each kind, and the folders in use. */
+/** Library-wide summary: the number of files of each kind and the folders in use. */
 export type AssetFacets = {
     total: number;
     kinds: Record<AssetKindFilter, number>;
@@ -1176,22 +1187,22 @@ export type AssetFacets = {
 
 export type AssetPage = {
     assets: Asset[];
-    /** Files matching the filters, on every page. */
+    /** Total number of files matching the filters across all pages. */
     total: number;
     offset: number;
     limit: number;
-    /** On request (the Studio asks on the first page): the counts for the tabs, and folders. */
+    /** Counts for the tabs and the folders in use. Only computed when the caller asks for them. */
     facets?: AssetFacets;
 };
 
-/** Most files one page may hold. */
+/** Maximum number of files in one page. */
 export const MAX_ASSET_PAGE = 500;
 
 /**
- * One page of the library, newest first: by kind (or unused), folder (`''` for files in none)
- * and words found in the name, title, alt text or caption, in any language. Files in the bin
- * are left out. Working out what is unused reads every entry and page, so it is only done for
- * the `unused` tab and for facets.
+ * Returns one page of the library, newest first. It can filter by kind (or `unused`), by folder
+ * (`''` for files in no folder) and by search words matched against the name, title, alt text
+ * or caption in any language. Files in the bin are excluded. Finding unused files reads every
+ * entry and page, so it only runs for the `unused` filter and when facets are requested.
  */
 export async function listAssetPage(
     projectId: string,
@@ -1225,7 +1236,7 @@ export async function listAssetPage(
         };
     }
 
-    // Without the index (MOTEUR_CONTENT_INDEX=files): the whole file, filtered here.
+    // Without the index (MOTEUR_CONTENT_INDEX=files), read the whole file and filter in memory.
     const library = (await loadAssetsIndex(projectId)).filter(a => !a.deletedAt);
 
     const words = fold(options.search?.trim() ?? '');
@@ -1271,7 +1282,7 @@ export async function listAssetPage(
     };
 }
 
-/** An asset by id; one in the bin reads as missing, as it does in content. */
+/** Returns an asset by id. An asset in the bin is treated as missing, as it is in content. */
 export async function getAsset(projectId: string, id: string): Promise<Asset | null> {
     const assets = await loadAssetsIndex(projectId);
     const asset = assets.find(a => a.id === id && !a.deletedAt);
@@ -1279,7 +1290,7 @@ export async function getAsset(projectId: string, id: string): Promise<Asset | n
     return withUrls(asset);
 }
 
-/** The metadata a person may change on an asset; `null` clears a value. */
+/** The metadata a user may change on an asset. A `null` value clears the field. */
 export type AssetPatch = {
     title?: AssetText | null;
     alt?: AssetText | null;
@@ -1290,10 +1301,10 @@ export type AssetPatch = {
     focalPoint?: { x: number; y: number } | null;
 };
 
-/** How many assets one batch may change. */
+/** Maximum number of assets one batch may change. */
 export const MAX_ASSET_BATCH = 500;
 
-/** The ids of a batch: a non-empty list of strings, not too long, each once. */
+/** Validates the ids of a batch: a non-empty list of unique strings within the batch size limit. */
 function batchIds(ids: unknown): string[] {
     if (!Array.isArray(ids) || !ids.length || ids.some(id => typeof id !== 'string' || !id))
         throw Object.assign(new Error('Name the assets: a list of ids.'), { statusCode: 400 });
@@ -1318,14 +1329,15 @@ async function notifyUpdated(projectId: string, user: User, asset: Asset): Promi
             { projectId, source: 'api' }
         );
     } catch {
-        // never fail the operation
+        // A failing event listener must not fail the operation.
     }
 }
 
 /**
- * Changes the metadata of several assets in one save (one line in the project's history): alt
- * texts written for a whole folder, a credit for a shoot. All or nothing: an asset missing or in
- * the bin, or a change a translator may not make, saves none of them.
+ * Changes the metadata of several assets in one save (one entry in the project's history), for
+ * example alt texts for a whole folder or a credit for a photo shoot. All or nothing: if any
+ * asset is missing or in the bin, or the user may not make a change (for example a translator),
+ * none of the assets is changed.
  */
 export async function updateAssets(
     projectId: string,
@@ -1378,7 +1390,7 @@ export async function updateAssets(
     );
     for (const { updated } of results) await notifyUpdated(projectId, user, updated);
 
-    // Crops follow the focal point: remake the copies of pictures whose point moved.
+    // Crops are made around the focal point, so rebuild the copies of images whose point moved.
     const refocused = results
         .filter(
             ({ before, updated }) =>
@@ -1389,14 +1401,14 @@ export async function updateAssets(
         )
         .map(({ updated }) => updated.id);
     if (refocused.length) {
-        // Sizes made on request were cropped around the old point.
+        // Sizes generated on request were cropped around the old focal point; delete them.
         const adapter = getProjectAdapter(project);
         for (const id of refocused) await adapter.deleteFolder?.(projectId, resizedFolder(id));
         await regenerateVariants(projectId, user, refocused);
         const fresh = new Map((await loadAssetsIndex(projectId)).map(a => [a.id, a]));
         return results.map(({ updated }) => withUrls(fresh.get(updated.id) ?? updated));
     }
-    // The same asset named twice: its last state.
+    // If the same asset appears twice in the batch, keep its last state.
     const last = new Map(results.map(({ updated }) => [updated.id, updated]));
     return [...last.values()].map(withUrls);
 }
@@ -1412,9 +1424,9 @@ export async function updateAsset(
 }
 
 /**
- * Puts assets in the bin, in one save. They disappear from the library and from content (a field
- * using one reads as empty) and can be restored; their files stay until the bin is emptied. The
- * Studio warns first when content uses them. All or nothing: one missing stops the lot.
+ * Moves assets to the bin in one save. They disappear from the library and from content (a
+ * field that references one reads as empty) and can be restored. Their files are kept until the
+ * bin is emptied. Clients should warn first when content uses them.
  */
 export async function binAssets(projectId: string, user: User, ids: string[]): Promise<Asset[]> {
     assertCanWrite(user);
@@ -1445,21 +1457,22 @@ export async function binAssets(projectId: string, user: User, ids: string[]): P
                 { projectId, source: 'api' }
             );
         } catch {
-            // never fail the operation
+            // A failing event listener must not fail the operation.
         }
     }
     return binned.map(withUrls);
 }
 
-/** Puts one asset in the bin (see `binAssets`). */
+/** Moves one asset to the bin (see `binAssets`). */
 export async function deleteAsset(projectId: string, user: User, id: string): Promise<void> {
     await binAssets(projectId, user, [id]);
 }
 
 /**
- * Puts a new file in an asset, keeping its id, so everything using it shows the new file: its
- * title, alt text, credit, folder and focal point stay. It must be the same kind (a picture for
- * a picture). An image's copies are made again and its on-request sizes cleared.
+ * Replaces an asset's file while keeping its id, so everything that references it shows the new
+ * file. Its title, alt text, credit, folder and focal point are kept. The new file must be the
+ * same kind (an image for an image). For images, variants are regenerated and on-request sizes
+ * are cleared.
  */
 export async function replaceAssetFile(
     projectId: string,
@@ -1482,7 +1495,7 @@ export async function replaceAssetFile(
         project,
         file.buffer.length,
         mimeType,
-        // The file it replaces leaves room for it.
+        // The file being replaced frees its space, so don't count it against the quota.
         (await storageUsed(projectId)) - (current.size ?? 0)
     );
     if (type !== current.type) {
@@ -1494,7 +1507,7 @@ export async function replaceAssetFile(
     if (type === 'image') await readImageShape(file.buffer);
     const buffer = type === 'image' ? await stripImageMetadata(file.buffer, mimeType) : file.buffer;
     const adapter = getProjectAdapter(project);
-    // A new name each time: caches that kept the old file can't serve it for the new one.
+    // Use a new file name each time so caches holding the old file can't serve it for the new one.
     const stored = await adapter.upload(
         projectId,
         `${id}-${Date.now().toString(36)}-${safeName}`,
@@ -1539,7 +1552,7 @@ export async function replaceAssetFile(
         return { ...a };
     });
 
-    // The old file and everything made from it.
+    // The old file and every copy made from it.
     if (current.path && current.path !== stored.path) {
         await adapter.delete(current.path).catch(err => {
             console.error('[moteur] replaceAssetFile: old file not removed', current.path, err);
@@ -1565,12 +1578,12 @@ export async function replaceAssetFile(
             { projectId, source: 'api' }
         );
     } catch {
-        // never fail the operation
+        // A failing event listener must not fail the operation.
     }
     return afterFile('asset.afterReplace', projectId, user, withUrls(updated));
 }
 
-/** What is in the bin, most recently binned first. */
+/** Lists the assets in the bin, most recently binned first. */
 export async function listBinnedAssets(projectId: string, user: User): Promise<Asset[]> {
     await getProject(user, projectId);
     return (await loadAssetsIndex(projectId))
@@ -1579,7 +1592,7 @@ export async function listBinnedAssets(projectId: string, user: User): Promise<A
         .map(withUrls);
 }
 
-/** Takes assets out of the bin, in one save: back in the library, and in content wherever used. */
+/** Restores assets from the bin in one save. They reappear in the library and wherever content references them. */
 export async function restoreAssets(
     projectId: string,
     user: User,
@@ -1614,13 +1627,13 @@ export async function restoreAssets(
                 { projectId, source: 'api' }
             );
         } catch {
-            // never fail the operation
+            // A failing event listener must not fail the operation.
         }
     }
     return restored.map(withUrls);
 }
 
-/** Takes one asset out of the bin (see `restoreAssets`). */
+/** Restores one asset from the bin (see `restoreAssets`). */
 export async function restoreAsset(projectId: string, user: User, id: string): Promise<Asset> {
     const [asset] = await restoreAssets(projectId, user, [id]);
     return asset;
@@ -1631,7 +1644,7 @@ function assertCanEmptyBin(user: User): void {
         throw contentForbidden('Only a content lead or an admin can delete files for good.');
 }
 
-/** Deletes an asset in the bin for good: its files, its copies, its video at the host. Content leads and admins. */
+/** Permanently deletes an asset in the bin: its files, its variants and its video at the host. Content leads and admins only. */
 export async function deleteAssetForever(projectId: string, user: User, id: string): Promise<void> {
     assertCanEmptyBin(user);
     const project = await getProject(user, projectId);
@@ -1641,8 +1654,9 @@ export async function deleteAssetForever(projectId: string, user: User, id: stri
 }
 
 /**
- * Takes back assets a failed import added: their files, copies and hosted videos, and their
- * place in the list. Not a person's action (no permission to check): the import's own undo.
+ * Rolls back assets added by a failed import: deletes their files, variants and hosted videos,
+ * and removes them from the list. This is the import's own undo, not a user action, so it does
+ * no permission check.
  */
 export async function discardImportedAssets(projectId: string, ids: string[]): Promise<void> {
     if (!ids.length) return;
@@ -1653,7 +1667,7 @@ export async function discardImportedAssets(projectId: string, ids: string[]): P
         await eraseAsset(projectId, project, asset, SYSTEM_USER as User);
 }
 
-/** An asset gone for good: its files, its copies, its video at the host, its place in the list. */
+/** Permanently removes an asset: its files, its variants, its video at the host and its entry in the list. */
 async function eraseAsset(
     projectId: string,
     project: ProjectSchema,
@@ -1682,7 +1696,7 @@ async function eraseAsset(
         }
     }
     if (asset.providerId) {
-        // The project's own keys at the host, else the server's.
+        // Use the project's own keys for the host, falling back to the server's.
         const provider = asset.provider
             ? await getProviderForProject(projectId, asset.provider)
             : null;
@@ -1699,7 +1713,7 @@ async function eraseAsset(
         }
     }
 
-    // Still at the host it was moving from.
+    // Delete the copy left at the previous host if the video was being moved away from it.
     if (asset.previousHost) await removeFromHost(projectId, asset.previousHost);
 
     try {
@@ -1711,7 +1725,7 @@ async function eraseAsset(
     await changeAssets(projectId, user, list => removeFrom(list, id));
 }
 
-/** Empties the bin: every asset in it deleted for good. Content leads and admins. */
+/** Empties the bin by permanently deleting every asset in it. Content leads and admins only. */
 export async function emptyBin(projectId: string, user: User): Promise<number> {
     assertCanEmptyBin(user);
     const binned = (await loadAssetsIndex(projectId)).filter(a => a.deletedAt);
@@ -1728,7 +1742,7 @@ export async function moveToFolder(
     return updateAsset(projectId, user, id, { folder });
 }
 
-/** Settings values that are secrets (keys, passwords, tokens), shown as `***`. */
+/** Masks settings values that are secrets (keys, passwords, tokens) as `***`. */
 export function redactAdapterConfig(
     config: Record<string, unknown> | undefined
 ): Record<string, unknown> | undefined {
@@ -1762,7 +1776,7 @@ export async function getAssetConfig(projectId: string, user: User) {
     return { ...config, adapterConfig: redactAdapterConfig(config.adapterConfig) };
 }
 
-/** Same as the media settings' `assetConfig` part (content leads and admins, secrets kept when sent back as `***`). */
+/** Updates the `assetConfig` part of the media settings. Content leads and admins only; secrets sent back as `***` keep their stored values. */
 export async function updateAssetConfig(
     projectId: string,
     user: User,
@@ -1773,10 +1787,11 @@ export async function updateAssetConfig(
 }
 
 /**
- * Copies every stored file of a project to another storage, then makes it the project's storage.
- * Nothing changes until every file is copied: a failure leaves the project as it was. The files
- * stay on the old storage too (to delete by hand once the new one is checked). Images' copies
- * are made again on the new storage, after; until then they are served from the old one.
+ * Copies every stored file of a project to another storage, then switches the project to it.
+ * Nothing changes until every file is copied, so a failure leaves the project as it was. The
+ * files also stay on the old storage, to be deleted manually once the new one is verified.
+ * Image variants are regenerated on the new storage afterwards and are served from the old
+ * storage until then.
  */
 export async function moveFilesToStorage(
     projectId: string,
@@ -1802,7 +1817,7 @@ export async function moveFilesToStorage(
         }
     };
     await copyNew();
-    // Uploads made while copying land on the old storage: copy those too before switching.
+    // Uploads made while copying land on the old storage, so copy those too before switching.
     await copyNew();
 
     const { updateProject } = await import('../projects.js');
@@ -1813,7 +1828,7 @@ export async function moveFilesToStorage(
             adapterConfig: target.config
         }
     });
-    // Any upload since the last pass, still on the old storage.
+    // Copy any upload made since the last pass; it is still on the old storage.
     await copyNew();
 
     const images: string[] = [];

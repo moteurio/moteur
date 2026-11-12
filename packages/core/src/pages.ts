@@ -202,7 +202,7 @@ export async function getPageBySlug(
     if (locale) {
         const project = await getProjectById(projectId);
         const lang = { locale, defaultLocale: project?.defaultLocale ?? locale };
-        // A page not in this language has no slug in it.
+        // A page that does not exist in this language has no slug for it.
         return pages.find(p => inLanguage(p, lang) && slugIn(p, lang) === slug) ?? null;
     }
     const found =
@@ -292,7 +292,7 @@ async function assertSlugUniqueAmongSiblings(
         const taken = mine.find(k => theirs.has(k));
         if (taken === undefined) continue;
         const slug = taken.includes(':') ? taken.slice(taken.indexOf(':') + 1) : taken;
-        // The home page's empty slug is the root itself.
+        // The home page has an empty slug, which is the site root.
         if (slug === '' && parentId === null) continue;
         throw new Error(`Another page already uses the slug "${slug}" under the same parent.`);
     }
@@ -388,11 +388,11 @@ export async function createPage(
     const project = await getProject(user, projectId);
     assertUserCanAccessProject(user, project);
     assertCanWrite(user);
-    // A new page has no review yet: someone who needs one creates it as a draft.
+    // A new page has no approved review, so a user who needs approval cannot create it as published.
     if ((data as StaticPage).status === 'published' && needsApproval(user, project))
         throw contentForbidden(approvalMessage(user, project));
 
-    // An id given (an import keeping its own) is kept; a page with it already is refused below.
+    // Keep a caller-supplied id (an import preserves its own ids). A duplicate id is refused below.
     const id = typeof data.id === 'string' && isValidId(data.id) ? data.id : randomUUID();
     const parentId = data.parentId ?? null;
     const isRoot = parentId === null;
@@ -457,7 +457,7 @@ export async function createPage(
             user
         });
     let saved: PageNode = page;
-    // Created live: this save is its published version.
+    // A page created as published has this save as its published version.
     if (page.type !== 'folder' && page.status === 'published')
         saved = await publishPageVersion(projectId, user, page, recordSave);
     else {
@@ -485,7 +485,8 @@ export async function updatePage(
     /** `asDraft`: an import's save; on a live page its changes wait for the import's publish step. */
     options?: { restoredFrom?: string; asDraft?: boolean }
 ): Promise<PageNode> {
-    // One at a time with other saves and approvals, so an approval publishes what it checked.
+    // Serialize with other saves and approvals, so an approval publishes exactly the content it
+    // checked.
     return withProjectWriteLock(projectId, () =>
         updatePageUnlocked(projectId, user, id, patch, options)
     );
@@ -500,7 +501,8 @@ async function updatePageUnlocked(
 ): Promise<PageNode> {
     let current = await getPageWithAuth(user, projectId, id);
     assertCanEdit(user);
-    // Set by publishing only (and `waitingChanges` only ever answered, a page sent back as read).
+    // Drop fields a patch must not set. Publishing sets publishedCommit and publishedAt.
+    // waitingChanges is computed on read, so a client that sends a page back as it read it includes it.
     const {
         publishedCommit: _commit,
         publishedAt: _at,
@@ -516,14 +518,14 @@ async function updatePageUnlocked(
     const asked = (patch as { status?: string }).status;
     if (asked === 'published' && !live && !mayPublish)
         throw contentForbidden(approvalMessage(user, project));
-    // On a live page, the edits of someone who needs a review wait in the page: sites keep its
-    // published version until a review approves them (or someone who can publishes).
+    // On a live page, edits from a user who needs a review are held in the page. Sites keep serving
+    // the published version until a review approves them or a user who can publish does so.
     const waiting =
         live &&
         (options?.asDraft === true ||
             (!mayPublish && (asked === undefined || asked === 'published')));
     if (waiting) current = await pinPublishedPage(projectId, user, current);
-    // Publishing a live page that has changes waiting puts them live, even with nothing new.
+    // Publishing a live page that has held changes makes them live, even when the patch adds nothing.
     const publishesWaiting =
         live && !waiting && asked === 'published' && (await hasWaitingChanges(projectId, current));
     if (
@@ -538,7 +540,7 @@ async function updatePageUnlocked(
             Boolean
         );
         const extra = Object.keys(patch).filter(
-            // A translator may say a page is now in their language.
+            // A translator may also mark the page as available in their language.
             key => key !== 'fields' && key !== 'slugs' && key !== 'languages' && key !== 'updatedAt'
         );
         const beforeFields = (current as { fields?: unknown }).fields ?? {};
@@ -586,14 +588,14 @@ async function updatePageUnlocked(
         }
     }
     if (patch.languages !== undefined) {
-        // null or [] clears it: every language.
+        // null or [] clears the restriction, so the page is available in every language.
         const languages = normalizeLanguages(patch.languages, await getProjectById(projectId));
         if (languages) updated.languages = languages;
         else delete updated.languages;
     }
     if (patch.slugs !== undefined) {
         assertTranslatedSlugs(patch.slugs, await getProjectById(projectId));
-        // An empty map (or null) clears the translated slugs.
+        // An empty map or null removes all translated slugs.
         if (!updated.slugs || Object.keys(updated.slugs).length === 0) delete updated.slugs;
     }
     const addressChanged = movesAddress(current, updated);
@@ -612,7 +614,7 @@ async function updatePageUnlocked(
         if (!model) throw new Error(`Model "${(updated as CollectionPage).modelId}" not found.`);
     }
 
-    // Nothing to save: no commit, no hooks, no webhooks.
+    // Skip the commit, hooks and webhooks when nothing changed.
     if (sameContent(current, updated) && !publishesWaiting) return current;
 
     await triggerEvent('page.beforeUpdate', { page: updated, user, projectId });
@@ -632,7 +634,7 @@ async function updatePageUnlocked(
         });
     let saved: PageNode = updated;
     if (goesLive) {
-        // What is saved is what sites get: this save becomes the page's published version.
+        // This save becomes the page's published version, which is what sites serve.
         saved = await publishPageVersion(projectId, user, updated, recordSave);
         await useApprovals(projectId, { pageId: id });
     } else {
@@ -643,7 +645,7 @@ async function updatePageUnlocked(
     }
     triggerEvent('page.afterUpdate', { page: saved, user, projectId });
     if (before) await redirectMoved(projectId, user, before);
-    // Waiting changes leave the site as it was: nothing to announce.
+    // Held changes do not alter the live site, so there is nothing to announce.
     if (waiting) return saved;
 
     const pagePayload = (): { pageId: string; title: string; url: string; updatedBy: string } => ({
@@ -667,11 +669,11 @@ async function updatePageUnlocked(
                     source: 'api'
                 });
             } else if (currentStatus === 'published' && newStatus === 'published') {
-                // Published as saved: the site changed.
+                // The page stayed published and its content changed, so the live site changed.
                 await webhookDispatch('page.updated', pagePayload(), { projectId, source: 'api' });
             }
         } else if (addressChanged) {
-            // A folder that moves moves the pages in it.
+            // Moving a folder changes the addresses of the pages inside it.
             await webhookDispatch('page.updated', pagePayload(), { projectId, source: 'api' });
         }
     } catch {
@@ -733,7 +735,7 @@ export async function restorePageAtRevision(
         } as Partial<PageNode>,
         { restoredFrom: revisionId }
     );
-    // Already the same as that version: nothing was saved.
+    // The page already matches that revision, so nothing was saved.
     return { restored, changed: !sameContent(current, restored) };
 }
 
@@ -753,7 +755,7 @@ export async function deletePage(projectId: string, user: User, id: string): Pro
 
     await triggerEvent('page.beforeDelete', { page: current, user, projectId });
 
-    // Kept in the bin first: what can't be kept there isn't deleted.
+    // Move the page to the bin first, so a page that cannot be binned is not deleted.
     binPage(projectId, (await getProjectJson<PageNode>(projectId, pageKey(id))) ?? current, user);
     try {
         fs.unlinkSync(pageFilePath(projectId, id));
@@ -875,7 +877,8 @@ export async function reorderPages(
         return { ...p, parentId: u.parentId ?? null, order: u.order };
     });
 
-    // The tree after every move must have no loop (two moves can make one together).
+    // Reject moves that would create a cycle in the tree, including cycles formed by two moves
+    // together.
     const after = new Map(updatedNodes.map(n => [n.id, n]));
     for (const node of updatedNodes) {
         const seen = new Set<string>();
@@ -887,7 +890,7 @@ export async function reorderPages(
         }
     }
 
-    // A page moved under a new parent must not take a sibling's address, in any language.
+    // A page moved under a new parent must not take the address of a sibling in any language.
     const languages = urlLanguagesFor(await getProjectById(projectId));
     const seenSlugs = new Map<string, string>();
     for (const node of updatedNodes) {
@@ -904,7 +907,7 @@ export async function reorderPages(
         }
     }
 
-    // Only pages that moved are written (and committed).
+    // Write and commit only the pages that moved.
     const moved = updatedNodes.some(n => movesAddress(nodeMap.get(n.id)!, n));
     const before = moved ? await liveAddresses(projectId) : undefined;
     const paths: string[] = [];
@@ -925,7 +928,7 @@ export async function reorderPages(
         });
     }
     if (before) await redirectMoved(projectId, user, before);
-    // The navigation follows the tree: a moved live page (or folder) changes the site.
+    // Navigation is built from the tree, so moving a live page or folder changes the site.
     for (const node of updatedNodes) {
         const was = nodeMap.get(node.id)!;
         const moved =

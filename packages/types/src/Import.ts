@@ -5,42 +5,43 @@ import type { StructureSchema } from './Structure.js';
 import type { FormSchema } from './Form.js';
 
 /**
- * Many things saved at once, all or nothing: a project's schemas, files, pages, entries, menus
- * and redirects. Inside it, `{ "$ref": "page:pricing" }` (or `entry:<model>/<ref>`,
- * `asset:<ref>`) stands for the id of something the bundle (or the project) has, so links,
- * relations, pictures and parents can point at what doesn't exist yet.
+ * A set of project content saved in a single all-or-nothing operation: schemas, files, pages,
+ * entries, menus and redirects. Inside the bundle, `{ "$ref": "page:pricing" }` (or
+ * `entry:<model>/<ref>`, `asset:<ref>`) refers to the ID of an item in the bundle or already in
+ * the project. This lets links, relations, images and parents point at items that do not exist
+ * yet.
  */
 export interface ImportBundle {
     version: 1;
-    /** What to do with something that already exists (same id): change it (default), keep it, or stop. */
+    /** What to do with an item whose ID already exists: `update` it (default), `skip` it, or `fail` the import. */
     existing?: 'update' | 'skip' | 'fail';
     /**
-     * Put every page and entry live once saved. Without it, only those that say `published`.
-     * An agent's import waits for a person's approval either way.
+     * When true, every page and entry is published after it is saved. Otherwise only items with
+     * `published` set are. An import made by an agent waits for a person's approval in either case.
      */
     publish?: boolean;
     structures?: StructureSchema[];
     blocks?: BlockSchema[];
     models?: ModelSchema[];
-    /** As the templates API takes them: the project and the dates are the import's to set. */
+    /** Templates in the shape the templates API accepts. The import sets the project and the timestamps. */
     templates?: Omit<TemplateSchema, 'projectId' | 'createdAt' | 'updatedAt'>[];
     assets?: ImportAsset[];
     pages?: ImportPage[];
-    /** By model id. */
+    /** Entries keyed by model ID. */
     entries?: Record<string, ImportEntry[]>;
     menus?: ImportMenu[];
     redirects?: ImportRedirect[];
-    /** Forms, by id: what a site's visitors send (see the Forms guide). */
+    /** Forms that collect submissions from site visitors (see the Forms guide). */
     forms?: ImportForm[];
 }
 
-/** A form, as the forms API takes it; `status` is `active` unless it says otherwise. */
+/** A form in the shape the forms API accepts. `status` defaults to `active`. */
 export type ImportForm = Omit<FormSchema, 'createdAt' | 'updatedAt' | 'status'> &
     Partial<Pick<FormSchema, 'status'>>;
 
-/** A file: from a public HTTPS address, or inline in base64 with its name. */
+/** A file to import, given either as a public HTTPS `url` or as base64 `content` with a `name`. */
 export interface ImportAsset {
-    /** How the bundle names it: `{ "$ref": "asset:<ref>" }`. */
+    /** Name other items in the bundle use to refer to this asset: `{ "$ref": "asset:<ref>" }`. */
     ref: string;
     url?: string;
     content?: string;
@@ -52,11 +53,11 @@ export interface ImportAsset {
 }
 
 export interface ImportPage {
-    /** Its id (kept). Without, one is made. */
+    /** Page ID. It is preserved when given; otherwise one is generated. */
     id?: string;
-    /** How the bundle names it (default: its id): `{ "$ref": "page:<ref>" }`. */
+    /** Name other items in the bundle use to refer to this page: `{ "$ref": "page:<ref>" }`. Defaults to the page ID. */
     ref?: string;
-    /** The parent page's ref or id. */
+    /** Ref or ID of the parent page. */
     parent?: string | { $ref: string };
     type?: 'static' | 'collection' | 'folder';
     templateId?: string;
@@ -70,20 +71,20 @@ export interface ImportPage {
     modelId?: string;
     urlPattern?: string;
     fields?: Record<string, unknown>;
-    /** The languages it is in (the default always). Left out: every language. */
+    /** Locales the page exists in. The default locale is always included. When omitted, every locale is used. */
     languages?: string[];
-    /** Put it live once saved (an export says which were). */
+    /** When true, the page is published after it is saved. An export records which pages were published. */
     published?: boolean;
 }
 
 export interface ImportEntry {
     id: string;
-    /** How the bundle names it (default: its id): `{ "$ref": "entry:<model>/<ref>" }`. */
+    /** Name other items in the bundle use to refer to this entry: `{ "$ref": "entry:<model>/<ref>" }`. Defaults to the entry ID. */
     ref?: string;
     data: Record<string, unknown>;
-    /** The languages it is in (the default always). Left out: every language. */
+    /** Locales the entry exists in. The default locale is always included. When omitted, every locale is used. */
     languages?: string[];
-    /** Put it live once saved (an export says which were). */
+    /** When true, the entry is published after it is saved. An export records which entries were published. */
     published?: boolean;
 }
 
@@ -114,17 +115,17 @@ export type ImportItemKind =
     | 'redirect'
     | 'form';
 
-/** One thing the import did, or would do. */
+/** The result for one item that the import created, updated or skipped (or would, in a dry run). */
 export interface ImportItemResult {
     kind: ImportItemKind;
-    /** Its id once saved (for an entry, `<model>/<id>`). */
+    /** ID of the item once saved. For an entry this is `<model>/<id>`. */
     id: string;
     action: 'create' | 'update' | 'skip';
 }
 
-/** Something wrong with the bundle, or a save that failed. */
+/** A problem in the bundle or a failed save. */
 export interface ImportIssue {
-    /** Where in the bundle: `pages[3].fields.hero`, `entries.article[0]`. */
+    /** Location in the bundle, for example `pages[3].fields.hero` or `entries.article[0]`. */
     path: string;
     message: string;
 }
@@ -133,12 +134,13 @@ export type ImportStatus =
     | 'running'
     | 'done'
     | 'failed'
-    /** Saved as drafts; a person approves to put them live. */
+    /** Saved as drafts. A person must approve them to publish. */
     | 'awaiting_approval';
 
 /**
- * What an import puts live: its pages and entries (with `publish`), and the menus an agent that
- * works for review brought (a menu is live once saved, so they wait for a person).
+ * The items an import publishes: its pages and entries (when `publish` is set), plus menus from
+ * an agent that requires review. A menu is live as soon as it is saved, so those menus are held
+ * until a person approves.
  */
 export interface ImportToPublish {
     pages: string[];
@@ -154,15 +156,15 @@ export interface ImportJob {
     createdAt: string;
     finishedAt?: string;
     by: { id: string; name?: string; agent?: string };
-    /** How far it has come: items saved of the total. */
+    /** Import progress: the number of items saved out of the total. */
     progress: { done: number; total: number };
     items: ImportItemResult[];
     issues: ImportIssue[];
-    /** Worth saying, not wrong: what HTML lost (`2 pictures left out`), the links it made to pages. */
+    /** Informational messages that are not errors, such as content dropped from imported HTML (`2 pictures left out`) or links created to pages. */
     notes?: ImportIssue[];
-    /** The commit holding everything the import saved. */
+    /** The commit that contains everything the import saved. */
     commit?: string;
-    /** What goes live on approval (or went live). */
+    /** The items that are published on approval, or that were published. */
     toPublish?: ImportToPublish;
     approvedBy?: { id: string; name?: string };
 }

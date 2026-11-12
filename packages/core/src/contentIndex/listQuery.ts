@@ -4,24 +4,24 @@ import { entryStatus, sortValue } from './publishedView.js';
 import type { EntryQuery, EntryQueryResult } from './types.js';
 
 /**
- * What a list can search, filter, count and group on, derived from one entry. Indexes store
- * these facts at write time; the in-memory path (applyQuery) derives them per query. Both use
- * this module so the two can't drift.
+ * The facts a list can search, filter, count and group on, derived from one entry. Indexes store
+ * these facts when an entry is written; the in-memory path (applyQuery) derives them on every
+ * query. Both use this module so that the two can't drift apart.
  */
 export type ListFacts = {
     /** [key, value] pairs: one per value of each top-level field, plus the virtual keys. */
     values: Array<[string, string]>;
-    /** [field, locale] pairs: languages that have text in each localized field. */
+    /** [field, locale] pairs: the languages that have text in each localized field. */
     locales: Array<[string, string]>;
-    /** Folded text of the id and the short strings in top-level fields, for search. */
+    /** Case- and accent-folded text of the id and the short strings in top-level fields, used for search. */
     search: string;
 };
 
-/** Longest string treated as a value (filters, groups) or searched: titles, slugs, choices. */
+/** The longest string treated as a value (for filters and groups) or searched, such as titles, slugs and choices. */
 const MAX_VALUE_LENGTH = 200;
 const MAX_SEARCH_LENGTH = 500;
 
-/** Lower case without accents, for search and text sorts. */
+/** Lowercases and removes accents, for search and text sorting. */
 export function fold(value: unknown): string {
     if (value == null) return '';
     return String(value)
@@ -30,7 +30,7 @@ export function fold(value: unknown): string {
         .toLowerCase();
 }
 
-/** A published entry with saves made after publishing. */
+/** A published entry that has been saved again since it was published. */
 export function hasUnpublishedEdits(entry: Entry): boolean {
     const a = entry.meta?.audit;
     return (
@@ -41,7 +41,7 @@ export function hasUnpublishedEdits(entry: Entry): boolean {
     );
 }
 
-/** A scalar or `{ id }` reference as a filter value; undefined for anything else. */
+/** Converts a scalar or an `{ id }` reference to a filter value. Returns undefined for anything else. */
 function asValue(v: unknown): string | undefined {
     if (typeof v === 'string') return v !== '' && v.length <= MAX_VALUE_LENGTH ? v : undefined;
     if (typeof v === 'number' || typeof v === 'boolean') return String(v);
@@ -61,7 +61,7 @@ export function listFacts(entry: Entry): ListFacts {
             }
             continue;
         }
-        // `{ id }` is a reference, even though "id" also looks like a locale code (Indonesian).
+        // `{ id }` is a reference, even though "id" is also a valid locale code (Indonesian).
         const reference = isPlainObject(raw) && Object.keys(raw).length === 1 && 'id' in raw;
         if (!reference && isLikelyLocaleStringMap(raw)) {
             for (const [locale, s] of Object.entries(raw)) {
@@ -84,14 +84,14 @@ export function listFacts(entry: Entry): ListFacts {
     return { values, locales, search: fold(text.join('\n')) };
 }
 
-/** The words of a search, folded; an entry matches when its text holds every one. */
+/** Splits a search into folded words. An entry matches when its text contains every word. */
 export function searchTerms(search: string | undefined): string[] {
     return fold(search ?? '')
         .split(/\s+/)
         .filter(Boolean);
 }
 
-/** A field's text for sorting: the locale's text, else the first non-empty language, else ''. */
+/** A field's text for sorting: the text for the locale, else the first non-empty language, else ''. */
 export function sortText(entry: Entry, key: string, locale?: string): string {
     const raw = entry.data?.[key];
     if (isPlainObject(raw)) {
@@ -104,7 +104,7 @@ export function sortText(entry: Entry, key: string, locale?: string): string {
     return '';
 }
 
-/** Only the requested data fields, keeping the entry's identity, status and meta. */
+/** Keeps only the requested data fields, plus the entry's identity, status and meta. */
 export function project(entry: Entry, fields: string[] | undefined): Entry {
     if (!fields) return entry;
     const data: Record<string, unknown> = {};
@@ -129,7 +129,7 @@ function lacksLocale(e: Indexed, field: string, locale: string): boolean {
     return !e.facts.locales.some(([f, l]) => f === field && l === locale);
 }
 
-/** Every condition of the query, optionally leaving one filter key or `missing` out. */
+/** Returns every condition of the query, optionally leaving out one filter key or `missing`. */
 function matcher(
     query: EntryQuery,
     skip?: { filter?: string; missing?: boolean }
@@ -167,7 +167,7 @@ export function applyQuery(entries: Entry[], query: EntryQuery): EntryQueryResul
         compare = (a, b) => {
             const av = sortText(a.entry, key, locale);
             const bv = sortText(b.entry, key, locale);
-            // Empty values last whatever the direction.
+            // Empty values always sort last, whatever the direction.
             if (!av !== !bv) return av ? -1 : 1;
             if (av !== bv) return av < bv ? -sign : sign;
             return byId(a, b);
@@ -178,14 +178,14 @@ export function applyQuery(entries: Entry[], query: EntryQuery): EntryQueryResul
             const av = sortValue(a.entry, field);
             const bv = sortValue(b.entry, field);
             if (av !== bv) return av < bv ? -sign : sign;
-            // Ties break on id, in the same direction (lets SQL adapters sort from an index).
+            // Ties are broken by id in the same direction, so SQL adapters can sort from an index.
             return byId(a, b);
         };
     }
 
     if (query.group) {
         const { key, order = [] } = query.group;
-        // [position in order (unlisted values after, no value last), first unlisted value].
+        // Group rank as [position in `order` (unlisted values after, no value last), first unlisted value].
         const rank = (e: Indexed): [number, string] => {
             const values = [...(e.values.get(key) ?? [])];
             if (values.length === 0) return [order.length + 1, ''];

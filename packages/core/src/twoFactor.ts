@@ -66,7 +66,7 @@ export function hasTwoFactor(user: Pick<User, 'twoFactor'>): boolean {
     return Boolean(user.twoFactor?.secret);
 }
 
-/** Start setting it up: a new secret to scan, kept aside until a first code confirms it. */
+/** Starts two-step setup: creates a secret to scan and holds it until a first code confirms it. */
 export async function beginTwoFactor(userId: string): Promise<{ secret: string; otpauth: string }> {
     assertCanSeal();
     const user = person(userId);
@@ -79,7 +79,7 @@ export async function beginTwoFactor(userId: string): Promise<{ secret: string; 
     return { secret, otpauth: otpauthUri(user.email, secret) };
 }
 
-/** Turn it on with a first code from the app. Returns the recovery codes, shown once. */
+/** Turns two-step sign-in on after a first code from the app. Returns the recovery codes, which are shown once. */
 export async function enableTwoFactor(
     userId: string,
     code: string
@@ -136,7 +136,7 @@ async function proveSecondFactor(userId: string, code: string): Promise<'app' | 
     return proved;
 }
 
-/** Turn it off, with a code (or a recovery code): a stolen session alone can't. */
+/** Turns two-step sign-in off. It requires a code or recovery code, so a stolen session alone cannot do it. */
 export async function disableTwoFactor(userId: string, code: string): Promise<void> {
     if (!hasTwoFactor(person(userId))) return;
     if (!(await proveSecondFactor(userId, code)))
@@ -147,7 +147,7 @@ export async function disableTwoFactor(userId: string, code: string): Promise<vo
     });
 }
 
-/** New recovery codes (the old ones stop working), with a code. */
+/** Replaces the recovery codes (the old ones stop working). It requires a valid code. */
 export async function renewRecoveryCodes(
     userId: string,
     code: string

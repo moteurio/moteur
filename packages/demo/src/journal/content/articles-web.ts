@@ -4,7 +4,7 @@ import { who } from '../team.js';
 import { b } from './blocks.js';
 import { article } from './articles-issues.js';
 
-/** The special issue in preparation, and articles published on the web only. */
+/** The special issue that is in preparation, and the articles published only on the web. */
 
 const HS = 'hors-serie-signal';
 

@@ -14,10 +14,10 @@ import { requireProjectAdmin } from '../middlewares/auth.js';
 import { queryFlag } from '../utils/queryFlag.js';
 import { sendApiError } from '../utils/apiError.js';
 
-// Imports and exports touch the whole project, schemas included: its admins'.
+// Imports and exports affect the whole project, including its schemas, so only project admins may use them.
 const router: Router = Router({ mergeParams: true });
 
-/** How long a request waits for its import before answering 202 with the job to follow. */
+/** Returns how long, in milliseconds, a request waits for its import before responding 202 with the job to poll. */
 function waitOf(req: Request): number {
     const asked = Number(req.query.wait);
     return Number.isFinite(asked) ? Math.min(Math.max(asked, 0), 60) * 1000 : 20_000;

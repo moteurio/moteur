@@ -12,19 +12,19 @@ export function assertCanWrite(user: User): void {
     if (!canWrite(user)) throw contentForbidden('You cannot change content in this project.');
 }
 
-/** Menus are live as saved: content leads (admins too) and builders change them. */
+/** Menus go live as soon as they are saved, so only content leads, admins and builders may change them. */
 export function assertCanEditMenus(user: User): void {
     if (!hasRole(user, 'lead') && !hasRole(user, 'builder'))
         throw contentForbidden('Only a content lead, an admin or a builder can change menus.');
 }
 
-/** What only a content lead (or an admin) does: delete for good, media setup, others' notes. */
+/** Actions reserved to content leads and admins: permanent deletion, media setup, and managing other people's comments. */
 export function assertContentLead(user: User, doing: string): void {
     if (!hasRole(user, 'lead'))
         throw contentForbidden(`Only a content lead or an admin can ${doing}.`);
 }
 
-/** What changes the whole project at once (its schemas, a bundle of everything): its admins. */
+/** Actions that change the whole project at once, such as its schemas or a full bundle. Admins only. */
 export function assertProjectAdmin(user: User, doing: string): void {
     if (!hasRole(user, 'admin')) throw contentForbidden(`Only the project's admins can ${doing}.`);
 }
@@ -48,7 +48,7 @@ export function assertNotReviewOnly(user: User, doing: string): void {
         throw contentForbidden(`An agent can't ${doing}: a person does that.`);
 }
 
-/** Form submissions hold what visitors wrote about themselves: the project's writers read them. */
+/** Form submissions contain personal data from visitors, so only users who can write content may read them. */
 export function assertCanReadSubmissions(user: User): void {
     if (!canWrite(user))
         throw contentForbidden("Form submissions are for the project's writers and admins.");
@@ -60,7 +60,7 @@ function isPlain(v: unknown): v is Record<string, unknown> {
     return v !== null && typeof v === 'object' && !Array.isArray(v);
 }
 
-/** A locale map: every key is one of the project's languages, every value is text. */
+/** True for a locale map: every key is a project language and every value is a string. */
 function asLocaleMap(v: unknown, locales: Set<string>): Record<string, string> | undefined {
     if (!isPlain(v)) return undefined;
     const keys = Object.keys(v);

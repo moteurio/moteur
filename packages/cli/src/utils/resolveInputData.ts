@@ -4,7 +4,7 @@ import path from 'path';
 export interface ResolveInputDataOptions {
     file?: string;
     data?: string;
-    /** If true, read JSON from stdin when neither file nor data provided (and when !process.stdin.isTTY). */
+    /** Reads JSON from stdin when neither a file nor inline data is given and stdin is not a terminal. */
     stdin?: boolean;
     allowEmpty?: boolean;
 }
@@ -15,8 +15,8 @@ function shouldReadStdin(args: ResolveInputDataOptions): boolean {
 }
 
 /**
- * Resolve JSON body from --file=path, --data='...', or stdin.
- * Returns empty object if no source and allowEmpty; otherwise throws with a friendly message.
+ * Resolves the JSON body from --file=path, --data='...' or stdin. When there is no source it
+ * returns an empty object if `allowEmpty` is set, and otherwise throws an error with a readable message.
  */
 export async function resolveInputData(
     args: ResolveInputDataOptions & { allowEmpty?: boolean }
@@ -68,7 +68,9 @@ export async function resolveInputData(
 }
 
 /**
- * Convenience: get JSON body from args (--file, --data, or stdin when piping). Returns null when no input and interactive (so caller can wizard or use inline).
+ * Gets the JSON body from the arguments (--file, --data, or stdin when input is piped). Returns
+ * null when there is no input and the session is interactive, so the caller can prompt for values
+ * or use inline arguments instead.
  */
 export async function getBodyFromArgs(
     args: Record<string, unknown>
@@ -88,7 +90,8 @@ export async function getBodyFromArgs(
 }
 
 /**
- * Sync version for file/data only (no stdin). Use when you need sync and don't support stdin.
+ * Synchronous variant that reads only --file and --data, never stdin. Use it where an async call is
+ * not possible.
  */
 export function resolveInputDataSync(args: {
     file?: string;

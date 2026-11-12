@@ -1,24 +1,27 @@
 /**
- * Who a person is in the Studio. Roles are stored on the user (account roles) and may be set again
- * per project (`ProjectSchema.memberRoles`), which then replace the account roles in that project.
- * A higher role is not also stored as the roles it implies.
+ * The roles a user can hold. Roles are stored on the user (account roles) and can be overridden
+ * per project through `ProjectSchema.memberRoles`; a project's roles for a user replace the
+ * account roles within that project. A role that implies other roles is stored on its own, without
+ * the roles it implies.
  *
- * Each role looks after one part of a project:
- * - Writer writes and asks for review; Translator edits translations only.
- * - Reviewer approves reviews. Content lead (`lead`) also publishes without review, deletes for
- *   good from the bins, sets up media and edits menus.
- * - Builder shapes the project: models, blocks, templates, layouts, structures, forms and menus.
- * - Admin runs the project: its settings, people and invites, imports and exports.
- * - Developer connects it: API channels, keys, webhooks, branches and its Git remote.
- * - Billing pays for it.
+ * Each role covers one area of a project:
+ * - Writer creates content and requests review. Translator edits translations only.
+ * - Reviewer approves reviews. Content lead (`lead`) can also publish without review, permanently
+ *   delete items from the bins, configure media and edit navigations.
+ * - Builder defines the project structure: models, blocks, templates, layouts, structures, forms
+ *   and navigations.
+ * - Admin manages the project: its settings, members and invites, imports and exports.
+ * - Developer manages integrations: API channels, keys, webhooks, branches and the Git remote.
+ * - Billing manages payment for the project.
  *
- * What a role implies: Reviewer and Builder imply Writer; Content lead implies Reviewer; Admin
- * implies Content lead; Developer implies Builder. Admin and Developer are apart, so a developer
- * shapes a client's site without running its team. Translator and Billing imply nothing. Roles
- * are always stored: an account made without any is stored as a Writer.
+ * Implied roles: Reviewer and Builder imply Writer; Content lead implies Reviewer; Admin implies
+ * Content lead; Developer implies Builder. Admin and Developer do not imply each other, so a
+ * developer can build a client's site without managing its team. Translator and Billing imply
+ * nothing. A user always has at least one stored role: an account created without any is stored
+ * as Writer.
  *
- * No role, on an account or in a project, reaches beyond the projects someone belongs to. Running
- * the whole server is for operators, who are not users (see @moteurio/core/operators).
+ * No role, on an account or in a project, grants access beyond the projects a user belongs to.
+ * Server-wide administration belongs to operators, who are not users (see @moteurio/core/operators).
  */
 export const ROLE_SLUGS = [
     'writer',
@@ -33,20 +36,21 @@ export const ROLE_SLUGS = [
 
 export type RoleSlug = (typeof ROLE_SLUGS)[number];
 
+import { runsWorkspace, workspaceProjectRoles } from './Workspace.js';
+
 type WithRoles =
     | { roles?: readonly string[] | null; agent?: { reviewOnly?: boolean } | null }
     | null
     | undefined;
-type WithMemberRoles =
-    { memberRoles?: Record<string, readonly string[]> | null } | null | undefined;
 
 /**
- * Roles the person who creates a project gets on it: they run it, pay for it, and connect its
- * site (often alone, on day one). They can hand any of these to someone else later.
+ * Roles granted to the user who creates a project: they manage it, pay for it and manage its
+ * integrations, which is often all one person does at first. They can assign any of these roles to
+ * other members later.
  */
 export const PROJECT_CREATOR_ROLES: readonly RoleSlug[] = ['admin', 'billing', 'developer'];
 
-/** The roles each role brings along (one step; `hasRole` follows them all the way). */
+/** The roles each role directly implies. `hasRole` follows these transitively. */
 const IMPLIES: Record<RoleSlug, readonly RoleSlug[]> = {
     writer: [],
     translator: [],
@@ -58,7 +62,7 @@ const IMPLIES: Record<RoleSlug, readonly RoleSlug[]> = {
     developer: ['builder']
 };
 
-/** `role` and every role it implies. */
+/** Returns `role` and every role it implies, directly or indirectly. */
 function withImplied(role: string): string[] {
     const out = [role];
     for (let i = 0; i < out.length; i++)
@@ -71,59 +75,98 @@ function storedRoles(user: WithRoles): string[] {
     return Array.isArray(user?.roles) ? user.roles.filter(r => typeof r === 'string') : [];
 }
 
-/** Project roles for the person creating a project: their Studio roles, plus Admin and Billing. */
+/** Returns the project roles for a user creating a project: their valid account roles plus `PROJECT_CREATOR_ROLES`. */
 export function creatorRoles(user: WithRoles): string[] {
     const own = storedRoles(user).filter(r => (ROLE_SLUGS as readonly string[]).includes(r));
     return [...new Set([...own, ...PROJECT_CREATOR_ROLES])];
 }
 
-/** The roles `user` has in `project`: those set on the project for them, else their account's. */
+type InWorkspace = Parameters<typeof workspaceProjectRoles>[0];
+
+/** The parts of a project that role resolution reads: per-user role overrides and the member list. */
+type ProjectLike =
+    | { memberRoles?: Record<string, readonly string[]> | null; users?: readonly string[] | null }
+    | null
+    | undefined;
+
+/**
+ * Returns the roles `user` has in `project`. The first source that applies wins: the roles the
+ * project sets for the user, then the roles the project's workspace grants (pass the project's
+ * workspace), then the user's account roles. A workspace Owner or Admin keeps their workspace
+ * roles in the project in addition to any roles the project sets.
+ */
 export function rolesInProject(
     user: (WithRoles & { id?: string }) | null | undefined,
-    project: WithMemberRoles
+    project: ProjectLike,
+    workspace?: InWorkspace
 ): string[] {
+    const fromWorkspace = workspaceProjectRoles(workspace, user?.id);
     const own = user?.id ? project?.memberRoles?.[user.id] : undefined;
-    return Array.isArray(own) ? own.filter(r => typeof r === 'string') : storedRoles(user);
+    const set = Array.isArray(own) ? own.filter(r => typeof r === 'string') : undefined;
+    if (set && fromWorkspace && runsWorkspace(workspace?.members?.[user!.id!]?.role))
+        return [...new Set([...set, ...fromWorkspace])];
+    if (set) return set;
+    if (fromWorkspace) return fromWorkspace;
+    return storedRoles(user);
 }
 
-/** `user` as they are in `project`: the same person, with their roles there. */
+/** Returns a copy of `user` whose `roles` are the roles they have in `project` (and its workspace). Returns `user` unchanged when neither overrides their roles. */
 export function inProject<T extends { id: string; roles?: readonly string[] | null }>(
     user: T,
-    project: WithMemberRoles
+    project: ProjectLike,
+    workspace?: InWorkspace
 ): T {
     const own = project?.memberRoles?.[user.id];
-    return Array.isArray(own) ? { ...user, roles: rolesInProject(user, project) } : user;
+    const fromWorkspace = workspaceProjectRoles(workspace, user.id);
+    return Array.isArray(own) || fromWorkspace
+        ? { ...user, roles: rolesInProject(user, project, workspace) }
+        : user;
 }
 
-/** Whether this person has `role`, counting what a stored role implies. */
+/**
+ * True when `userId` is listed on the project (including guests), or is a workspace member whose
+ * workspace access covers every project.
+ */
+export function isInProject(
+    userId: string | undefined,
+    project: { users?: readonly string[] | null } | null | undefined,
+    workspace?: InWorkspace
+): boolean {
+    if (!userId) return false;
+    if (Array.isArray(project?.users) && project.users.includes(userId)) return true;
+    return workspaceProjectRoles(workspace, userId) !== null;
+}
+
+/** True when the user has `role`, either stored directly or implied by another stored role. */
 export function hasRole(user: WithRoles, role: string): boolean {
     return storedRoles(user).some(stored => withImplied(stored).includes(role));
 }
 
-/** Create and edit entries and pages in every language. */
+/** True when the user can create and edit entries and pages in every locale. */
 export function canWrite(user: WithRoles): boolean {
     return hasRole(user, 'writer');
 }
 
-/** Edit translations. Anyone who can write can also translate. */
+/** True when the user can edit translations. Users who can write can also translate. */
 export function canTranslate(user: WithRoles): boolean {
     return hasRole(user, 'translator') || canWrite(user);
 }
 
-/** A translator who cannot otherwise edit. The wider role wins when both are stored. */
+/** True when the user is a translator without write access. When both roles are stored, the Writer role takes precedence. */
 export function translatorOnly(user: WithRoles): boolean {
     return hasRole(user, 'translator') && !canWrite(user);
 }
 
-/** Approve and reject reviews. A review-only agent never can: approving is a person's call. */
+/** True when the user can approve and reject reviews. Review-only agents never can, because approval requires a person. */
 export function canReview(user: WithRoles): boolean {
     if (user?.agent?.reviewOnly) return false;
     return hasRole(user, 'reviewer');
 }
 
 /**
- * Whether this person needs an approved review to publish: when the project asks for reviews
- * (content leads and admins excepted), and always for a review-only agent.
+ * True when the user needs an approved review before publishing. This applies when the project
+ * requires reviews (users with the Content lead role, which Admin implies, are exempt), and always
+ * for a review-only agent.
  */
 export function needsApproval(
     user: WithRoles,
@@ -137,7 +180,7 @@ export function needsApproval(
     );
 }
 
-/** Why publishing was refused, for `needsApproval`. */
+/** Returns the error message explaining why publishing was refused when `needsApproval` is true. */
 export function approvalMessage(
     user: WithRoles,
     project: { workflow?: { enabled?: boolean } | null } | null | undefined
@@ -150,14 +193,14 @@ export function approvalMessage(
         : 'Changes made by an agent go live when a person publishes them: the draft is saved.';
 }
 
-/** See and change how a project is paid for. Admin does not imply it. */
+/** True when the user can view and change a project's billing. The Admin role does not imply it. */
 export function canManageBilling(user: WithRoles): boolean {
     return hasRole(user, 'billing');
 }
 
 /**
- * Roles to store. An empty list becomes Writer. Does not remove a role that another implies:
- * callers decide what to persist.
+ * Returns the roles to store. An empty list becomes `['writer']`. Roles that another listed role
+ * implies are kept; callers decide whether to drop them.
  */
 export function normalizeStoredRoles(roles: readonly string[] | null | undefined): string[] {
     const list = (roles ?? []).filter(r => typeof r === 'string' && r.trim() !== '');

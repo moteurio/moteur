@@ -14,14 +14,14 @@ export async function validateEntry(
         allowHtmlIframe?: boolean;
         allowHtmlEmbed?: boolean;
         /**
-         * The entry is a draft (not live): a missing required field is a warning, not an error.
-         * Review and publishing check them (assertEntryComplete).
+         * The entry is a draft (not live), so a missing required field is a warning, not an error.
+         * Review and publishing enforce required fields (see assertEntryComplete).
          */
         draft?: boolean;
     }
 ): Promise<ValidationResult> {
     const pathPrefix = `models/${schema.id}/entries/${entry.id}.data`;
-    // Read once: structure fields at any depth look their schema up here.
+    // Load the structures once. Structure fields at any depth look up their schema here.
     const structures = await listStructures(projectId);
     const fieldOpts = {
         projectId,

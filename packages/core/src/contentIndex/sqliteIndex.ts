@@ -2,7 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import type { DatabaseSync, StatementSync, SQLInputValue } from 'node:sqlite';
 import type { Entry } from '@moteurio/types/Model.js';
-import { projectDir, workspaceDir } from '../utils/pathUtils.js';
+import { projectDir, stateDir } from '../utils/pathUtils.js';
 import { entryKey } from '../utils/storageKeys.js';
 import {
     listEntryFiles,
@@ -30,7 +30,7 @@ import { usesListFeatures } from './types.js';
 
 type DatabaseConstructor = typeof DatabaseSync;
 
-/** Bump when the table layout, or what a row holds, changes: an index with another version is rebuilt from scratch. */
+/** Increase this when the table layout or the contents of a row change. An index with a different version is rebuilt from scratch. */
 const SCHEMA_VERSION = '5';
 
 const SCHEMA = `
@@ -126,14 +126,14 @@ type ProjectIndex = {
     addLocale: StatementSync;
     /** Serializes writes and re-checks for one project. */
     tail: Promise<unknown>;
-    /** When it was last used, and what's queued on it: idle ones are closed (idleIndexes.ts). */
+    /** When the index was last used and what is queued on it. Idle indexes are closed (see idleIndexes.ts). */
     used: number;
     pending: number;
     checked: boolean;
     dirty: boolean;
     lastCheck: number;
     background: Promise<unknown> | null;
-    /** Snapshots recorded by publishEntry, consumed by the following write. */
+    /** Snapshots recorded by publishEntry, consumed by the next write. */
     snapshots: Map<string, string>;
 };
 
@@ -167,7 +167,7 @@ function rowFor(
     };
 }
 
-/** Replace an entry's row and its list facts. Call inside serialize (and a transaction for many). */
+/** Replaces an entry's row and its list facts. Call inside serialize (and inside a transaction when writing many). */
 function writeEntry(
     p: ProjectIndex,
     modelId: string,
@@ -186,14 +186,14 @@ function writeEntry(
 
 const PLACEHOLDERS = (n: number) => Array.from({ length: n }, () => '?').join(', ');
 
-/** A JSON path to a top-level data field (and a locale), passed as a parameter, never spliced. */
+/** A JSON path to a top-level data field (and a locale). It is passed as a query parameter and never interpolated into SQL. */
 const dataPath = (key: string, locale?: string) =>
     `$.data.${JSON.stringify(key)}${locale ? `.${JSON.stringify(locale)}` : ''}`;
 
 /**
  * One SQLite database per project at `.moteur/cache/content-index.sqlite`, holding a copy of
  * every entry plus its public version. Entry files stay the source of truth: the database is
- * gitignored, excluded from workspace snapshots, and rebuilt from the files when missing,
+ * gitignored, excluded from state snapshots, and rebuilt from the files when missing,
  * outdated or corrupt.
  *
  * Writes made through core update the index immediately. Changes made outside the server
@@ -227,7 +227,7 @@ export class SqliteIndex implements ContentIndex {
         }
         if (query.status?.length === 0) return { items: [], total: 0 };
 
-        // Conditions as SQL fragments with their parameters, so counts can leave one out.
+        // Build the conditions as SQL fragments with their parameters, so counts can leave one out.
         type Cond = { sql: string; params: SQLInputValue[]; filter?: string; missing?: true };
         const conds: Cond[] = [{ sql: 'model_id = ?', params: [modelId] }];
         if (published) conds.push({ sql: "pub_status != 'unavailable'", params: [] });
@@ -267,7 +267,7 @@ export class SqliteIndex implements ContentIndex {
         };
         const where = whereOf(() => true);
 
-        // Order: group rank, then the sort, then id.
+        // Sort by group rank, then by the requested sort, then by id.
         const orderParts: string[] = [];
         const orderParams: SQLInputValue[] = [];
         if (query.group) {
@@ -293,7 +293,7 @@ export class SqliteIndex implements ContentIndex {
               WHEN 'real' THEN json_extract(json, ?) ELSE '' END)`;
             const path = dataPath(sort.key);
             const localePath = sort.locale ? dataPath(sort.key, sort.locale) : '$.__none__';
-            // Empty values last whatever the direction.
+            // Empty values always sort last, whatever the direction.
             orderParts.push(`(${text}) = ''`, `${text} ${dir}`, `id ${dir}`);
             const textParams = [path, localePath, path, path, path, path];
             orderParams.push(...textParams, ...textParams);
@@ -386,7 +386,7 @@ export class SqliteIndex implements ContentIndex {
         await this.serialize(p, async () => {
             const file = path.join(p.dir, entryKey(modelId, entryId));
             const stat = statEntryFile(file);
-            if (!stat) return; // removed meanwhile; the next re-check drops the row
+            if (!stat) return; // The file was removed in the meantime; the next re-check drops the row.
             const [published] = await this.publishedVersions(p, projectId, [
                 { modelId, entryId, entry }
             ]);
@@ -454,7 +454,7 @@ export class SqliteIndex implements ContentIndex {
 
     // -- internals ----------------------------------------------------------
 
-    /** Open the project's index, re-checking files first when needed. */
+    /** Opens the project's index, re-checking the files first when needed. */
     private async fresh(projectId: string): Promise<ProjectIndex | null> {
         const p = this.open(projectId, { create: true });
         if (!p) return null;
@@ -488,7 +488,7 @@ export class SqliteIndex implements ContentIndex {
     private open(projectId: string, options?: { create?: boolean }): ProjectIndex | null {
         const dir = projectDir(projectId);
         const existing = this.projects.get(dir);
-        const dbFile = path.join(workspaceDir(projectId), 'cache', 'content-index.sqlite');
+        const dbFile = path.join(stateDir(projectId), 'cache', 'content-index.sqlite');
         if (existing) {
             let inode = -1;
             try {
@@ -508,7 +508,7 @@ export class SqliteIndex implements ContentIndex {
         try {
             db = this.connect(dbFile);
         } catch (err) {
-            // Corrupt or unreadable: the index is only a cache, start over.
+            // The database is corrupt or unreadable. It is only a cache, so rebuild it.
             console.warn(
                 `[Moteur] Rebuilding content index for project "${projectId}":`,
                 err instanceof Error ? err.message : err
@@ -582,7 +582,7 @@ export class SqliteIndex implements ContentIndex {
                     return undefined;
                 }
             })();
-            // Text sorts and search ignore case and accents the same way as listQuery.ts.
+            // Text sorts and search ignore case and accents in the same way as listQuery.ts.
             db.function('moteur_fold', { deterministic: true }, (v: unknown) => fold(v));
             if (version !== SCHEMA_VERSION) {
                 db.exec(
@@ -646,7 +646,7 @@ export class SqliteIndex implements ContentIndex {
             const snapshots = await readPublishedSnapshots(projectId, fromGit);
             for (const w of fromGit) {
                 const snapshot = snapshots.get(`${w.commit}:${entryKey(w.modelId, w.entryId)}`);
-                // Missing snapshots are excluded from published queries by rowFor.
+                // rowFor excludes entries with missing snapshots from published queries.
                 if (snapshot) {
                     result[w.index] = {
                         entry: snapshot,
@@ -659,7 +659,7 @@ export class SqliteIndex implements ContentIndex {
         return result;
     }
 
-    /** Compare every entry file with the index and update what changed. */
+    /** Compares every entry file with the index and updates the rows that changed. */
     private async reconcile(
         p: ProjectIndex,
         projectId: string,

@@ -14,9 +14,10 @@ import { requireAuth } from '../middlewares/auth.js';
 import { sendApiError } from '../utils/apiError.js';
 
 /**
- * What a person chose for the mail the server sends them (look, language, notification emails),
- * and the unsubscribe link in those emails: a page with one button, and the one-click POST mail
- * apps send (RFC 8058). A GET alone changes nothing, so link scanners can't unsubscribe anyone.
+ * A user's preferences for the mail the server sends them (look, language, notification emails),
+ * and the unsubscribe link in those emails. The link opens a page with one button, and mail apps
+ * can also send a one-click POST (RFC 8058). A GET alone changes nothing, so link scanners
+ * cannot unsubscribe anyone.
  */
 const router: Router = Router();
 
@@ -46,7 +47,7 @@ const params = (req: Request) => {
     };
 };
 
-/** A page with one button; nothing changes until it is pressed. */
+/** Renders a page with one button. Nothing changes until the button is pressed. */
 router.get('/email/unsubscribe', (req: Request, res: Response) => {
     res.setHeader('Cache-Control', 'no-store');
     const { u, t, s } = params(req);
@@ -74,7 +75,7 @@ router.get('/email/unsubscribe', (req: Request, res: Response) => {
     );
 });
 
-/** The button, and mail apps' one-click unsubscribe (body `List-Unsubscribe=One-Click`). */
+/** Handles the button press and the one-click unsubscribe POST from mail apps (body `List-Unsubscribe=One-Click`). */
 router.post(
     '/email/unsubscribe',
     express.urlencoded({ extended: false, limit: '4kb' }),
@@ -86,7 +87,7 @@ router.post(
             const user = await setEmailTopic(u, t as EmailTopic, false);
             const fr = (user.preferences?.locale ?? resolveEmailSettings().locale).startsWith('fr');
             const what = TOPIC_WORDS[t as EmailTopic][fr ? 'fr' : 'en'];
-            // A browser pressing the button gets a page; a mail app's one-click POST, JSON.
+            // Browsers get an HTML page; a mail app's one-click POST gets JSON.
             if (req.headers.accept?.includes('text/html'))
                 return void res.send(
                     page(

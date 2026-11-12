@@ -32,7 +32,8 @@ const DELIVERY_LOG_MAX = 500;
 const REQUEST_TIMEOUT_MS = 10_000;
 const RESPONSE_BODY_MAX_CHARS = 1000;
 
-// Retry delays in ms: index N = delay before (N+1)th attempt. Attempt 2: 30s, 3: 5min, 4: 30min, 5: 2hr; after 5 = stop
+// Retry delays in ms. Index N is the delay before attempt N+1: attempt 2 after 30 s, attempt 3 after
+// 5 min, attempt 4 after 30 min, attempt 5 after 2 h. There are no attempts after the fifth.
 const RETRY_DELAYS_MS: number[] = [0, 30_000, 300_000, 1_800_000, 7_200_000];
 const MAX_ATTEMPTS = 5;
 
@@ -87,7 +88,7 @@ function validateEvents(events: WebhookEvent[] | undefined): void {
 
 const DEFAULT_BATCH_SECONDS = 30;
 
-/** A deploy hook's kind and wait: a known kind, and 0 to 600 seconds. */
+/** Validates a deploy hook's kind and wait: the kind must be a known one, and the wait 0 to 600 seconds. */
 function validateKind(kind: unknown, batchSeconds: unknown): void {
     if (kind !== undefined && kind !== 'webhook' && kind !== 'deploy')
         throw new Error('kind must be "webhook" or "deploy"');
@@ -149,7 +150,8 @@ export function evaluateFilters(
             default:
                 continue;
         }
-        // If the field doesn't exist on the data, the filter passes (permissive for inapplicable fields).
+        // If the field doesn't exist on the data, the filter passes, so filters on inapplicable
+        // fields don't block delivery.
         if (value === undefined || value === null) continue;
 
         let fv: string | string[] = filter.value;
@@ -209,7 +211,7 @@ async function appendDeliveryAndTrimUnlocked(
     await putProjectJson(projectId, WEBHOOK_LOG_KEY, trimmed);
 }
 
-/** Append multiple deliveries in one read-modify-write to avoid races when dispatching to several webhooks. */
+/** Appends multiple deliveries in one read-modify-write, to avoid races when dispatching to several webhooks. */
 async function appendDeliveriesAndTrim(
     projectId: string,
     newDeliveries: WebhookDelivery[],
@@ -221,8 +223,9 @@ async function appendDeliveriesAndTrim(
 }
 
 /**
- * Append what isn't already waiting: a webhook in `batched` (a deploy hook) whose call hasn't gone
- * out yet takes no second one, since that build will include this change. Returns what was added.
+ * Appends only the deliveries that aren't already waiting. A webhook in `batched` (a deploy
+ * hook) whose call hasn't been sent yet gets no second delivery, because that build will include
+ * this change. Returns the deliveries that were added.
  */
 async function appendDeliveriesAndTrimUnlocked(
     projectId: string,
@@ -282,7 +285,7 @@ export async function createWebhook(
     projectId: string,
     user: string,
     data: {
-        /** Default: "Rebuild the site" for a deploy hook, else the address's host. */
+        /** Default: "Rebuild the site" for a deploy hook, otherwise the URL's host. */
         name?: string;
         url: string;
         secret?: string;
@@ -303,7 +306,7 @@ async function createWebhookUnlocked(
     projectId: string,
     user: string,
     data: {
-        /** Default: "Rebuild the site" for a deploy hook, else the address's host. */
+        /** Default: "Rebuild the site" for a deploy hook, otherwise the URL's host. */
         name?: string;
         url: string;
         secret?: string;
@@ -335,7 +338,8 @@ async function createWebhookUnlocked(
         }),
         url: data.url.trim(),
         secret: encryptedSecret,
-        // A build for what goes live, not for every note or form letter.
+        // A deploy hook defaults to events that change the live site, not to every note or form
+        // submission.
         events: data.events?.length ? data.events : deploy ? [...DEPLOY_EVENTS] : [],
         filters: data.filters ?? [],
         headers: data.headers ?? {},
@@ -349,7 +353,7 @@ async function createWebhookUnlocked(
     list.push(webhook);
     await saveWebhooks(projectId, list);
 
-    // Return with plaintext secret visible once
+    // Return the plaintext secret here; it is shown only once.
     return { ...webhook, secret };
 }
 
@@ -498,7 +502,8 @@ const activeDelivery = (delivery: WebhookDelivery) =>
     delivery.status === 'pending' || delivery.status === 'retrying';
 
 function retainDeliveries(deliveries: WebhookDelivery[]): WebhookDelivery[] {
-    // Terminal history can be trimmed. Pending work must survive a busy project's log rotation.
+    // Completed deliveries can be trimmed from the log, but pending ones must survive log rotation
+    // on a busy project.
     return [
         ...deliveries.filter(activeDelivery),
         ...deliveries.filter(d => !activeDelivery(d)).slice(0, DELIVERY_LOG_MAX)
@@ -553,7 +558,7 @@ function scheduleDelivery(delivery: WebhookDelivery, webhook: Webhook): void {
     deliveryTimers.set(key, timer);
 }
 
-/** Resume persisted pending/retrying records, including a lease left by a stopped process. */
+/** Resumes persisted pending and retrying deliveries, including those whose lease was left by a stopped process. */
 export function recoverWebhookDeliveries(): Promise<void> {
     recoveryTask ??= scanWebhookOutbox(deliveryEpoch).finally(() => {
         recoveryTask = undefined;
@@ -625,7 +630,8 @@ async function attemptDelivery(
         }));
         return;
     }
-    // Claim durably before sending. A crash consumes an attempt; its lease becomes due again.
+    // Record the claim on disk before sending. If the process crashes, the attempt counts as used
+    // and the lease expires so the delivery is retried.
     await updateDeliveryInLog(projectId, delivery.id, d => ({
         ...d,
         attemptCount: nextAttempt,
@@ -638,7 +644,7 @@ async function attemptDelivery(
     const signature = computeSignature(secret, rawBody);
     const timestamp = Math.floor(Date.now() / 1000).toString();
 
-    // Moteur signing headers must take precedence; merge custom headers first so ours overwrite
+    // Moteur's signing headers must take precedence, so merge the custom headers first and let ours overwrite them.
     const headers: Record<string, string> = {
         ...webhook.headers,
         'Content-Type': 'application/json',
@@ -684,7 +690,8 @@ async function attemptDelivery(
         return;
     }
 
-    // Failure: schedule retry or mark failed (delay before next attempt: index nextAttempt = 30s, 5min, 30min, 2hr)
+    // On failure, schedule a retry or mark the delivery failed. The delay is
+    // RETRY_DELAYS_MS[nextAttempt] (30 s, 5 min, 30 min, 2 h).
     const delayMs =
         nextAttempt < MAX_ATTEMPTS && nextAttempt < RETRY_DELAYS_MS.length
             ? RETRY_DELAYS_MS[nextAttempt]!
@@ -705,7 +712,8 @@ async function attemptDelivery(
     }));
 
     if (willRetry && delayMs > 0 && epoch === deliveryEpoch) {
-        // The persisted retry date survives restart; this timer only reduces local latency.
+        // The retry date is persisted and survives a restart. This timer only reduces latency while
+        // the process is running.
         const retry = setTimeout(() => {
             deliveryTimers.delete(`${projectId}:${delivery.id}`);
             scheduleDelivery({ ...delivery, nextRetryAt: new Date().toISOString() }, webhook);
@@ -724,7 +732,7 @@ export async function dispatch(
         source: 'studio' | 'api' | 'scheduler';
     }
 ): Promise<void> {
-    // Inside a batch (an import), events are held: the batch sends one summary instead.
+    // Inside a batch (such as an import), hold events and send one summary when the batch ends.
     const batch = batchFor(context.projectId);
     if (batch) {
         batch.held.set(event, (batch.held.get(event) ?? 0) + 1);
@@ -761,7 +769,7 @@ export async function dispatch(
                 status: 'pending',
                 attemptCount: 0,
                 createdAt: timestamp,
-                // A deploy hook waits for the rest of the changes, then builds once.
+                // A deploy hook waits for the remaining changes so the site is built once.
                 ...(deploy && {
                     nextRetryAt: new Date(
                         Date.now() + (webhook.batchSeconds ?? DEFAULT_BATCH_SECONDS) * 1000
@@ -832,7 +840,7 @@ export async function sendTestPing(projectId: string, webhookId: string): Promis
     await appendDeliveryAndTrim(projectId, delivery);
     scheduleDelivery(delivery, webhook);
 
-    // Wait for first attempt to complete (poll briefly)
+    // Wait for the first attempt to complete, polling briefly.
     const deadline = Date.now() + REQUEST_TIMEOUT_MS + 2000;
     while (Date.now() < deadline) {
         const list = await loadDeliveryLog(projectId);

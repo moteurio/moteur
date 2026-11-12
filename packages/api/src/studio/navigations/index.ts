@@ -194,6 +194,36 @@ export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
                 { name: 'projectId', in: 'path', required: true, schema: { type: 'string' } },
                 { name: 'id', in: 'path', required: true, schema: { type: 'string' } }
             ],
+            requestBody: {
+                required: true,
+                content: {
+                    'application/json': {
+                        schema: {
+                            type: 'object',
+                            description:
+                                'Only the fields sent change. `items` replaces the whole tree.',
+                            properties: {
+                                name: { type: 'string' },
+                                handle: {
+                                    type: 'string',
+                                    description:
+                                        'Lowercase letters, digits and hyphens; unique in the project'
+                                },
+                                type: { type: 'string', enum: ['menu', 'sitemap', 'custom'] },
+                                maxDepth: { type: 'integer' },
+                                itemSchema: {
+                                    type: 'array',
+                                    items: { $ref: '#/components/schemas/Field' }
+                                },
+                                items: {
+                                    type: 'array',
+                                    items: { type: 'object', additionalProperties: true }
+                                }
+                            }
+                        }
+                    }
+                }
+            },
             responses: {
                 '200': {
                     description: 'Navigation',

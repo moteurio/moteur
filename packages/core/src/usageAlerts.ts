@@ -6,7 +6,8 @@
  * send it again. Only allowances that exist count: without a plan, that's the AI credits'
  * monthly allowance (MOTEUR_AI_MONTHLY_CREDITS), unless it's unlimited.
  */
-import { rolesInProject } from '@moteurio/types';
+import { isInProject, rolesInProject } from '@moteurio/types';
+import { workspaceOf } from './workspaces.js';
 import type { User } from '@moteurio/types/User.js';
 import { emailUnavailable, sendTemplateEmail } from './emailNotifier.js';
 import { readerOf } from './email/render.js';
@@ -65,7 +66,7 @@ export function monthlyUsage(projectId: string, period = currentPeriod()): Month
     return out;
 }
 
-/** 100 once all of it is used, 80 from four fifths, else null. */
+/** Returns 100 when the allowance is fully used, 80 from 80% usage, otherwise null. */
 export function levelOf(used: number, limit: number): UsageLevel | null {
     if (used >= limit) return 100;
     if (used >= limit * 0.8) return 80;
@@ -78,13 +79,19 @@ function nextMonth(period: string): string {
     return new Date(Date.UTC(y, m, 1)).toISOString().slice(0, 10);
 }
 
-/** Who hears about a project's usage: its members with Billing or Admin who want these emails. */
-function recipients(project: { id: string; users?: string[] }): User[] {
-    return (project.users ?? [])
+/**
+ * Who hears about a project's usage: the people in it (its workspace's owners and billing among
+ * them) with Billing or Admin there, who want these emails.
+ */
+function recipients(project: { id: string; users?: string[]; workspaceId?: string }): User[] {
+    const workspace = workspaceOf(project);
+    const ids = new Set([...(project.users ?? []), ...Object.keys(workspace?.members ?? {})]);
+    return [...ids]
+        .filter(id => isInProject(id, project, workspace))
         .map(id => getUserById(id))
         .filter((u): u is User => !!u?.email && u.isActive !== false)
         .filter(u => {
-            const roles = rolesInProject(u, project as never);
+            const roles = rolesInProject(u, project as never, workspace);
             return roles.includes('billing') || roles.includes('admin');
         })
         .filter(u => wantsEmail(u, 'usage'));

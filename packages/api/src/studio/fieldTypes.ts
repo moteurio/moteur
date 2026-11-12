@@ -6,8 +6,8 @@ import { requireAuth } from '../middlewares/auth.js';
 const router: Router = Router();
 
 /**
- * Every field type the engine knows (core and plugins), with the options each one takes, so the
- * Studio can offer them when someone adds or edits a field. Validators and other code stay here.
+ * Lists every field type the engine knows (core and plugins), with the options each one takes, so
+ * admin clients can offer them when a field is added or edited. Validators and other code stay on the server.
  */
 router.get('/', requireAuth, (_req, res) => {
     const types = Object.values(fieldRegistry.all()).map(t => ({

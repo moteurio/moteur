@@ -1,6 +1,6 @@
-/** Small helpers for showing values, used by declarations' tables and by every caller. */
+/** Helpers that format values for display. Command table declarations and all callers use them. */
 
-/** `data.title.en` in a row. */
+/** Reads a nested value from a row by dotted path, for example `data.title.en`. */
 export function pathOf(row: unknown, dotted: string): unknown {
     return dotted
         .split('.')
@@ -11,7 +11,7 @@ export function pathOf(row: unknown, dotted: string): unknown {
         );
 }
 
-/** A value that may be a locale map, as one string (first non-empty language). */
+/** Converts a value that may be a locale map to one string, using the first non-empty language. */
 export function localized(value: unknown): string {
     if (value == null) return '';
     if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean')
@@ -26,8 +26,8 @@ export function localized(value: unknown): string {
 }
 
 /**
- * An error as one sentence: the API's message without the client's "…: PlanLimitError: …" details
- * and stack, or the message of anything else.
+ * Converts an error to one sentence. For an API error it returns the API's message without the
+ * client's "…: PlanLimitError: …" details and stack trace. For any other error it returns the message.
  */
 export function errorText(error: unknown): string {
     const message = error instanceof Error ? error.message : String(error);

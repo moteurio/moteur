@@ -13,7 +13,7 @@ function isMultilingual(options: Record<string, unknown> | undefined): boolean {
     return (options?.multilingual as boolean) === true;
 }
 
-/** Compare source vs target locale updatedAt; if we don't have per-locale audit we use entry-level. */
+/** Compares the source and target locale `updatedAt`, falling back to the entry-level value when there is no per-locale audit. */
 export const staleTranslation: RuleEvaluator = ({ entry, model, locales }) => {
     const violations: import('@moteurio/types/Radar.js').RadarViolation[] = [];
     const now = new Date().toISOString();

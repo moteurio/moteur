@@ -22,7 +22,7 @@ import { withProjectWriteLock } from '@moteurio/core/utils/projectWriteLock.js';
 
 const router: Router = Router({ mergeParams: true });
 
-// A shared branch can change live content outside the per-entry review workflow.
+// A shared branch can change live content without going through the per-entry review workflow.
 function requireBranchWrite(req: Request, res: Response, next: NextFunction) {
     requireDeveloper(req, res, () => {
         if (needsApproval(req.user, req.project)) {

@@ -1,4 +1,4 @@
-/** Read a string or locale map from block/field data. */
+/** Reads a string from block or field data that is either a plain string or a locale map. Uses the given locale if present, otherwise the first non-empty value. */
 export function readLocalizedString(value: unknown, locale?: string): string {
     if (typeof value === 'string') return value.trim();
     if (value && typeof value === 'object' && !Array.isArray(value)) {

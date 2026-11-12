@@ -7,7 +7,7 @@ import { readSecretsFile, writeSecretsFile } from './utils/secretsFile.js';
 
 /**
  * A project's Git token: what lets the server push to a private repository. It lives in the
- * workspace's secrets file (gitignored, never in a snapshot), encrypted with MOTEUR_ENCRYPTION_KEY,
+ * project state's secrets file (gitignored, never in a snapshot), encrypted with MOTEUR_ENCRYPTION_KEY,
  * and reaches Git only through the environment of each push: never the address, never git config.
  */
 type StoredToken = { token: string; username?: string; setAt: string; setBy?: string };
@@ -62,7 +62,7 @@ export function setGitToken(
             : undefined;
     if (username !== undefined && !USERNAME.test(username))
         throw refuse('The user name may hold letters, digits, ".", "_", "@" and "-" only.');
-    // A token that can write to a client's repository is never kept in clear on a real server.
+    // On a production server, never store a token that can write to a repository unencrypted.
     if (process.env.NODE_ENV === 'production' && !process.env.MOTEUR_ENCRYPTION_KEY?.trim())
         throw refuse(
             'This server has no encryption key, so it can’t keep a token. Its operator needs to set MOTEUR_ENCRYPTION_KEY.',

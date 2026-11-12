@@ -1,4 +1,4 @@
-/** What content is made of: templates, layouts, structures, blocks, forms, menus, field types. */
+/** Commands for the schema building blocks of content: templates, layouts, structures, blocks, forms, menus and field types. */
 import fs from 'fs';
 import { group, id, project, type ArgSpec } from '../spec.js';
 import { crud, revisions } from '../kit.js';

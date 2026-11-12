@@ -1,10 +1,11 @@
 import { Request, Response, NextFunction } from 'express';
-import { hasRole, inProject } from '@moteurio/types';
+import { hasRole, inProject, isInProject } from '@moteurio/types';
 import { actingUser, verifyJWT } from '@moteurio/core/auth.js';
 import { getUserById } from '@moteurio/core/users.js';
 import { verifyOperatorToken } from '@moteurio/core/operators.js';
 import { systemActor } from '@moteurio/core/utils/systemActor.js';
 import { getProject } from '@moteurio/core/projects.js';
+import { workspaceOf } from '@moteurio/core/workspaces.js';
 import { verifyProjectApiKey } from '@moteurio/core/projectApiKey.js';
 import { noteApiKeyUse } from '@moteurio/core/apiKeyUsage.js';
 import { requestHostMatchesAllowed } from '@moteurio/core/apiKeyAllowedHosts.js';
@@ -37,10 +38,11 @@ export function requireAuth(req: Request, res: Response, next: NextFunction) {
 }
 
 /**
- * An operator: someone who runs the whole server, signed in on /operator/auth with their
- * authenticator (see @moteurio/core/operators). Only an operator token passes; a user's, whatever
- * their roles, never does. The request then acts as the engine itself (`req.user`, a system
- * actor named after them), so it may reach every project, and `req.operator` says who it is.
+ * Requires an operator, who runs the whole server and signs in on /operator/auth with an
+ * authenticator (see @moteurio/core/operators). Only an operator token passes; a user token is
+ * always refused, whatever the user's roles. The request then runs as the engine itself
+ * (`req.user` is a system actor named after the operator), so it can reach every project, and
+ * `req.operator` identifies the operator.
  */
 export function requireOperator(req: Request, res: Response, next: NextFunction) {
     const token = readBearerToken(req.headers.authorization);
@@ -55,7 +57,7 @@ export function requireOperator(req: Request, res: Response, next: NextFunction)
     }
 }
 
-/** A signed-in person or an operator: for the few reads both need (the blueprint catalogue). */
+/** Accepts a signed-in user or an operator. Used for the few reads both need, such as the blueprint catalogue. */
 export function requireAuthOrOperator(req: Request, res: Response, next: NextFunction) {
     const token = readBearerToken(req.headers.authorization);
     if (token) {
@@ -67,13 +69,13 @@ export function requireAuthOrOperator(req: Request, res: Response, next: NextFun
             );
             return void next();
         } catch {
-            // Not an operator's: try it as a person's.
+            // The token is not an operator token, so try it as a user token.
         }
     }
     requireAuth(req, res, next);
 }
 
-/** Project member who is a Developer. Admin is not enough. */
+/** Requires a project member with the Developer role. The Admin role is not enough. */
 export function requireDeveloper(req: Request, res: Response, next: NextFunction) {
     requireProjectAccess(req, res, () => {
         if (!hasRole(req.user, 'developer')) {
@@ -98,7 +100,7 @@ export function requireRole(requiredRole: string) {
     };
 }
 
-/** Sets req.user if valid JWT present; does not fail if no token or invalid. */
+/** Sets `req.user` if a valid JWT is present. Continues without a user when the token is missing or invalid. */
 export function optionalAuth(req: Request, res: Response, next: NextFunction) {
     const token = readBearerToken(req.headers.authorization);
     if (!token) return next();
@@ -107,14 +109,15 @@ export function optionalAuth(req: Request, res: Response, next: NextFunction) {
         const user = getUserById(payload.sub as string);
         if (user?.id && user.isActive) req.user = actingUser(user, payload);
     } catch {
-        // ignore invalid token for optional auth
+        // Authentication is optional, so an invalid token is ignored.
     }
     next();
 }
 
 /**
- * Project member. Afterwards `req.user` carries the member's roles in this project (see
- * `ProjectSchema.memberRoles`), `req.account` the account as stored, and `req.project` the project.
+ * Requires a project member. Afterwards `req.user` carries the member's roles in this project
+ * (see `ProjectSchema.memberRoles`), `req.account` holds the account as stored, and `req.project`
+ * holds the project.
  */
 export function requireProjectAccess(req: Request, res: Response, next: NextFunction) {
     requireAuth(req, res, async () => {
@@ -134,17 +137,18 @@ export function requireProjectAccess(req: Request, res: Response, next: NextFunc
         } catch {
             return void res.status(403).json({ error: 'Access to this project is forbidden' });
         }
-        if (!project.users?.includes(user.id)) {
+        const workspace = workspaceOf(project);
+        if (!isInProject(user.id, project, workspace)) {
             return void res.status(403).json({ error: 'Access to this project is forbidden' });
         }
         req.account = user;
         req.project = project;
-        req.user = inProject(user, project);
+        req.user = inProject(user, project, workspace);
         next();
     });
 }
 
-/** Project member who is a Builder there (models, blocks, templates, layouts, structures, forms). */
+/** Requires a project member with the Builder role (models, blocks, templates, layouts, structures, forms). */
 export function requireBuilder(req: Request, res: Response, next: NextFunction) {
     requireProjectAccess(req, res, () => {
         if (!hasRole(req.user, 'builder')) {
@@ -154,7 +158,7 @@ export function requireBuilder(req: Request, res: Response, next: NextFunction) 
     });
 }
 
-/** Project member who is a Content lead there (an Admin is one too). */
+/** Requires a project member with the Content lead role. Admins qualify too. */
 export function requireContentLead(req: Request, res: Response, next: NextFunction) {
     requireProjectAccess(req, res, () => {
         if (!hasRole(req.user, 'lead')) {
@@ -164,7 +168,7 @@ export function requireContentLead(req: Request, res: Response, next: NextFuncti
     });
 }
 
-/** Project member who is an Admin in that project. */
+/** Requires a project member with the Admin role in that project. */
 export function requireProjectAdmin(req: Request, res: Response, next: NextFunction) {
     requireProjectAccess(req, res, () => {
         if (!hasRole(req.user, 'admin')) {
@@ -186,10 +190,10 @@ export function optionalProjectAccess(req: Request, res: Response, next: NextFun
 }
 
 /**
- * Recognizes project API key from header `x-api-key` only (query string keys leak via logs/referrers).
- * If a key is present: verifies against projectId (from req.params.projectId). On success sets
+ * Recognizes a project API key from the `x-api-key` header only, because keys in query strings leak through logs and referrers.
+ * If a key is present, verifies it against the projectId from `req.params.projectId`. On success sets
  * `req.apiKeyAuth`, `req.apiKeyId`, and `req.apiKeyPolicy` (channel allowlist + site-wide flag), runs
- * allowed-host checks when configured, else 401/403. If no header: next() (caller may require JWT).
+ * allowed-host checks when configured, and otherwise responds 401 or 403. If there is no header, calls next() so a later handler may require a JWT.
  */
 export function apiKeyAuth(req: Request, res: Response, next: NextFunction): void {
     const rawKey = (req.headers['x-api-key'] as string)?.trim() ?? '';
@@ -272,8 +276,8 @@ export function denyIfApiKeySiteWideBlocked(req: Request, res: Response): boolea
 }
 
 /**
- * Requires either JWT (req.user) or API key (req.apiKeyAuth).
- * If only API key and method is not GET, returns 403 (read-only).
+ * Requires either a JWT (`req.user`) or an API key (`req.apiKeyAuth`).
+ * An API key alone is read-only, so any method other than GET is refused with 403.
  */
 export function requireChannelAuth(req: Request, res: Response, next: NextFunction): void {
     const hasUser = !!req.user;

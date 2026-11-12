@@ -13,28 +13,28 @@ import type {
     SettingsId
 } from './schema.js';
 
-/** For any read: one language (the answer is in it), and pictures with their files. */
+/** Options for any read: `locale` returns values in that single locale, and `resolveAssets` includes each image's file data. */
 export type ReadOptions<S extends SchemaShape = UntypedSchema> = {
     locale?: S['locale'];
     resolveAssets?: boolean;
 };
 
 export type EntryReadOptions<S extends SchemaShape = UntypedSchema> = ReadOptions<S> & {
-    /** Add `resolvedUrl`: the entry's address, when a collection page gives it one. */
+    /** When true, adds `resolvedUrl`, the entry's URL, if a collection page defines one for it. */
     resolveUrl?: boolean;
 };
 
 export type EntryListOptions<S extends SchemaShape = UntypedSchema> = EntryReadOptions<S> & {
     limit?: number;
     offset?: number;
-    /** `id`, `createdAt`, `updatedAt` or `publishedAt`, `-` first for descending. */
+    /** Sort key: `id`, `createdAt`, `updatedAt` or `publishedAt`. Prefix it with `-` for descending order. */
     sort?: string;
 };
 
 /**
- * What a channel delivers: pages, entries, menus, forms and layouts. Typed by the
- * project's schema (`S`); answers are in one language (`'one'`) when the call names one, or
- * when the client was made for one (`client.locale('fr')`).
+ * Read access to a channel's content: pages, entries, menus, forms and layouts. Types come from
+ * the project's schema (`S`). Values are returned in a single locale (`'one'`) when the call
+ * passes a `locale`, or when the client was created for one (`client.locale('fr')`).
  */
 export interface PublicChannel<
     S extends SchemaShape = UntypedSchema,
@@ -60,13 +60,14 @@ export interface PublicChannel<
         ): Promise<EntryOf<S, K, ModeOf<O, D>>>;
     };
     /**
-     * A settings model's one entry (the site's settings, its interface's words): no list, no id.
+     * Returns the single entry of a settings model, such as the site settings or interface
+     * strings. Settings models have exactly one entry, so no ID is needed and there is no list.
      */
     settings<K extends SettingsId<S>, O extends EntryReadOptions<S>>(
         model: K,
         options?: O
     ): Promise<EntryOf<S, K, ModeOf<O, D>>>;
-    /** Menus with item addresses resolved, by handle (`header`, `footer`). */
+    /** Menus with item URLs resolved, identified by handle (for example `header` or `footer`). */
     menus: {
         list(options?: { locale?: S['locale'] }): Promise<ResolvedNavigation[]>;
         get(handle: string, options?: { locale?: S['locale'] }): Promise<ResolvedNavigation>;
@@ -79,11 +80,11 @@ export interface PublicChannel<
         list(): Promise<Record<string, unknown>[]>;
         get(id: string): Promise<Record<string, unknown>>;
     };
-    /** What the channel delivers, described: each model, template, block and structure. */
+    /** Returns a description of what the channel delivers: each model, template, block and structure. */
     schema(): Promise<PublicSchema>;
 }
 
-/** The query of a read: the call's options over the client's own language. */
+/** Builds the query parameters of a read. The call's `locale` takes precedence over the client's locale. */
 function query(
     options: EntryListOptions | undefined,
     locale: string | undefined
@@ -100,7 +101,7 @@ function query(
 }
 
 /**
- * A public channel. Paths match `GET` routes in
+ * Creates a public channel. Its request paths match the `GET` routes in
  * `packages/api/src/projects/channels/public.ts`.
  */
 export function createPublicChannel<
@@ -114,7 +115,7 @@ export function createPublicChannel<
 ): PublicChannel<S, D> {
     const enc = encodeURIComponent;
     const root = `/projects/${enc(projectId)}/channels/${enc(channelId)}`;
-    // Typed by PublicChannel; the HTTP call itself doesn't know the schema.
+    // The `PublicChannel` interface provides the types. The HTTP call itself has no knowledge of the schema.
     const get = (url: string, options?: EntryListOptions) =>
         client.get<never>(url, query(options, locale));
 

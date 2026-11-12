@@ -3,9 +3,10 @@ import { getProjectJson, putProjectJson, listProjectKeys } from './projectStorag
 import { submissionKey, submissionListPrefix } from './storageKeys.js';
 
 /**
- * One line per submission of a form, so the inbox can count, filter and page without opening
- * every file. Kept up to date on every save and delete; rebuilt from the files when it's missing
- * or no longer lists the same submissions (a file removed by hand, a crash between two writes).
+ * An index with one row per submission of a form, so the submission list can count, filter and
+ * paginate without opening every file. It is updated on every save and delete. It is rebuilt from
+ * the submission files when it is missing or does not list the same submissions as the files (for
+ * example after a file was removed by hand, or a crash between two writes).
  */
 
 export type SubmissionRow = {
@@ -18,7 +19,7 @@ export type SubmissionRow = {
 
 type IndexFile = { version: 1; rows: SubmissionRow[] };
 
-/** Names starting with `_` in a form's folder are the engine's, not submissions. */
+/** Names that start with `_` in a form's folder belong to the engine and are not submissions. */
 export const INDEX_NAME = '_index';
 const indexKey = (formId: string) => submissionKey(formId, INDEX_NAME);
 
@@ -32,7 +33,7 @@ export function rowOf(s: FormSubmission): SubmissionRow {
     };
 }
 
-/** The ids of a form's submissions, as their files say. */
+/** Returns the ids of a form's submissions, as listed by the files on disk. */
 export async function submissionFileIds(projectId: string, formId: string): Promise<string[]> {
     const names = await listProjectKeys(projectId, submissionListPrefix(formId));
     return names
@@ -40,7 +41,7 @@ export async function submissionFileIds(projectId: string, formId: string): Prom
         .filter(id => id && !id.startsWith('_'));
 }
 
-// One change at a time per form, so two submissions arriving together both get their line.
+// Run changes to a form's index one at a time, so two submissions that arrive together both get a row.
 const queues = new Map<string, Promise<unknown>>();
 function inTurn<T>(projectId: string, formId: string, work: () => Promise<T>): Promise<T> {
     const key = `${projectId}\0${formId}`;
@@ -63,7 +64,7 @@ async function rebuild(projectId: string, formId: string, ids: string[]): Promis
     return rows;
 }
 
-/** Every submission's line, rebuilt first if the index doesn't match the files. */
+/** Returns every submission's row. The index is rebuilt first if it does not match the files. */
 export function readIndex(projectId: string, formId: string): Promise<SubmissionRow[]> {
     return inTurn(projectId, formId, async () => {
         const [stored, ids] = await Promise.all([
@@ -79,7 +80,7 @@ export function readIndex(projectId: string, formId: string): Promise<Submission
     });
 }
 
-/** Put (or with `remove`, take out) one submission's line. */
+/** Adds or replaces one submission's row, or removes it when `remove` is given. */
 export function updateIndex(
     projectId: string,
     formId: string,
@@ -87,7 +88,7 @@ export function updateIndex(
 ): Promise<void> {
     return inTurn(projectId, formId, async () => {
         const stored = await getProjectJson<IndexFile>(projectId, indexKey(formId));
-        // No index yet: the next read builds it from the files, this one included.
+        // There is no index yet. The next read builds it from the files, which already include this change.
         if (!Array.isArray(stored?.rows)) return;
         const id = 'put' in change ? change.put.id : change.remove;
         const rows = stored.rows.filter(r => r.id !== id);

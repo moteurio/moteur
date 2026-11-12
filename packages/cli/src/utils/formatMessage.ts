@@ -1,13 +1,14 @@
 /**
- * Friendly messages and "suggest next command" strings for errors and success.
+ * Builds readable error and success messages for CLI output, with a suggested next command where
+ * one applies.
  */
 
 import { MoteurApiError } from '@moteurio/client';
 
-/** Format a thrown error for CLI output (message + optional hint). */
+/** Formats a thrown error for CLI output as a message with an optional hint. */
 export function formatError(err: unknown): string {
     if (err instanceof MoteurApiError) {
-        // The API's sentence, without the server's "…: PlanLimitError: …" details and stack.
+        // Use the API's message without the server's "…: PlanLimitError: …" details and stack trace.
         let msg = err.message
             ?.trim()
             .split('\n')[0]
@@ -17,7 +18,7 @@ export function formatError(err: unknown): string {
             msg = err.status != null ? `Request failed (HTTP ${err.status})` : 'Request failed';
         }
         let out = `✗ Error: ${msg}`;
-        // Only when the API said nothing more: an unknown route usually means the wrong address.
+        // Add this hint only when the API gave no further detail. An unknown route usually means the API address is wrong.
         if (
             err.status === 404 &&
             /^(Request failed|Cannot (GET|POST|PATCH|PUT|DELETE))/.test(msg)

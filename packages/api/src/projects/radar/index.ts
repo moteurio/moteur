@@ -8,8 +8,8 @@ import { sendApiError } from '../../utils/apiError.js';
 const router: Router = Router({ mergeParams: true });
 
 /**
- * Radar is for the project's people: it reads drafts, and a scan saves its report and tells
- * webhooks. An API key (a site's) is refused.
+ * Radar is for project members only. It reads drafts, and a scan saves its report and triggers
+ * webhooks. API keys, which belong to sites, are refused.
  */
 function requireMember(req: Request, res: Response, next: NextFunction) {
     if (!req.user) {
@@ -19,7 +19,7 @@ function requireMember(req: Request, res: Response, next: NextFunction) {
     return requireProjectAccess(req, res, next);
 }
 
-/** GET /projects/:projectId/radar — list violations, optionally run full scan */
+/** GET /projects/:projectId/radar: lists violations and optionally runs a full scan. */
 router.get('/', optionalAuth, requireMember, async (req: Request, res: Response) => {
     const { projectId } = req.params as Record<string, string>;
     const scan = req.query.scan === 'true' || req.query.scan === '1';
@@ -72,7 +72,7 @@ router.get('/', optionalAuth, requireMember, async (req: Request, res: Response)
     }
 });
 
-/** GET /projects/:projectId/radar/entry/:slug — violations for one entry */
+/** GET /projects/:projectId/radar/entry/:slug: lists the violations for one entry. */
 router.get('/entry/:slug', optionalAuth, requireMember, async (req: Request, res: Response) => {
     const { projectId, slug } = req.params as Record<string, string>;
     try {
@@ -89,6 +89,7 @@ export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
     '/projects/{projectId}/radar': {
         get: {
             summary: 'Get Radar violation report',
+            tags: ['Radar'],
             description:
                 "Returns current violations, drafts included: for the project's people (sign-in), not API keys. Use ?scan=true to run a full scan first. Supports severity, model, locale, ruleId filters.",
             parameters: [
@@ -137,6 +138,7 @@ export const openapi: Record<string, OpenAPIV3.PathItemObject> = {
     '/projects/{projectId}/radar/entry/{slug}': {
         get: {
             summary: 'Get Radar violations for one entry',
+            tags: ['Radar'],
             parameters: [
                 { name: 'projectId', in: 'path', required: true, schema: { type: 'string' } },
                 { name: 'slug', in: 'path', required: true, schema: { type: 'string' } }

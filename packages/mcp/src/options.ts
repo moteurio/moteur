@@ -1,7 +1,7 @@
 import { API_COMMANDS } from '@moteurio/commands';
 import type { ServerOptions } from './server.js';
 
-/** `moteur-mcp` options: --read-only, --allow-destructive, --groups a,b, --all, --compact, --project. */
+/** Parses the `moteur-mcp` options: --read-only, --allow-destructive, --groups a,b, --all, --compact and --project. */
 export function parseOptions(
     argv: string[]
 ): ServerOptions & { help?: boolean; list?: boolean; version?: boolean } {

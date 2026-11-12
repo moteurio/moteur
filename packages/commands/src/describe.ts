@@ -1,8 +1,10 @@
 /**
- * A project's shape in one answer: its languages, how content goes live, who you are in it, and
- * each model's fields in a line. For agents (and people) about to read or write content.
+ * Summarizes a project in one answer: its languages, how content is published, the caller's role
+ * in it, and one line per model field. It is meant for agents and people who are about to read or
+ * write content.
  */
-import { rolesInProject } from '@moteurio/types';
+import { asOwnWorkspace, rolesInProject } from '@moteurio/types';
+import type { MyWorkspace } from '@moteurio/client';
 
 type Field = {
     type: string;
@@ -26,6 +28,8 @@ type Project = {
     siteUrl?: string;
     workflow?: { enabled?: boolean; requireReview?: boolean };
     memberRoles?: Record<string, string[]> | null;
+    users?: string[];
+    workspaceId?: string;
 };
 
 const text = (v: unknown): string | undefined => {
@@ -35,7 +39,7 @@ const text = (v: unknown): string | undefined => {
     return undefined;
 };
 
-/** How values of a type are written, when it isn't obvious from the name. */
+/** Describes how values of a field type are written, for types where the name alone does not say. */
 const VALUES: Record<string, string> = {
     'core/rich-text': 'rich text (DAST JSON)',
     'core/block-list': 'blocks: [{ type, data }]',
@@ -47,7 +51,7 @@ const VALUES: Record<string, string> = {
     'core/relations': 'entry ids'
 };
 
-/** `text, per language, required, max 140` for one field. */
+/** Describes one field in a line, for example `text, per language, required, max 140 characters`. */
 export function describeField(f: Field): string {
     const o = f.options ?? {};
     const parts = [VALUES[f.type] ?? f.type.replace(/^core\//, '')];
@@ -69,8 +73,13 @@ export function describeField(f: Field): string {
 export function describeProject(
     project: Project,
     models: Model[],
-    me: { id: string; name?: string; roles?: string[] }
+    me: { id: string; name?: string; roles?: string[]; workspaces?: MyWorkspace[] }
 ) {
+    // The caller's roles in the project can come from their role in the project's workspace.
+    const workspace = asOwnWorkspace(
+        me.workspaces?.find(w => w.id === project.workspaceId),
+        me.id
+    );
     const languages = [project.defaultLocale, ...(project.supportedLocales ?? [])].filter(
         (l, i, all): l is string => !!l && all.indexOf(l) === i
     );
@@ -92,7 +101,7 @@ export function describeProject(
             : workflow.requireReview
               ? 'Entries go live after a reviewer approves them: ask with entries_review. Admins may publish directly.'
               : 'Entries are drafts until published; reviews are available (entries_review) but not required.',
-        you: { name: me.name, roles: rolesInProject(me, project) },
+        you: { name: me.name, roles: rolesInProject(me, project, workspace) },
         models: models.map(m => ({
             id: m.id,
             name: text(m.label),

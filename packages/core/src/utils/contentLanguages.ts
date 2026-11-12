@@ -1,9 +1,10 @@
-/** The languages a page or entry is in (see `languages` on pages and entries). */
+/** Validates the `languages` list of a page or entry, which says which languages the item exists in. */
 import type { ProjectSchema } from '@moteurio/types/Project.js';
 
 /**
- * A page's or entry's languages, checked against the project's: a list (the default may be named,
- * it is always in). An empty list or null means every language, so nothing is kept.
+ * Validates a page's or entry's `languages` list against the project's languages. The list may
+ * name the default language, which an item is always available in. An empty list or null means
+ * the item exists in every language, so no list is stored.
  */
 export function normalizeLanguages(
     languages: unknown,

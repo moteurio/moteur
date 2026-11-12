@@ -3,9 +3,10 @@ export function isValidId(id: string): boolean {
 }
 
 /**
- * An id used as one path segment: letters, digits, `_` and `-` only. Anything else (`..`, `/`,
- * an encoded slash the router decoded) would reach other files, so it is refused wherever a
- * path is built, whatever the caller checked.
+ * Returns the id if it is safe to use as a single path segment, which means letters, digits, `_`
+ * and `-` only. Throws otherwise. Anything else (`..`, `/`, or an encoded slash that the router
+ * decoded) could reach other files, so every place that builds a path calls this, regardless of
+ * what the caller already checked.
  */
 export function safeId(id: string): string {
     if (typeof id !== 'string' || !isValidId(id))

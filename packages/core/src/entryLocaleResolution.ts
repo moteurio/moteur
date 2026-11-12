@@ -269,7 +269,8 @@ export async function localizeFields(
         )
             choice.fallbacks.push(path);
     };
-    // Entries inlined by relations are their own: their fallbacks aren't this record's.
+    // Entries inlined by relations are separate records, so their fallbacks are not reported for
+    // this one.
     const nested: LocaleChoice = { locale: choice.locale, fallback: choice.fallback };
     return walkFields(values, fields, schemas, async (value, field, path) => {
         if (field.type === 'core/link') {
@@ -312,7 +313,7 @@ export function localeSchemas(
     projectId: string,
     blockRegistry: Record<string, BlockSchema>
 ): Promise<LocaleSchemas> {
-    // Kept with the project's version, like the blocks it's given (deliveryCache.ts).
+    // Cached per project version, like the blocks passed in (see deliveryCache.ts).
     return perVersion(projectId, 'localeSchemas', () =>
         buildLocaleSchemas(projectId, blockRegistry)
     );

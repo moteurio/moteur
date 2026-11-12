@@ -1,46 +1,46 @@
 import type { Field } from './Field.js';
 
 /**
- * How the Studio presents a model's entries. Presentation only: it never changes what is
- * stored, what the API returns, or who may edit. A model has at most one form; without one,
- * the Studio composes a default from the fields.
+ * How admin clients present a model's entries. This is presentation only: it does not change what
+ * is stored, what the API returns, or who can edit. A model has at most one form. Without one,
+ * the admin client builds a default layout from the model's fields.
  */
 export interface ModelStudio {
     form?: StudioForm;
-    /** How the model's entry list looks. Without it, the Studio infers one from the fields. */
+    /** How the model's entry list is presented. Without it, the admin client infers a layout from the model's fields. */
     list?: StudioList;
 }
 
-/** A way to show a model's entries: rows, list beside a preview, picture cards, workflow board. */
+/** A way to display a model's entries: rows (`list`), a list beside a preview (`split`), image cards (`cards`) or a workflow board (`board`). */
 export type StudioListView = 'list' | 'split' | 'cards' | 'board';
 export const STUDIO_LIST_VIEWS: StudioListView[] = ['list', 'split', 'cards', 'board'];
 
-/** Sorts a list can start from: last edited, newest, or by title. */
+/** Initial sort orders for a list: last edited, newest created, or by title. */
 export type StudioListSort = 'edited' | 'created' | 'title';
 export const STUDIO_LIST_SORTS: StudioListSort[] = ['edited', 'created', 'title'];
 
-/** Field types a list can group by (one value per entry), besides `$workflow`. */
+/** Field types a list can be grouped by (one value per entry), in addition to the special `$workflow` value. */
 export const STUDIO_GROUP_TYPES = ['core/relation', 'core/select', 'core/status'];
 
 /**
- * A model's entry list (Paperback › Lists › spec). Every key is optional: what's left out is
- * inferred from the fields, and each person can still change view, sort and grouping.
+ * Presentation settings for a model's entry list. Every key is optional. Omitted settings are
+ * inferred from the model's fields, and users can still change the view, sort and grouping.
  */
 export interface StudioList {
-    /** Views offered, in this order. Cards need a thumbnail; board needs the review workflow. */
+    /** Views offered, in this order. The `cards` view needs a thumbnail; the `board` view needs the review workflow. */
     views?: StudioListView[];
-    /** The view people start in (they can switch; the Studio remembers their choice). */
+    /** The view shown initially. Users can switch views, and admin clients can remember their choice. */
     defaultView?: StudioListView;
-    /** An image or asset field, or false for no picture. */
+    /** ID of an image or asset field to use as the thumbnail, or false for no thumbnail. */
     thumbnail?: string | false;
-    /** Fields shown under the title, joined by " · ". */
+    /** Fields shown under the title, joined with " · ". */
     subtitle?: string[];
     /** Fields shown as columns in the list view, in order. */
     columns?: string[];
-    /** Fields offered as filters (besides status, languages and who edited). */
+    /** Fields offered as filters, in addition to the built-in filters for status, locales and editor. */
     filters?: string[];
     sort?: StudioListSort;
-    /** A relation, select or status field, or `$workflow`, to group rows by. */
+    /** Relation, select or status field to group rows by, or `$workflow` to group by workflow state. */
     groupBy?: string;
 }
 
@@ -49,40 +49,41 @@ export interface StudioForm {
 }
 
 /**
- * - `canvas`: reads like the finished page (titles, ledes, images, bodies).
- * - `card`: a raised card of facts, label and value per line.
- * - `drawer`: closed by default; for slugs, SEO and other plumbing.
- * - `sheet`: labelled inputs in rows; for settings-like models.
+ * How a form section is laid out.
+ * - `canvas`: resembles the finished page (titles, introductions, images, body text).
+ * - `card`: a card of facts with one label and value per line.
+ * - `drawer`: collapsed by default; suited to slugs, SEO fields and other technical fields.
+ * - `sheet`: labelled inputs in rows; suited to models that hold settings.
  */
 export type StudioSectionKind = 'canvas' | 'card' | 'drawer' | 'sheet';
 
 export interface StudioFormSection {
     id: string;
     kind: StudioSectionKind;
-    /** `side` puts the section in the column beside the main one (ignored on phones). */
+    /** `side` places the section in the column beside the main one. Ignored on narrow screens. */
     place?: 'main' | 'side';
-    /** A string, or one label per language: `{ "fr": "Dans le numéro", "en": "In print" }`. */
+    /** A string, or a map from locale code to string such as `{ "fr": "Dans le numéro", "en": "In print" }`. */
     label?: string | Record<string, string>;
-    /** One field per line. */
+    /** Fields shown one per line. */
     fields?: StudioFormItem[];
-    /** Fields side by side, up to three per row. Used instead of `fields`. */
+    /** Fields shown side by side, up to three per row. Use either `rows` or `fields`, not both. */
     rows?: StudioFormItem[][];
 }
 
-/** A field name, or a field with how it shows. */
+/** A field name, or a field together with how it is presented. */
 export type StudioFormItem = string | StudioFormField;
 
 export interface StudioFormField {
     field: string;
-    /** Presentation, from those the field's type allows (see STUDIO_PRESENTATIONS). */
+    /** Presentation style. It must be one that the field's type allows (see `STUDIO_PRESENTATIONS`). */
     as?: string;
-    /** A sentence shown with the field, replacing its description. */
+    /** Help text shown with the field. It replaces the field's description. */
     help?: string | Record<string, string>;
-    /** Show the field only when other fields have one of these values: `{ "kind": ["online"] }`. */
+    /** Shows the field only when other fields hold one of the listed values, for example `{ "kind": ["online"] }`. */
     when?: Record<string, unknown[]>;
 }
 
-/** Presentations each field type can take. `plain` (the type's usual control) is always allowed. */
+/** The presentations each field type supports. `plain` (the type's default control) is always allowed. */
 export const STUDIO_PRESENTATIONS: Record<string, string[]> = {
     'core/text': ['headline', 'kicker', 'line'],
     'core/textarea': ['lede', 'note'],
@@ -111,13 +112,14 @@ export interface StudioFormProblem {
     message: string;
 }
 
-/** The field name of an item, whatever its shape. */
+/** Returns the field name of a form item, whether it is a plain name or a field object. */
 export const studioItemField = (item: StudioFormItem): string =>
     typeof item === 'string' ? item : item?.field;
 
 /**
- * Checks a form against the model's fields. Problems are meant as warnings: a form naming a
- * field that is gone still renders, and the editor shows the mistake to whoever arranges it.
+ * Validates a form against the model's fields. The returned problems are intended as warnings: a
+ * form that names a deleted field still renders, and the editing UI reports the mistake to the
+ * person arranging the form.
  */
 export function checkStudioForm(form: unknown, fields: Record<string, Field>): StudioFormProblem[] {
     const problems: StudioFormProblem[] = [];
@@ -196,8 +198,8 @@ export function checkStudioForm(form: unknown, fields: Record<string, Field>): S
 }
 
 /**
- * Checks list settings against the model's fields. Problems are warnings: a list naming a
- * field that is gone still shows, without that field.
+ * Validates list settings against the model's fields. The returned problems are warnings: a list
+ * that names a deleted field still displays, without that field.
  */
 export function checkStudioList(list: unknown, fields: Record<string, Field>): StudioFormProblem[] {
     const problems: StudioFormProblem[] = [];

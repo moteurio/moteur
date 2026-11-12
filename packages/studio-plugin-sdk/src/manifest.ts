@@ -2,9 +2,9 @@ import type { PluginManifest } from '@moteurio/types/Plugin.js';
 import type { StudioPluginContext } from './context.js';
 
 /**
- * Studio companion manifest. Same catalog axes as an API host plugin
- * (`id`, `label`, `source`, `scope`, `role`, `categories`, `contributes`, `requires`).
- * `id` matches the paired API plugin. Omit `kind` / `studio` — those are API-host fields.
+ * The manifest of a Studio plugin. It has the same catalog fields as an API host plugin
+ * (`id`, `label`, `source`, `scope`, `role`, `categories`, `contributes`, `requires`). The `id`
+ * must match the paired API plugin. Do not set `kind` or `studio`, because those fields belong to API host plugins.
  */
 export type StudioPluginManifest = Pick<
     PluginManifest,
@@ -18,7 +18,7 @@ export type StudioPluginManifest = Pick<
     | 'contributes'
     | 'requires'
 > & {
-    /** npm name of this package (documentation / tooling). */
+    /** The npm name of this package, for documentation and tooling. */
     packageName?: string;
 };
 
