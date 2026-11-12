@@ -266,21 +266,41 @@ export function addAndCommit(
         if (staged.length === 0) return '';
         // -A stages additions, modifications, and deletions for the given paths
         await run(projectDir, ['add', '-A', '--', ...staged], env);
-        if (await nothingStaged(projectDir, env)) return '';
-        await run(projectDir, ['commit', '-m', message], env);
-        return headCommit(projectDir);
+        return commitIndex(projectDir, message, env);
     });
 }
 
-/** `git diff --cached --quiet`: exit 0 when nothing is staged, 1 when something is. */
-async function nothingStaged(projectDir: string, env: Record<string, string>): Promise<boolean> {
-    try {
-        await run(projectDir, ['diff', '--cached', '--quiet'], env);
-        return true;
-    } catch (err) {
-        if ((err as { status?: number }).status === 1) return false;
-        throw err;
-    }
+const NO_COMMIT = '0'.repeat(40);
+
+/**
+ * What the index holds, committed on HEAD; '' when that is nothing new. Made from the index alone,
+ * with Git's lower-level commands: `git commit` first checks every file of the working folder
+ * against the index, which grows with the project (0.4 s of a 0.45 s commit at 100,000 entries)
+ * while a save changes one file. The branch moves only from the commit it was on: another change
+ * in between makes this fail rather than lose it.
+ */
+async function commitIndex(
+    projectDir: string,
+    message: string,
+    env: Record<string, string>
+): Promise<string> {
+    const tree = await run(projectDir, ['write-tree'], env);
+    // No commit yet (a new repository): this one has no parent.
+    const parent = await headCommit(projectDir).catch(() => null);
+    if (parent && (await run(projectDir, ['rev-parse', `${parent}^{tree}`], env)) === tree)
+        return '';
+    const commit = await run(
+        projectDir,
+        ['commit-tree', tree, ...(parent ? ['-p', parent] : []), '-m', message],
+        env
+    );
+    const subject = message.split('\n')[0];
+    await run(
+        projectDir,
+        ['update-ref', '-m', `commit: ${subject}`, 'HEAD', commit, parent ?? NO_COMMIT],
+        env
+    );
+    return commit;
 }
 
 /**
@@ -294,9 +314,7 @@ export function addAllAndCommit(
     const env = authorEnv(author);
     return inRepo(projectDir, async () => {
         await run(projectDir, ['add', '-A'], env);
-        if (!(await nothingStaged(projectDir, env)))
-            await run(projectDir, ['commit', '-m', message], env);
-        return headCommit(projectDir);
+        return (await commitIndex(projectDir, message, env)) || headCommit(projectDir);
     });
 }
 
