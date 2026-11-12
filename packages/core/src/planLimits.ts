@@ -4,6 +4,18 @@
  * a monthly quota (setRequestQuota) and a separate fair use level (setRequestFairUse) at which
  * the host shows a notice. The fair use level never rejects a request.
  */
+import { AsyncLocalStorage } from 'node:async_hooks';
+
+/** Set while a project is being made from a blueprint: its content isn't the person's use. */
+const madeByMoteur = new AsyncLocalStorage<string>();
+
+/**
+ * Runs `work` with no plan limits on `projectId`: a blueprint's content, imported as the project
+ * is made, is part of making it (a project waiting for its plan has room for nothing yet).
+ */
+export function outsidePlanLimits<T>(projectId: string, work: () => Promise<T>): Promise<T> {
+    return madeByMoteur.run(projectId, work);
+}
 
 /** A limit for one project; null for no limit. */
 export type ProjectLimit = (projectId: string) => number | null;
@@ -92,7 +104,7 @@ export function setCountLimit(fn: CountLimit | null): void {
 }
 
 function ask(fn: ProjectLimit | null, projectId: string, what: string): number | null {
-    if (!fn) return null;
+    if (!fn || madeByMoteur.getStore() === projectId) return null;
     try {
         const max = fn(projectId);
         return typeof max === 'number' && Number.isFinite(max) && max >= 0 ? Math.floor(max) : null;
@@ -177,6 +189,9 @@ export function formatBytes(bytes: number): string {
 }
 
 function limitMessage(limit: PlanLimitKind, max: number): string {
+    // Nothing allowed at all: the project has no plan yet (its owner's free project is another).
+    if (max === 0 && limit !== 'projects')
+        return 'This project is waiting for a plan. Choose one in Setup › Billing, then try again.';
     switch (limit) {
         case 'people':
             return `This project's plan allows ${max} ${max === 1 ? 'person' : 'people'}. Upgrade the plan or remove someone first.`;

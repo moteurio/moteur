@@ -230,11 +230,52 @@ export type BlueprintOutcome = {
     notes?: { path: string; message: string }[];
 };
 
+/** A project blueprint by id, or 404 `BLUEPRINT_NOT_FOUND`: checked before anything is made. */
+function projectBlueprint(blueprintId: string): ReturnType<typeof getBlueprint> {
+    let found: ReturnType<typeof getBlueprint> | undefined;
+    try {
+        if (isValidId(blueprintId)) found = getBlueprint('project', blueprintId);
+    } catch {
+        found = undefined;
+    }
+    if (!found || (found.kind ?? 'project') !== 'project')
+        throw Object.assign(new Error(`No project blueprint "${blueprintId}"`), {
+            status: 404,
+            code: 'BLUEPRINT_NOT_FOUND'
+        });
+    return found;
+}
+
 /**
- * Create a project, then import its blueprint's bundle into it: schemas, files, pages, entries
- * and menus, all or nothing, live as the bundle says. Without a blueprint (or one without a
- * bundle), the project starts empty. A bundle that fails leaves the project made and empty, and
- * says why (`blueprint.issues`).
+ * A blueprint's content imported into a project: fitted to its languages, and outside its plan's
+ * limits (it is part of making the project; one waiting for its plan has room for nothing yet).
+ */
+async function importBlueprint(
+    user: User,
+    project: ProjectSchema,
+    blueprint: ReturnType<typeof getBlueprint>
+): Promise<BlueprintOutcome> {
+    const { importBundle } = await import('./imports/importBundle.js');
+    const { adaptBundleToLanguages } = await import('./imports/bundleLanguages.js');
+    const { outsidePlanLimits } = await import('./planLimits.js');
+    const bundle = adaptBundleToLanguages(blueprint.bundle!, blueprint.languages ?? ['en'], {
+        defaultLocale: project.defaultLocale,
+        locales: project.supportedLocales ?? []
+    });
+    const outcome = await outsidePlanLimits(project.id, () =>
+        importBundle(user, project.id, bundle)
+    );
+    return {
+        id: blueprint.id,
+        status: outcome.status,
+        issues: outcome.issues,
+        ...(outcome.notes?.length && { notes: outcome.notes })
+    };
+}
+
+/**
+ * Makes a project, then imports its blueprint's content when it has one (see importBlueprint).
+ * An unknown blueprint is refused before anything is made.
  */
 export async function createProjectFromBlueprint(
     user: User,
@@ -245,43 +286,35 @@ export async function createProjectFromBlueprint(
     validation?: ValidationResult;
     blueprint?: BlueprintOutcome;
 }> {
-    if (blueprintId !== undefined && blueprintId !== '') {
-        // Refuse an unknown blueprint before creating anything.
-        let found: ReturnType<typeof getBlueprint> | undefined;
-        try {
-            if (isValidId(blueprintId)) found = getBlueprint('project', blueprintId);
-        } catch {
-            found = undefined;
-        }
-        if (!found || (found.kind ?? 'project') !== 'project')
-            throw Object.assign(new Error(`No project blueprint "${blueprintId}"`), {
-                status: 404,
-                code: 'BLUEPRINT_NOT_FOUND'
-            });
-    }
+    const blueprint = blueprintId ? projectBlueprint(blueprintId) : undefined;
     const result = await createProject(user, project);
-    if (result.validation || !result.project || !blueprintId) return result;
+    if (result.validation || !result.project || !blueprint?.bundle) return result;
+    return { ...result, blueprint: await importBlueprint(user, result.project, blueprint) };
+}
 
-    const blueprint = getBlueprint('project', blueprintId);
-    if (!blueprint.bundle) return result;
-    const { importBundle } = await import('./imports/importBundle.js');
-    const { adaptBundleToLanguages } = await import('./imports/bundleLanguages.js');
-    // Adapt the blueprint's content to the project's languages.
-    const made = result.project;
-    const bundle = adaptBundleToLanguages(blueprint.bundle, blueprint.languages ?? ['en'], {
-        defaultLocale: made.defaultLocale,
-        locales: made.supportedLocales ?? []
-    });
-    const outcome = await importBundle(user, made.id, bundle);
-    return {
-        ...result,
-        blueprint: {
-            id: blueprintId,
-            status: outcome.status,
-            issues: outcome.issues,
-            ...(outcome.notes?.length && { notes: outcome.notes })
-        }
-    };
+/**
+ * A blueprint's content added to a project made without it: only an empty one (no templates,
+ * models or pages yet), so nothing of the project's is ever replaced. 409 `PROJECT_NOT_EMPTY`
+ * otherwise.
+ */
+export async function applyBlueprintToProject(
+    user: User,
+    projectId: string,
+    blueprintId: string
+): Promise<BlueprintOutcome> {
+    const blueprint = projectBlueprint(blueprintId);
+    const project = await getProject(user, projectId);
+    const { listProjectKeys } = await import('./utils/projectStorage.js');
+    for (const prefix of ['templates/', 'models/', 'pages/'])
+        if ((await listProjectKeys(projectId, prefix)).length)
+            throw Object.assign(
+                new Error(
+                    `${project.label ?? projectId} already has content: a blueprint goes into an empty project.`
+                ),
+                { status: 409, code: 'PROJECT_NOT_EMPTY' }
+            );
+    if (!blueprint.bundle) return { id: blueprint.id, status: 'done', issues: [] };
+    return importBlueprint(user, project, blueprint);
 }
 
 /**

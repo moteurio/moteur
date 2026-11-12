@@ -8,6 +8,7 @@ import create, { openapi as createSpec, schemas as createSchemas } from './creat
 import update, { openapi as updateSpec, schemas as updateSchemas } from './update.js';
 import remove, { openapi as deleteSpec } from './delete.js';
 import keep, { openapi as keepSpec } from './keep.js';
+import blueprint, { openapi as blueprintSpec } from './blueprint.js';
 import move, { openapi as moveSpec } from './move.js';
 import users, { openapi as usersSpec } from './users.js';
 import invites, { openapi as invitesSpec, schemas as invitesSchemas } from './invites.js';
@@ -61,6 +62,7 @@ router.use(create);
 router.use(update);
 router.use(remove);
 router.use(keep);
+router.use(blueprint);
 router.use(move);
 router.use(users);
 router.use(invites);
@@ -109,6 +111,7 @@ export const projectsSpecs = {
         updateSpec,
         deleteSpec,
         keepSpec,
+        blueprintSpec,
         moveSpec,
         usersSpec,
         invitesSpec,

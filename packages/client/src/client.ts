@@ -71,8 +71,8 @@ function messageFromAxiosError(err: unknown): string {
 /** Thrown when the API returns a non-2xx response. Inspect `status` and `response` for details. */
 export class MoteurApiError extends Error {
     readonly status?: number;
-    readonly response?: unknown;
-    /** The JSON body of the response, when there is one. */
+    declare readonly response?: unknown;
+    /** The JSON body the API answered with, if any. */
     readonly data?: Record<string, unknown>;
     /** Machine-readable error code taken from the response body: its `code`, or its `error` when that is snake_case. For example `insufficient_credits`. */
     readonly code?: string;
@@ -81,7 +81,13 @@ export class MoteurApiError extends Error {
         super(message);
         this.name = 'MoteurApiError';
         this.status = options?.status;
-        this.response = options?.response;
+        // The raw response links back to its request: kept, but out of what gets copied or sent
+        // as JSON (a dev server showing the error must not choke on it).
+        Object.defineProperty(this, 'response', {
+            value: options?.response,
+            enumerable: false,
+            configurable: true
+        });
         const body = (options?.response as { data?: unknown } | undefined)?.data;
         if (body && typeof body === 'object' && !Array.isArray(body)) {
             this.data = body as Record<string, unknown>;
@@ -93,7 +99,18 @@ export class MoteurApiError extends Error {
         Object.setPrototypeOf(this, new.target.prototype);
     }
 
-    /** Seconds the server asked the client to wait, from the `Retry-After` header of a 429 response. Undefined when the header is absent. */
+    /** What the error says, as plain data: safe to log or send anywhere. */
+    toJSON(): { name: string; message: string; status?: number; code?: string; data?: unknown } {
+        return {
+            name: this.name,
+            message: this.message,
+            ...(this.status !== undefined && { status: this.status }),
+            ...(this.code !== undefined && { code: this.code }),
+            ...(this.data !== undefined && { data: this.data })
+        };
+    }
+
+    /** Seconds the server asked to wait (429 `Retry-After`), if it said. */
     get retryAfter(): number | undefined {
         const headers = (this.response as { headers?: Record<string, unknown> } | undefined)
             ?.headers;

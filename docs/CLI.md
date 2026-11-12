@@ -344,6 +344,17 @@ Create a project (JSON, or an id and a label)
 
 Calls `POST /projects`.
 
+### `moteur projects add-blueprint <blueprint>`
+
+Add a blueprint’s content to an empty project (one made without it)
+
+| Option                 |                                                                              |
+| ---------------------- | ---------------------------------------------------------------------------- |
+| `--project <string>`   | Project id (default: MOTEUR_PROJECT, .moteur.json, or `moteur projects use`) |
+| `--blueprint <string>` | A project blueprint (moteur blueprints list project) (required)              |
+
+Calls `POST /projects/{project}/blueprint`.
+
 ### `moteur projects update [project]`
 
 Change a project’s settings (JSON with the fields to change, or a new label)
