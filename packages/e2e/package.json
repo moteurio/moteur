@@ -1,6 +1,6 @@
 {
     "name": "@moteurio/e2e",
-    "version": "2026.11.3",
+    "version": "2026.11.12",
     "private": true,
     "description": "End-to-end tests: the golden path against a real, built Moteur server",
     "type": "module",

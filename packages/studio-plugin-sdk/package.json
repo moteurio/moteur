@@ -1,6 +1,6 @@
 {
     "name": "@moteurio/studio-plugin-sdk",
-    "version": "2026.11.3-2",
+    "version": "2026.11.12",
     "description": "SDK for Moteur Studio UI extensions (field editors, block previews, setup pages)",
     "type": "module",
     "main": "./dist/index.js",

@@ -1,6 +1,6 @@
 {
     "name": "@moteurio/react",
-    "version": "2026.11.3-2",
+    "version": "2026.11.12",
     "private": true,
     "description": "React helpers for Moteur delivery (provider, block loop, preview)",
     "type": "module",

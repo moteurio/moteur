@@ -2,6 +2,36 @@
 
 All notable changes to published `@moteurio/*` packages are documented here. Version lines are kept aligned across the monorepo for coordinated releases (see [RELEASING.md](RELEASING.md) and [VERSIONING.md](VERSIONING.md)).
 
+## 2026.11.12
+
+- perf(git): commit from the index with Git's lower-level commands, without checking every file in the project (714c3c1)
+- fix(core): accept only label, description and resources in channel updates (6e17eb1)
+- fix(core): keep the server activity log under the data root (6ace401)
+- fix(api): make the OpenAPI document complete and valid (6165b1d)
+- refactor(cli): remove the commands that wrote server files directly (d872bf1)
+- feat(api): add create-user to moteur-operators for a new server's first account (4ef5e62)
+- feat(api): let operators create accounts and set passwords (be554e6)
+- fix(core): reload the users cache when users.json changes on disk (ce4ef6f)
+- fix(core): email sign-in requires a secret instead of a built-in key (bfeafd3)
+- fix(client): return types match the API for webhooks, templates, structures, layouts, navigations and public channels (a00f556)
+- test(e2e): run the golden path against the real built server (a3f43bb)
+- fix(client): return types match what the API sends for projects, models, entries and channels (add043a)
+- docs(core): drop the Atelier mention from generateSessionToken (8d294bb)
+- docs: rewrite comments in the CLI, MCP, SDK, Astro and demo packages (52d6b20)
+- docs(types,client): rewrite public API docs in plain technical prose (2bfa6d6)
+- docs(api): rewrite source comments in plain technical prose (be0c181)
+- docs(core): rewrite source comments in plain technical prose (397dcb6)
+- docs: add writing rules for commits, comments and test names (5c9886b)
+- feat(workspaces): someone's own workspace is only theirs (125905f)
+- feat(operator): hear about new accounts, projects and workspaces (1da7a09)
+- feat(operator): what the server runs with (4f93f52)
+- fix(workspaces): account deletion and export, and roles in describe (0412402)
+- feat(operator): workspaces in accounts and the summary (4de21e2)
+- fix(workspaces): your own place in GET /workspaces, and roles for a project not loaded yet (a35f5c7)
+- feat: workspaces (4ff2e91)
+- feat(blueprints): a project gets its blueprint's content while it waits for a plan, and an empty one can take a blueprint (11e99fc)
+- fix(client): an API error turns into JSON (bd6179e)
+
 ## 2026.11.3-2
 
 - fix(blueprints): a project whose main language isn't the blueprint's keeps its home page (de60caa)
