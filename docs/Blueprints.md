@@ -144,6 +144,7 @@ So a blueprint written in English and French makes a French project with the Fre
 1. **Create project:** `POST /projects` with the usual project payload (`id`, `label`, `defaultLocale`, `supportedLocales`…) and a **blueprintId** (`moteur projects create my-site --blueprint blog`). A blueprint that doesn't exist is refused (**404** `BLUEPRINT_NOT_FOUND`) before anything is made.
 2. **The project is made** as usual, with its creator as its admin.
 3. **Its bundle is imported** into it, as `POST /projects/:projectId/imports` would: all or nothing, in one commit, and what it marks `published` goes live (an agent's import waits for a person's approval).
+   On a host with plans, the blueprint's content is part of making the project: it is imported even while the project waits for its plan (its owner's free projects are others), outside the plan's limits.
 4. **Response:** the project, with `fromBlueprint`: `{ id, status, issues, notes? }`. A bundle that fails leaves the project made and empty, and `issues` say why.
 
 ### Create model from blueprint
