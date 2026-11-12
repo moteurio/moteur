@@ -21,10 +21,8 @@ const MAX_EVENTS_IN_FILE = 10000;
 /** Project ID used for global/system activity (users, blueprints). */
 export const GLOBAL_PROJECT_ID = '_system';
 
-const GLOBAL_ACTIVITY_FILE = 'activity.json';
-
 function getGlobalActivityPath(): string {
-    return path.join(storageConfig.dataRoot, GLOBAL_ACTIVITY_FILE);
+    return storageConfig.activityFile;
 }
 
 function systemUser(): User {
